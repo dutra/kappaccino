@@ -23,6 +23,8 @@ source_magnitude_min = 24.0
 source_magnitude_max = 27.0
 image_magnitude_sigma_mag = 0.10
 image_magnitude_mu_floor = 1.0e-3
+lens_redshift_min = 0.30
+lens_redshift_max = 0.50
 
 $JAX_NUM_CPU_DEVICES = str(cores)
 $MPLCONFIGDIR = "/tmp/matplotlib-lenscluster-mock"
@@ -255,6 +257,8 @@ def build_config(
         source_magnitude_max=source_magnitude_max,
         image_magnitude_sigma_mag=image_magnitude_sigma_mag,
         image_magnitude_mu_floor=image_magnitude_mu_floor,
+        lens_redshift_min=lens_redshift_min,
+        lens_redshift_max=lens_redshift_max,
         min_images_per_family=3,
         max_images_per_family=None,
         primary_source_redshifts=np.linspace(1.5, 9.0, n_primary_families),
@@ -319,6 +323,7 @@ print(
     f"subhalo_sigma_scatter_dex={config.mock.subhalo_sigma_scatter_dex:.6f} "
     f"pos_sigma_arcsec={config.mock.pos_sigma_arcsec} "
     f"source_magnitude_range=({config.mock.source_magnitude_min}, {config.mock.source_magnitude_max}) "
+    f"lens_redshift_range=({config.mock.lens_redshift_min}, {config.mock.lens_redshift_max}) "
     f"image_magnitude_sigma_mag={config.mock.image_magnitude_sigma_mag} "
     f"image_magnitude_mu_floor={config.mock.image_magnitude_mu_floor} "
     f"critical_arc_anisotropic_covariance={config.solver.template.likelihood.critical_arc_anisotropic_covariance} "

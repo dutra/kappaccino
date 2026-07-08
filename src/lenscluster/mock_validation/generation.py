@@ -99,6 +99,9 @@ class CausticContour:
 @dataclass(frozen=True)
 class SingleBCGMockConfig:
     z_lens: float = 0.396
+    lens_redshift_min: float = 0.30
+    lens_redshift_max: float = 0.50
+    sampled_z_lens: float | None = None
     reference_ra_deg: float = 64.0381417
     reference_dec_deg: float = -24.0674722
     pos_sigma_arcsec: float = 0.15
@@ -258,6 +261,19 @@ def validate_single_bcg_mock_config(config: SingleBCGMockConfig) -> None:
         raise ValueError("seed must be a nonnegative integer.")
     if not math.isfinite(float(config.z_lens)) or float(config.z_lens) <= 0.0:
         raise ValueError("z_lens must be positive and finite.")
+    lens_redshift_min = float(config.lens_redshift_min)
+    lens_redshift_max = float(config.lens_redshift_max)
+    if (
+        not math.isfinite(lens_redshift_min)
+        or not math.isfinite(lens_redshift_max)
+        or lens_redshift_min <= 0.0
+        or lens_redshift_max < lens_redshift_min
+    ):
+        raise ValueError("lens_redshift_min/lens_redshift_max must be finite, positive, and ordered.")
+    if config.sampled_z_lens is not None:
+        sampled_z_lens = float(config.sampled_z_lens)
+        if not math.isfinite(sampled_z_lens) or sampled_z_lens <= 0.0:
+            raise ValueError("sampled_z_lens must be positive and finite when set.")
     if int(config.n_primary_families) < 0 or int(config.n_subhalo_families) < 0:
         raise ValueError("source-family counts must be nonnegative.")
     if config.n_families <= 0:
@@ -448,6 +464,13 @@ def validate_single_bcg_mock_config(config: SingleBCGMockConfig) -> None:
     if not np.isfinite(beta_min) or beta_min <= 0.0:
         raise ValueError("Configured subhalo alpha/gamma windows can produce nonpositive beta_radius.")
     _subhalo_beta_radius_from_config(config)
+    redshift_candidates = (
+        float(config.source_redshift),
+        *(float(value) for value in config.primary_source_redshifts),
+        *(float(value) for value in config.subhalo_source_redshifts),
+    )
+    if any(math.isfinite(value) and value <= lens_redshift_max for value in redshift_candidates):
+        raise ValueError("all configured source redshifts must be greater than lens_redshift_max.")
     source_mag_min = float(config.source_magnitude_min)
     source_mag_max = float(config.source_magnitude_max)
     if not math.isfinite(source_mag_min) or not math.isfinite(source_mag_max) or source_mag_max <= source_mag_min:
@@ -552,6 +575,16 @@ def _sample_lognormal_factor(rng: np.random.Generator, scatter_dex: float) -> fl
     if scatter <= 0.0:
         return 1.0
     return float(10.0 ** rng.normal(0.0, scatter))
+
+
+def _realize_lens_redshift(config: SingleBCGMockConfig, rng: np.random.Generator) -> SingleBCGMockConfig:
+    lower = float(config.lens_redshift_min)
+    upper = float(config.lens_redshift_max)
+    if upper == lower:
+        z_lens = lower
+    else:
+        z_lens = float(rng.uniform(lower, upper))
+    return replace(config, z_lens=z_lens, sampled_z_lens=z_lens)
 
 
 def _realize_large_halo_masses(
@@ -1157,7 +1190,9 @@ def _dpie_sigma0_from_vel_disp_local(
 
 
 def _truth_parameter_values(config: SingleBCGMockConfig, kpc_per_arcsec: float) -> dict[str, float]:
-    truth: dict[str, float] = {}
+    truth: dict[str, float] = {"z_lens": float(config.z_lens)}
+    if config.sampled_z_lens is not None:
+        truth["sampled_z_lens"] = float(config.sampled_z_lens)
     for component in (config.halo, config.bcg):
         prefix = component.potential_id
         truth[f"{prefix}.x_centre"] = float(component.x_centre)
@@ -1941,6 +1976,8 @@ def generate_single_bcg_mock(
     if not overwrite and any(path.exists() for path in (par_path, image_catalog_path, member_catalog_path, truth_path, mock_images_path)):
         raise FileExistsError(f"Mock output already exists under {root}.")
     cosmo_config = flat_wcdm_config(h0=70.0, om0=0.3)
+    config = _realize_lens_redshift(config, rng)
+    config.validate()
     kpc_per_arcsec = kpc_per_arcsec_from_config(config.z_lens, cosmo_config)
     config = _realize_large_halo_masses(config, rng, float(kpc_per_arcsec))
     config = _realize_large_halo_positions(config, rng)
@@ -2759,6 +2796,11 @@ def _caustic_config_from_truth(truth: dict[str, Any]) -> SingleBCGMockConfig:
     max_images_per_family = None if max_images_raw is None else int(max_images_raw)
     return SingleBCGMockConfig(
         z_lens=float(config.get("z_lens", defaults.z_lens)),
+        lens_redshift_min=float(config.get("lens_redshift_min", defaults.lens_redshift_min)),
+        lens_redshift_max=float(config.get("lens_redshift_max", defaults.lens_redshift_max)),
+        sampled_z_lens=(
+            None if config.get("sampled_z_lens") is None else float(config["sampled_z_lens"])
+        ),
         reference_ra_deg=float(config.get("reference_ra_deg", defaults.reference_ra_deg)),
         reference_dec_deg=float(config.get("reference_dec_deg", defaults.reference_dec_deg)),
         pos_sigma_arcsec=float(config.get("pos_sigma_arcsec", defaults.pos_sigma_arcsec)),

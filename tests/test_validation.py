@@ -166,6 +166,8 @@ def _fixed_large_component_mass_config() -> dict[str, float]:
     bcg_mass = 1.6639e13
     return {
         **_fixed_potfile_scaling_config(),
+        "lens_redshift_min": 0.396,
+        "lens_redshift_max": 0.396,
         "total_large_component_mass_min_msun": total_mass,
         "total_large_component_mass_max_msun": total_mass * (1.0 + 1.0e-8),
         "large_component_mass_pivot_msun": total_mass - bcg_mass,
@@ -375,6 +377,17 @@ def test_generate_single_bcg_mock_parses_and_has_finite_magnifications(tmp_path:
     assert truth["config"]["source_magnitude_max"] == pytest.approx(config.source_magnitude_max)
     assert truth["config"]["image_magnitude_sigma_mag"] == pytest.approx(config.image_magnitude_sigma_mag)
     assert truth["config"]["image_magnitude_mu_floor"] == pytest.approx(config.image_magnitude_mu_floor)
+    assert truth["config"]["z_lens"] == pytest.approx(0.396)
+    assert truth["config"]["sampled_z_lens"] == pytest.approx(truth["config"]["z_lens"])
+    assert truth["parameter_truth"]["z_lens"] == pytest.approx(truth["config"]["z_lens"])
+    assert truth["parameter_truth"]["sampled_z_lens"] == pytest.approx(truth["config"]["z_lens"])
+    assert truth["kpc_per_arcsec"] == pytest.approx(
+        mock_generation.kpc_per_arcsec_from_config(
+            truth["config"]["z_lens"],
+            mock_generation.flat_wcdm_config(h0=70.0, om0=0.3),
+        )
+    )
+    assert f"z_lens      {truth['config']['z_lens']:.8f}" in paths.par_path.read_text(encoding="utf-8")
     assert "source_redshifts" not in truth["config"]
     for component_id in ("halo", "bcg"):
         component_config = truth["config"][component_id]
@@ -615,6 +628,43 @@ def test_single_bcg_mock_realized_positions_can_be_fixed() -> None:
     assert realized.halo.y_centre == pytest.approx(config.halo.y_centre)
     assert realized.bcg.x_centre == pytest.approx(config.halo.x_centre)
     assert realized.bcg.y_centre == pytest.approx(config.halo.y_centre)
+
+
+def test_single_bcg_mock_realizes_lens_redshift_from_seed() -> None:
+    config = SingleBCGMockConfig(
+        seed=33,
+        n_primary_families=1,
+        lens_redshift_min=0.30,
+        lens_redshift_max=0.50,
+    )
+
+    realized = mock_generation._realize_lens_redshift(config, np.random.default_rng(config.seed))
+    repeated = mock_generation._realize_lens_redshift(config, np.random.default_rng(config.seed))
+    changed = mock_generation._realize_lens_redshift(
+        replace(config, seed=config.seed + 1),
+        np.random.default_rng(config.seed + 1),
+    )
+
+    assert 0.30 <= realized.z_lens <= 0.50
+    assert realized.sampled_z_lens == pytest.approx(realized.z_lens)
+    assert repeated.z_lens == pytest.approx(realized.z_lens)
+    assert changed.z_lens != pytest.approx(realized.z_lens)
+
+
+def test_single_bcg_mock_fixed_lens_redshift_does_not_consume_rng() -> None:
+    config = SingleBCGMockConfig(
+        n_primary_families=1,
+        lens_redshift_min=0.42,
+        lens_redshift_max=0.42,
+    )
+    rng_fixed = np.random.default_rng(44)
+    rng_reference = np.random.default_rng(44)
+
+    realized = mock_generation._realize_lens_redshift(config, rng_fixed)
+
+    assert realized.z_lens == pytest.approx(0.42)
+    assert realized.sampled_z_lens == pytest.approx(0.42)
+    assert rng_fixed.uniform() == pytest.approx(rng_reference.uniform())
 
 
 def test_single_bcg_mock_realizes_large_halo_masses_from_seed() -> None:
@@ -2892,6 +2942,11 @@ def test_subhalo_spatial_dpie_is_broader_than_compact_gamma() -> None:
             {"subhalo_cut_radius_prior_fractional_half_width": float("nan")},
             "subhalo_cut_radius_prior_fractional_half_width",
         ),
+        ({"lens_redshift_min": 0.0}, "lens_redshift_min/lens_redshift_max"),
+        ({"lens_redshift_min": float("nan")}, "lens_redshift_min/lens_redshift_max"),
+        ({"lens_redshift_min": 0.5, "lens_redshift_max": 0.3}, "lens_redshift_min/lens_redshift_max"),
+        ({"sampled_z_lens": -0.1}, "sampled_z_lens"),
+        ({"lens_redshift_max": 2.0, "primary_source_redshifts": (1.5,)}, "source redshifts"),
     ],
 )
 def test_subhalo_spatial_invalid_config_raises(updates: dict[str, Any], message: str) -> None:
@@ -2908,6 +2963,10 @@ def test_subhalo_spatial_config_round_trips_from_truth() -> None:
     truth = {
         "config": SingleBCGMockConfig(
             n_primary_families=1,
+            z_lens=0.44,
+            lens_redshift_min=0.30,
+            lens_redshift_max=0.50,
+            sampled_z_lens=0.44,
             halo=mock_generation.DPIETruth(
                 potential_id="halo",
                 x_centre=4.2,
@@ -2994,6 +3053,10 @@ def test_subhalo_spatial_config_round_trips_from_truth() -> None:
 
     config = mock_generation._caustic_config_from_truth(truth)
 
+    assert config.z_lens == pytest.approx(0.44)
+    assert config.lens_redshift_min == pytest.approx(0.30)
+    assert config.lens_redshift_max == pytest.approx(0.50)
+    assert config.sampled_z_lens == pytest.approx(0.44)
     assert config.subhalo_spatial_distribution == "dpie"
     assert config.subhalo_field_radius_arcsec == pytest.approx(250.0)
     assert config.subhalo_spatial_core_radius_arcsec == pytest.approx(25.0)
@@ -13841,6 +13904,33 @@ def test_single_bcg_mock_lens_model_config_without_subhalos(tmp_path: Path) -> N
         assert prior.kind == "uniform"
         assert prior.lower == pytest.approx(0.9 * halo.cut_radius_kpc)
         assert prior.upper == pytest.approx(1.1 * halo.cut_radius_kpc)
+
+
+def test_single_bcg_mock_lens_model_config_uses_realized_lens_redshift(tmp_path: Path) -> None:
+    mock = _small_mock_config(
+        z_lens=0.44,
+        lens_redshift_min=0.30,
+        lens_redshift_max=0.50,
+        sampled_z_lens=0.44,
+        n_subhalos=0,
+    )
+    paths, _images, _truth = _write_minimal_mock_files(tmp_path / "mock")
+
+    model = mock_validation_api.single_bcg_mock_lens_model_config(
+        mock,
+        paths,
+        image_constraints_sigma_arcsec=0.05,
+    )
+
+    kpc_per_arcsec = float(
+        mock_generation.kpc_per_arcsec_from_config(
+            0.44,
+            mock_generation.flat_wcdm_config(h0=70.0, om0=0.3),
+        )
+    )
+    assert [halo.z_lens for halo in model.large_halos] == [pytest.approx(0.44), pytest.approx(0.44)]
+    assert model.large_halos[0].core_radius_kpc == pytest.approx(mock.halo.core_radius_arcsec * kpc_per_arcsec)
+    assert model.large_halos[1].cut_radius_kpc == pytest.approx(mock.bcg.cut_radius_arcsec * kpc_per_arcsec)
 
 
 def test_single_bcg_mock_lens_model_config_with_subhalos(tmp_path: Path) -> None:

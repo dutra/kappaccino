@@ -4,6 +4,7 @@ import argparse
 import json
 import math
 import warnings
+from contextlib import nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -19,7 +20,11 @@ from matplotlib.lines import Line2D
 import h5py
 
 from lenscluster.plot_style import apply_lenscluster_plot_style
-from lenscluster.utils import DPIE_MASS_GRAVITATIONAL_CONSTANT_KPC_KMS2_PER_MSUN, log10_dpie_mass_msun
+from lenscluster.utils import (
+    DPIE_MASS_GRAVITATIONAL_CONSTANT_KPC_KMS2_PER_MSUN,
+    log10_dpie_mass_msun,
+    progress_context,
+)
 from lenscluster.mock_validation.subhalo_mass import (
     dpie_mass_anchor_from_truth,
     dpie_truth_subhalo_masses_from_scaling,
@@ -30,21 +35,21 @@ DEFAULT_STAGES = ("stage1_backprojected_centroid_fit", "stage2_free_source_forwa
 DEFAULT_VARIANTS = ("anisotropic", "anisotropic_maglikelihood")
 DEFAULT_FORMATS = ("pdf",)
 PAPER_PARAMETERS = (
+    "halo.log10_mass_msun",
     "halo.x_centre",
     "halo.y_centre",
     "halo.v_disp",
     "halo.core_radius_kpc",
     "halo.cut_radius_kpc",
-    "halo.log10_mass_msun",
+    "bcg.log10_mass_msun",
     "bcg.x_centre",
     "bcg.y_centre",
     "bcg.v_disp",
     "bcg.core_radius_kpc",
     "bcg.cut_radius_kpc",
-    "bcg.log10_mass_msun",
+    "potfile.log10_mass_msun",
     "potfile.sigma",
     "potfile.cutkpc",
-    "potfile.log10_mass_msun",
     "potfile.alpha_sigma",
     "potfile.gamma_ml",
     "cosmology_Om0",
@@ -59,8 +64,8 @@ STAGE_LABELS = {
     "stage2_free_source_forward_fit": "Stage 2",
 }
 VARIANT_LABELS = {
-    "anisotropic": "No flux",
-    "anisotropic_maglikelihood": "Flux",
+    "anisotropic": "Positions only",
+    "anisotropic_maglikelihood": "Positions + fluxes",
     "isotropic": "Isotropic",
 }
 VARIANT_COLORS = {
@@ -78,12 +83,13 @@ VARIANT_MARKERS = {
     "isotropic": "s",
 }
 AGGREGATE_LEGEND_FONT_SIZE = 16
+PAPER_PARAMETER_LEGEND_FONT_SIZE = 24
 JOINT_SIGMA_RCUT_SPECS = {
     "potfile": {
         "sigma_parameter": "potfile.sigma",
         "rcut_parameter": "potfile.cutkpc",
         "filename": "sigma_rcut_recovery",
-        "label": "Potfile",
+        "label": "Subhalos",
     },
     "halo": {
         "sigma_parameter": "halo.v_disp",
@@ -699,11 +705,11 @@ PARAMETER_DISPLAY_LABELS = {
     "halo.v_disp": r"Halo $\sigma_v$",
     "halo.x_centre": "Halo x",
     "halo.y_centre": "Halo y",
-    "potfile.sigma": r"Potfile $\sigma$",
-    "potfile.cutkpc": r"Potfile $r_\mathrm{cut}$",
-    "potfile.log10_mass_msun": r"Potfile $\log_{10} M$",
-    "potfile.alpha_sigma": r"Potfile $\alpha_\sigma$",
-    "potfile.gamma_ml": r"Potfile $\gamma_\mathrm{ML}$",
+    "potfile.sigma": r"Subhalos $\sigma$",
+    "potfile.cutkpc": r"Subhalos $r_\mathrm{cut}$",
+    "potfile.log10_mass_msun": r"Subhalos $\log_{10} M$",
+    "potfile.alpha_sigma": r"Subhalos $\alpha_\sigma$",
+    "potfile.gamma_ml": r"Subhalos $\gamma_\mathrm{ML}$",
     "cosmology_Om0": r"$\Omega_m$",
     "cosmology_w0": r"$w_0$",
     "source.sigma_int": r"Source $\sigma_\mathrm{int}$",
@@ -995,7 +1001,7 @@ def _draw_seed_parameter_axis(ax: plt.Axes, page_df: pd.DataFrame, parameter: st
     ax.set_ylabel(_format_parameter_axis_label(parameter, "fit"))
 
 
-def _draw_source_position_recovery_axis(ax: plt.Axes, parameter_df: pd.DataFrame, *, include_legend: bool = True) -> bool:
+def _draw_source_position_recovery_axis(ax: plt.Axes, parameter_df: pd.DataFrame, *, include_legend: bool = False) -> bool:
     df = source_position_recovery_rows(parameter_df)
     if df.empty:
         ax.axis("off")
@@ -1094,17 +1100,18 @@ def _plot_seed_recovery_single_page(
         _draw_seed_parameter_axis(ax, page_df, parameter)
     next_axis = len(parameters)
     if not source_df.empty:
-        _draw_source_position_recovery_axis(flat_axes[next_axis], source_df)
+        _draw_source_position_recovery_axis(flat_axes[next_axis], source_df, include_legend=False)
         next_axis += 1
-    for ax in flat_axes[next_axis:]:
+    blank_axes = flat_axes[next_axis:]
+    for ax in blank_axes:
         ax.axis("off")
-    _add_variant_legend(fig, variants=_ordered_variants_from_df(page_df))
-    fig.tight_layout(rect=(0, 0, 1, 0.96))
+    _add_paper_variant_legend(fig, variants=_ordered_variants_from_df(page_df), blank_axes=blank_axes)
+    fig.tight_layout()
     return fig
 
 
-def _add_variant_legend(fig: plt.Figure, *, variants: tuple[str, ...] = DEFAULT_VARIANTS) -> None:
-    variant_handles = [
+def _variant_legend_handles(variants: tuple[str, ...]) -> list[Line2D]:
+    return [
         Line2D(
             [0],
             [0],
@@ -1118,6 +1125,37 @@ def _add_variant_legend(fig: plt.Figure, *, variants: tuple[str, ...] = DEFAULT_
         for variant in variants
         for color in (VARIANT_COLORS.get(variant, "0.35"),)
     ]
+
+
+def _add_paper_variant_legend(
+    fig: plt.Figure,
+    *,
+    variants: tuple[str, ...] = DEFAULT_VARIANTS,
+    blank_axes: list[plt.Axes] | None = None,
+) -> None:
+    variant_handles = _variant_legend_handles(variants)
+    if blank_axes:
+        ax = blank_axes[-1]
+        ax.axis("off")
+        ax.legend(
+            handles=variant_handles,
+            loc="lower right",
+            frameon=False,
+            fontsize=PAPER_PARAMETER_LEGEND_FONT_SIZE,
+        )
+        return
+    fig.legend(
+        handles=variant_handles,
+        loc="lower right",
+        bbox_to_anchor=(0.995, 0.005),
+        ncol=1,
+        frameon=False,
+        fontsize=PAPER_PARAMETER_LEGEND_FONT_SIZE,
+    )
+
+
+def _add_variant_legend(fig: plt.Figure, *, variants: tuple[str, ...] = DEFAULT_VARIANTS) -> None:
+    variant_handles = _variant_legend_handles(variants)
     fig.legend(
         handles=variant_handles,
         loc="upper center",
@@ -2826,6 +2864,45 @@ def build_m2d_aperture_summary(seed_df: pd.DataFrame) -> pd.DataFrame:
     return summary
 
 
+def select_representative_m2d_seed(
+    seed_df: pd.DataFrame,
+    *,
+    stage: str,
+    selection_variant: str = "anisotropic",
+) -> tuple[int | None, pd.DataFrame]:
+    """Pick the median total-M2D recovery seed using one selection variant."""
+    columns = ["stage", "selection_variant", "seed", "selection_score", "rank", "n_seed_candidates"]
+    if seed_df.empty:
+        return None, pd.DataFrame(columns=columns)
+    selection = seed_df[
+        (seed_df["stage"].astype(str) == str(stage))
+        & (seed_df["variant"].astype(str) == str(selection_variant))
+        & (seed_df["component"].astype(str) == "total")
+    ].copy()
+    if selection.empty:
+        return None, pd.DataFrame(columns=columns)
+    selection["absolute_fractional_residual"] = np.abs(selection["ratio_q50"].to_numpy(dtype=float) - 1.0)
+    scores = (
+        selection.groupby("seed", sort=True)["absolute_fractional_residual"]
+        .median()
+        .replace([np.inf, -np.inf], np.nan)
+        .dropna()
+        .sort_values(kind="mergesort")
+    )
+    if scores.empty:
+        return None, pd.DataFrame(columns=columns)
+    score_table = scores.rename("selection_score").reset_index()
+    score_table["seed"] = score_table["seed"].astype(int)
+    score_table = score_table.sort_values(["selection_score", "seed"], kind="mergesort").reset_index(drop=True)
+    score_table["rank"] = np.arange(1, len(score_table) + 1, dtype=int)
+    score_table["n_seed_candidates"] = int(len(score_table))
+    middle_index = (len(score_table) - 1) // 2
+    chosen_seed = int(score_table.iloc[middle_index]["seed"])
+    score_table.insert(0, "selection_variant", str(selection_variant))
+    score_table.insert(0, "stage", str(stage))
+    return chosen_seed, score_table[columns]
+
+
 def _m2d_two_panel_axes() -> tuple[Any, Any, Any]:
     fig, (top_ax, resid_ax) = plt.subplots(
         2,
@@ -2915,13 +2992,18 @@ def plot_m2d_aperture_recovery(
 
 
 def plot_m2d_aperture_components(
-    summary_df: pd.DataFrame,
+    seed_df: pd.DataFrame,
     output_base: Path,
     formats: tuple[str, ...],
+    *,
+    representative_seed: int,
+    selection_variant: str = "anisotropic",
 ) -> tuple[Path, ...]:
     """Component decomposition (halo/BCG/members): same two-panel layout, components
     as colors and variants as line styles."""
-    components = summary_df[summary_df["component"].isin(M2D_COMPONENT_GROUPS)]
+    components = seed_df[
+        (seed_df["component"].isin(M2D_COMPONENT_GROUPS)) & (seed_df["seed"].astype(int) == int(representative_seed))
+    ]
     if components.empty:
         return tuple()
     variants = _ordered_variants_from_df(components)
@@ -2943,7 +3025,7 @@ def plot_m2d_aperture_components(
                 if not truth_drawn:
                     top_ax.plot(
                         radius,
-                        selection["truth_median"].to_numpy(dtype=float),
+                        selection["truth_m2d_msun"].to_numpy(dtype=float),
                         color=color,
                         linestyle=":",
                         linewidth=1.2,
@@ -2954,19 +3036,18 @@ def plot_m2d_aperture_components(
                 label = group if variant_index == 0 else None
                 top_ax.plot(
                     radius,
-                    selection["model_median"].to_numpy(dtype=float),
+                    selection["model_q50"].to_numpy(dtype=float),
                     color=color,
                     linestyle=linestyle,
                     linewidth=1.6,
                     label=label,
                 )
-                ratio_median = selection["ratio_median"].to_numpy(dtype=float)
-                seed_q16 = selection["ratio_seed_q16"].to_numpy(dtype=float)
-                seed_q84 = selection["ratio_seed_q84"].to_numpy(dtype=float)
-                if variant_index == 0:
-                    resid_ax.fill_between(radius, seed_q16 - 1.0, seed_q84 - 1.0, color=color, alpha=0.18, linewidth=0.0)
+                ratio_median = selection["ratio_q50"].to_numpy(dtype=float)
+                ratio_q16 = selection["ratio_q16"].to_numpy(dtype=float)
+                ratio_q84 = selection["ratio_q84"].to_numpy(dtype=float)
+                resid_ax.fill_between(radius, ratio_q16 - 1.0, ratio_q84 - 1.0, color=color, alpha=0.10, linewidth=0.0)
                 resid_ax.plot(radius, ratio_median - 1.0, color=color, linestyle=linestyle, linewidth=1.4)
-                resid_collect.extend([seed_q16 - 1.0, seed_q84 - 1.0, ratio_median - 1.0])
+                resid_collect.extend([ratio_q16 - 1.0, ratio_q84 - 1.0, ratio_median - 1.0])
         for variant_index, variant in enumerate(variants):
             top_ax.plot(
                 [],
@@ -2977,6 +3058,15 @@ def plot_m2d_aperture_components(
                 label=variant_label(variant),
             )
         top_ax.plot([], [], color="0.3", linestyle=":", linewidth=1.2, label="truth")
+        top_ax.text(
+            0.03,
+            0.97,
+            f"representative seed {int(representative_seed)}; selected from {variant_label(selection_variant)}",
+            transform=top_ax.transAxes,
+            ha="left",
+            va="top",
+            fontsize=10,
+        )
         _m2d_finish_axes(top_ax, resid_ax, np.concatenate(resid_collect) if resid_collect else np.asarray([]))
         fig.savefig(path, dpi=300, bbox_inches="tight")
         plt.close(fig)
@@ -3003,6 +3093,7 @@ def write_m2d_aperture_outputs(
 ) -> tuple[Path | None, tuple[Path, ...]]:
     primary_stage = _paper_recovery_stage(stages)
     seed_frames: list[pd.DataFrame] = []
+    representative_frames: list[pd.DataFrame] = []
     plot_paths: list[Path] = []
     for stage in tuple(str(value) for value in stages):
         seed_df = collect_m2d_aperture_inputs(
@@ -3016,6 +3107,13 @@ def write_m2d_aperture_outputs(
             continue
         seed_frames.append(seed_df)
         summary_df = build_m2d_aperture_summary(seed_df)
+        representative_seed, representative_table = select_representative_m2d_seed(
+            seed_df,
+            stage=stage,
+            selection_variant="anisotropic",
+        )
+        if not representative_table.empty:
+            representative_frames.append(representative_table)
         plot_paths.extend(
             plot_m2d_aperture_recovery(
                 summary_df,
@@ -3023,17 +3121,23 @@ def write_m2d_aperture_outputs(
                 formats,
             )
         )
-        plot_paths.extend(
-            plot_m2d_aperture_components(
-                summary_df,
-                _m2d_output_base(output_path, stage, primary_stage, components=True),
-                formats,
+        if representative_seed is not None:
+            plot_paths.extend(
+                plot_m2d_aperture_components(
+                    seed_df,
+                    _m2d_output_base(output_path, stage, primary_stage, components=True),
+                    formats,
+                    representative_seed=representative_seed,
+                    selection_variant="anisotropic",
+                )
             )
-        )
     if not seed_frames:
         return None, tuple()
     seed_table = output_path / "m2d_aperture_recovery_table.csv"
     pd.concat(seed_frames, ignore_index=True).to_csv(seed_table, index=False)
+    if representative_frames:
+        representative_table = output_path / "m2d_representative_seed_table.csv"
+        pd.concat(representative_frames, ignore_index=True).to_csv(representative_table, index=False)
     return seed_table, tuple(plot_paths)
 
 
@@ -3051,6 +3155,7 @@ def write_aggregate_plots(
     seed_aggregation: str = "median",
     aggregate_error: str = "seed-quantile",
     fractional_truth_floor: float = 1.0e-6,
+    show_progress: bool = False,
 ) -> AggregatePlotOutputs:
     if parameter_set not in {"paper", "all", "both"}:
         raise ValueError("parameter_set must be 'paper', 'all', or 'both'.")
@@ -3060,158 +3165,200 @@ def write_aggregate_plots(
     campaign_root = resolve_campaign_root(campaign_or_path, validation_root)
     output_path = Path(output_dir) if output_dir is not None else campaign_root / "aggregate_plots"
     output_path.mkdir(parents=True, exist_ok=True)
-    parameter_df, inventory_df = collect_parameter_recovery(
-        campaign_root,
-        run_name=run_name,
-        stages=stages,
-        variants=variants,
-        strict=strict,
-    )
-    magnification_df, _magnification_inventory_df = collect_magnification_recovery(
-        campaign_root,
-        run_name=run_name,
-        stages=stages,
-        variants=variants,
-        strict=strict,
-    )
-    image_residual_df, _image_residual_inventory_df = collect_image_residual_recovery(
-        campaign_root,
-        run_name=run_name,
-        stages=stages,
-        variants=variants,
-        strict=strict,
-    )
-    image_residual_draws_df, _image_residual_draws_inventory_df = collect_image_residual_draws_recovery(
-        campaign_root,
-        run_name=run_name,
-        stages=stages,
-        variants=variants,
-        strict=strict,
-    )
-    parameter_table_path = output_path / "parameter_recovery_table.csv"
-    aggregate_parameter_table_path = output_path / "aggregate_parameter_recovery_table.csv"
-    inventory_path = output_path / "run_inventory.csv"
-    magnification_table_path = output_path / "magnification_recovery_table.csv"
-    image_residual_table_path = output_path / "image_residual_recovery_table.csv"
-    image_residual_draws_table_path = output_path / "image_residual_draws_table.csv"
-    aggregate_df = aggregate_parameter_recovery(
-        parameter_df,
-        seed_aggregation=seed_aggregation,
-        aggregate_error=aggregate_error,
-        fractional_truth_floor=fractional_truth_floor,
-    )
-    parameter_df.to_csv(parameter_table_path, index=False)
-    aggregate_df.to_csv(aggregate_parameter_table_path, index=False)
-    inventory_df.to_csv(inventory_path, index=False)
-    if not magnification_df.empty:
-        magnification_df.to_csv(magnification_table_path, index=False)
-    if not image_residual_df.empty:
-        image_residual_df.to_csv(image_residual_table_path, index=False)
-    if not image_residual_draws_df.empty:
-        image_residual_draws_df.to_csv(image_residual_draws_table_path, index=False)
+    progress_cm = progress_context(argparse.Namespace(quiet=False)) if show_progress else nullcontext(None)
+    stage_count = len(tuple(stages))
+    paper_stage_steps = stage_count if parameter_set in {"paper", "both"} else 0
+    progress_total = 9 + paper_stage_steps + stage_count * (3 + len(JOINT_SIGMA_RCUT_SPECS))
+    with progress_cm as progress:
+        progress_task = progress.add_task("aggregate plots: starting", total=progress_total) if progress else None
 
-    apply_lenscluster_plot_style()
-    paper_stage = _paper_recovery_stage(stages)
-    seed_df = seed_recovery_rows_for_stage(parameter_df, stage=paper_stage, variants=variants)
-    seed_available_parameters = seed_df["parameter"].dropna().astype(str).drop_duplicates().tolist()
-    plot_paths: list[Path] = []
-    if parameter_set in {"paper", "both"}:
-        for stage in tuple(str(value) for value in stages):
-            stage_seed_df = seed_recovery_rows_for_stage(parameter_df, stage=stage, variants=variants)
-            stage_paper_df = paper_parameter_recovery_rows(stage_seed_df)
-            stage_available_parameters = stage_paper_df["parameter"].dropna().astype(str).drop_duplicates().tolist()
-            paper_parameters = [parameter for parameter in PAPER_PARAMETERS if parameter in set(stage_available_parameters)]
-            plot_paths.extend(
-                _save_multipage_seed_recovery_plot(
-                    stage_paper_df,
-                    paper_parameters,
-                    _paper_plot_output_base(output_path, stage, paper_stage),
-                    formats,
-                    include_source_position_panel=True,
-                )
-            )
-    if parameter_set in {"all", "both"}:
-        plot_paths.extend(
-            _save_multipage_seed_recovery_plot(
-                seed_df,
-                seed_available_parameters,
-                output_path / "mock_parameter_recovery_all",
-                formats,
-            )
+        def advance(description: str) -> None:
+            if progress is not None and progress_task is not None:
+                progress.update(progress_task, description=description)
+                progress.advance(progress_task)
+
+        parameter_df, inventory_df = collect_parameter_recovery(
+            campaign_root,
+            run_name=run_name,
+            stages=stages,
+            variants=variants,
+            strict=strict,
         )
-    plot_paths.extend(
-        plot_parameter_bias_summary(
-            aggregate_df,
-            output_path / "mock_parameter_bias_summary",
-            formats,
+        advance("aggregate plots: parameter recovery")
+        magnification_df, _magnification_inventory_df = collect_magnification_recovery(
+            campaign_root,
+            run_name=run_name,
+            stages=stages,
+            variants=variants,
+            strict=strict,
+        )
+        advance("aggregate plots: magnification")
+        image_residual_df, _image_residual_inventory_df = collect_image_residual_recovery(
+            campaign_root,
+            run_name=run_name,
+            stages=stages,
+            variants=variants,
+            strict=strict,
+        )
+        advance("aggregate plots: image residuals")
+        image_residual_draws_df, _image_residual_draws_inventory_df = collect_image_residual_draws_recovery(
+            campaign_root,
+            run_name=run_name,
+            stages=stages,
+            variants=variants,
+            strict=strict,
+        )
+        advance("aggregate plots: image residual draws")
+
+        parameter_table_path = output_path / "parameter_recovery_table.csv"
+        aggregate_parameter_table_path = output_path / "aggregate_parameter_recovery_table.csv"
+        inventory_path = output_path / "run_inventory.csv"
+        magnification_table_path = output_path / "magnification_recovery_table.csv"
+        image_residual_table_path = output_path / "image_residual_recovery_table.csv"
+        image_residual_draws_table_path = output_path / "image_residual_draws_table.csv"
+        aggregate_df = aggregate_parameter_recovery(
+            parameter_df,
+            seed_aggregation=seed_aggregation,
+            aggregate_error=aggregate_error,
             fractional_truth_floor=fractional_truth_floor,
         )
-    )
-    for component in JOINT_SIGMA_RCUT_SPECS:
-        joint_scaling_df = joint_sigma_rcut_recovery_rows(parameter_df, component=component)
-        if joint_scaling_df.empty:
-            continue
-        for stage in tuple(str(value) for value in stages):
-            stage_joint_scaling_df = joint_scaling_df[joint_scaling_df["stage"].astype(str) == stage].copy()
+        parameter_df.to_csv(parameter_table_path, index=False)
+        aggregate_df.to_csv(aggregate_parameter_table_path, index=False)
+        inventory_df.to_csv(inventory_path, index=False)
+        if not magnification_df.empty:
+            magnification_df.to_csv(magnification_table_path, index=False)
+        if not image_residual_df.empty:
+            image_residual_df.to_csv(image_residual_table_path, index=False)
+        if not image_residual_draws_df.empty:
+            image_residual_draws_df.to_csv(image_residual_draws_table_path, index=False)
+        advance("aggregate plots: tables")
+
+        apply_lenscluster_plot_style()
+        paper_stage = _paper_recovery_stage(stages)
+        seed_df = seed_recovery_rows_for_stage(parameter_df, stage=paper_stage, variants=variants)
+        seed_available_parameters = seed_df["parameter"].dropna().astype(str).drop_duplicates().tolist()
+        plot_paths: list[Path] = []
+        if parameter_set in {"paper", "both"}:
+            for stage in tuple(str(value) for value in stages):
+                stage_seed_df = seed_recovery_rows_for_stage(parameter_df, stage=stage, variants=variants)
+                stage_paper_df = paper_parameter_recovery_rows(stage_seed_df)
+                stage_available_parameters = stage_paper_df["parameter"].dropna().astype(str).drop_duplicates().tolist()
+                paper_parameters = [
+                    parameter for parameter in PAPER_PARAMETERS if parameter in set(stage_available_parameters)
+                ]
+                plot_paths.extend(
+                    _save_multipage_seed_recovery_plot(
+                        stage_paper_df,
+                        paper_parameters,
+                        _paper_plot_output_base(output_path, stage, paper_stage),
+                        formats,
+                        include_source_position_panel=True,
+                    )
+                )
+                advance(f"aggregate plots: paper {stage_alias(stage)}")
+        if parameter_set in {"all", "both"}:
             plot_paths.extend(
-                plot_joint_sigma_rcut_recovery(
-                    stage_joint_scaling_df,
-                    _sigma_rcut_recovery_output_base(output_path, stage, paper_stage, component=component),
+                _save_multipage_seed_recovery_plot(
+                    seed_df,
+                    seed_available_parameters,
+                    output_path / "mock_parameter_recovery_all",
                     formats,
                 )
             )
-    if not magnification_df.empty:
-        for stage in tuple(str(value) for value in stages):
-            stage_magnification_df = magnification_df[magnification_df["stage"].astype(str) == stage].copy()
-            plot_paths.extend(
-                plot_aggregate_magnification_recovery(
-                    stage_magnification_df,
-                    _magnification_recovery_output_base(output_path, stage, paper_stage),
-                    formats,
-                )
+        advance("aggregate plots: all parameters")
+        plot_paths.extend(
+            plot_parameter_bias_summary(
+                aggregate_df,
+                output_path / "mock_parameter_bias_summary",
+                formats,
+                fractional_truth_floor=fractional_truth_floor,
             )
-    if not image_residual_df.empty:
-        for stage in tuple(str(value) for value in stages):
-            stage_image_residual_df = image_residual_df[image_residual_df["stage"].astype(str) == stage].copy()
-            plot_paths.extend(
-                plot_aggregate_image_residual_recovery(
-                    stage_image_residual_df,
-                    _image_residual_recovery_output_base(output_path, stage, paper_stage),
-                    formats,
+        )
+        advance("aggregate plots: bias summary")
+        for component in JOINT_SIGMA_RCUT_SPECS:
+            joint_scaling_df = joint_sigma_rcut_recovery_rows(parameter_df, component=component)
+            if joint_scaling_df.empty:
+                for stage in tuple(str(value) for value in stages):
+                    advance(f"aggregate plots: {component} {stage_alias(stage)}")
+                continue
+            for stage in tuple(str(value) for value in stages):
+                stage_joint_scaling_df = joint_scaling_df[joint_scaling_df["stage"].astype(str) == stage].copy()
+                plot_paths.extend(
+                    plot_joint_sigma_rcut_recovery(
+                        stage_joint_scaling_df,
+                        _sigma_rcut_recovery_output_base(output_path, stage, paper_stage, component=component),
+                        formats,
+                    )
                 )
-            )
-    if not image_residual_draws_df.empty:
-        for stage in tuple(str(value) for value in stages):
-            stage_image_residual_draws_df = image_residual_draws_df[
-                image_residual_draws_df["stage"].astype(str) == stage
-            ].copy()
-            plot_paths.extend(
-                plot_aggregate_image_residual_distribution(
-                    stage_image_residual_draws_df,
-                    _image_residual_distribution_output_base(output_path, stage, paper_stage),
-                    formats,
+                advance(f"aggregate plots: {component} {stage_alias(stage)}")
+        if not magnification_df.empty:
+            for stage in tuple(str(value) for value in stages):
+                stage_magnification_df = magnification_df[magnification_df["stage"].astype(str) == stage].copy()
+                plot_paths.extend(
+                    plot_aggregate_magnification_recovery(
+                        stage_magnification_df,
+                        _magnification_recovery_output_base(output_path, stage, paper_stage),
+                        formats,
+                    )
                 )
-            )
-    shmf_seed_table, shmf_summary_table, shmf_plot_paths = write_subhalo_shmf_outputs(
-        campaign_root,
-        output_path,
-        run_name=run_name,
-        stages=stages,
-        variants=variants,
-        formats=formats,
-        strict=strict,
-    )
-    plot_paths.extend(shmf_plot_paths)
-    m2d_table, m2d_plot_paths = write_m2d_aperture_outputs(
-        campaign_root,
-        output_path,
-        run_name=run_name,
-        stages=stages,
-        variants=variants,
-        formats=formats,
-        strict=strict,
-    )
-    plot_paths.extend(m2d_plot_paths)
+                advance(f"aggregate plots: magnification {stage_alias(stage)}")
+        else:
+            for stage in tuple(str(value) for value in stages):
+                advance(f"aggregate plots: magnification {stage_alias(stage)}")
+        if not image_residual_df.empty:
+            for stage in tuple(str(value) for value in stages):
+                stage_image_residual_df = image_residual_df[image_residual_df["stage"].astype(str) == stage].copy()
+                plot_paths.extend(
+                    plot_aggregate_image_residual_recovery(
+                        stage_image_residual_df,
+                        _image_residual_recovery_output_base(output_path, stage, paper_stage),
+                        formats,
+                    )
+                )
+                advance(f"aggregate plots: image residual {stage_alias(stage)}")
+        else:
+            for stage in tuple(str(value) for value in stages):
+                advance(f"aggregate plots: image residual {stage_alias(stage)}")
+        if not image_residual_draws_df.empty:
+            for stage in tuple(str(value) for value in stages):
+                stage_image_residual_draws_df = image_residual_draws_df[
+                    image_residual_draws_df["stage"].astype(str) == stage
+                ].copy()
+                plot_paths.extend(
+                    plot_aggregate_image_residual_distribution(
+                        stage_image_residual_draws_df,
+                        _image_residual_distribution_output_base(output_path, stage, paper_stage),
+                        formats,
+                    )
+                )
+                advance(f"aggregate plots: residual distribution {stage_alias(stage)}")
+        else:
+            for stage in tuple(str(value) for value in stages):
+                advance(f"aggregate plots: residual distribution {stage_alias(stage)}")
+        shmf_seed_table, shmf_summary_table, shmf_plot_paths = write_subhalo_shmf_outputs(
+            campaign_root,
+            output_path,
+            run_name=run_name,
+            stages=stages,
+            variants=variants,
+            formats=formats,
+            strict=strict,
+        )
+        plot_paths.extend(shmf_plot_paths)
+        advance("aggregate plots: SHMF")
+        m2d_table, m2d_plot_paths = write_m2d_aperture_outputs(
+            campaign_root,
+            output_path,
+            run_name=run_name,
+            stages=stages,
+            variants=variants,
+            formats=formats,
+            strict=strict,
+        )
+        plot_paths.extend(m2d_plot_paths)
+        advance("aggregate plots: M2D aperture")
+        if progress is not None and progress_task is not None:
+            progress.update(progress_task, description="aggregate plots: complete")
     return AggregatePlotOutputs(
         output_dir=output_path,
         parameter_table=parameter_table_path,
@@ -3241,6 +3388,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--seed-aggregation", choices=("median",), default="median")
     parser.add_argument("--aggregate-error", choices=("seed-quantile",), default="seed-quantile")
     parser.add_argument("--fractional-truth-floor", type=float, default=1.0e-6)
+    parser.add_argument("--quiet", action="store_true", help="Disable the aggregate plot progress bar.")
     return parser
 
 
@@ -3259,6 +3407,7 @@ def main(argv: list[str] | None = None) -> None:
         seed_aggregation=args.seed_aggregation,
         aggregate_error=args.aggregate_error,
         fractional_truth_floor=float(args.fractional_truth_floor),
+        show_progress=not bool(args.quiet),
     )
     print(f"Wrote parameter table: {outputs.parameter_table}")
     print(f"Wrote aggregate parameter table: {outputs.aggregate_parameter_table}")

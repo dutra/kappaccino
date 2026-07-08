@@ -20021,10 +20021,10 @@ def test_aggregate_parameter_recovery_loads_stage_and_variant_methods(tmp_path: 
     assert len(parameter_df) == 8
     assert inventory_df["loaded"].all()
     assert set(parameter_df["method_label"]) == {
-        "Stage 1 No flux",
-        "Stage 1 Flux",
-        "Stage 2 No flux",
-        "Stage 2 Flux",
+        "Stage 1 Positions only",
+        "Stage 1 Positions + fluxes",
+        "Stage 2 Positions only",
+        "Stage 2 Positions + fluxes",
     }
     assert set(parameter_df["stage_label"]) == {"Stage 1", "Stage 2"}
     assert {"truth", "median", "q16", "q84", "covered_68"} <= set(parameter_df.columns)
@@ -20212,10 +20212,10 @@ def test_aggregate_magnification_recovery_plot_uses_variant_legend_and_paper_lab
         legend = ax.get_legend()
         assert legend is not None
         labels = [text.get_text() for text in legend.get_texts()]
-        assert labels == ["No flux", "Flux"]
+        assert labels == ["Positions only", "Positions + fluxes"]
         assert "Stage 1" not in labels
         assert "Stage 2" not in labels
-        assert "Stage 2 No flux" not in labels
+        assert "Stage 2 Positions only" not in labels
         mag_call = next(call for call in errorbar_calls if np.asarray(call["x"]).shape == (1,) and call["x"][0] == pytest.approx(3.0))
         np.testing.assert_allclose(mag_call["y"], [3.1])
         errorbar_kwargs = mag_call["kwargs"]
@@ -20358,8 +20358,8 @@ def test_aggregate_image_residual_recovery_plot_summarizes_seed_posterior_rms(
         legend = axes[0].get_legend()
         assert legend is not None
         assert [text.get_text() for text in legend.get_texts()] == [
-            "No flux",
-            "Flux",
+            "Positions only",
+            "Positions + fluxes",
         ]
         assert all(call["kwargs"]["fmt"] == "none" for call in errorbar_calls)
         assert all(call["kwargs"]["elinewidth"] == pytest.approx(1.15) for call in errorbar_calls)
@@ -20447,7 +20447,7 @@ def test_aggregate_image_residual_distribution_plot_draws_histogram_only(
         assert axes[0].get_xlim() == pytest.approx((0.0, 0.60))
         legend = axes[0].get_legend()
         assert legend is not None
-        assert [text.get_text() for text in legend.get_texts()] == ["No flux", "Flux"]
+        assert [text.get_text() for text in legend.get_texts()] == ["Positions only", "Positions + fluxes"]
     finally:
         plt.close("all")
 
@@ -20464,7 +20464,7 @@ def test_joint_sigma_rcut_recovery_rows_pivots_potfile_parameters() -> None:
                 "variant": "anisotropic",
                 "stage": "stage2_free_source_forward_fit",
                 "stage_label": "Stage 2",
-                "method_label": "Stage 2 No flux",
+                "method_label": "Stage 2 Positions only",
                 "result_path": "results.json",
                 "parameter": "potfile.sigma",
                 "truth": 245.0,
@@ -20479,7 +20479,7 @@ def test_joint_sigma_rcut_recovery_rows_pivots_potfile_parameters() -> None:
                 "variant": "anisotropic",
                 "stage": "stage2_free_source_forward_fit",
                 "stage_label": "Stage 2",
-                "method_label": "Stage 2 No flux",
+                "method_label": "Stage 2 Positions only",
                 "result_path": "results.json",
                 "parameter": "potfile.cutkpc",
                 "truth": 187.0,
@@ -20494,7 +20494,7 @@ def test_joint_sigma_rcut_recovery_rows_pivots_potfile_parameters() -> None:
                 "variant": "anisotropic",
                 "stage": "stage2_free_source_forward_fit",
                 "stage_label": "Stage 2",
-                "method_label": "Stage 2 No flux",
+                "method_label": "Stage 2 Positions only",
                 "result_path": "results.json",
                 "parameter": "halo.v_disp",
                 "truth": 760.0,
@@ -20509,7 +20509,7 @@ def test_joint_sigma_rcut_recovery_rows_pivots_potfile_parameters() -> None:
                 "variant": "anisotropic",
                 "stage": "stage2_free_source_forward_fit",
                 "stage_label": "Stage 2",
-                "method_label": "Stage 2 No flux",
+                "method_label": "Stage 2 Positions only",
                 "result_path": "results.json",
                 "parameter": "halo.cut_radius_kpc",
                 "truth": 950.0,
@@ -20610,8 +20610,8 @@ def test_joint_sigma_rcut_recovery_plot_draws_truth_points_markers_and_contours(
         assert ax.get_ylabel() == r"Halo $r_{\rm cut}$ (fit)"
         assert sum(isinstance(patch, Ellipse) for patch in ax.patches) == 4
         marker_by_label = {call["kwargs"].get("label"): call["kwargs"].get("marker") for call in scatter_calls}
-        assert marker_by_label["No flux"] == "o"
-        assert marker_by_label["Flux"] == "D"
+        assert marker_by_label["Positions only"] == "o"
+        assert marker_by_label["Positions + fluxes"] == "D"
         truth_call = next(call for call in scatter_calls if call["kwargs"].get("label") == "Truth")
         assert truth_call["kwargs"]["marker"] == "*"
         np.testing.assert_allclose(truth_call["x"], [245.0])
@@ -20713,7 +20713,7 @@ def test_aggregate_bias_metric_panel_uses_polished_variant_markers(monkeypatch: 
             {
                 "stage": "stage1_backprojected_centroid_fit",
                 "variant": "anisotropic",
-                "method_label": "Stage 1 No flux",
+                "method_label": "Stage 1 Positions only",
                 "parameter": "halo.v_disp",
                 "bias_median": 0.1,
                 "bias_q16": -0.1,
@@ -20722,7 +20722,7 @@ def test_aggregate_bias_metric_panel_uses_polished_variant_markers(monkeypatch: 
             {
                 "stage": "stage2_free_source_forward_fit",
                 "variant": "anisotropic_maglikelihood",
-                "method_label": "Stage 2 Flux",
+                "method_label": "Stage 2 Positions + fluxes",
                 "parameter": "halo.v_disp",
                 "bias_median": -0.2,
                 "bias_q16": -0.5,
@@ -20751,7 +20751,7 @@ def test_aggregate_bias_metric_panel_uses_polished_variant_markers(monkeypatch: 
             ax,
             metric_df,
             ["halo.v_disp"],
-            ["Stage 1 No flux", "Stage 2 Flux"],
+            ["Stage 1 Positions only", "Stage 2 Positions + fluxes"],
             ylabel="bias",
             title="Bias",
             metric_column="bias_median",
@@ -20895,7 +20895,7 @@ def test_paper_mass_proxy_recovery_rows_derive_log10_mass_panels() -> None:
         "variant": "anisotropic",
         "stage": "stage2_free_source_forward_fit",
         "stage_label": "Stage 2",
-        "method_label": "Stage 2 No flux",
+        "method_label": "Stage 2 Positions only",
         "result_path": "results.json",
         "truth_percentile": 0.5,
         "covered_68": True,
@@ -20947,12 +20947,122 @@ def test_paper_parameters_place_log10_mass_panels_near_sigma_and_rcut() -> None:
     import lenscluster.mock_validation.aggregate_plots as aggregate_plots
 
     paper_parameters = list(aggregate_plots.PAPER_PARAMETERS)
-    assert paper_parameters.index("halo.log10_mass_msun") == paper_parameters.index("halo.cut_radius_kpc") + 1
-    assert paper_parameters.index("bcg.log10_mass_msun") == paper_parameters.index("bcg.cut_radius_kpc") + 1
-    assert paper_parameters.index("potfile.log10_mass_msun") == paper_parameters.index("potfile.cutkpc") + 1
+    assert paper_parameters[:6] == [
+        "halo.log10_mass_msun",
+        "halo.x_centre",
+        "halo.y_centre",
+        "halo.v_disp",
+        "halo.core_radius_kpc",
+        "halo.cut_radius_kpc",
+    ]
+    assert paper_parameters[6:12] == [
+        "bcg.log10_mass_msun",
+        "bcg.x_centre",
+        "bcg.y_centre",
+        "bcg.v_disp",
+        "bcg.core_radius_kpc",
+        "bcg.cut_radius_kpc",
+    ]
+    assert paper_parameters[12:17] == [
+        "potfile.log10_mass_msun",
+        "potfile.sigma",
+        "potfile.cutkpc",
+        "potfile.alpha_sigma",
+        "potfile.gamma_ml",
+    ]
     assert aggregate_plots._format_parameter_label("halo.log10_mass_msun") == r"Halo $\log_{10} M$"
     assert aggregate_plots._format_parameter_label("bcg.log10_mass_msun") == r"BCG $\log_{10} M$"
-    assert aggregate_plots._format_parameter_label("potfile.log10_mass_msun") == r"Potfile $\log_{10} M$"
+    assert aggregate_plots._format_parameter_label("potfile.log10_mass_msun") == r"Subhalos $\log_{10} M$"
+
+
+def test_paper_parameter_plot_uses_bottom_right_legend_only() -> None:
+    import matplotlib.pyplot as plt
+
+    import lenscluster.mock_validation.aggregate_plots as aggregate_plots
+
+    rows: list[dict[str, Any]] = []
+    parameters = [
+        "halo.log10_mass_msun",
+        "halo.x_centre",
+        "halo.y_centre",
+        "halo.v_disp",
+        "halo.core_radius_kpc",
+    ]
+    for variant in aggregate_plots.DEFAULT_VARIANTS:
+        for index, parameter in enumerate(parameters):
+            rows.append(
+                {
+                    "parameter": parameter,
+                    "truth": float(index + 1),
+                    "median": float(index + 1) * 1.02,
+                    "q16": float(index + 1) * 0.98,
+                    "q84": float(index + 1) * 1.06,
+                    "seed": 12345,
+                    "variant": variant,
+                    "stage": "stage2_free_source_forward_fit",
+                }
+            )
+        for parameter in ("source.1.beta_x", "source.1.beta_y"):
+            rows.append(
+                {
+                    "parameter": parameter,
+                    "truth": 0.1,
+                    "median": 0.11,
+                    "q16": 0.09,
+                    "q84": 0.13,
+                    "seed": 12345,
+                    "variant": variant,
+                    "stage": "stage2_free_source_forward_fit",
+                }
+            )
+    fig = aggregate_plots._plot_seed_recovery_single_page(
+        pd.DataFrame(rows),
+        parameters,
+        include_source_position_panel=True,
+        ncols=4,
+    )
+    try:
+        assert not fig.legends
+        axes_with_legends = [ax for ax in fig.axes if ax.get_legend() is not None]
+        assert len(axes_with_legends) == 1
+        legend_ax = axes_with_legends[0]
+        assert legend_ax is fig.axes[-1]
+        assert not legend_ax.axison
+        legend = legend_ax.get_legend()
+        assert [text.get_text() for text in legend.get_texts()] == ["Positions only", "Positions + fluxes"]
+        assert legend.get_texts()[0].get_fontsize() == aggregate_plots.PAPER_PARAMETER_LEGEND_FONT_SIZE
+    finally:
+        plt.close(fig)
+
+
+def test_source_position_recovery_panel_has_no_local_legend() -> None:
+    import matplotlib.pyplot as plt
+
+    import lenscluster.mock_validation.aggregate_plots as aggregate_plots
+
+    rows: list[dict[str, Any]] = []
+    for variant in aggregate_plots.DEFAULT_VARIANTS:
+        for parameter in ("source.1.beta_x", "source.1.beta_y"):
+            rows.append(
+                {
+                    "parameter": parameter,
+                    "truth": 0.1,
+                    "median": 0.11,
+                    "q16": 0.09,
+                    "q84": 0.13,
+                    "seed": 12345,
+                    "variant": variant,
+                    "stage": "stage2_free_source_forward_fit",
+                }
+            )
+
+    fig = aggregate_plots._plot_source_position_recovery_figure(pd.DataFrame(rows))
+    assert fig is not None
+    try:
+        assert not fig.legends
+        assert all(ax.get_legend() is None for ax in fig.axes)
+    finally:
+        plt.close(fig)
 
 
 def test_aggregate_bias_parameter_classification_keeps_gamma_ml_absolute() -> None:
@@ -21174,11 +21284,82 @@ def test_write_aggregate_plots_creates_tables_and_figures(tmp_path: Path) -> Non
         "potfile.sigma": 4,
     }
     assert set(table["method_label"]) == {
-        "Stage 1 No flux",
-        "Stage 1 Flux",
-        "Stage 2 No flux",
-        "Stage 2 Flux",
+        "Stage 1 Positions only",
+        "Stage 1 Positions + fluxes",
+        "Stage 2 Positions only",
+        "Stage 2 Positions + fluxes",
     }
+
+
+def test_write_aggregate_plots_progress_reports_major_phases(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import lenscluster.mock_validation.aggregate_plots as aggregate_plots
+
+    class FakeProgress:
+        def __init__(self) -> None:
+            self.total: int | None = None
+            self.advance_count = 0
+            self.descriptions: list[str] = []
+
+        def add_task(self, description: str, *, total: int | None = None) -> int:
+            self.total = total
+            self.descriptions.append(description)
+            return 1
+
+        def update(self, task_id: int, **kwargs: Any) -> None:
+            if "description" in kwargs:
+                self.descriptions.append(str(kwargs["description"]))
+
+        def advance(self, task_id: int, advance: int = 1) -> None:
+            self.advance_count += int(advance)
+
+    class FakeProgressContext:
+        def __init__(self, progress: FakeProgress) -> None:
+            self.progress = progress
+
+        def __enter__(self) -> FakeProgress:
+            return self.progress
+
+        def __exit__(self, exc_type: object, exc: object, traceback: object) -> bool:
+            return False
+
+    fake_progress = FakeProgress()
+    monkeypatch.setattr(aggregate_plots, "progress_context", lambda _args: FakeProgressContext(fake_progress))
+
+    campaign = tmp_path / "jul2_2215_mock_validation"
+    _write_aggregate_result(
+        campaign,
+        seed=12345,
+        variant="anisotropic",
+        stage="stage1_backprojected_centroid_fit",
+        records=[
+            {
+                "parameter": "halo.x_centre",
+                "truth": 0.0,
+                "best_fit": 0.1,
+                "q16": -0.1,
+                "median": 0.1,
+                "q84": 0.2,
+                "bias": 0.1,
+                "truth_percentile": 0.5,
+                "covered_68": True,
+            }
+        ],
+    )
+
+    aggregate_plots.write_aggregate_plots(
+        campaign,
+        stages=("stage1_backprojected_centroid_fit",),
+        variants=("anisotropic",),
+        parameter_set="all",
+        formats=("pdf",),
+        show_progress=True,
+    )
+
+    assert fake_progress.total == 15
+    assert fake_progress.advance_count == fake_progress.total
+    assert fake_progress.descriptions[-1] == "aggregate plots: complete"
+    assert "aggregate plots: parameter recovery" in fake_progress.descriptions
+    assert "aggregate plots: M2D aperture" in fake_progress.descriptions
 
 
 def test_write_aggregate_plots_creates_stage1_paper_plot_when_stage1_requested(tmp_path: Path) -> None:
@@ -21395,6 +21576,158 @@ def test_subhalo_shmf_outputs_create_plot_and_tables(tmp_path: Path, monkeypatch
     assert set(summary_df["stage"]) == set(aggregate_plots.DEFAULT_STAGES)
 
 
+def _m2d_seed_rows_for_test() -> pd.DataFrame:
+    rows: list[dict[str, Any]] = []
+    stage = "stage2_free_source_forward_fit"
+    radii = (10.0, 20.0)
+    components = ("halo", "bcg", "members", "total")
+    truth_by_seed = {1: 100.0, 2: 200.0, 3: 300.0}
+    ratio_by_seed = {1: 1.01, 2: 1.10, 3: 1.80}
+    for seed, truth_base in truth_by_seed.items():
+        for variant in ("anisotropic", "anisotropic_maglikelihood"):
+            variant_delta = 0.0 if variant == "anisotropic" else 0.05
+            for component in components:
+                component_scale = {"halo": 0.7, "bcg": 0.2, "members": 0.1, "total": 1.0}[component]
+                for radius in radii:
+                    truth = truth_base * component_scale * radius / 10.0
+                    ratio = ratio_by_seed[seed] + variant_delta
+                    rows.append(
+                        {
+                            "campaign": "campaign",
+                            "run_name": "single_bcg_production",
+                            "seed": seed,
+                            "variant": variant,
+                            "stage": stage,
+                            "component": component,
+                            "radius_kpc": radius,
+                            "truth_m2d_msun": truth,
+                            "model_q16": truth * (ratio - 0.02),
+                            "model_q50": truth * ratio,
+                            "model_q84": truth * (ratio + 0.02),
+                            "ratio_q16": ratio - 0.02,
+                            "ratio_q50": ratio,
+                            "ratio_q84": ratio + 0.02,
+                        }
+                    )
+    return pd.DataFrame(rows)
+
+
+def test_m2d_representative_seed_selected_from_no_flux_only() -> None:
+    import lenscluster.mock_validation.aggregate_plots as aggregate_plots
+
+    seed_df = _m2d_seed_rows_for_test()
+    seed_df.loc[
+        (seed_df["variant"] == "anisotropic_maglikelihood") & (seed_df["seed"] == 3) & (seed_df["component"] == "total"),
+        "ratio_q50",
+    ] = 1.0
+
+    seed, table = aggregate_plots.select_representative_m2d_seed(
+        seed_df,
+        stage="stage2_free_source_forward_fit",
+        selection_variant="anisotropic",
+    )
+
+    assert seed == 2
+    assert table.iloc[1]["seed"] == 2
+    assert table.iloc[1]["rank"] == 2
+    assert table.iloc[1]["selection_variant"] == "anisotropic"
+    assert table["n_seed_candidates"].unique().tolist() == [3]
+
+
+def test_m2d_component_plot_uses_single_representative_seed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from matplotlib.axes import Axes
+
+    import lenscluster.mock_validation.aggregate_plots as aggregate_plots
+
+    seed_df = _m2d_seed_rows_for_test()
+    plotted_y: list[list[float]] = []
+    original_plot = Axes.plot
+
+    def record_plot(self: Axes, *args: Any, **kwargs: Any) -> Any:
+        if len(args) >= 2 and len(args[0]) and kwargs.get("linestyle") == ":":
+            plotted_y.append([float(value) for value in np.asarray(args[1], dtype=float)])
+        return original_plot(self, *args, **kwargs)
+
+    monkeypatch.setattr(Axes, "plot", record_plot)
+
+    paths = aggregate_plots.plot_m2d_aperture_components(
+        seed_df,
+        tmp_path / "mock_m2d_aperture_recovery_components",
+        ("pdf",),
+        representative_seed=2,
+        selection_variant="anisotropic",
+    )
+
+    assert [path.name for path in paths] == ["mock_m2d_aperture_recovery_components.pdf"]
+    assert paths[0].exists()
+    assert [200.0 * 0.7, 400.0 * 0.7] in plotted_y
+    assert [100.0 * 0.7, 200.0 * 0.7] not in plotted_y
+    assert [300.0 * 0.7, 600.0 * 0.7] not in plotted_y
+
+
+def test_m2d_total_aggregate_plot_still_uses_summary(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from matplotlib.axes import Axes
+
+    import lenscluster.mock_validation.aggregate_plots as aggregate_plots
+
+    seed_df = _m2d_seed_rows_for_test()
+    summary_df = aggregate_plots.build_m2d_aperture_summary(seed_df)
+    plotted_truth: list[list[float]] = []
+    original_plot = Axes.plot
+
+    def record_plot(self: Axes, *args: Any, **kwargs: Any) -> Any:
+        if kwargs.get("label") == "truth":
+            plotted_truth.append([float(value) for value in np.asarray(args[1], dtype=float)])
+        return original_plot(self, *args, **kwargs)
+
+    monkeypatch.setattr(Axes, "plot", record_plot)
+
+    aggregate_plots.plot_m2d_aperture_recovery(
+        summary_df,
+        tmp_path / "mock_m2d_aperture_recovery",
+        ("pdf",),
+    )
+
+    assert [200.0, 400.0] in plotted_truth
+
+
+def test_m2d_writer_writes_representative_seed_table(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import lenscluster.mock_validation.aggregate_plots as aggregate_plots
+
+    seed_df = _m2d_seed_rows_for_test()
+
+    monkeypatch.setattr(aggregate_plots, "collect_m2d_aperture_inputs", lambda *args, **kwargs: seed_df.copy())
+    monkeypatch.setattr(
+        aggregate_plots,
+        "plot_m2d_aperture_recovery",
+        lambda *args, **kwargs: (tmp_path / "mock_m2d_aperture_recovery.pdf",),
+    )
+    monkeypatch.setattr(
+        aggregate_plots,
+        "plot_m2d_aperture_components",
+        lambda *args, **kwargs: (tmp_path / "mock_m2d_aperture_recovery_components.pdf",),
+    )
+
+    seed_table, plot_paths = aggregate_plots.write_m2d_aperture_outputs(
+        tmp_path / "campaign",
+        tmp_path,
+        stages=("stage2_free_source_forward_fit",),
+        formats=("pdf",),
+    )
+
+    representative_table = tmp_path / "m2d_representative_seed_table.csv"
+    assert seed_table is not None and seed_table.name == "m2d_aperture_recovery_table.csv"
+    assert seed_table.exists()
+    assert representative_table.exists()
+    assert [path.name for path in plot_paths] == [
+        "mock_m2d_aperture_recovery.pdf",
+        "mock_m2d_aperture_recovery_components.pdf",
+    ]
+    table = pd.read_csv(representative_table)
+    assert table.loc[table["rank"] == 2, "seed"].iloc[0] == 2
+    assert table["selection_variant"].unique().tolist() == ["anisotropic"]
+
+
 def test_stage2_seed_recovery_rows_keep_each_seed_and_variant(tmp_path: Path) -> None:
     import lenscluster.mock_validation.aggregate_plots as aggregate_plots
 
@@ -21425,10 +21758,10 @@ def test_aggregate_plot_parameter_display_labels_are_paper_friendly() -> None:
     )
     assert aggregate_plots._format_parameter_axis_label("halo.x_centre", "fit") == "Halo x (fit; arcsec)"
     assert aggregate_plots._format_parameter_axis_label("potfile.gamma_ml", "fit") == (
-        r"Potfile $\gamma_\mathrm{ML}$ (fit)"
+        r"Subhalos $\gamma_\mathrm{ML}$ (fit)"
     )
     assert aggregate_plots._format_parameter_axis_label("potfile.log10_mass_msun", "truth") == (
-        r"Potfile $\log_{10} M$ (truth; $M_\odot$)"
+        r"Subhalos $\log_{10} M$ (truth; $M_\odot$)"
     )
 
 
@@ -21444,7 +21777,7 @@ def test_aggregate_bias_summary_splits_fractional_and_absolute_parameters(tmp_pa
                 "variant": "anisotropic",
                 "stage": "stage1_backprojected_centroid_fit",
                 "stage_label": "Stage 1",
-                "method_label": "Stage 1 No flux",
+                "method_label": "Stage 1 Positions only",
                 "truth": 760.0,
                 "median": 780.0,
                 "q16": 760.0,
@@ -21458,7 +21791,7 @@ def test_aggregate_bias_summary_splits_fractional_and_absolute_parameters(tmp_pa
                 "variant": "anisotropic",
                 "stage": "stage1_backprojected_centroid_fit",
                 "stage_label": "Stage 1",
-                "method_label": "Stage 1 No flux",
+                "method_label": "Stage 1 Positions only",
                 "truth": 0.0,
                 "median": 0.045,
                 "q16": 0.02,

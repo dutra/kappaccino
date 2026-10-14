@@ -21,7 +21,9 @@ import h5py
 
 from lenscluster.plot_style import apply_lenscluster_plot_style
 from lenscluster.utils import (
+    Console,
     DPIE_MASS_GRAVITATIONAL_CONSTANT_KPC_KMS2_PER_MSUN,
+    Table,
     log10_dpie_mass_msun,
     progress_context,
 )
@@ -34,6 +36,7 @@ DEFAULT_RUN_NAME = "single_bcg_production"
 DEFAULT_STAGES = ("stage1_backprojected_centroid_fit", "stage2_free_source_forward_fit")
 DEFAULT_VARIANTS = ("anisotropic", "anisotropic_maglikelihood")
 DEFAULT_FORMATS = ("pdf",)
+AGGREGATE_CONSOLE = Console(highlight=False)
 PAPER_PARAMETERS = (
     "halo.log10_mass_msun",
     "halo.x_centre",
@@ -1487,10 +1490,11 @@ def _finite_magnification_rows(magnification_df: pd.DataFrame) -> pd.DataFrame:
     return magnification_df.loc[mask].copy()
 
 
-def _magnification_recovery_output_base(output_path: Path, stage: str, primary_stage: str) -> Path:
+def _magnification_recovery_output_base(output_path: Path, stage: str, primary_stage: str, *, aggregate: bool = False) -> Path:
+    prefix = "mock_aggregate_magnification_recovery" if aggregate else "mock_magnification_recovery"
     if str(stage) == str(primary_stage):
-        return output_path / "mock_magnification_recovery"
-    return output_path / f"mock_magnification_recovery_{stage_alias(stage)}"
+        return output_path / prefix
+    return output_path / f"{prefix}_{stage_alias(stage)}"
 
 
 def _image_residual_recovery_output_base(output_path: Path, stage: str, primary_stage: str) -> Path:
@@ -1499,10 +1503,11 @@ def _image_residual_recovery_output_base(output_path: Path, stage: str, primary_
     return output_path / f"mock_image_residual_recovery_{stage_alias(stage)}"
 
 
-def _image_residual_distribution_output_base(output_path: Path, stage: str, primary_stage: str) -> Path:
+def _image_residual_distribution_output_base(output_path: Path, stage: str, primary_stage: str, *, aggregate: bool = False) -> Path:
+    prefix = "mock_aggregate_image_residual_distribution" if aggregate else "mock_image_residual_distribution"
     if str(stage) == str(primary_stage):
-        return output_path / "mock_image_residual_distribution"
-    return output_path / f"mock_image_residual_distribution_{stage_alias(stage)}"
+        return output_path / prefix
+    return output_path / f"{prefix}_{stage_alias(stage)}"
 
 
 def image_residual_seed_summary_rows(image_residual_df: pd.DataFrame) -> pd.DataFrame:
@@ -2491,10 +2496,75 @@ def plot_subhalo_shmf_summary(
     return tuple(paths)
 
 
-def _subhalo_shmf_output_base(output_path: Path, stage: str, primary_stage: str) -> Path:
+def plot_subhalo_shmf_seed(
+    seed_df: pd.DataFrame,
+    output_base: Path,
+    formats: tuple[str, ...],
+    *,
+    representative_seed: int,
+    selection_variant: str = "anisotropic",
+    selection: dict[str, Any] | None = None,
+) -> tuple[Path, ...]:
+    if seed_df.empty:
+        return tuple()
+    seed_rows = seed_df[seed_df["seed"].astype(int) == int(representative_seed)].copy()
+    if seed_rows.empty:
+        return tuple()
+    paths: list[Path] = []
+    selection = selection or {}
+    empirical = seed_rows[["truth_density", "recovered_density"]].to_numpy(dtype=float).ravel()
+    empirical = empirical[np.isfinite(empirical) & (empirical > 0.0)]
+    y_ceiling = float(np.nanmax(empirical) * 1.15) if empirical.size else np.nan
+    for fmt in formats:
+        path = output_base.with_suffix(f".{fmt}")
+        fig, axes = plt.subplots(2, 1, figsize=(7.2, 7.0), sharex=True, gridspec_kw={"height_ratios": [2.2, 1.0]})
+        top_ax, ratio_ax = axes
+        truth = seed_rows[seed_rows["variant"].astype(str) == str(selection_variant)].sort_values("bin_index")
+        if truth.empty:
+            truth = seed_rows.drop_duplicates("bin_index").sort_values("bin_index")
+        if not truth.empty:
+            x = truth["log_mass_center"].to_numpy(dtype=float)
+            y = truth["truth_density"].to_numpy(dtype=float)
+            mask = np.isfinite(x) & np.isfinite(y)
+            top_ax.step(x[mask], y[mask], where="mid", color="0.25", linewidth=2.0, label="Truth")
+            bin_widths = (truth["log_mass_right"] - truth["log_mass_left"]).to_numpy(dtype=float)
+            schechter_norm = float(np.nansum(np.where(mask, y * bin_widths, 0.0)))
+            curve = _schechter_shmf_curve(selection, x, schechter_norm)
+            if curve is not None:
+                curve_mask = np.isfinite(curve)
+                if np.any(curve_mask):
+                    top_ax.plot(x[curve_mask], curve[curve_mask], color="0.1", linestyle="--", linewidth=1.3, label="Schechter")
+        for variant in _ordered_variants_from_df(seed_rows):
+            recovered = seed_rows[seed_rows["variant"].astype(str) == str(variant)].sort_values("bin_index")
+            if recovered.empty:
+                continue
+            x = recovered["log_mass_center"].to_numpy(dtype=float)
+            y = recovered["recovered_density"].to_numpy(dtype=float)
+            mask = np.isfinite(x) & np.isfinite(y)
+            color = VARIANT_COLORS.get(variant, "0.35")
+            top_ax.step(x[mask], y[mask], where="mid", color=color, linewidth=2.0, label=variant_label(variant))
+            ratio = recovered["recovered_to_truth"].to_numpy(dtype=float)
+            ratio_mask = np.isfinite(x) & np.isfinite(ratio)
+            ratio_ax.step(x[ratio_mask], ratio[ratio_mask], where="mid", color=color, linewidth=2.0)
+        if np.isfinite(y_ceiling) and y_ceiling > 0.0:
+            top_ax.set_ylim(0.0, y_ceiling)
+        top_ax.set_ylabel(r"$dN/d\log M$")
+        top_ax.legend(loc="best", frameon=False, fontsize=AGGREGATE_LEGEND_FONT_SIZE)
+        ratio_ax.axhline(1.0, color="0.25", linewidth=1.0)
+        ratio_ax.set_xlabel(r"$\log(M/M_\odot)$")
+        ratio_ax.set_ylabel("Recovered / Truth")
+        fig.tight_layout()
+        fig.savefig(path, dpi=300)
+        plt.close(fig)
+        paths.append(path)
+    return tuple(paths)
+
+
+def _subhalo_shmf_output_base(output_path: Path, stage: str, primary_stage: str, *, aggregate: bool = False) -> Path:
+    prefix = "mock_aggregate_subhalo_recovery" if aggregate else "mock_subhalo_recovery"
     if str(stage) == str(primary_stage):
-        return output_path / "mock_subhalo_recovery_shmf"
-    return output_path / f"mock_subhalo_recovery_{stage_alias(stage)}_shmf"
+        return output_path / f"{prefix}_shmf"
+    return output_path / f"{prefix}_{stage_alias(stage)}_shmf"
 
 
 def write_subhalo_shmf_outputs(
@@ -2511,6 +2581,7 @@ def write_subhalo_shmf_outputs(
     selection: dict[str, Any] = {}
     seed_frames: list[pd.DataFrame] = []
     summary_frames: list[pd.DataFrame] = []
+    representative_frames: list[pd.DataFrame] = []
     plot_paths: list[Path] = []
     for stage in tuple(str(value) for value in stages):
         shmf_inputs, stage_selection = collect_subhalo_shmf_inputs(
@@ -2527,10 +2598,34 @@ def write_subhalo_shmf_outputs(
             continue
         seed_frames.append(stage_seed_df)
         summary_frames.append(stage_summary_df)
+        representative_seed, representative_table = _select_representative_seed_from_chain_diagnostics(
+            stage_seed_df[
+                (stage_seed_df["stage"].astype(str) == str(stage))
+                & (stage_seed_df["variant"].astype(str) == "anisotropic")
+            ]["seed"],
+            campaign_root=campaign_root,
+            run_name=run_name,
+            stage=stage,
+            selection_variant="anisotropic",
+            strict=strict,
+        )
+        if not representative_table.empty:
+            representative_frames.append(representative_table)
+        if representative_seed is not None:
+            plot_paths.extend(
+                plot_subhalo_shmf_seed(
+                    stage_seed_df,
+                    _subhalo_shmf_output_base(output_path, stage, primary_stage, aggregate=False),
+                    formats,
+                    representative_seed=representative_seed,
+                    selection_variant="anisotropic",
+                    selection=selection,
+                )
+            )
         plot_paths.extend(
             plot_subhalo_shmf_summary(
                 stage_summary_df,
-                _subhalo_shmf_output_base(output_path, stage, primary_stage),
+                _subhalo_shmf_output_base(output_path, stage, primary_stage, aggregate=True),
                 formats,
                 selection=selection,
             )
@@ -2543,6 +2638,9 @@ def write_subhalo_shmf_outputs(
     summary_table = output_path / "subhalo_recovery_shmf_summary_table.csv"
     seed_df.to_csv(seed_table, index=False)
     summary_df.to_csv(summary_table, index=False)
+    if representative_frames:
+        representative_table = output_path / "subhalo_recovery_shmf_representative_seed_table.csv"
+        pd.concat(representative_frames, ignore_index=True).to_csv(representative_table, index=False)
     return seed_table, summary_table, tuple(plot_paths)
 
 
@@ -2864,14 +2962,127 @@ def build_m2d_aperture_summary(seed_df: pd.DataFrame) -> pd.DataFrame:
     return summary
 
 
+def _select_representative_seed_from_chain_diagnostics(
+    candidate_seeds: pd.Series | np.ndarray | list[int],
+    *,
+    campaign_root: str | Path,
+    run_name: str = DEFAULT_RUN_NAME,
+    stage: str,
+    selection_variant: str = "anisotropic",
+    strict: bool = False,
+) -> tuple[int | None, pd.DataFrame]:
+    """Pick the representative seed from finite chain diagnostics."""
+    columns = [
+        "stage",
+        "selection_variant",
+        "seed",
+        "selection_score",
+        "max_rhat",
+        "min_ess",
+        "median_ess",
+        "n_parameters",
+        "rank",
+        "n_seed_candidates",
+    ]
+    seeds = pd.Series(candidate_seeds).dropna()
+    if seeds.empty:
+        return None, pd.DataFrame(columns=columns)
+    rows: list[dict[str, Any]] = []
+    missing_paths: list[Path] = []
+    invalid_paths: list[Path] = []
+    root = Path(campaign_root)
+    for seed_value in sorted(seeds.astype(int).unique()):
+        diagnostics_path = (
+            root
+            / str(run_name)
+            / f"seed_{int(seed_value):08d}"
+            / str(selection_variant)
+            / "solver"
+            / str(stage)
+            / "tables"
+            / "chain_parameter_diagnostics.csv"
+        )
+        if not diagnostics_path.exists():
+            missing_paths.append(diagnostics_path)
+            continue
+        diagnostics = pd.read_csv(diagnostics_path)
+        if "rhat" not in diagnostics.columns or "ess" not in diagnostics.columns:
+            invalid_paths.append(diagnostics_path)
+            continue
+        rhat = pd.to_numeric(diagnostics["rhat"], errors="coerce").to_numpy(dtype=float)
+        ess = pd.to_numeric(diagnostics["ess"], errors="coerce").to_numpy(dtype=float)
+        finite = np.isfinite(rhat) & np.isfinite(ess)
+        if not np.any(finite):
+            invalid_paths.append(diagnostics_path)
+            continue
+        finite_rhat = rhat[finite]
+        finite_ess = ess[finite]
+        max_rhat = float(np.max(finite_rhat))
+        min_ess = float(np.min(finite_ess))
+        median_ess = float(np.median(finite_ess))
+        rows.append(
+            {
+                "seed": int(seed_value),
+                "selection_score": max_rhat,
+                "max_rhat": max_rhat,
+                "min_ess": min_ess,
+                "median_ess": median_ess,
+                "n_parameters": int(finite.sum()),
+            }
+        )
+    if missing_paths or invalid_paths:
+        message = (
+            f"Representative-seed selection for stage={stage} variant={selection_variant} "
+            f"dropped {len(missing_paths)} missing and {len(invalid_paths)} invalid chain diagnostic file(s)."
+        )
+        if strict:
+            detail_paths = missing_paths[:3] + invalid_paths[:3]
+            detail = "; ".join(str(path) for path in detail_paths)
+            raise FileNotFoundError(f"{message} {detail}")
+    if not rows:
+        message = (
+            f"No finite chain diagnostics available for representative-seed selection "
+            f"at stage={stage} variant={selection_variant}; skipping selected-seed plot."
+        )
+        if strict:
+            raise ValueError(message)
+        return None, pd.DataFrame(columns=columns)
+    score_table = pd.DataFrame(rows)
+    score_table = score_table.sort_values(
+        ["max_rhat", "min_ess", "median_ess", "seed"],
+        ascending=[True, False, False, True],
+        kind="mergesort",
+    ).reset_index(drop=True)
+    score_table["rank"] = np.arange(1, len(score_table) + 1, dtype=int)
+    score_table["n_seed_candidates"] = int(len(score_table))
+    chosen_seed = int(score_table.iloc[0]["seed"])
+    score_table.insert(0, "selection_variant", str(selection_variant))
+    score_table.insert(0, "stage", str(stage))
+    return chosen_seed, score_table[columns]
+
+
 def select_representative_m2d_seed(
     seed_df: pd.DataFrame,
     *,
+    campaign_root: str | Path,
+    run_name: str = DEFAULT_RUN_NAME,
     stage: str,
     selection_variant: str = "anisotropic",
+    strict: bool = False,
 ) -> tuple[int | None, pd.DataFrame]:
-    """Pick the median total-M2D recovery seed using one selection variant."""
-    columns = ["stage", "selection_variant", "seed", "selection_score", "rank", "n_seed_candidates"]
+    """Pick the representative seed from chain diagnostics for one variant."""
+    columns = [
+        "stage",
+        "selection_variant",
+        "seed",
+        "selection_score",
+        "max_rhat",
+        "min_ess",
+        "median_ess",
+        "n_parameters",
+        "rank",
+        "n_seed_candidates",
+    ]
     if seed_df.empty:
         return None, pd.DataFrame(columns=columns)
     selection = seed_df[
@@ -2881,26 +3092,48 @@ def select_representative_m2d_seed(
     ].copy()
     if selection.empty:
         return None, pd.DataFrame(columns=columns)
-    selection["absolute_fractional_residual"] = np.abs(selection["ratio_q50"].to_numpy(dtype=float) - 1.0)
-    scores = (
-        selection.groupby("seed", sort=True)["absolute_fractional_residual"]
-        .median()
-        .replace([np.inf, -np.inf], np.nan)
-        .dropna()
-        .sort_values(kind="mergesort")
+    return _select_representative_seed_from_chain_diagnostics(
+        selection["seed"],
+        campaign_root=campaign_root,
+        run_name=run_name,
+        stage=stage,
+        selection_variant=selection_variant,
+        strict=strict,
     )
-    if scores.empty:
-        return None, pd.DataFrame(columns=columns)
-    score_table = scores.rename("selection_score").reset_index()
-    score_table["seed"] = score_table["seed"].astype(int)
-    score_table = score_table.sort_values(["selection_score", "seed"], kind="mergesort").reset_index(drop=True)
-    score_table["rank"] = np.arange(1, len(score_table) + 1, dtype=int)
-    score_table["n_seed_candidates"] = int(len(score_table))
-    middle_index = (len(score_table) - 1) // 2
-    chosen_seed = int(score_table.iloc[middle_index]["seed"])
-    score_table.insert(0, "selection_variant", str(selection_variant))
-    score_table.insert(0, "stage", str(stage))
-    return chosen_seed, score_table[columns]
+
+
+def _print_representative_seed_summary(representative_df: pd.DataFrame) -> None:
+    if representative_df.empty:
+        return
+    table = Table(title="Representative mock seeds")
+    table.add_column("stage", style="cyan")
+    table.add_column("variant")
+    table.add_column("seed", justify="right", style="bold")
+    table.add_column("max Rhat", justify="right")
+    table.add_column("min ESS", justify="right")
+    table.add_column("median ESS", justify="right")
+    table.add_column("params", justify="right")
+    table.add_column("candidates", justify="right")
+    winners = representative_df[representative_df["rank"].astype(int) == 1].copy()
+    if winners.empty:
+        return
+    winners = winners.sort_values(["stage", "selection_variant"], kind="mergesort")
+    for _index, row in winners.iterrows():
+        stage = str(row["stage"])
+        variant = str(row["selection_variant"])
+        table.add_row(
+            stage_alias(stage),
+            variant_label(variant),
+            f"{int(row['seed']):08d}",
+            f"{float(row['max_rhat']):.3f}",
+            f"{float(row['min_ess']):.0f}",
+            f"{float(row['median_ess']):.0f}",
+            f"{int(row['n_parameters'])}",
+            f"{int(row['n_seed_candidates'])}",
+        )
+    AGGREGATE_CONSOLE.print(table)
+
+
 
 
 def _m2d_two_panel_axes() -> tuple[Any, Any, Any]:
@@ -3109,8 +3342,11 @@ def write_m2d_aperture_outputs(
         summary_df = build_m2d_aperture_summary(seed_df)
         representative_seed, representative_table = select_representative_m2d_seed(
             seed_df,
+            campaign_root=campaign_root,
+            run_name=run_name,
             stage=stage,
             selection_variant="anisotropic",
+            strict=strict,
         )
         if not representative_table.empty:
             representative_frames.append(representative_table)
@@ -3235,6 +3471,26 @@ def write_aggregate_plots(
 
         apply_lenscluster_plot_style()
         paper_stage = _paper_recovery_stage(stages)
+        representative_seeds_by_stage: dict[str, int | None] = {}
+        representative_seed_frames: list[pd.DataFrame] = []
+        for stage in tuple(str(value) for value in stages):
+            candidate_frame = parameter_df[
+                (parameter_df["stage"].astype(str) == stage)
+                & (parameter_df["variant"].astype(str) == "anisotropic")
+            ]
+            representative_seed, representative_table = _select_representative_seed_from_chain_diagnostics(
+                candidate_frame["seed"],
+                campaign_root=campaign_root,
+                run_name=run_name,
+                stage=stage,
+                selection_variant="anisotropic",
+                strict=strict,
+            )
+            representative_seeds_by_stage[stage] = representative_seed
+            if not representative_table.empty:
+                representative_seed_frames.append(representative_table)
+        if representative_seed_frames:
+            _print_representative_seed_summary(pd.concat(representative_seed_frames, ignore_index=True))
         seed_df = seed_recovery_rows_for_stage(parameter_df, stage=paper_stage, variants=variants)
         seed_available_parameters = seed_df["parameter"].dropna().astype(str).drop_duplicates().tolist()
         plot_paths: list[Path] = []
@@ -3294,10 +3550,21 @@ def write_aggregate_plots(
         if not magnification_df.empty:
             for stage in tuple(str(value) for value in stages):
                 stage_magnification_df = magnification_df[magnification_df["stage"].astype(str) == stage].copy()
+                representative_seed = representative_seeds_by_stage.get(stage)
+                if representative_seed is not None:
+                    plot_paths.extend(
+                        plot_aggregate_magnification_recovery(
+                            stage_magnification_df[
+                                stage_magnification_df["seed"].astype(int) == int(representative_seed)
+                            ].copy(),
+                            _magnification_recovery_output_base(output_path, stage, paper_stage, aggregate=False),
+                            formats,
+                        )
+                    )
                 plot_paths.extend(
                     plot_aggregate_magnification_recovery(
                         stage_magnification_df,
-                        _magnification_recovery_output_base(output_path, stage, paper_stage),
+                        _magnification_recovery_output_base(output_path, stage, paper_stage, aggregate=True),
                         formats,
                     )
                 )
@@ -3324,10 +3591,21 @@ def write_aggregate_plots(
                 stage_image_residual_draws_df = image_residual_draws_df[
                     image_residual_draws_df["stage"].astype(str) == stage
                 ].copy()
+                representative_seed = representative_seeds_by_stage.get(stage)
+                if representative_seed is not None:
+                    plot_paths.extend(
+                        plot_aggregate_image_residual_distribution(
+                            stage_image_residual_draws_df[
+                                stage_image_residual_draws_df["seed"].astype(int) == int(representative_seed)
+                            ].copy(),
+                            _image_residual_distribution_output_base(output_path, stage, paper_stage, aggregate=False),
+                            formats,
+                        )
+                    )
                 plot_paths.extend(
                     plot_aggregate_image_residual_distribution(
                         stage_image_residual_draws_df,
-                        _image_residual_distribution_output_base(output_path, stage, paper_stage),
+                        _image_residual_distribution_output_base(output_path, stage, paper_stage, aggregate=True),
                         formats,
                     )
                 )

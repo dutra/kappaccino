@@ -8,6 +8,7 @@ import os
 import subprocess
 import sys
 import threading
+import warnings
 from concurrent.futures import Future
 from dataclasses import replace
 from types import SimpleNamespace
@@ -21300,6 +21301,14 @@ def test_write_aggregate_plots_creates_tables_and_figures(tmp_path: Path) -> Non
                 recovered_log_masses=[10.1, 11.0, 11.9],
                 stages=aggregate_plots.DEFAULT_STAGES,
             )
+        for stage in aggregate_plots.DEFAULT_STAGES:
+            _write_m2d_chain_diagnostics(
+                campaign,
+                seed=seed,
+                stage=stage,
+                rhat=(1.01 + 0.01 * seed_index, 1.02 + 0.01 * seed_index),
+                ess=(600.0 - 50.0 * seed_index, 500.0 - 50.0 * seed_index),
+            )
 
     outputs = aggregate_plots.write_aggregate_plots(campaign, parameter_set="both", formats=("pdf",))
 
@@ -21329,12 +21338,18 @@ def test_write_aggregate_plots_creates_tables_and_figures(tmp_path: Path) -> Non
         "mock_bcg_sigma_rcut_recovery.pdf",
         "mock_magnification_recovery_stage1.pdf",
         "mock_magnification_recovery.pdf",
+        "mock_aggregate_magnification_recovery_stage1.pdf",
+        "mock_aggregate_magnification_recovery.pdf",
         "mock_image_residual_recovery_stage1.pdf",
         "mock_image_residual_recovery.pdf",
         "mock_image_residual_distribution_stage1.pdf",
         "mock_image_residual_distribution.pdf",
+        "mock_aggregate_image_residual_distribution_stage1.pdf",
+        "mock_aggregate_image_residual_distribution.pdf",
         "mock_subhalo_recovery_stage1_shmf.pdf",
         "mock_subhalo_recovery_shmf.pdf",
+        "mock_aggregate_subhalo_recovery_stage1_shmf.pdf",
+        "mock_aggregate_subhalo_recovery_shmf.pdf",
     }
     for path in outputs.plot_paths:
         assert path.exists()
@@ -21388,6 +21403,76 @@ def test_write_aggregate_plots_creates_tables_and_figures(tmp_path: Path) -> Non
         "Stage 2 Positions only",
         "Stage 2 Positions + fluxes",
     }
+
+
+def test_aggregate_writer_splits_seed_and_aggregate_magnification_and_residual_distribution(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import lenscluster.mock_validation.aggregate_plots as aggregate_plots
+
+    campaign = tmp_path / "jul2_2215_mock_validation"
+    for seed_index, seed in enumerate((12345, 12346, 12347)):
+        _write_aggregate_result(campaign, seed=seed, variant="anisotropic", stage="stage2_free_source_forward_fit")
+        _write_aggregate_result(
+            campaign,
+            seed=seed,
+            variant="anisotropic_maglikelihood",
+            stage="stage2_free_source_forward_fit",
+        )
+        _write_m2d_chain_diagnostics(
+            campaign,
+            seed=seed,
+            stage="stage2_free_source_forward_fit",
+            rhat=(1.04, 1.05) if seed != 12346 else (1.01, 1.02),
+            ess=(500.0 - seed_index, 450.0 - seed_index) if seed != 12346 else (700.0, 650.0),
+        )
+
+    magnification_calls: list[tuple[str, set[int]]] = []
+    residual_distribution_calls: list[tuple[str, set[int]]] = []
+    representative_summaries: list[pd.DataFrame] = []
+
+    def record_magnification(df: pd.DataFrame, output_base: Path, formats: tuple[str, ...]) -> tuple[Path, ...]:
+        magnification_calls.append((output_base.name, set(df["seed"].astype(int))))
+        return (output_base.with_suffix(".pdf"),)
+
+    def record_residual_distribution(df: pd.DataFrame, output_base: Path, formats: tuple[str, ...]) -> tuple[Path, ...]:
+        residual_distribution_calls.append((output_base.name, set(df["seed"].astype(int))))
+        return (output_base.with_suffix(".pdf"),)
+
+    monkeypatch.setattr(aggregate_plots, "plot_aggregate_magnification_recovery", record_magnification)
+    monkeypatch.setattr(
+        aggregate_plots,
+        "plot_aggregate_image_residual_distribution",
+        record_residual_distribution,
+    )
+    monkeypatch.setattr(
+        aggregate_plots,
+        "_print_representative_seed_summary",
+        lambda df: representative_summaries.append(df.copy()),
+    )
+
+    aggregate_plots.write_aggregate_plots(
+        campaign,
+        stages=("stage2_free_source_forward_fit",),
+        parameter_set="all",
+        formats=("pdf",),
+    )
+
+    assert ("mock_magnification_recovery", {12346}) in magnification_calls
+    assert ("mock_aggregate_magnification_recovery", {12345, 12346, 12347}) in magnification_calls
+    assert ("mock_image_residual_distribution", {12346}) in residual_distribution_calls
+    assert ("mock_aggregate_image_residual_distribution", {12345, 12346, 12347}) in residual_distribution_calls
+    assert representative_summaries
+    winners = representative_summaries[0][representative_summaries[0]["rank"].astype(int) == 1]
+    assert set(winners["seed"].astype(int)) == {12346}
+    assert {
+        "max_rhat",
+        "min_ess",
+        "median_ess",
+        "n_parameters",
+        "n_seed_candidates",
+    }.issubset(representative_summaries[0].columns)
 
 
 def test_write_aggregate_plots_progress_reports_major_phases(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -21569,10 +21654,11 @@ def test_write_aggregate_plots_creates_stage1_paper_plot_when_stage1_requested(t
     assert paper_plot.exists()
     assert paper_plot.stat().st_size > 0
     assert not (outputs.output_dir / "mock_parameter_recovery_stage1_paper.pdf").exists()
-    magnification_plot = outputs.output_dir / "mock_magnification_recovery.pdf"
+    magnification_plot = outputs.output_dir / "mock_aggregate_magnification_recovery.pdf"
     assert magnification_plot.exists()
     assert magnification_plot.stat().st_size > 0
     assert not (outputs.output_dir / "mock_magnification_recovery_stage1.pdf").exists()
+    assert not (outputs.output_dir / "mock_magnification_recovery.pdf").exists()
     sigma_rcut_plot = outputs.output_dir / "mock_sigma_rcut_recovery.pdf"
     assert sigma_rcut_plot.exists()
     assert sigma_rcut_plot.stat().st_size > 0
@@ -21656,6 +21742,14 @@ def test_subhalo_shmf_outputs_create_plot_and_tables(tmp_path: Path, monkeypatch
                 recovered_log_masses=[10.1, 11.0, 11.9],
                 stages=aggregate_plots.DEFAULT_STAGES,
             )
+        for stage in aggregate_plots.DEFAULT_STAGES:
+            _write_m2d_chain_diagnostics(
+                campaign,
+                seed=seed,
+                stage=stage,
+                rhat=(1.01 if seed == 12345 else 1.05, 1.02 if seed == 12345 else 1.06),
+                ess=(700.0 if seed == 12345 else 500.0, 650.0 if seed == 12345 else 450.0),
+            )
 
     seed_table, summary_table, plot_paths = aggregate_plots.write_subhalo_shmf_outputs(
         campaign,
@@ -21665,7 +21759,12 @@ def test_subhalo_shmf_outputs_create_plot_and_tables(tmp_path: Path, monkeypatch
 
     assert seed_table is not None and seed_table.exists()
     assert summary_table is not None and summary_table.exists()
-    assert [path.name for path in plot_paths] == ["mock_subhalo_recovery_stage1_shmf.pdf", "mock_subhalo_recovery_shmf.pdf"]
+    assert [path.name for path in plot_paths] == [
+        "mock_subhalo_recovery_stage1_shmf.pdf",
+        "mock_aggregate_subhalo_recovery_stage1_shmf.pdf",
+        "mock_subhalo_recovery_shmf.pdf",
+        "mock_aggregate_subhalo_recovery_shmf.pdf",
+    ]
     for path in plot_paths:
         assert path.exists()
         assert path.stat().st_size > 0
@@ -21673,6 +21772,11 @@ def test_subhalo_shmf_outputs_create_plot_and_tables(tmp_path: Path, monkeypatch
     summary_df = pd.read_csv(summary_table)
     assert set(seed_df["stage"]) == set(aggregate_plots.DEFAULT_STAGES)
     assert set(summary_df["stage"]) == set(aggregate_plots.DEFAULT_STAGES)
+    representative_table = output_dir / "subhalo_recovery_shmf_representative_seed_table.csv"
+    assert representative_table.exists()
+    representative_df = pd.read_csv(representative_table)
+    assert set(representative_df["stage"]) == set(aggregate_plots.DEFAULT_STAGES)
+    assert set(representative_df.loc[representative_df["rank"] == 1, "seed"]) == {12345}
 
 
 def _m2d_seed_rows_for_test() -> pd.DataFrame:
@@ -21711,7 +21815,35 @@ def _m2d_seed_rows_for_test() -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def test_m2d_representative_seed_selected_from_no_flux_only() -> None:
+def _write_m2d_chain_diagnostics(
+    campaign_root: Path,
+    *,
+    seed: int,
+    variant: str = "anisotropic",
+    stage: str = "stage2_free_source_forward_fit",
+    rhat: tuple[float, ...],
+    ess: tuple[float, ...],
+) -> Path:
+    table_dir = (
+        campaign_root
+        / "single_bcg_production"
+        / f"seed_{seed:08d}"
+        / variant
+        / "solver"
+        / stage
+        / "tables"
+    )
+    table_dir.mkdir(parents=True, exist_ok=True)
+    rows = [
+        {"parameter_index": index, "parameter": f"theta_{index}", "rhat": rhat_value, "ess": ess_value}
+        for index, (rhat_value, ess_value) in enumerate(zip(rhat, ess), start=1)
+    ]
+    path = table_dir / "chain_parameter_diagnostics.csv"
+    pd.DataFrame(rows).to_csv(path, index=False)
+    return path
+
+
+def test_m2d_representative_seed_selected_from_no_flux_chain_health_only(tmp_path: Path) -> None:
     import lenscluster.mock_validation.aggregate_plots as aggregate_plots
 
     seed_df = _m2d_seed_rows_for_test()
@@ -21719,18 +21851,164 @@ def test_m2d_representative_seed_selected_from_no_flux_only() -> None:
         (seed_df["variant"] == "anisotropic_maglikelihood") & (seed_df["seed"] == 3) & (seed_df["component"] == "total"),
         "ratio_q50",
     ] = 1.0
+    _write_m2d_chain_diagnostics(tmp_path, seed=1, rhat=(1.03, 1.04), ess=(900.0, 800.0))
+    _write_m2d_chain_diagnostics(tmp_path, seed=2, rhat=(1.01, 1.02), ess=(250.0, 200.0))
+    _write_m2d_chain_diagnostics(tmp_path, seed=3, rhat=(1.01, 1.02), ess=(300.0, 280.0))
+    _write_m2d_chain_diagnostics(
+        tmp_path,
+        seed=1,
+        variant="anisotropic_maglikelihood",
+        rhat=(1.0, 1.0),
+        ess=(10_000.0, 10_000.0),
+    )
 
     seed, table = aggregate_plots.select_representative_m2d_seed(
         seed_df,
+        campaign_root=tmp_path,
+        run_name="single_bcg_production",
+        stage="stage2_free_source_forward_fit",
+        selection_variant="anisotropic",
+    )
+
+    assert seed == 3
+    assert table.iloc[0]["seed"] == 3
+    assert table.iloc[0]["rank"] == 1
+    assert table.iloc[0]["selection_score"] == pytest.approx(1.02)
+    assert table.iloc[0]["max_rhat"] == pytest.approx(1.02)
+    assert table.iloc[0]["min_ess"] == pytest.approx(280.0)
+    assert table.iloc[0]["median_ess"] == pytest.approx(290.0)
+    assert table.iloc[0]["n_parameters"] == 2
+    assert table.iloc[0]["selection_variant"] == "anisotropic"
+    assert table["n_seed_candidates"].unique().tolist() == [3]
+
+
+def test_representative_seed_summary_prints_rich_table(monkeypatch: pytest.MonkeyPatch) -> None:
+    import lenscluster.mock_validation.aggregate_plots as aggregate_plots
+
+    console = aggregate_plots.Console(record=True, width=120, highlight=False)
+    monkeypatch.setattr(aggregate_plots, "AGGREGATE_CONSOLE", console)
+    summary = pd.DataFrame(
+        [
+            {
+                "stage": "stage2_free_source_forward_fit",
+                "selection_variant": "anisotropic",
+                "seed": 12346,
+                "selection_score": 1.02,
+                "max_rhat": 1.02,
+                "min_ess": 650.0,
+                "median_ess": 700.0,
+                "n_parameters": 42,
+                "rank": 1,
+                "n_seed_candidates": 3,
+            },
+            {
+                "stage": "stage2_free_source_forward_fit",
+                "selection_variant": "anisotropic",
+                "seed": 12345,
+                "selection_score": 1.05,
+                "max_rhat": 1.05,
+                "min_ess": 450.0,
+                "median_ess": 500.0,
+                "n_parameters": 42,
+                "rank": 2,
+                "n_seed_candidates": 3,
+            },
+        ]
+    )
+
+    aggregate_plots._print_representative_seed_summary(summary)
+
+    rendered = console.export_text()
+    assert "Representative mock seeds" in rendered
+    assert "stage2" in rendered
+    assert "Positions only" in rendered
+    assert "00012346" in rendered
+    assert "1.020" in rendered
+    assert "650" in rendered
+    assert "700" in rendered
+    assert "42" in rendered
+    assert "3" in rendered
+    assert "00012345" not in rendered
+
+
+def test_m2d_representative_seed_tie_breaks_by_median_ess_then_seed(tmp_path: Path) -> None:
+    import lenscluster.mock_validation.aggregate_plots as aggregate_plots
+
+    seed_df = _m2d_seed_rows_for_test()
+    _write_m2d_chain_diagnostics(tmp_path, seed=1, rhat=(1.01, 1.02), ess=(300.0, 400.0))
+    _write_m2d_chain_diagnostics(tmp_path, seed=2, rhat=(1.01, 1.02), ess=(300.0, 500.0))
+    _write_m2d_chain_diagnostics(tmp_path, seed=3, rhat=(1.01, 1.02), ess=(300.0, 500.0))
+
+    seed, table = aggregate_plots.select_representative_m2d_seed(
+        seed_df,
+        campaign_root=tmp_path,
+        run_name="single_bcg_production",
         stage="stage2_free_source_forward_fit",
         selection_variant="anisotropic",
     )
 
     assert seed == 2
-    assert table.iloc[1]["seed"] == 2
-    assert table.iloc[1]["rank"] == 2
-    assert table.iloc[1]["selection_variant"] == "anisotropic"
-    assert table["n_seed_candidates"].unique().tolist() == [3]
+    assert table["seed"].tolist()[:3] == [2, 3, 1]
+
+
+def test_m2d_representative_seed_drops_nonfinite_and_strict_raises(tmp_path: Path) -> None:
+    import lenscluster.mock_validation.aggregate_plots as aggregate_plots
+
+    seed_df = _m2d_seed_rows_for_test()
+    _write_m2d_chain_diagnostics(
+        tmp_path,
+        seed=1,
+        rhat=(np.nan, np.inf),
+        ess=(100.0, 200.0),
+    )
+    _write_m2d_chain_diagnostics(
+        tmp_path,
+        seed=2,
+        rhat=(1.08, np.nan),
+        ess=(np.nan, 400.0),
+    )
+    _write_m2d_chain_diagnostics(tmp_path, seed=3, rhat=(1.04, 1.03), ess=(500.0, 450.0))
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        seed, table = aggregate_plots.select_representative_m2d_seed(
+            seed_df,
+            campaign_root=tmp_path,
+            run_name="single_bcg_production",
+            stage="stage2_free_source_forward_fit",
+            selection_variant="anisotropic",
+        )
+    assert not [warning for warning in caught if issubclass(warning.category, RuntimeWarning)]
+
+    assert seed == 3
+    assert table["seed"].tolist() == [3]
+    assert table["n_parameters"].tolist() == [2]
+
+    with pytest.raises(FileNotFoundError, match="dropped"):
+        aggregate_plots.select_representative_m2d_seed(
+            seed_df,
+            campaign_root=tmp_path,
+            run_name="single_bcg_production",
+            stage="stage2_free_source_forward_fit",
+            selection_variant="anisotropic",
+            strict=True,
+        )
+
+
+def test_m2d_representative_seed_strict_raises_without_valid_candidates(tmp_path: Path) -> None:
+    import lenscluster.mock_validation.aggregate_plots as aggregate_plots
+
+    seed_df = _m2d_seed_rows_for_test()
+
+    with pytest.raises(FileNotFoundError, match="dropped"):
+        aggregate_plots.select_representative_m2d_seed(
+            seed_df,
+            campaign_root=tmp_path,
+            run_name="single_bcg_production",
+            stage="stage2_free_source_forward_fit",
+            selection_variant="anisotropic",
+            strict=True,
+        )
 
 
 def test_m2d_component_plot_uses_single_representative_seed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -21794,6 +22072,9 @@ def test_m2d_writer_writes_representative_seed_table(tmp_path: Path, monkeypatch
     import lenscluster.mock_validation.aggregate_plots as aggregate_plots
 
     seed_df = _m2d_seed_rows_for_test()
+    _write_m2d_chain_diagnostics(tmp_path / "campaign", seed=1, rhat=(1.03, 1.04), ess=(900.0, 800.0))
+    _write_m2d_chain_diagnostics(tmp_path / "campaign", seed=2, rhat=(1.01, 1.02), ess=(250.0, 200.0))
+    _write_m2d_chain_diagnostics(tmp_path / "campaign", seed=3, rhat=(1.05, 1.06), ess=(900.0, 800.0))
 
     monkeypatch.setattr(aggregate_plots, "collect_m2d_aperture_inputs", lambda *args, **kwargs: seed_df.copy())
     monkeypatch.setattr(
@@ -21810,6 +22091,7 @@ def test_m2d_writer_writes_representative_seed_table(tmp_path: Path, monkeypatch
     seed_table, plot_paths = aggregate_plots.write_m2d_aperture_outputs(
         tmp_path / "campaign",
         tmp_path,
+        run_name="single_bcg_production",
         stages=("stage2_free_source_forward_fit",),
         formats=("pdf",),
     )
@@ -21823,8 +22105,10 @@ def test_m2d_writer_writes_representative_seed_table(tmp_path: Path, monkeypatch
         "mock_m2d_aperture_recovery_components.pdf",
     ]
     table = pd.read_csv(representative_table)
-    assert table.loc[table["rank"] == 2, "seed"].iloc[0] == 2
+    assert table.loc[table["rank"] == 1, "seed"].iloc[0] == 2
     assert table["selection_variant"].unique().tolist() == ["anisotropic"]
+    assert table.loc[table["rank"] == 1, "max_rhat"].iloc[0] == pytest.approx(1.02)
+    assert table.loc[table["rank"] == 1, "min_ess"].iloc[0] == pytest.approx(200.0)
 
 
 def test_stage2_seed_recovery_rows_keep_each_seed_and_variant(tmp_path: Path) -> None:

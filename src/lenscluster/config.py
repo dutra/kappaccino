@@ -200,6 +200,7 @@ class ScalingModelConfig:
 
 @dataclass(frozen=True)
 class LikelihoodConfig:
+    latent_displacement_sigma_beta_arcsec: float | None = None
     pos_sigma_arcsec: float | None = None
     source_plane_covariance_floor: float | None = None
     # magnification: legacy determinant scaling; full-jacobian: full propagated covariance.
@@ -358,11 +359,18 @@ def validate_config(config: LensClusterSolverConfig) -> None:
             "stage1_likelihood must be 'source', 'local-jacobian', 'critical-arc', "
             "or 'critical-arc-anisotropic'."
         )
-    if workflow.stage2_forward_mode not in {"none", "linearized", "critical-arc", "critical-arc-anisotropic"}:
+    if workflow.stage2_forward_mode not in {"none", "linearized", "critical-arc", "critical-arc-anisotropic", "isotropic-latent-displacement"}:
         raise ValueError(
             "stage2_forward_mode must be 'none', 'linearized', 'critical-arc', "
-            "or 'critical-arc-anisotropic'."
+            "'critical-arc-anisotropic', or 'isotropic-latent-displacement'."
         )
+    if workflow.stage2_forward_mode == "isotropic-latent-displacement":
+        from .latent_displacement import validate_settings
+        engine = workflow.stage2_sampling_engine
+        if engine == "inherit":
+            engine = workflow.stage1_sampling_engine
+        validate_settings(config.likelihood.latent_displacement_sigma_beta_arcsec,
+                          engine, workflow.source_position_parameterization)
     schedule = config.schedule
     expected_stages = _expected_stage_count(workflow)
     expected_production_controls = _expected_production_control_count(workflow)

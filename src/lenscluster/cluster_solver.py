@@ -220,6 +220,7 @@ DEFAULT_INITIAL_STEP_SIZE = 1.0e-3
 DEFAULT_ACTIVE_SCALING_GALAXIES = 64
 DEFAULT_ACTIVE_SCALING_CUMULATIVE_FRACTION = 0.995
 DEFAULT_ACTIVE_SCALING_MIN = 4
+SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT = "isotropic-latent-displacement"
 SOURCE_PLANE_COVARIANCE_MODE_MAGNIFICATION = "magnification"
 SOURCE_PLANE_COVARIANCE_MODE_FULL_JACOBIAN = "full-jacobian"
 SOURCE_PLANE_COVARIANCE_MODE_UNIT = "unit"
@@ -681,6 +682,7 @@ STAGE2_FORWARD_MODE_LINEARIZED = "linearized"
 STAGE2_FORWARD_MODE_CRITICAL_ARC = "critical-arc"
 STAGE2_FORWARD_MODE_CRITICAL_ARC_ANISOTROPIC = "critical-arc-anisotropic"
 STAGE2_FORWARD_MODES = (
+    SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT,
     STAGE2_FORWARD_MODE_NONE,
     STAGE2_FORWARD_MODE_LINEARIZED,
     STAGE2_FORWARD_MODE_CRITICAL_ARC,
@@ -1314,6 +1316,8 @@ def _local_jacobian_metric_mode_for_values(
 ) -> str:
     sample_mode = str(sample_likelihood_mode)
     engine = str(sampling_engine)
+    if sample_mode == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT:
+        return LOCAL_JACOBIAN_METRIC_CURRENT_EXACT
     if sample_mode == SAMPLE_LIKELIHOOD_LOCAL_JACOBIAN:
         if engine in {SAMPLING_ENGINE_FULL_FLAT}:
             return LOCAL_JACOBIAN_METRIC_CURRENT_EXACT
@@ -1371,6 +1375,7 @@ def _log_runtime_summary(args: argparse.Namespace) -> None:
             f"[runtime] model_source=config fit_mode={args.fit_mode} fit_method={args.fit_method} "
             f"sampling_engine={args.sampling_engine} sample_likelihood_mode={sample_likelihood_mode} "
             f"source_plane_covariance_mode={source_plane_covariance_mode} "
+            f"latent_displacement_sigma_beta_arcsec={getattr(args, 'latent_displacement_sigma_beta_arcsec', None)} "
             f"{local_jacobian_metric_item}"
             f"image_plane_mode={getattr(args, 'image_plane_mode', IMAGE_PLANE_MODE_NONE)} warmup={args.warmup} samples={args.samples} "
             f"sampling_refresh_runs={getattr(args, 'sampling_refresh_runs', DEFAULT_SAMPLING_REFRESH_RUNS)} "
@@ -2028,7 +2033,16 @@ def _active_approximation_rows(evaluator: Any) -> list[ApproximationRow]:
     source_covariance_mode = str(
         getattr(evaluator, "source_plane_covariance_mode", SOURCE_PLANE_COVARIANCE_MODE_MAGNIFICATION)
     )
-    rows.append(("source_plane_covariance_mode", _format_approximation_value(source_covariance_mode), "likelihood"))
+    rows.append(("source_plane_covariance_mode", ("not_used" if getattr(evaluator, "sample_likelihood_mode", None) == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT
+                                                else _format_approximation_value(source_covariance_mode)), "likelihood"))
+    if getattr(evaluator, "sample_likelihood_mode", None) == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT:
+        rows.extend([
+            ("positional_factor", "local_source_residual_gaussian", "likelihood"),
+            ("latent_displacement_sigma_beta_arcsec", str(evaluator.latent_displacement_sigma_beta_arcsec), "likelihood"),
+            ("member_covariance", "full_symmetric_direct", "likelihood"),
+            ("positional_reliability_mixture", "disabled", "likelihood"),
+            ("positional_caps_and_extra_floors", "disabled", "likelihood"),
+        ])
     if str(getattr(evaluator, "sample_likelihood_mode", "")) == SAMPLE_LIKELIHOOD_SOURCE:
         rows.append(("source_plane_covariance_formulation", ("full_jacobian_precision_centroid" if source_covariance_mode == SOURCE_PLANE_COVARIANCE_MODE_FULL_JACOBIAN else source_covariance_mode), "likelihood"))
     if str(getattr(evaluator, "sample_likelihood_mode", SAMPLE_LIKELIHOOD_SOURCE)) == SAMPLE_LIKELIHOOD_LOCAL_JACOBIAN:
@@ -10620,7 +10634,8 @@ def _svi_refresh_cache_snapshot(
 
 def _svi_refresh_evaluator_snapshot(evaluator: Any) -> dict[str, _SviRefreshCacheSnapshot]:
     perturbation_stage0 = bool(getattr(getattr(evaluator, "state", None), "perturbation_discovery_stage0", False))
-    source_metric_enabled = not (
+    direct_source_metric = getattr(evaluator, "sample_likelihood_mode", None) == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT
+    source_metric_enabled = not direct_source_metric and not (
         str(getattr(evaluator, "sample_likelihood_mode", SAMPLE_LIKELIHOOD_SOURCE)) == SAMPLE_LIKELIHOOD_SOURCE
         and str(getattr(evaluator, "source_plane_covariance_mode", SOURCE_PLANE_COVARIANCE_MODE_MAGNIFICATION))
         == SOURCE_PLANE_COVARIANCE_MODE_UNIT
@@ -10645,8 +10660,9 @@ def _svi_refresh_evaluator_snapshot(evaluator: Any) -> dict[str, _SviRefreshCach
 
     failures = getattr(evaluator, "_cache_refresh_failures", {})
     return {name: replace(snapshot, refresh_failed=bool(failures.get(name, False)),
-                          direct=(name == "scaling" and not perturbation_stage0
-                                  and getattr(evaluator, "sampling_engine", None) == SAMPLING_ENGINE_FULL_FLAT))
+                          direct=((name == "scaling" and not perturbation_stage0
+                                   and getattr(evaluator, "sampling_engine", None) == SAMPLING_ENGINE_FULL_FLAT)
+                                  or (name == "source_metric" and direct_source_metric)))
             for name, snapshot in snapshots.items()}
 
 
@@ -11109,8 +11125,9 @@ def _refresh_pre_nuts_caches(evaluator: Any, best_fit: np.ndarray, reason: str) 
         f"reason={reason} "
         f"active_inference={active_status} "
         f"surrogate={surrogate_status} "
-        f"scaling={scaling_status} "
-        "source_metric=refreshed"
+        f"scaling={scaling_status} " +
+        ("source_metric=direct" if getattr(evaluator, "sample_likelihood_mode", None) == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT
+         else "source_metric=refreshed")
     )
 
 
@@ -13772,6 +13789,7 @@ def _stage4_image_plane_enabled(args: argparse.Namespace) -> bool:
 
 def _sample_likelihood_uses_explicit_beta(sample_likelihood_mode: str) -> bool:
     return sample_likelihood_mode in {
+        SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT,
         SAMPLE_LIKELIHOOD_LINEARIZED_FORWARD_BETA_IMAGE_PLANE,
         SAMPLE_LIKELIHOOD_FORWARD_METRIC_IMAGE_PLANE,
         SAMPLE_LIKELIHOOD_ANCHORED_SOLVED_FORWARD_BETA_IMAGE_PLANE,
@@ -13783,7 +13801,8 @@ def _sample_likelihood_uses_explicit_beta(sample_likelihood_mode: str) -> bool:
 
 
 def _sample_likelihood_uses_image_scatter(sample_likelihood_mode: str) -> bool:
-    return _sample_likelihood_uses_explicit_beta(sample_likelihood_mode)
+    return (sample_likelihood_mode != SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT
+            and _sample_likelihood_uses_explicit_beta(sample_likelihood_mode))
 
 
 def _sample_likelihood_uses_critical_arc_terms(sample_likelihood_mode: str) -> bool:
@@ -13812,6 +13831,7 @@ def _critical_arc_uses_sampled_source_positions(source_position_policy: Any) -> 
 
 def _sample_likelihood_uses_image_plane_jacobian(sample_likelihood_mode: str) -> bool:
     return str(sample_likelihood_mode) in {
+        SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT,
         SAMPLE_LIKELIHOOD_LINEARIZED_FORWARD_BETA_IMAGE_PLANE,
         SAMPLE_LIKELIHOOD_FORWARD_METRIC_IMAGE_PLANE,
         SAMPLE_LIKELIHOOD_ANCHORED_SOLVED_FORWARD_BETA_IMAGE_PLANE,
@@ -13842,9 +13862,12 @@ def _effective_image_presence_penalty_weight(
     fit_mode: str,
     image_plane_mode: str,
 ) -> float:
+    if sample_likelihood_mode == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT:
+        return 0.0
     if requested_weight is not None:
         return float(requested_weight)
     if str(sample_likelihood_mode) not in {
+        SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT,
         SAMPLE_LIKELIHOOD_LINEARIZED_FORWARD_BETA_IMAGE_PLANE,
         SAMPLE_LIKELIHOOD_FORWARD_METRIC_IMAGE_PLANE,
         SAMPLE_LIKELIHOOD_ANCHORED_SOLVED_FORWARD_BETA_IMAGE_PLANE,
@@ -18303,6 +18326,7 @@ class ClusterJAXEvaluator:
         refresh_param_drift_frac: float = DEFAULT_REFRESH_PARAM_DRIFT_FRAC,
         source_plane_covariance_floor: float | None = None,
         source_plane_covariance_mode: str = SOURCE_PLANE_COVARIANCE_MODE_MAGNIFICATION,
+        latent_displacement_sigma_beta_arcsec: float | None = None,
         source_plane_outlier_sigma_arcsec: float = DEFAULT_SOURCE_PLANE_OUTLIER_SIGMA_ARCSEC,
         sample_likelihood_mode: str = SAMPLE_LIKELIHOOD_SOURCE,
         critical_arc_source_position_policy: str = CRITICAL_ARC_SOURCE_POSITION_POLICY_SAMPLED,
@@ -18432,6 +18456,13 @@ class ClusterJAXEvaluator:
             )
         self.source_plane_outlier_sigma_arcsec = max(float(source_plane_outlier_sigma_arcsec), 1.0e-6)
         self.sample_likelihood_mode = str(sample_likelihood_mode)
+        self.latent_displacement_sigma_beta_arcsec = latent_displacement_sigma_beta_arcsec
+        if self.sample_likelihood_mode == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT:
+            from .latent_displacement import validate_settings
+            validate_settings(latent_displacement_sigma_beta_arcsec, self.sampling_engine,
+                              _explicit_source_position_parameterization_for_state(state))
+            if critical_arc_source_position_policy != CRITICAL_ARC_SOURCE_POSITION_POLICY_SAMPLED:
+                raise ValueError("isotropic-latent-displacement requires sampled family source positions.")
         if self._full_source_covariance_enabled():
             if float(likelihood_stabilizer_max_gain) != 0.0:
                 raise ValueError("Source-plane inference requires likelihood_stabilizer_max_gain=0.")
@@ -18456,6 +18487,7 @@ class ClusterJAXEvaluator:
         if self.sample_likelihood_mode not in {
             SAMPLE_LIKELIHOOD_SOURCE,
             SAMPLE_LIKELIHOOD_LOCAL_JACOBIAN,
+            SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT,
             SAMPLE_LIKELIHOOD_LINEARIZED_FORWARD_BETA_IMAGE_PLANE,
             SAMPLE_LIKELIHOOD_FORWARD_METRIC_IMAGE_PLANE,
             SAMPLE_LIKELIHOOD_ANCHORED_SOLVED_FORWARD_BETA_IMAGE_PLANE,
@@ -18466,6 +18498,7 @@ class ClusterJAXEvaluator:
         }:
             raise ValueError(f"Unsupported sample_likelihood_mode={self.sample_likelihood_mode!r}.")
         if self.sampling_engine in {SAMPLING_ENGINE_FULL_FLAT} and self.sample_likelihood_mode not in {
+            SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT,
             SAMPLE_LIKELIHOOD_SOURCE,
             SAMPLE_LIKELIHOOD_LOCAL_JACOBIAN,
             SAMPLE_LIKELIHOOD_CRITICAL_ARC_MIXTURE_IMAGE_PLANE,
@@ -19033,6 +19066,19 @@ class ClusterJAXEvaluator:
         self.transform_scale_array = jnp.asarray(transform_scale_array, dtype=jnp.float64)
         self.packed_spec_jax = self._prepare_packed_spec_arrays()
         self.flat_critical_arc_data = self._build_flat_critical_arc_data()
+        if self.sample_likelihood_mode == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT:
+            data = self.flat_critical_arc_data
+            mask = np.asarray(data.image_has_constraint, dtype=bool)
+            for values in (data.x_obs, data.y_obs, data.sigma_per_image):
+                if not np.isfinite(np.asarray(values)[mask]).all():
+                    raise ValueError("Latent-displacement constrained inputs must be finite.")
+            for family in state.family_data:
+                if not np.isfinite(family.z_source) or family.effective_z_source != family.z_source:
+                    raise ValueError("Latent-displacement requires each family's exact finite source redshift.")
+            if np.any(np.asarray(data.sigma_per_image)[mask] <= 0):
+                raise ValueError("Latent-displacement observational errors must be positive.")
+            if np.any(np.asarray(data.global_family_source_x_param_index) < 0) or np.any(np.asarray(data.global_family_source_y_param_index) < 0):
+                raise ValueError("Latent-displacement requires explicit source positions for every family.")
         self.scaling_rank_df = self._build_scaling_rank_diagnostics()
         selected_active_scaling = np.asarray([], dtype=np.int32)
         self.using_frozen_active_scaling = False
@@ -20828,6 +20874,8 @@ class ClusterJAXEvaluator:
         self._source_loglike_fn = jax.jit(self._source_loglike_impl)
 
     def refresh_source_metric_cache(self, reference_params: np.ndarray, reason: str = "manual") -> None:
+        if self.sample_likelihood_mode == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT:
+            return
         if self._source_plane_unit_covariance_enabled():
             del reason
             self._reset_source_metric_cache_to_unit(reference_params)
@@ -21662,6 +21710,84 @@ class ClusterJAXEvaluator:
             jnp.asarray(BAD_LOG_LIKE, dtype=jnp.float64),
             jnp.nan_to_num(flat_loglike, nan=BAD_LOG_LIKE, posinf=BAD_LOG_LIKE, neginf=BAD_LOG_LIKE),
         )
+
+    def _latent_displacement_statistics(self, params):
+        from .latent_displacement import statistics
+        physical = self._physical_parameter_vector(params)
+        data = self.flat_critical_arc_data
+        mask = data.image_has_constraint
+        # Inactive rows must be safe before evaluating the lens, not only in the loss.
+        data = replace(data, x_obs=jnp.where(mask, data.x_obs, 0.123),
+                       y_obs=jnp.where(mask, data.y_obs, 0.456))
+        geometry = {}
+        if self.fit_cosmology_flat_wcdm:
+            scale, factors = self._sampled_cosmology_geometry_for_physical(physical)
+            geometry = dict(kpc_per_arcsec=scale, dpie_sigma0_factors=factors)
+        packed, _ = self._build_flat_packed_lens_state_with_validity_from_physical(
+            physical, data, stop_gradient=False, **geometry)
+        bx, by, a00, a01, a10, a11 = self._flat_ray_shooting_and_lensing_jacobian_for_components(
+            data.x_obs, data.y_obs, packed)
+        sx, sy, _, _ = self._flat_source_position_vectors(
+            params, physical, data, bx, by, jnp.asarray(0.0), (a00, a01, a10, a11))
+        member = self._direct_scaling_scatter_covariance(physical, data)
+        sigma, mass = self._scaling_scatter_field_scales_from_physical(physical)
+        v00, v01, v11 = (sigma**2 * member[f"sigma_cov{k}"] + mass**2 * member[f"mass_cov{k}"]
+                         for k in ("00", "01", "11"))
+        member_cov = jnp.stack((jnp.stack((v00, v01), -1), jnp.stack((v01, v11), -1)), -2)
+        jac = jnp.stack((jnp.stack((a00, a01), -1), jnp.stack((a10, a11), -1)), -2)
+        return statistics(jnp.stack((bx, by), -1), jnp.stack((sx, sy), -1), jac,
+                          data.sigma_per_image, self.latent_displacement_sigma_beta_arcsec,
+                          member_cov, mask)
+
+    def _flat_latent_displacement_loglike_impl(self, params):
+        stats = self._latent_displacement_statistics(params)
+        physical = self._physical_parameter_vector(params)
+        a = stats["jacobian"]
+        magnitude = self._magnitude_loglike_for_flat_data(
+            physical, self.flat_critical_arc_data, (a[:, 0, 0], a[:, 0, 1], a[:, 1, 0], a[:, 1, 1]))
+        return jnp.sum(stats["loglike"]) + magnitude
+
+    def latent_displacement_diagnostics(self, params):
+        """Per-image quantities from the same kernel as the positional likelihood."""
+        stats = jax.device_get(self._latent_displacement_statistics(jnp.asarray(params)))
+        data = self.flat_critical_arc_data
+        rows = {"family_id": np.asarray(data.family_ids)[np.asarray(data.global_family_index_per_image)],
+                "image_index": np.arange(len(data.x_obs)),
+                "x_obs_arcsec": np.asarray(data.x_obs), "y_obs_arcsec": np.asarray(data.y_obs),
+                "sigma_obs_arcsec": np.asarray(data.sigma_per_image),
+                "constrained": stats["constrained"],
+                "sigma_beta_arcsec": np.full(len(data.x_obs), self.latent_displacement_sigma_beta_arcsec)}
+        for key in ("backprojected", "source", "residual"):
+            for i, axis in enumerate(("x", "y")):
+                rows[f"{key}_{axis}_arcsec"] = stats[key][:, i]
+        for key in ("jacobian", "member_covariance", "covariance"):
+            for i in range(2):
+                for j in range(2):
+                    rows[f"{key}_{i}{j}"] = stats[key][:, i, j]
+        for key in ("quadratic", "logdet", "loglike"):
+            rows[key] = stats[key]
+        return pd.DataFrame(rows)
+
+    def _latent_displacement_source_summary(self, params):
+        stats = jax.device_get(self._latent_displacement_statistics(jnp.asarray(params)))
+        data = self.flat_critical_arc_data
+        summaries = {}
+        for f, family_id in enumerate(data.family_ids):
+            mask = np.asarray(data.global_family_index_per_image) == f
+            residual = stats["residual"][mask]
+            source = stats["source"][mask][0]
+            beta = stats["backprojected"][mask]
+            radius = np.linalg.norm(residual, axis=-1)
+            summaries[str(family_id)] = dict(
+                source_x=float(source[0]), source_y=float(source[1]),
+                source_beta_x=beta[:, 0], source_beta_y=beta[:, 1],
+                source_sigma_int_arcsec=self.latent_displacement_sigma_beta_arcsec,
+                source_sigma_eff_arcsec=float(np.sqrt(np.mean(np.trace(stats["covariance"][mask], axis1=-2, axis2=-1))/2)),
+                source_covariance_arcsec2=stats["covariance"][mask], image_sigma_int_arcsec=0.0,
+                source_plane_rms=float(np.sqrt(np.mean(radius**2))), residual_max=float(np.max(radius)),
+                x_pred=np.full(mask.sum(), np.nan), y_pred=np.full(mask.sum(), np.nan),
+                exact_image_rms=np.nan, failed=not np.isfinite(residual).all())
+        return summaries
 
     def _flat_source_loglike_impl(self, params: jnp.ndarray) -> jnp.ndarray:
         flat_data = self.flat_critical_arc_data
@@ -24447,6 +24573,7 @@ class ClusterJAXEvaluator:
             return jnp.asarray(BAD_LOG_LIKE, dtype=jnp.float64)
         if engine == SAMPLING_ENGINE_FULL_FLAT:
             functions = {
+                SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT: self._flat_latent_displacement_loglike_impl,
                 SAMPLE_LIKELIHOOD_SOURCE: self._flat_source_loglike_impl,
                 SAMPLE_LIKELIHOOD_LOCAL_JACOBIAN: self._flat_local_jacobian_source_loglike_impl,
                 SAMPLE_LIKELIHOOD_CRITICAL_ARC_MIXTURE_IMAGE_PLANE: self._flat_critical_arc_source_loglike_impl,
@@ -24532,6 +24659,8 @@ class ClusterJAXEvaluator:
         return summaries
 
     def _family_source_summary(self, params: np.ndarray | jnp.ndarray) -> dict[str, dict[str, Any]]:
+        if self.sample_likelihood_mode == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT:
+            return self._latent_displacement_source_summary(params)
         if self._full_source_covariance_enabled():
             return self._full_covariance_source_summary(params)
         summaries: dict[str, dict[str, Any]] = {}
@@ -25589,7 +25718,8 @@ class ClusterJAXEvaluator:
         _ensure_family_prediction_image_arrays(self.state, family_predictions)
         refresh_reason = "quick_diagnostics" if bool(getattr(self, "quick_diagnostics", False)) else "source_summary"
         for prediction in family_predictions.values():
-            prediction["approx_image_rms_arcsec"] = prediction.get("source_plane_rms")
+            prediction["approx_image_rms_arcsec"] = (np.nan if self.sample_likelihood_mode == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT
+                                                     else prediction.get("source_plane_rms"))
             prediction["used_exact_refresh"] = False
             prediction["refresh_reason"] = refresh_reason
         return EvaluationResult(
@@ -25674,6 +25804,11 @@ def _save_inference_checkpoint(
                 _stage1_summary_from_results(state.parameter_specs, posterior_for_output.samples, best_fit_physical),
             ),
     )
+    if evaluator.sample_likelihood_mode == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT:
+        tables_dir = run_dir / "tables"
+        tables_dir.mkdir(parents=True, exist_ok=True)
+        evaluator.latent_displacement_diagnostics(best_fit).to_csv(
+            tables_dir / "latent_displacement_diagnostics.csv", index=False)
     return artifacts_dir, best_fit_physical, posterior_for_output
 
 
@@ -25710,7 +25845,8 @@ def _approximate_evaluation(evaluator: ClusterJAXEvaluator, params: np.ndarray) 
     family_predictions = evaluator._family_source_summary(params)
     _ensure_family_prediction_image_arrays(evaluator.state, family_predictions)
     for prediction in family_predictions.values():
-        prediction["approx_image_rms_arcsec"] = prediction.get("source_plane_rms")
+        prediction["approx_image_rms_arcsec"] = (np.nan if evaluator.sample_likelihood_mode == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT
+                                                 else prediction.get("source_plane_rms"))
         prediction["used_exact_refresh"] = False
         prediction["refresh_reason"] = "quick_diagnostics" if bool(getattr(evaluator, "quick_diagnostics", False)) else "validation_skipped"
     return EvaluationResult(
@@ -25826,6 +25962,11 @@ def _require_config_native_artifact(handle: h5py.File, path: Path) -> dict[str, 
     model_config = _read_h5_json(handle, "model_config_json", default=None)
     if model_config is None:
         raise ValueError(f"{path} is missing model_config_json metadata.")
+    if runtime_args.get("sample_likelihood_mode") == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT:
+        from .latent_displacement import validate_settings
+        validate_settings(runtime_args.get("latent_displacement_sigma_beta_arcsec"),
+                          runtime_args.get("sampling_engine"),
+                          runtime_args.get("source_position_parameterization", "prior-whitened"))
     return runtime_args
 
 
@@ -25915,6 +26056,10 @@ def _save_plot_bundle_h5(
                 if array.dtype.kind in {"b", "i", "u", "f", "c"}:
                     ns_group.create_dataset(str(key), data=array)
 
+        if runtime_args.get("sample_likelihood_mode") == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT:
+            runtime_args["latent_displacement_sigma_beta_units"] = "arcsec_per_coordinate"
+            runtime_args["positional_factor"] = "normalized_local_source_residual_gaussian"
+            runtime_args["member_covariance"] = "full_symmetric_direct_independent_images"
         _write_h5_json(handle, "runtime_args_json", runtime_args)
         _write_h5_json(handle, "model_config_json", model_config)
         _write_h5_json(handle, "init_diagnostics_json", diagnostics)
@@ -26492,6 +26637,10 @@ def _source_position_prior_values_from_artifacts(artifacts_dir: Path) -> dict[st
             f"does not match {len(state.parameter_specs)} parameters."
         )
     sample_likelihood_mode = str(saved_args.get("sample_likelihood_mode", SAMPLE_LIKELIHOOD_SOURCE))
+    if sample_likelihood_mode == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT:
+        from .latent_displacement import validate_settings
+        validate_settings(saved_args.get("latent_displacement_sigma_beta_arcsec"),
+                          saved_args.get("sampling_engine"), state.source_position_parameterization)
     image_presence_penalty_weight = _effective_image_presence_penalty_weight(
         saved_args.get("image_presence_penalty_weight"),
         sample_likelihood_mode=sample_likelihood_mode,
@@ -26537,6 +26686,7 @@ def _source_position_prior_values_from_artifacts(artifacts_dir: Path) -> dict[st
         refresh_every=_parse_saved_refresh_every_value(saved_args.get("refresh_every", DEFAULT_REFRESH_EVERY)),
         refresh_param_drift_frac=float(saved_args.get("refresh_param_drift_frac", DEFAULT_REFRESH_PARAM_DRIFT_FRAC)),
         source_plane_covariance_floor=saved_args.get("source_plane_covariance_floor"),
+        latent_displacement_sigma_beta_arcsec=saved_args.get("latent_displacement_sigma_beta_arcsec"),
         source_plane_covariance_mode=str(
             saved_args.get("source_plane_covariance_mode", SOURCE_PLANE_COVARIANCE_MODE_MAGNIFICATION)
         ),
@@ -27599,6 +27749,8 @@ def _build_state_from_inputs(
                     cosmo_config=cosmo_config,
                     z_bin_efficiency_tol=float(getattr(args, "z_bin_efficiency_tol", DEFAULT_Z_BIN_EFFICIENCY_TOL)),
                 )
+    if str(getattr(args, "sample_likelihood_mode", "")) == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT:
+        family_data = [replace(family, effective_z_source=family.z_source) for family in family_data]
     bin_data = _build_bin_data(family_data)
     arc_data = _prepare_arc_constraint_data(arcs_df, reference)
     sample_likelihood_mode = str(getattr(args, "sample_likelihood_mode", SAMPLE_LIKELIHOOD_SOURCE))
@@ -27647,7 +27799,8 @@ def _build_state_from_inputs(
                 parameterization=source_position_parameterization,
             )
         )
-        if getattr(args, "fix_image_sigma_int_arcsec", None) is None:
+        if (_sample_likelihood_uses_image_scatter(sample_likelihood_mode)
+                and getattr(args, "fix_image_sigma_int_arcsec", None) is None):
             parameter_specs.append(
                 _build_image_scatter_parameter_spec(
                     start_index=len(parameter_specs),
@@ -28272,6 +28425,7 @@ def _build_cluster_evaluator_from_args(
         refresh_every=args.refresh_every,
         refresh_param_drift_frac=args.refresh_param_drift_frac,
         source_plane_covariance_floor=args.source_plane_covariance_floor,
+        latent_displacement_sigma_beta_arcsec=getattr(args, "latent_displacement_sigma_beta_arcsec", None),
         source_plane_covariance_mode=str(
             getattr(args, "source_plane_covariance_mode", SOURCE_PLANE_COVARIANCE_MODE_MAGNIFICATION)
         ),
@@ -29990,6 +30144,7 @@ def _rerender_plots(
         refresh_every=_parse_saved_refresh_every_value(plot_saved_args.get("refresh_every", DEFAULT_REFRESH_EVERY)),
         refresh_param_drift_frac=float(plot_saved_args.get("refresh_param_drift_frac", DEFAULT_REFRESH_PARAM_DRIFT_FRAC)),
         source_plane_covariance_floor=plot_saved_args.get("source_plane_covariance_floor"),
+        latent_displacement_sigma_beta_arcsec=plot_saved_args.get("latent_displacement_sigma_beta_arcsec"),
         source_plane_covariance_mode=str(
             plot_saved_args.get("source_plane_covariance_mode", SOURCE_PLANE_COVARIANCE_MODE_MAGNIFICATION)
         ),
@@ -30725,6 +30880,18 @@ def _cosmology_configs_close(actual: dict[str, Any], expected: dict[str, Any]) -
 
 
 def _stage_run_cosmology_compatible(stage_args: argparse.Namespace, run_dir: str | Path) -> tuple[bool, str]:
+    bundle = Path(run_dir) / "artifacts" / "plot_bundle.h5"
+    if bundle.exists():
+        with h5py.File(bundle, "r") as handle:
+            saved = _read_h5_json(handle, "runtime_args_json", default={})
+        mode = getattr(stage_args, "sample_likelihood_mode", "source")
+        saved_mode = saved.get("sample_likelihood_mode", "source")
+        if SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT in (mode, saved_mode):
+            if mode != saved_mode:
+                return False, "stored positional likelihood differs from requested mode"
+            sigma = getattr(stage_args, "latent_displacement_sigma_beta_arcsec", None)
+            if sigma != saved.get("latent_displacement_sigma_beta_arcsec"):
+                return False, "stored latent-displacement sigma_beta differs from requested value"
     expected_fit = bool(getattr(stage_args, "fit_cosmology_flat_wcdm", False))
     expected_config = _cosmology_config_override_from_args(stage_args)
     if not expected_fit and expected_config is None:
@@ -30811,6 +30978,8 @@ def _stage2_forward_enabled(args: argparse.Namespace) -> bool:
 
 def _stage2_sample_likelihood_mode(args: argparse.Namespace) -> str | None:
     requested = str(getattr(args, "stage2_forward_mode", STAGE2_FORWARD_MODE_NONE))
+    if requested == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT:
+        return SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT
     if requested == STAGE2_FORWARD_MODE_NONE:
         return None
     if requested == STAGE2_FORWARD_MODE_LINEARIZED:
@@ -30866,6 +31035,8 @@ def _run_sequential_v2(args: argparse.Namespace, stage_fit_controls: dict[str, S
         fresh_process: bool = False,
         **kwargs: Any,
     ) -> Path:
+        if "sample_likelihood_mode" in kwargs:
+            stage_args = _clone_args(stage_args, sample_likelihood_mode=kwargs["sample_likelihood_mode"])
         run_dir = Path(stage_args.output_dir) / run_name
         if resume:
             if _stage_run_complete(run_dir):

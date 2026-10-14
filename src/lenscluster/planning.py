@@ -334,6 +334,8 @@ def _stage1_source_position_policy(stage1_likelihood: str) -> str:
 
 
 def _stage2_sample_likelihood_mode(stage2_forward_mode: str) -> str:
+    if stage2_forward_mode == "isotropic-latent-displacement":
+        return "isotropic-latent-displacement"
     if stage2_forward_mode == "linearized":
         return "linearized-forward-beta-image-plane"
     if stage2_forward_mode == "critical-arc":
@@ -344,6 +346,8 @@ def _stage2_sample_likelihood_mode(stage2_forward_mode: str) -> str:
 
 
 def _stage2_likelihood_family(stage2_forward_mode: str) -> str:
+    if stage2_forward_mode == "isotropic-latent-displacement":
+        return "isotropic-latent-displacement"
     if stage2_forward_mode == "linearized":
         return "linearized"
     if stage2_forward_mode in {"critical-arc", "critical-arc-anisotropic"}:
@@ -444,6 +448,7 @@ def _runtime_payload(config: LensClusterSolverConfig) -> dict[str, Any]:
             "pos_sigma_arcsec": config.likelihood.pos_sigma_arcsec,
             "source_plane_covariance_floor": config.likelihood.source_plane_covariance_floor,
             "source_plane_covariance_mode": config.likelihood.source_plane_covariance_mode,
+            "latent_displacement_sigma_beta_arcsec": config.likelihood.latent_displacement_sigma_beta_arcsec,
             "critical_arc_anisotropic_covariance": config.likelihood.critical_arc_anisotropic_covariance,
             "image_presence_penalty_weight": config.likelihood.image_presence_penalty_weight,
             "image_presence_match_radius_arcsec": config.likelihood.image_presence_match_radius_arcsec,

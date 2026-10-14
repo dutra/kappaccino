@@ -563,3 +563,9 @@ in `e1,e2`, including exact circularity. Spatial Hessians are analytic.
 Saved `DPIE_NIE` states resolve to this backend when loaded; saved files are not
 rewritten. Both original library profiles remain available for compatibility.
 See [validation and timing](docs/benchmarks/cartesian_profiles_20261010.md).
+
+The experimental stage-2 `isotropic-latent-displacement` mode uses explicit
+family sources, current full Jacobians, and full direct member-scatter covariance.
+It requires `full_flat` and an explicit positive
+`latent_displacement_sigma_beta_arcsec`; `run.xsh` uses 0.03 arcsec.
+See [the mathematical contract and limitations](docs/isotropic_latent_displacement.md).

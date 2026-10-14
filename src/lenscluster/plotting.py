@@ -6885,6 +6885,7 @@ def _clone_fit_quality_evaluator(evaluator: Any, args: argparse.Namespace) -> An
         refresh_param_drift_frac=float(
             getattr(args, "refresh_param_drift_frac", getattr(evaluator, "refresh_param_drift_frac", DEFAULT_REFRESH_PARAM_DRIFT_FRAC))
         ),
+        latent_displacement_sigma_beta_arcsec=getattr(evaluator, "latent_displacement_sigma_beta_arcsec", None),
         source_plane_covariance_mode=str(getattr(
             args, "source_plane_covariance_mode", getattr(evaluator, "source_plane_covariance_mode", "magnification")
         )),
@@ -14322,6 +14323,9 @@ def _generate_plots_and_tables(
             )
         finally:
             _SHOW_PLOTS = previous_show_setting
+    if evaluator.sample_likelihood_mode == "isotropic-latent-displacement":
+        evaluator.latent_displacement_diagnostics(best_fit).to_csv(
+            tables_dir / "latent_displacement_diagnostics.csv", index=False)
     sample_likelihood_mode = _active_sample_likelihood_mode(evaluator, args)
     use_arc_aware_diagnostics = _uses_arc_aware_diagnostics(sample_likelihood_mode)
     max_tree_depth = _first_int_value(getattr(args, "max_tree_depth", 10), 10)

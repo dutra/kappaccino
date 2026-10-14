@@ -15,6 +15,8 @@ LOG_DIR = PROJECT_ROOT / "hpc_scripts/mock_validation/logs"
 DEFAULT_SEEDS = tuple(range(12340, 12380))
 DEFAULT_PRESET = "production"
 DEFAULT_OUTPUT_DIR = "validation_runs/mock_recovery"
+VALID_COVARIANCE_MODES = ("anisotropic", "isotropic", "both")
+VALID_MAGNITUDE_LIKELIHOOD_MODES = ("off", "on", "both")
 
 CPUS_PER_TASK = 4
 MEMORY = "32G"
@@ -57,6 +59,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR, help="Output directory passed to run_mock.xsh.")
     parser.add_argument("--preset", choices=("smoke", "production"), default=DEFAULT_PRESET)
     parser.add_argument(
+        "--covariance",
+        choices=VALID_COVARIANCE_MODES,
+        default="isotropic",
+        help="Covariance mode to submit. Default: isotropic.",
+    )
+    parser.add_argument(
+        "--magnitude-likelihood",
+        choices=VALID_MAGNITUDE_LIKELIHOOD_MODES,
+        default="off",
+        help="Magnitude-likelihood mode to submit. Isotropic flux likelihood is unsupported.",
+    )
+    parser.add_argument(
         "--seeds",
         type=parse_seed_list,
         default=DEFAULT_SEEDS,
@@ -68,7 +82,12 @@ def parse_args() -> argparse.Namespace:
         help="Optional email address for SLURM completion notification. If omitted, SLURM uses the cluster default.",
     )
     parser.add_argument("--dry-run", action="store_true", help="Write the sbatch script but do not submit it.")
-    return parser.parse_args()
+    args = parser.parse_args()
+    try:
+        resolve_run_modes(args.covariance, args.magnitude_likelihood)
+    except ValueError as exc:
+        parser.error(str(exc))
+    return args
 
 
 def make_campaign_name(label: str) -> str:
@@ -83,6 +102,22 @@ def make_sbatch_prefix(campaign: str, preset: str) -> str:
 
 def shell_array(values: tuple[int, ...]) -> str:
     return " ".join(str(value) for value in values)
+
+
+def resolve_run_modes(covariance: str, magnitude_likelihood: str) -> tuple[tuple[str, str], ...]:
+    covariance_modes = ("anisotropic", "isotropic") if covariance == "both" else (covariance,)
+    magnitude_modes = ("off", "on") if magnitude_likelihood == "both" else (magnitude_likelihood,)
+    requested = tuple((cov, mag) for cov in covariance_modes for mag in magnitude_modes)
+    invalid = tuple((cov, mag) for cov, mag in requested if cov == "isotropic" and mag == "on")
+    if invalid and not (covariance == "both" and magnitude_likelihood == "both"):
+        raise ValueError("isotropic magnitude-likelihood runs are unsupported")
+    return tuple((cov, mag) for cov, mag in requested if not (cov == "isotropic" and mag == "on"))
+
+
+def run_mode_label(covariance: str, magnitude_likelihood: str) -> str:
+    covariance_label = "anisotropic" if covariance == "anisotropic" else "isotropic"
+    likelihood_label = "flux" if magnitude_likelihood == "on" else "position-only"
+    return f"{covariance_label} {likelihood_label} fit"
 
 
 def build_run_command(covariance: str, magnitude_likelihood: str, args: argparse.Namespace) -> str:
@@ -105,6 +140,16 @@ def build_run_command(covariance: str, magnitude_likelihood: str, args: argparse
         args.output_dir,
     ]
     return " ".join(part if part in {'"$PYTHON"', "${SEED}"} else shlex.quote(part) for part in command)
+
+
+def build_run_commands(args: argparse.Namespace) -> str:
+    blocks = []
+    if args.covariance == "both" and args.magnitude_likelihood == "both":
+        blocks.append('echo "Skipping isotropic flux fit; unsupported"')
+    for covariance, magnitude_likelihood in resolve_run_modes(args.covariance, args.magnitude_likelihood):
+        blocks.append(f'echo "Running {run_mode_label(covariance, magnitude_likelihood)}"')
+        blocks.append(build_run_command(covariance, magnitude_likelihood, args))
+    return "\n".join(blocks)
 
 
 def build_sbatch_script(prefix: str, args: argparse.Namespace) -> str:
@@ -143,11 +188,7 @@ TASK_ID="${{SLURM_ARRAY_TASK_ID:-0}}"
 SEED="${{SEEDS[$TASK_ID]}}"
 echo "Task $TASK_ID seed=$SEED preset={args.preset} campaign={args.campaign} output_dir={args.output_dir}"
 
-echo "Running anisotropic position-only fit"
-{build_run_command("anisotropic", "off", args)}
-
-echo "Running anisotropic magnitude-likelihood fit"
-{build_run_command("anisotropic", "on", args)}
+{build_run_commands(args)}
 
 end_epoch=$(date +%s)
 rt=$(( end_epoch - start_epoch ))

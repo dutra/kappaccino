@@ -931,7 +931,7 @@ def test_run_mock_xsh_has_production_generation_controls() -> None:
     assert "use_magnitude_likelihood={config.solver.template.likelihood.use_magnitude_likelihood}" in text
 
 
-def test_submit_mock_array_runs_anisotropic_position_and_magnitude_likelihood() -> None:
+def test_submit_mock_array_defaults_to_isotropic_position_only() -> None:
     import argparse
     import hpc_scripts.submit_mock_array as submit_mock_array
 
@@ -941,19 +941,98 @@ def test_submit_mock_array_runs_anisotropic_position_and_magnitude_likelihood() 
         preset="production",
         seeds=(12345,),
         email="dutra@example.edu",
+        covariance="isotropic",
+        magnitude_likelihood="off",
     )
 
     script = submit_mock_array.build_sbatch_script("dryrun_magcompare", args)
 
     assert "#SBATCH --mail-type=END" in script
     assert "#SBATCH --mail-user=dutra@example.edu" in script
+    assert script.count("run_mock.xsh") == 1
+    assert script.count("--covariance isotropic") == 1
+    assert "--covariance anisotropic" not in script
+    assert "--magnitude-likelihood off" in script
+    assert "--magnitude-likelihood on" not in script
+    assert "Running isotropic position-only fit" in script
+
+
+def test_submit_mock_array_anisotropic_both_runs_position_and_flux() -> None:
+    import argparse
+    import hpc_scripts.submit_mock_array as submit_mock_array
+
+    args = argparse.Namespace(
+        campaign="dryrun_magcompare",
+        output_dir="validation_runs/mock_recovery",
+        preset="production",
+        seeds=(12345,),
+        email=None,
+        covariance="anisotropic",
+        magnitude_likelihood="both",
+    )
+
+    script = submit_mock_array.build_sbatch_script("dryrun_magcompare", args)
+
     assert script.count("run_mock.xsh") == 2
     assert script.count("--covariance anisotropic") == 2
     assert "--covariance isotropic" not in script
     assert "--magnitude-likelihood off" in script
     assert "--magnitude-likelihood on" in script
     assert "Running anisotropic position-only fit" in script
-    assert "Running anisotropic magnitude-likelihood fit" in script
+    assert "Running anisotropic flux fit" in script
+
+
+def test_submit_mock_array_both_modes_omits_isotropic_flux() -> None:
+    import argparse
+    import hpc_scripts.submit_mock_array as submit_mock_array
+
+    args = argparse.Namespace(
+        campaign="dryrun_magcompare",
+        output_dir="validation_runs/mock_recovery",
+        preset="production",
+        seeds=(12345,),
+        email=None,
+        covariance="both",
+        magnitude_likelihood="both",
+    )
+
+    script = submit_mock_array.build_sbatch_script("dryrun_magcompare", args)
+
+    assert script.count("run_mock.xsh") == 3
+    assert script.count("--covariance anisotropic") == 2
+    assert script.count("--covariance isotropic") == 1
+    assert "--covariance isotropic --magnitude-likelihood on" not in script
+    assert "Running anisotropic position-only fit" in script
+    assert "Running anisotropic flux fit" in script
+    assert "Running isotropic position-only fit" in script
+    assert "Skipping isotropic flux fit; unsupported" in script
+
+
+def test_submit_mock_array_parse_defaults_and_rejects_isotropic_flux(monkeypatch: pytest.MonkeyPatch) -> None:
+    import sys
+    import hpc_scripts.submit_mock_array as submit_mock_array
+
+    monkeypatch.setattr(sys, "argv", ["submit_mock_array.py", "--campaign", "default_check"])
+    args = submit_mock_array.parse_args()
+    assert args.covariance == "isotropic"
+    assert args.magnitude_likelihood == "off"
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "submit_mock_array.py",
+            "--campaign",
+            "bad_flux",
+            "--covariance",
+            "isotropic",
+            "--magnitude-likelihood",
+            "on",
+        ],
+    )
+    with pytest.raises(SystemExit) as exc_info:
+        submit_mock_array.parse_args()
+    assert exc_info.value.code == 2
 
 
 def test_submit_mock_array_campaign_name_prepends_date(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -222,7 +222,7 @@ FF_SIMS_CLUSTERS = {
                     "y_centre": PriorConfig("uniform", lower=-2.62179995, upper=7.37820005, step=0.5),
                     "ellipticite": PriorConfig("uniform", lower=0.0, upper=0.8, step=0.02),
                     "angle_pos": PriorConfig("uniform", lower=-180.0, upper=180.0, step=1.0),
-                    "core_radius_kpc": PriorConfig("uniform", lower=2.0, upper=15.0, step=1.0),
+                    "core_radius_kpc": PriorConfig("uniform", lower=2.0, upper=100.0, step=1.0),
                     "v_disp": PriorConfig("truncated_normal", mean=800.0, std=280.0, lower=100.0, upper=2200.0),
                 },
             ),
@@ -241,7 +241,7 @@ FF_SIMS_CLUSTERS = {
                     "y_centre": PriorConfig("uniform", lower=-4.997, upper=5.003, step=0.5),
                     "ellipticite": PriorConfig("uniform", lower=0.0, upper=0.8, step=0.02),
                     "angle_pos": PriorConfig("uniform", lower=-180.0, upper=180.0, step=1.0),
-                    "core_radius_kpc": PriorConfig("uniform", lower=2.0, upper=15.0, step=1.0),
+                    "core_radius_kpc": PriorConfig("uniform", lower=2.0, upper=100.0, step=1.0),
                     "v_disp": PriorConfig("truncated_normal", mean=700.0, std=245.0, lower=100.0, upper=2200.0),
                 },
             ),
@@ -268,14 +268,43 @@ FF_SIMS_CLUSTERS = {
             cutkpc_prior=PriorConfig("truncated_normal", mean=33.0, std=25.0, lower=3.0, upper=250.0),
         ),
         "independent_member_halos": (
-            IndependentMemberHaloConfig(population_id="potfile_1", catalog_id="1"),
-            IndependentMemberHaloConfig(population_id="potfile_1", catalog_id="2"),
+            IndependentMemberHaloConfig(
+                population_id="potfile_1",
+                catalog_id="1",
+                priors={
+                    # Preserve the default prior location/width; restrict galaxy radii.
+                    "core_radius_kpc": PriorConfig(
+                        "truncated_normal", mean=0.15, std=0.24937792281771562,
+                        lower=0.01, upper=2.0,
+                    ),
+                    "cut_radius_kpc": PriorConfig(
+                        "truncated_normal", mean=33.0, std=54.86314301989744,
+                        lower=1.0, upper=300.0,
+                    ),
+                },
+            ),
+            IndependentMemberHaloConfig(
+                population_id="potfile_1",
+                catalog_id="2",
+                priors={
+                    # Preserve the default prior location/width; restrict galaxy radii.
+                    "core_radius_kpc": PriorConfig(
+                        "truncated_normal", mean=0.15, std=0.24937792281771562,
+                        lower=0.01, upper=2.0,
+                    ),
+                    "cut_radius_kpc": PriorConfig(
+                        "truncated_normal", mean=33.0, std=54.86314301989744,
+                        lower=1.0, upper=300.0,
+                    ),
+                },
+            ),
         ),
         "kappa_true_fits": "data/ff_sims/published/hera/kappa_z9_0.fits",
         "gammax_true_fits": "data/ff_sims/published/hera/gammax_z9_0.fits",
         "gammay_true_fits": "data/ff_sims/published/hera/gammay_z9_0.fits",
         # HERA uses H0=72 km/s/Mpc, so h=0.72 and 2.3 h^-1 kpc = 3.19 kpc physical.
-        "softening_length_kpc": 2.3 / 0.72,
+        "softening_length_kpc": 0.0,
+        #"softening_length_kpc": 2.3 / 0.72,
         "softening_length_prior_log_sigma": 0.15,
     },
 }

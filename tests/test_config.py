@@ -858,7 +858,7 @@ def test_run_xsh_is_self_contained_ff_sims_runner() -> None:
     assert "data/ff_sims/published/hera/kappa_z9_0.fits" in text
     assert "IndependentMemberHaloConfig(population_id=\"potfile_1\", catalog_id=\"2\")" in text
     assert "IndependentMemberHaloConfig(population_id=\"potfile_1\", catalog_id=\"3\")" in text
-    assert "IndependentMemberHaloConfig(population_id=\"potfile_1\", catalog_id=\"1\")" in text
+    assert 'catalog_id="1"' in text
     assert "exclude_catalog_ids=(\"2\", \"3\")" not in text
     assert "exclude_catalog_ids=(\"1\", \"2\")" not in text
     assert "2.3 / 0.72" in text

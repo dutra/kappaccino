@@ -30,3 +30,10 @@ notebooks/*
 paper/*
 *.out
 .agents/*
+
+.DS_Store
+.claude-octopus/
+tmp/
+output
+docs/
+AGENTS.md

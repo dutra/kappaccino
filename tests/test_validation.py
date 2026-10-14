@@ -9180,10 +9180,19 @@ def test_active_approximation_rich_table_has_two_columns() -> None:
     ]
 
 
+@pytest.mark.parametrize("init_values, expected", [
+    (None, [0., 0.]),
+    ({"shared_halo": 3., "removed_parameter": 9.}, [0., 3.]),
+])
+@pytest.mark.parametrize("cache_valid", [True, False])
 def test_prepare_direct_evaluator_logs_approximation_table_before_refresh_and_compile(
     monkeypatch: pytest.MonkeyPatch,
+    init_values,
+    expected,
+    cache_valid,
 ) -> None:
     captured_events: list[str] = []
+    captured_parameters = []
 
     class FakeEvaluator:
         def __init__(self) -> None:
@@ -9194,6 +9203,8 @@ def test_prepare_direct_evaluator_logs_approximation_table_before_refresh_and_co
             )
             self.sampling_engine = cluster_solver.SAMPLING_ENGINE_REFRESHING_SURROGATE_FLAT
             self.surrogate_enabled = True
+            self.flat_surrogate_cache = object() if cache_valid else None
+            self.invalid_state_reason_counts = {"rs_not_greater_than_ra": int(not cache_valid)}
             self.active_scaling_component_indices = np.asarray([0], dtype=int)
             self.inactive_scaling_component_indices = np.asarray([1], dtype=int)
             self.scaling_component_indices = np.asarray([0, 1], dtype=int)
@@ -9206,19 +9217,28 @@ def test_prepare_direct_evaluator_logs_approximation_table_before_refresh_and_co
             self.timing_totals = {"initial_jit_compile": 0.0}
 
         def refresh_surrogate(self, _params: np.ndarray, reason: str) -> None:
+            captured_parameters.append(np.asarray(_params).copy())
             captured_events.append(f"refresh_surrogate:{reason}")
 
         def refresh_scaling_scatter_cache(self, _params: np.ndarray, reason: str) -> None:
+            captured_parameters.append(np.asarray(_params).copy())
             captured_events.append(f"refresh_scaling:{reason}")
 
         def refresh_source_metric_cache(self, _params: np.ndarray, reason: str) -> None:
+            captured_parameters.append(np.asarray(_params).copy())
             captured_events.append(f"refresh_source_metric:{reason}")
 
         def source_loglike(self, _params: np.ndarray) -> float:
+            captured_parameters.append(np.asarray(_params).copy())
             captured_events.append("source_loglike")
             return -1.0
 
-    state = SimpleNamespace(parameter_specs=[])
+    specs = [
+        ParameterSpec(name=name, sample_name=name, field=name, component_family="large",
+                      potential_id=1, profile_type=81, step=.1, lower=-10., upper=10., prior_kind="uniform")
+        for name in ("new_member", "shared_halo")
+    ]
+    state = SimpleNamespace(parameter_specs=specs, svi_init_values=init_values)
     args = argparse.Namespace()
 
     monkeypatch.setattr(cluster_solver, "_build_cluster_evaluator_from_args", lambda _args, _state: FakeEvaluator())
@@ -9235,7 +9255,17 @@ def test_prepare_direct_evaluator_logs_approximation_table_before_refresh_and_co
     monkeypatch.setattr(cluster_solver, "_log_evaluator_memory_shape_diagnostics", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(cluster_solver, "_maybe_clear_jax_caches", lambda *_args, **_kwargs: None)
 
-    cluster_solver._prepare_direct_evaluator(args, state)  # type: ignore[arg-type]
+    if not cache_valid:
+        with pytest.raises(ValueError, match="invalid-state reasons=.*rs_not_greater_than_ra"):
+            cluster_solver._prepare_direct_evaluator(args, state)
+        assert "source_loglike" not in captured_events
+        assert not any("tracing first" in event for event in captured_events)
+        return
+    _, reference = cluster_solver._prepare_direct_evaluator(args, state)
+    np.testing.assert_allclose(reference, expected)
+    assert len(captured_parameters) == 4
+    for parameters in captured_parameters:
+        np.testing.assert_allclose(parameters, expected)
 
     approximation_index = captured_events.index("[approximations]")
     assert approximation_index < captured_events.index("evaluator_summary")

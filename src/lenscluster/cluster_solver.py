@@ -28089,7 +28089,13 @@ def _prepare_direct_evaluator(
     _log_active_approximation_table(args, evaluator)
     _log_evaluator_summary(args, evaluator)
     _log_evaluator_memory_shape_diagnostics(args, evaluator, reason="evaluator_built")
-    midpoint = _default_theta(state.parameter_specs)
+    # The handoff is keyed by latent sample name; newly added parameters retain
+    # their defaults. Use the same expanded vector for every cache and tracing.
+    reference = _reference_theta_from_init_values(
+        state.parameter_specs,
+        getattr(state, "svi_init_values", None),
+        _default_theta(state.parameter_specs),
+    )
     if getattr(evaluator, "active_inference_enabled", False):
         _log(
             args,
@@ -28098,7 +28104,7 @@ def _prepare_direct_evaluator(
                 f"scaling_components={len(getattr(evaluator, 'scaling_component_indices', []))}"
             ),
         )
-        evaluator.refresh_active_inference_cache(midpoint, reason="svi_nuts_initial")
+        evaluator.refresh_active_inference_cache(reference, reason="svi_nuts_initial")
     if evaluator.surrogate_enabled:
         _log(
             args,
@@ -28109,25 +28115,33 @@ def _prepare_direct_evaluator(
                 f"free_correction={len(getattr(evaluator, 'free_correction_scaling_component_indices', []))}"
             ),
         )
-        evaluator.refresh_surrogate(midpoint, reason="svi_nuts_initial")
+        evaluator.refresh_surrogate(reference, reason="svi_nuts_initial")
+        if (evaluator.sampling_engine == SAMPLING_ENGINE_REFRESHING_SURROGATE_FLAT
+                and evaluator.flat_surrogate_cache is None):
+            reasons = {name: count for name, count in evaluator.invalid_state_reason_counts.items() if count}
+            raise ValueError(
+                "Cannot initialize the surrogate at the supplied starting values: "
+                f"cache construction failed; invalid-state reasons={reasons}. "
+                "Provide a valid complete model before compiling the likelihood."
+            )
     if perturbation_stage0:
         _log(
             args,
             "[perturbation-discovery] stage0 full_flat cache refresh disabled reason=svi_nuts_initial",
         )
     else:
-        evaluator.refresh_scaling_scatter_cache(midpoint, reason="svi_nuts_initial")
-        evaluator.refresh_source_metric_cache(midpoint, reason="svi_nuts_initial")
+        evaluator.refresh_scaling_scatter_cache(reference, reason="svi_nuts_initial")
+        evaluator.refresh_source_metric_cache(reference, reason="svi_nuts_initial")
         _log_solver_active_approximation_warning(args, evaluator)
         _log_evaluator_memory_shape_diagnostics(args, evaluator, reason="initial_refresh")
         _maybe_clear_jax_caches(args, "initial_refresh")
     _log(args, "[compile] tracing first JAX likelihood evaluation")
     compile_start = time.time()
-    compile_loglike = evaluator.source_loglike(midpoint)
+    compile_loglike = evaluator.source_loglike(reference)
     compile_elapsed = time.time() - compile_start
     evaluator.timing_totals["initial_jit_compile"] += compile_elapsed
     _log(args, f"[compile] initial trace complete in {_fmt_seconds(compile_elapsed)} loglike={compile_loglike:.3f}")
-    return evaluator, midpoint
+    return evaluator, reference
 
 
 def _output_evaluator_for_validation(

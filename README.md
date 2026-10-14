@@ -422,10 +422,10 @@ Nearby source redshifts are grouped by fractional lensing-efficiency
 and coarser at high source redshift.
 
 When `--svi-steps` is larger than `--refresh-every`, SVI is run in blocks.
-Between blocks the inactive-subhalo surrogate, scaling-scatter cache, and
-magnification weights are refreshed at the current guide median, then the final
-fixed cache is used for NUTS. This incorporates updated Jacobian information
-without changing the target density inside a NUTS trajectory.
+Each block's median is checked for physical validity before it becomes the
+next starting point; an invalid median retains the last valid center.
+Applicable surrogate caches are refreshed at that accepted center and held fixed
+during NUTS.
 
 For `--fit-mode evidence-ns`, the solver skips the sequential stages and builds
 one joint evidence target with analytically marginalized source positions under

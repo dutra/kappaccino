@@ -11556,6 +11556,21 @@ def _warn_if_stage0_scaling_state_collapsed(
     }
 
 
+def _validated_svi_block_center(
+    evaluator: Any, candidate: np.ndarray, last_valid: np.ndarray | None,
+) -> tuple[np.ndarray, bool, dict[str, int]]:
+    """Accept a physical model, or retain a validated center outside the JIT."""
+    audit = _audit_invalid_state_draws(evaluator, np.asarray(candidate)[None, :])
+    reasons = {name: count for name, count in audit["invalid_state_audit_reason_counts"].items() if count}
+    if not audit["invalid_state_audit_invalid_draw_count"]:
+        return np.asarray(candidate, dtype=float).copy(), True, reasons
+    if last_valid is None or _audit_invalid_state_draws(
+        evaluator, np.asarray(last_valid)[None, :]
+    )["invalid_state_audit_invalid_draw_count"]:
+        raise ValueError("SVI produced an invalid block median and has no valid center to restart from.")
+    return np.asarray(last_valid, dtype=float).copy(), False, reasons
+
+
 def _run_svi_fit(
     args: argparse.Namespace,
     state: BuildState,
@@ -11703,6 +11718,12 @@ def _run_svi_fit(
     svi_result = None
     params = None
     center_theta_previous: np.ndarray | None = None
+    initial_center = _reference_theta_from_init_values(
+        state.parameter_specs, init_values, _default_theta(state.parameter_specs)
+    )
+    initial_audit = _audit_invalid_state_draws(evaluator, initial_center[None, :])
+    last_valid_center = initial_center if not initial_audit["invalid_state_audit_invalid_draw_count"] else None
+    rejected_center_blocks: list[int] = []
     block_index = 0
     while remaining_steps > 0:
         block_index += 1
@@ -11728,8 +11749,15 @@ def _run_svi_fit(
             state.parameter_specs,
             boundary_frac=float(getattr(args, "nuts_init_boundary_frac", DEFAULT_NUTS_INIT_BOUNDARY_FRAC)),
         )
-        if not np.all(np.isfinite(center_theta)):
-            raise ValueError(f"SVI block {block_index} produced non-finite guide median values.")
+        center_theta, center_accepted, invalid_reasons = _validated_svi_block_center(
+            evaluator, center_theta, last_valid_center
+        )
+        if not center_accepted:
+            rejected_center_blocks.append(block_index)
+            _log(args, f"[svi] block={block_index} rejected invalid guide median "
+                 f"reasons={json.dumps(invalid_reasons, sort_keys=True)}; retaining last valid center "
+                 "for refresh and subsequent initialization")
+        last_valid_center = center_theta.copy()
         if center_theta_previous is not None:
             block_center_shift.append(float(np.linalg.norm(center_theta - center_theta_previous)))
         center_theta_previous = np.asarray(center_theta, dtype=float)
@@ -11858,6 +11886,7 @@ def _run_svi_fit(
         "svi_jax_cache_clear_count": int(jax_cache_clear_count),
         "svi_active_inference_final_refresh_skipped": bool(active_inference_final_refresh_skipped),
         "svi_block_center_shift": [float(value) for value in block_center_shift],
+        "svi_rejected_center_blocks": rejected_center_blocks,
         "perturbation_discovery_svi_exact": bool(perturbation_stage0_svi),
         "perturbation_discovery_svi_independent_candidates": int(len(_selected_component_set_from_state(state))),
         "perturbation_discovery_svi_rebuild_count": 0,

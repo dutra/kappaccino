@@ -1102,3 +1102,16 @@ def test_run_xsh_is_ff_sims_only_but_keeps_hff_rgb_constants() -> None:
     assert "HERA" in text
     for removed_cluster in ("A2744", "M0416", "M1206", "AS1063", "A307"):
         assert removed_cluster not in text
+
+
+def test_detection_multiplier_reaches_runtime_args() -> None:
+    config = _minimal_sequential_config().with_updates(
+        perturbation=PerturbationDiscoveryConfig(perturbation_discovery_detection_multiplier=1.0),
+    )
+    config.validate()
+    assert compile_run_plan(config).runtime_args.perturbation_discovery_detection_multiplier == 1.0
+    for value in (0.0, -1.0, float("nan"), float("inf")):
+        with pytest.raises(ValueError, match="detection_multiplier"):
+            config.with_updates(
+                perturbation=PerturbationDiscoveryConfig(perturbation_discovery_detection_multiplier=value),
+            ).validate()

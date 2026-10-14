@@ -176,6 +176,7 @@ class MemberSelectionConfig:
 
 @dataclass(frozen=True)
 class PerturbationDiscoveryConfig:
+    perturbation_discovery_detection_multiplier: float = 2.0
     perturbation_discovery_jacobian_weight: float = 1.0
     perturbation_discovery_top_k: int | None = None
 
@@ -405,6 +406,9 @@ def validate_config(config: LensClusterSolverConfig) -> None:
         raise ValueError("initial_step_size must be positive.")
     if schedule.svi_learning_rate <= 0.0:
         raise ValueError("svi_learning_rate must be positive.")
+    detection_multiplier = config.perturbation.perturbation_discovery_detection_multiplier
+    if not math.isfinite(detection_multiplier) or detection_multiplier <= 0.0:
+        raise ValueError("perturbation_discovery_detection_multiplier must be finite and positive.")
     if config.perturbation.perturbation_discovery_top_k is not None:
         top_k = config.perturbation.perturbation_discovery_top_k
         if isinstance(top_k, bool) or not isinstance(top_k, Integral) or int(top_k) < 0:

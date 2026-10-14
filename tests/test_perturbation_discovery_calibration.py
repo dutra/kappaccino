@@ -158,3 +158,24 @@ def test_stage1_audit_silent_on_match(tmp_path: Path, monkeypatch: pytest.Monkey
 def test_stage1_audit_never_raises(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(cs, "_load_artifacts", lambda _dir: (_ for _ in ()).throw(RuntimeError("boom")))
     cs._audit_frozen_independent_selection(argparse.Namespace(quiet=True), tmp_path, [set()])
+
+
+@pytest.mark.parametrize("multiplier, expected", [(2.0, [set()]), (1.0, [{0}])])
+def test_detection_multiplier_controls_member_promotion(multiplier, expected) -> None:
+    evaluator = _DrawSequenceEvaluator([0.075])
+    evaluator.perturbation_discovery_detection_multiplier = multiplier
+    evaluator.state = _union_state()
+    alpha_tol, jacobian_tol = cs._perturbation_discovery_tolerances_from_evaluator(evaluator)
+    assert alpha_tol == pytest.approx(0.05 * multiplier)
+    assert jacobian_tol == pytest.approx(alpha_tol)
+    selected, diagnostics, _ = cs._perturbation_discovery_union_from_evaluator(
+        evaluator.state, evaluator, np.zeros(2)
+    )
+    assert selected == expected
+    assert diagnostics["alpha_tol_arcsec"] == pytest.approx(alpha_tol)
+
+
+@pytest.mark.parametrize("multiplier", [0.0, -1.0, np.nan, np.inf])
+def test_detection_multiplier_rejects_invalid_values(multiplier) -> None:
+    with pytest.raises(ValueError, match="detection_multiplier"):
+        cs._perturbation_discovery_calibrated_tolerances(0.3, 0.45, multiplier)

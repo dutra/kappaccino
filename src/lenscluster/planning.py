@@ -425,6 +425,7 @@ def _runtime_payload(config: LensClusterSolverConfig) -> dict[str, Any]:
     }
     payload.update(
         {
+            "perturbation_discovery_detection_multiplier": config.perturbation.perturbation_discovery_detection_multiplier,
             "perturbation_discovery_jacobian_weight": config.perturbation.perturbation_discovery_jacobian_weight,
             "perturbation_discovery_top_k": config.perturbation.perturbation_discovery_top_k,
             "independent_scaling_free_log_sigma_offset_width": (

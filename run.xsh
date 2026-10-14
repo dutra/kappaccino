@@ -225,8 +225,7 @@ def build_config(cluster: str, *, cores: int) -> LensClusterSolverConfig:
 
     use_magnitude_likelihood = False
 
-    perturbation_alpha_tol = 0.1
-    perturbation_jacobian_tol = 0.1
+    perturbation_detection_multiplier = 1.0
     perturbation_top_k = 10
     warmup = 10000, 10000
     samples = 1000, 1000
@@ -242,8 +241,8 @@ def build_config(cluster: str, *, cores: int) -> LensClusterSolverConfig:
 
 
     output_dir = (
-        f"{cluster_config['output_dir']}_PD{perturbation_alpha_tol:g}_TOPK_{perturbation_top_k}_"
-        f"{perturbation_jacobian_tol:g}_T{max_tree_depth}W{warmup}S{samples}"
+        f"{cluster_config['output_dir']}_PDdet{perturbation_detection_multiplier:g}_TOPK_{perturbation_top_k}_"
+        f"T{max_tree_depth}W{warmup}S{samples}"
         f"maglikelihood{use_magnitude_likelihood}"
     )
     run_name = f"{cluster_config['cluster_key']}_S1{stage1_likelihood}_S2{stage2_forward_mode}" 
@@ -356,6 +355,10 @@ cczz
             posterior_truth_recovery_draws=128,
             truth_grid_size=256,
             caustic_source_redshift=9.0,
+        ),
+        perturbation=PerturbationDiscoveryConfig(
+            perturbation_discovery_detection_multiplier=perturbation_detection_multiplier,
+            perturbation_discovery_top_k=perturbation_top_k,
         ),
         image_catalog=ImageCatalogCutoutConfig(
             image_dir="data/ff_sims",

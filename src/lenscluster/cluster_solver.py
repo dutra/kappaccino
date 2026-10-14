@@ -429,6 +429,7 @@ def _scatter_covariance_terms_from_member_derivatives(
 def _perturbation_discovery_calibrated_tolerances(
     pos_sigma_arcsec: float,
     log_sigma_offset_width: float,
+    detection_multiplier: float = PERTURBATION_DISCOVERY_DETECTION_SIGMA,
 ) -> tuple[float, float]:
     """Detection-referenced score tolerances (alpha_tol_arcsec, jacobian_tol)."""
     pos_sigma = float(pos_sigma_arcsec)
@@ -437,8 +438,11 @@ def _perturbation_discovery_calibrated_tolerances(
         raise ValueError("perturbation discovery calibration requires a positive positional sigma.")
     if not np.isfinite(width) or width <= 0.0:
         raise ValueError("perturbation discovery calibration requires a positive log-sigma offset width.")
+    detection_multiplier = float(detection_multiplier)
+    if not np.isfinite(detection_multiplier) or detection_multiplier <= 0.0:
+        raise ValueError("perturbation_discovery_detection_multiplier must be finite and positive.")
     alpha_tol = (
-        float(PERTURBATION_DISCOVERY_DETECTION_SIGMA)
+        detection_multiplier
         * pos_sigma
         / (float(PERTURBATION_DISCOVERY_ALPHA_LOG_SLOPE) * width)
     )
@@ -456,6 +460,9 @@ def _perturbation_discovery_tolerances_from_evaluator(evaluator: Any) -> tuple[f
                 "independent_scaling_free_log_sigma_offset_width",
                 DEFAULT_INDEPENDENT_SCALING_FREE_LOG_SIGMA_OFFSET_WIDTH,
             )
+        ),
+        detection_multiplier=getattr(
+            evaluator, "perturbation_discovery_detection_multiplier", PERTURBATION_DISCOVERY_DETECTION_SIGMA
         ),
     )
 DEFAULT_LINEARIZED_BETA_PRIOR_SIGMA_ARCSEC = 2.0
@@ -9824,6 +9831,9 @@ def _perturbation_discovery_union_from_evaluator(
                 DEFAULT_INDEPENDENT_SCALING_FREE_LOG_SIGMA_OFFSET_WIDTH,
             )
         ),
+        detection_multiplier=getattr(
+            evaluator, "perturbation_discovery_detection_multiplier", PERTURBATION_DISCOVERY_DETECTION_SIGMA
+        ),
     )
     top_k = _perturbation_discovery_top_k_from_evaluator(evaluator)
     selection_mode = "top_k" if top_k is not None else "threshold"
@@ -18320,6 +18330,7 @@ class ClusterJAXEvaluator:
         active_scaling_selection: str = "adaptive",
         active_scaling_cumulative_fraction: float = DEFAULT_ACTIVE_SCALING_CUMULATIVE_FRACTION,
         active_scaling_min: int = DEFAULT_ACTIVE_SCALING_MIN,
+        perturbation_discovery_detection_multiplier: float = PERTURBATION_DISCOVERY_DETECTION_SIGMA,
         perturbation_discovery_jacobian_weight: float = DEFAULT_PERTURBATION_DISCOVERY_JACOBIAN_WEIGHT,
         perturbation_discovery_top_k: int | None = DEFAULT_PERTURBATION_DISCOVERY_TOP_K,
         refresh_every: int | None = DEFAULT_REFRESH_EVERY,
@@ -18431,6 +18442,9 @@ class ClusterJAXEvaluator:
         self.active_scaling_selection = str(active_scaling_selection)
         self.active_scaling_cumulative_fraction = float(active_scaling_cumulative_fraction)
         self.active_scaling_min = max(1, int(active_scaling_min))
+        self.perturbation_discovery_detection_multiplier = float(perturbation_discovery_detection_multiplier)
+        if not np.isfinite(self.perturbation_discovery_detection_multiplier) or self.perturbation_discovery_detection_multiplier <= 0.0:
+            raise ValueError("perturbation_discovery_detection_multiplier must be finite and positive.")
         self.perturbation_discovery_jacobian_weight = float(perturbation_discovery_jacobian_weight)
         if not np.isfinite(self.perturbation_discovery_jacobian_weight) or self.perturbation_discovery_jacobian_weight < 0.0:
             raise ValueError("perturbation_discovery_jacobian_weight must be finite and non-negative.")
@@ -28418,6 +28432,9 @@ def _build_cluster_evaluator_from_args(
         active_scaling_selection="fixed",
         active_scaling_cumulative_fraction=1.0,
         active_scaling_min=0,
+        perturbation_discovery_detection_multiplier=float(
+            getattr(args, "perturbation_discovery_detection_multiplier", PERTURBATION_DISCOVERY_DETECTION_SIGMA)
+        ),
         perturbation_discovery_jacobian_weight=float(
             getattr(args, "perturbation_discovery_jacobian_weight", DEFAULT_PERTURBATION_DISCOVERY_JACOBIAN_WEIGHT)
         ),

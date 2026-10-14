@@ -20338,6 +20338,7 @@ def test_aggregate_magnification_recovery_plot_uses_variant_legend_and_paper_lab
         assert scatter_kwargs["edgecolors"] == "tab:orange"
         assert scatter_kwargs["s"] == pytest.approx(21.0)
         assert scatter_kwargs["linewidths"] == pytest.approx(0.75)
+        assert scatter_kwargs["alpha"] == pytest.approx(aggregate_plots.AGGREGATE_PARAMETER_POINT_ALPHA)
         assert scatter_kwargs["zorder"] == 2
         stage2_scatter = next(call for call in scatter_calls if np.asarray(call["x"]).shape == (1,) and call["x"][0] == pytest.approx(4.0))
         assert stage2_scatter["kwargs"]["marker"] == "o"
@@ -20542,7 +20543,7 @@ def test_aggregate_image_residual_distribution_plot_draws_histogram_only(
         assert len(saved_figures) == 1
         axes = saved_figures[0].axes
         assert len(axes) == 1
-        assert axes[0].get_ylabel() == "N images"
+        assert axes[0].get_ylabel() == "image frequency"
         assert axes[0].get_xlabel() == "image residual (arcsec)"
         assert axes[0].get_xlim() == pytest.approx((0.0, 0.60))
         legend = axes[0].get_legend()
@@ -21128,9 +21129,20 @@ def test_paper_parameter_plot_uses_bottom_right_legend_only() -> None:
         legend_ax = axes_with_legends[0]
         assert legend_ax is fig.axes[-1]
         assert not legend_ax.axison
+        assert fig.axes[5].get_xlabel() == "Source x (truth; arcsec)"
+        assert fig.axes[5].get_ylabel() == "Source x (fit; arcsec)"
+        assert fig.axes[6].get_xlabel() == "Source y (truth; arcsec)"
+        assert fig.axes[6].get_ylabel() == "Source y (fit; arcsec)"
         legend = legend_ax.get_legend()
         assert [text.get_text() for text in legend.get_texts()] == ["Positions only", "Positions + fluxes"]
         assert legend.get_texts()[0].get_fontsize() == aggregate_plots.PAPER_PARAMETER_LEGEND_FONT_SIZE
+        assert legend.handlelength == pytest.approx(aggregate_plots.PAPER_PARAMETER_LEGEND_HANDLE_LENGTH)
+        assert legend.handletextpad == pytest.approx(aggregate_plots.PAPER_PARAMETER_LEGEND_HANDLE_TEXT_PAD)
+        assert legend.legend_handles[0].get_markersize() == pytest.approx(
+            aggregate_plots.PAPER_PARAMETER_LEGEND_MARKER_SIZE
+        )
+        assert fig.subplotpars.wspace == pytest.approx(aggregate_plots.PAPER_PARAMETER_PANEL_WSPACE)
+        assert fig.subplotpars.hspace == pytest.approx(aggregate_plots.PAPER_PARAMETER_PANEL_HSPACE)
     finally:
         plt.close(fig)
 
@@ -22018,14 +22030,39 @@ def test_m2d_component_plot_uses_single_representative_seed(tmp_path: Path, monk
 
     seed_df = _m2d_seed_rows_for_test()
     plotted_y: list[list[float]] = []
+    residual_y: list[list[float]] = []
+    text_calls: list[str] = []
+    legend_kwargs: list[dict[str, Any]] = []
+    ylabel_calls: list[str] = []
     original_plot = Axes.plot
+    original_text = Axes.text
+    original_legend = Axes.legend
+    original_set_ylabel = Axes.set_ylabel
 
     def record_plot(self: Axes, *args: Any, **kwargs: Any) -> Any:
         if len(args) >= 2 and len(args[0]) and kwargs.get("linestyle") == ":":
             plotted_y.append([float(value) for value in np.asarray(args[1], dtype=float)])
+        if len(args) >= 2 and len(args[0]) and kwargs.get("linewidth") == 1.4:
+            residual_y.append([float(value) for value in np.asarray(args[1], dtype=float)])
         return original_plot(self, *args, **kwargs)
 
+    def record_text(self: Axes, *args: Any, **kwargs: Any) -> Any:
+        if len(args) >= 3:
+            text_calls.append(str(args[2]))
+        return original_text(self, *args, **kwargs)
+
+    def record_legend(self: Axes, *args: Any, **kwargs: Any) -> Any:
+        legend_kwargs.append(dict(kwargs))
+        return original_legend(self, *args, **kwargs)
+
+    def record_set_ylabel(self: Axes, label: str, *args: Any, **kwargs: Any) -> Any:
+        ylabel_calls.append(str(label))
+        return original_set_ylabel(self, label, *args, **kwargs)
+
     monkeypatch.setattr(Axes, "plot", record_plot)
+    monkeypatch.setattr(Axes, "text", record_text)
+    monkeypatch.setattr(Axes, "legend", record_legend)
+    monkeypatch.setattr(Axes, "set_ylabel", record_set_ylabel)
 
     paths = aggregate_plots.plot_m2d_aperture_components(
         seed_df,
@@ -22040,6 +22077,11 @@ def test_m2d_component_plot_uses_single_representative_seed(tmp_path: Path, monk
     assert [200.0 * 0.7, 400.0 * 0.7] in plotted_y
     assert [100.0 * 0.7, 200.0 * 0.7] not in plotted_y
     assert [300.0 * 0.7, 600.0 * 0.7] not in plotted_y
+    assert any(values == pytest.approx([1.10, 1.10]) for values in residual_y)
+    assert r"$M_{\rm comp}^{\rm model}/M_{\rm comp}^{\rm truth}$" in ylabel_calls
+    assert not any("representative seed" in text for text in text_calls)
+    assert legend_kwargs
+    assert legend_kwargs[-1]["fontsize"] == aggregate_plots.M2D_COMPONENT_LEGEND_FONT_SIZE
 
 
 def test_m2d_total_aggregate_plot_still_uses_summary(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

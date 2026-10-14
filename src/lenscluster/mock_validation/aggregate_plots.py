@@ -86,7 +86,13 @@ VARIANT_MARKERS = {
     "isotropic": "s",
 }
 AGGREGATE_LEGEND_FONT_SIZE = 16
+M2D_COMPONENT_LEGEND_FONT_SIZE = 11
 PAPER_PARAMETER_LEGEND_FONT_SIZE = 24
+PAPER_PARAMETER_LEGEND_MARKER_SIZE = 9
+PAPER_PARAMETER_LEGEND_HANDLE_LENGTH = 0.7
+PAPER_PARAMETER_LEGEND_HANDLE_TEXT_PAD = 0.25
+PAPER_PARAMETER_PANEL_WSPACE = 0.42
+PAPER_PARAMETER_PANEL_HSPACE = 0.24
 JOINT_SIGMA_RCUT_SPECS = {
     "potfile": {
         "sigma_parameter": "potfile.sigma",
@@ -1004,12 +1010,41 @@ def _draw_seed_parameter_axis(ax: plt.Axes, page_df: pd.DataFrame, parameter: st
     ax.set_ylabel(_format_parameter_axis_label(parameter, "fit"))
 
 
-def _draw_source_position_recovery_axis(ax: plt.Axes, parameter_df: pd.DataFrame, *, include_legend: bool = False) -> bool:
+def _source_position_coordinates(parameter_df: pd.DataFrame) -> tuple[str, ...]:
+    df = source_position_recovery_rows(parameter_df)
+    if df.empty:
+        return ()
+    coordinates = np.where(df["parameter"].astype(str).str.endswith(".beta_y"), "beta_y", "beta_x")
+    ordered = tuple(coordinate for coordinate in ("beta_x", "beta_y") if coordinate in set(coordinates))
+    return ordered
+
+
+def _source_position_axis_label(coordinate: str | None, role: str) -> str:
+    if coordinate == "beta_x":
+        return f"Source x ({role}; arcsec)"
+    if coordinate == "beta_y":
+        return f"Source y ({role}; arcsec)"
+    return f"Source Position ({role}; arcsec)"
+
+
+def _draw_source_position_recovery_axis(
+    ax: plt.Axes,
+    parameter_df: pd.DataFrame,
+    *,
+    source_coordinate: str | None = None,
+    include_legend: bool = False,
+) -> bool:
     df = source_position_recovery_rows(parameter_df)
     if df.empty:
         ax.axis("off")
         return False
     plot_df = df.assign(coordinate=np.where(df["parameter"].astype(str).str.endswith(".beta_y"), "beta_y", "beta_x"))
+    if source_coordinate is not None:
+        plot_df = plot_df[plot_df["coordinate"].astype(str) == str(source_coordinate)].copy()
+        df = plot_df.drop(columns=["coordinate"], errors="ignore")
+    if plot_df.empty:
+        ax.axis("off")
+        return False
     for (variant, coordinate), group in plot_df.groupby(["variant", "coordinate"], sort=False):
         variant = str(variant)
         stage = str(group["stage"].iloc[0]) if "stage" in group and not group.empty else "stage2_free_source_forward_fit"
@@ -1056,8 +1091,9 @@ def _draw_source_position_recovery_axis(ax: plt.Axes, parameter_df: pd.DataFrame
         ax.plot(limits, limits, color="0.25", linewidth=1.0, alpha=0.75)
         ax.set_xlim(limits)
         ax.set_ylim(limits)
-    ax.set_xlabel("Source Position (truth; arcsec)")
-    ax.set_ylabel("Source Position (fit; arcsec)")
+    axis_coordinate = str(plot_df["coordinate"].iloc[0]) if source_coordinate is not None else None
+    ax.set_xlabel(_source_position_axis_label(axis_coordinate, "truth"))
+    ax.set_ylabel(_source_position_axis_label(axis_coordinate, "fit"))
     if include_legend:
         handles = [
             Line2D(
@@ -1095,25 +1131,32 @@ def _plot_seed_recovery_single_page(
     ncols: int = 4,
 ) -> plt.Figure:
     source_df = source_position_recovery_rows(page_df) if include_source_position_panel else pd.DataFrame()
-    panel_count = len(parameters) + (0 if source_df.empty else 1)
+    source_coordinates = _source_position_coordinates(source_df)
+    panel_count = len(parameters) + len(source_coordinates)
     nrows = int(math.ceil(panel_count / ncols))
     fig, axes = plt.subplots(nrows, ncols, figsize=(4.0 * ncols, 3.45 * nrows), squeeze=False)
     flat_axes = list(axes.ravel())
     for ax, parameter in zip(flat_axes, parameters):
         _draw_seed_parameter_axis(ax, page_df, parameter)
     next_axis = len(parameters)
-    if not source_df.empty:
-        _draw_source_position_recovery_axis(flat_axes[next_axis], source_df, include_legend=False)
+    for source_coordinate in source_coordinates:
+        _draw_source_position_recovery_axis(
+            flat_axes[next_axis],
+            source_df,
+            source_coordinate=source_coordinate,
+            include_legend=False,
+        )
         next_axis += 1
     blank_axes = flat_axes[next_axis:]
     for ax in blank_axes:
         ax.axis("off")
     _add_paper_variant_legend(fig, variants=_ordered_variants_from_df(page_df), blank_axes=blank_axes)
-    fig.tight_layout()
+    fig.tight_layout(pad=0.35, w_pad=0.35, h_pad=0.35)
+    fig.subplots_adjust(wspace=PAPER_PARAMETER_PANEL_WSPACE, hspace=PAPER_PARAMETER_PANEL_HSPACE)
     return fig
 
 
-def _variant_legend_handles(variants: tuple[str, ...]) -> list[Line2D]:
+def _variant_legend_handles(variants: tuple[str, ...], *, markersize: float | None = None) -> list[Line2D]:
     return [
         Line2D(
             [0],
@@ -1122,6 +1165,7 @@ def _variant_legend_handles(variants: tuple[str, ...]) -> list[Line2D]:
             color=color,
             markerfacecolor=color,
             markeredgecolor=_darken_color(color),
+            markersize=markersize,
             linestyle="none",
             label=variant_label(variant),
         )
@@ -1136,7 +1180,7 @@ def _add_paper_variant_legend(
     variants: tuple[str, ...] = DEFAULT_VARIANTS,
     blank_axes: list[plt.Axes] | None = None,
 ) -> None:
-    variant_handles = _variant_legend_handles(variants)
+    variant_handles = _variant_legend_handles(variants, markersize=PAPER_PARAMETER_LEGEND_MARKER_SIZE)
     if blank_axes:
         ax = blank_axes[-1]
         ax.axis("off")
@@ -1145,6 +1189,8 @@ def _add_paper_variant_legend(
             loc="lower right",
             frameon=False,
             fontsize=PAPER_PARAMETER_LEGEND_FONT_SIZE,
+            handlelength=PAPER_PARAMETER_LEGEND_HANDLE_LENGTH,
+            handletextpad=PAPER_PARAMETER_LEGEND_HANDLE_TEXT_PAD,
         )
         return
     fig.legend(
@@ -1154,6 +1200,8 @@ def _add_paper_variant_legend(
         ncol=1,
         frameon=False,
         fontsize=PAPER_PARAMETER_LEGEND_FONT_SIZE,
+        handlelength=PAPER_PARAMETER_LEGEND_HANDLE_LENGTH,
+        handletextpad=PAPER_PARAMETER_LEGEND_HANDLE_TEXT_PAD,
     )
 
 
@@ -1953,7 +2001,7 @@ def plot_aggregate_magnification_recovery(
                 facecolors="white" if stage.startswith("stage1") else variant_color,
                 edgecolors=variant_color if stage.startswith("stage1") else _darken_color(variant_color),
                 linewidths=0.75,
-                alpha=0.86,
+                alpha=AGGREGATE_PARAMETER_POINT_ALPHA,
                 zorder=2,
                 label=label,
             )
@@ -2115,7 +2163,7 @@ def plot_aggregate_image_residual_distribution(
                     linewidth=2.0,
                     label=variant_label(variant),
                 )
-        ax.set_ylabel("N images")
+        ax.set_ylabel("image frequency")
         ax.set_xlabel("image residual (arcsec)")
         ax.set_xlim(0.0, x_max)
         handles, labels = ax.get_legend_handles_labels()
@@ -3147,18 +3195,34 @@ def _m2d_two_panel_axes() -> tuple[Any, Any, Any]:
     return fig, top_ax, resid_ax
 
 
-def _m2d_finish_axes(top_ax: Any, resid_ax: Any, resid_values: np.ndarray) -> None:
+def _m2d_finish_axes(
+    top_ax: Any,
+    resid_ax: Any,
+    resid_values: np.ndarray,
+    *,
+    legend_fontsize: float | None = AGGREGATE_LEGEND_FONT_SIZE,
+    residual_ylabel: str = r"$M_{\rm 2D}/M_{\rm 2D}^{\rm true} - 1$",
+    residual_reference: float = 0.0,
+) -> None:
     top_ax.set_xscale("log")
     top_ax.set_yscale("log")
     top_ax.set_ylabel(r"$M_{\rm 2D}(<R)$ ($M_\odot$)")
     top_ax.grid(True, alpha=0.25)
-    top_ax.legend(loc="lower right", frameon=False, fontsize=AGGREGATE_LEGEND_FONT_SIZE)
-    resid_ax.axhline(0.0, color="0.2", linestyle="--", linewidth=1.0)
+    legend_kwargs: dict[str, Any] = {"loc": "lower right", "frameon": False}
+    if legend_fontsize is not None:
+        legend_kwargs["fontsize"] = legend_fontsize
+    top_ax.legend(**legend_kwargs)
+    resid_ax.axhline(float(residual_reference), color="0.2", linestyle="--", linewidth=1.0)
     finite = resid_values[np.isfinite(resid_values)]
-    limit = 0.1 if finite.size == 0 else float(min(0.5, max(0.1, 1.2 * np.max(np.abs(finite)))))
-    resid_ax.set_ylim(-limit, limit)
+    if float(residual_reference) == 0.0:
+        limit = 0.1 if finite.size == 0 else float(min(0.5, max(0.1, 1.2 * np.max(np.abs(finite)))))
+        resid_ax.set_ylim(-limit, limit)
+    else:
+        offset = finite - float(residual_reference)
+        limit = 0.1 if offset.size == 0 else float(min(0.5, max(0.1, 1.2 * np.max(np.abs(offset)))))
+        resid_ax.set_ylim(float(residual_reference) - limit, float(residual_reference) + limit)
     resid_ax.set_xlabel(r"$R$ (kpc)")
-    resid_ax.set_ylabel(r"$M_{\rm 2D}/M_{\rm 2D}^{\rm true} - 1$")
+    resid_ax.set_ylabel(residual_ylabel)
     resid_ax.grid(True, alpha=0.25)
 
 
@@ -3234,9 +3298,8 @@ def plot_m2d_aperture_components(
 ) -> tuple[Path, ...]:
     """Component decomposition (halo/BCG/members): same two-panel layout, components
     as colors and variants as line styles."""
-    components = seed_df[
-        (seed_df["component"].isin(M2D_COMPONENT_GROUPS)) & (seed_df["seed"].astype(int) == int(representative_seed))
-    ]
+    seed_rows = seed_df[seed_df["seed"].astype(int) == int(representative_seed)].copy()
+    components = seed_rows[seed_rows["component"].isin(M2D_COMPONENT_GROUPS)].copy()
     if components.empty:
         return tuple()
     variants = _ordered_variants_from_df(components)
@@ -3275,12 +3338,12 @@ def plot_m2d_aperture_components(
                     linewidth=1.6,
                     label=label,
                 )
-                ratio_median = selection["ratio_q50"].to_numpy(dtype=float)
-                ratio_q16 = selection["ratio_q16"].to_numpy(dtype=float)
-                ratio_q84 = selection["ratio_q84"].to_numpy(dtype=float)
-                resid_ax.fill_between(radius, ratio_q16 - 1.0, ratio_q84 - 1.0, color=color, alpha=0.10, linewidth=0.0)
-                resid_ax.plot(radius, ratio_median - 1.0, color=color, linestyle=linestyle, linewidth=1.4)
-                resid_collect.extend([ratio_q16 - 1.0, ratio_q84 - 1.0, ratio_median - 1.0])
+                resid_median = selection["ratio_q50"].to_numpy(dtype=float)
+                resid_q16 = selection["ratio_q16"].to_numpy(dtype=float)
+                resid_q84 = selection["ratio_q84"].to_numpy(dtype=float)
+                resid_ax.fill_between(radius, resid_q16, resid_q84, color=color, alpha=0.10, linewidth=0.0)
+                resid_ax.plot(radius, resid_median, color=color, linestyle=linestyle, linewidth=1.4)
+                resid_collect.extend([resid_q16, resid_q84, resid_median])
         for variant_index, variant in enumerate(variants):
             top_ax.plot(
                 [],
@@ -3291,16 +3354,14 @@ def plot_m2d_aperture_components(
                 label=variant_label(variant),
             )
         top_ax.plot([], [], color="0.3", linestyle=":", linewidth=1.2, label="truth")
-        top_ax.text(
-            0.03,
-            0.97,
-            f"representative seed {int(representative_seed)}; selected from {variant_label(selection_variant)}",
-            transform=top_ax.transAxes,
-            ha="left",
-            va="top",
-            fontsize=10,
+        _m2d_finish_axes(
+            top_ax,
+            resid_ax,
+            np.concatenate(resid_collect) if resid_collect else np.asarray([]),
+            legend_fontsize=M2D_COMPONENT_LEGEND_FONT_SIZE,
+            residual_reference=1.0,
+            residual_ylabel=r"$M_{\rm comp}^{\rm model}/M_{\rm comp}^{\rm truth}$",
         )
-        _m2d_finish_axes(top_ax, resid_ax, np.concatenate(resid_collect) if resid_collect else np.asarray([]))
         fig.savefig(path, dpi=300, bbox_inches="tight")
         plt.close(fig)
         paths.append(path)

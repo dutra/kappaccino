@@ -862,8 +862,9 @@ def test_run_xsh_is_self_contained_ff_sims_runner() -> None:
     assert "exclude_catalog_ids=(\"2\", \"3\")" not in text
     assert "exclude_catalog_ids=(\"1\", \"2\")" not in text
     assert "2.3 / 0.72" in text
-    assert "cores = 4" in text
+    assert "cores = 6" in text
     assert "seed = 12345" in text
+    assert "pos_sigma_arcsec =" in text
     assert "seed=seed" in text
     assert "chains=cores" in text
     assert "show_plots=True" not in text
@@ -879,9 +880,22 @@ def test_run_xsh_is_self_contained_ff_sims_runner() -> None:
     assert 'variant_name = f"{covariance_mode}_maglikelihood" if use_magnitude_likelihood else covariance_mode' in text
     assert 'f"results/{campaign_name}/{cluster_config[\'cluster_key\']}/{variant_name}_"' in text
     assert 'stage0_likelihood = "source"' in text
+    assert 'stage1_likelihood = "source"' in text
+    assert 'stage0_likelihood = "local-jacobian"' not in text
+    assert 'stage1_likelihood = "local-jacobian"' not in text
     assert "stage0_likelihood=stage0_likelihood" in text
+    assert "stage1_likelihood=stage1_likelihood" in text
+    assert 'stage1_sampling_engine="full_flat"' in text
+    assert 'stage2_sampling_engine="full_flat"' in text
     assert "perturbation_discovery_top_k=perturbation_top_k" in text
+    assert 'stage2_forward_mode = "isotropic-latent-displacement"' in text
+    assert "latent_displacement_sigma_beta_arcsec=0.03" in text
     assert "stage1_likelihood =" in text
+    assert "target_accept=0.7" in text
+    assert "pos_sigma_arcsec=pos_sigma_arcsec" in text
+    assert "posterior_image_diagnostic_draws=32" in text
+    assert 'posterior_image_diagnostic_mode="exact"' in text
+    assert "posterior_truth_recovery_draws=32" in text
     assert "critical_arc_anisotropic_covariance=critical_arc_anisotropic_covariance" in text
     assert "use_magnitude_likelihood=use_magnitude_likelihood" in text
     assert "use_magnitude_likelihood={config.likelihood.use_magnitude_likelihood}" in text

@@ -5,8 +5,9 @@ import sys
 import time
 from pathlib import Path
 
-cores = 4  # Fixed to match JAX CPU devices and NUTS chains.
+cores = 6  # Fixed to match JAX CPU devices and NUTS chains.
 seed = 12345
+pos_sigma_arcsec = 0.3
 
 $JAX_NUM_CPU_DEVICES = str(cores)
 $MPLCONFIGDIR = "/tmp/matplotlib-lenscluster"
@@ -324,18 +325,12 @@ def build_config(
 
     perturbation_detection_multiplier = 1.0
     perturbation_top_k = 10
-    warmup = 10000, 10000
-    samples = 1000, 1000
+    warmup = 100, 200
+    samples = 50, 200
     max_tree_depth = 8, 8
     stage0_likelihood = "source"
     stage1_likelihood = "source"
-    
-    stage0_likelihood = "local-jacobian"
-    stage1_likelihood = "local-jacobian"
-    stage2_forward_mode = "critical-arc-anisotropic"
-    
-    #stage1_likelihood = "critical-arc-anisotropic"
-
+    stage2_forward_mode = "isotropic-latent-displacement"
     critical_arc_anisotropic_covariance = covariance_mode == "anisotropic"
     variant_name = f"{covariance_mode}_maglikelihood" if use_magnitude_likelihood else covariance_mode
 
@@ -373,8 +368,8 @@ def build_config(
             stage0_likelihood=stage0_likelihood,
             stage1_likelihood=stage1_likelihood,
             stage2_forward_mode=stage2_forward_mode,
-            stage1_sampling_engine="refreshing_surrogate_flat",
-            stage2_sampling_engine="refreshing_surrogate_flat",
+            stage1_sampling_engine="full_flat",
+            stage2_sampling_engine="full_flat",
             stage2_fresh_process=True,
             exact_image_diagnostics_stage2=True,
             best_value="maximum-likelihood",
@@ -383,14 +378,14 @@ def build_config(
             source_position_parameterization="prior-whitened",
         ),
         schedule=StageScheduleConfig(
-            fit_method=("svi+nuts", "svi+nuts"),
-            refresh_every=(None, 2000, 2000),
-            svi_steps=(10_000, 20_000, 20_000),
+            fit_method=("svi+nuts", "svi+nuts"),# "svi+nuts"),
+            refresh_every=(None, None, None),# 2000),
+            svi_steps=(10_000, 20_000, 20_000),# 20_000),
             warmup=warmup,
             samples=samples,
-            sampling_refresh_runs=(1, 1),
+            sampling_refresh_runs=(1, 1),# 1),
             max_tree_depth=max_tree_depth,
-            target_accept=0.8,
+            target_accept=0.7,
             z_bin_efficiency_tol=0.0,
             svi_learning_rate=0.0005,
         ),
@@ -410,6 +405,7 @@ def build_config(
             softening_length_prior_log_sigma=float(cluster_config["softening_length_prior_log_sigma"]),
         ),
         likelihood=LikelihoodConfig(
+            latent_displacement_sigma_beta_arcsec=0.03,
             use_magnitude_likelihood=use_magnitude_likelihood,
             critical_arc_anisotropic_covariance=critical_arc_anisotropic_covariance,
             # magnitude_base_scatter_prior=PriorConfig(
@@ -426,8 +422,8 @@ def build_config(
             #     mean=0.3,
             #     std=0.2,
             # ),
-            pos_sigma_arcsec=0.1,
-            source_plane_covariance_mode="magnification",
+            pos_sigma_arcsec=pos_sigma_arcsec,
+            source_plane_covariance_mode="unit",
             image_presence_penalty_weight=2.0,
             image_presence_match_radius_arcsec=1.0,
             image_presence_temperature_arcsec=0.5,
@@ -438,7 +434,8 @@ def build_config(
         image_diagnostics=ImageDiagnosticsConfig(
             critical_arc_singular_threshold=0.1,
             arc_recovery_p_arc_threshold=0.1,
-            posterior_image_diagnostic_draws=0,
+            posterior_image_diagnostic_draws=32,
+            posterior_image_diagnostic_mode="exact",
             exact_image_min_distance_arcsec=0.5,
             exact_image_precision_limit=1.0e-2,
             exact_image_num_iter_max=100,
@@ -452,7 +449,7 @@ def build_config(
             gammax_true_fits=cluster_config["gammax_true_fits"],
             gammay_true_fits=cluster_config["gammay_true_fits"],
             truth_grid_mode="posterior",
-            posterior_truth_recovery_draws=128,
+            posterior_truth_recovery_draws=32,
             truth_grid_size=256,
             caustic_source_redshift=9.0,
         ),

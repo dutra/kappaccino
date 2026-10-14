@@ -15,6 +15,7 @@ import shutil
 import sys
 import time
 import traceback
+import warnings
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import nullcontext
@@ -10231,6 +10232,7 @@ class _SviRefreshCacheSnapshot:
     shapes: dict[str, tuple[int, ...]]
     probes: dict[str, _SviRefreshArrayProbe]
     total_nbytes: int = 0
+    refresh_failed: bool = False
 
 
 @dataclass(frozen=True)
@@ -10420,7 +10422,7 @@ def _svi_refresh_evaluator_snapshot(evaluator: Any) -> dict[str, _SviRefreshCach
         and str(getattr(evaluator, "source_plane_covariance_mode", SOURCE_PLANE_COVARIANCE_MODE_MAGNIFICATION))
         == SOURCE_PLANE_COVARIANCE_MODE_UNIT
     ) and not perturbation_stage0
-    return {
+    snapshots = {
         "surrogate": _svi_refresh_cache_snapshot(
             getattr(evaluator, "surrogate_cache_by_z", {}),
             getattr(evaluator, "surrogate_reference_params", None),
@@ -10437,6 +10439,10 @@ def _svi_refresh_evaluator_snapshot(evaluator: Any) -> dict[str, _SviRefreshCach
             enabled=source_metric_enabled,
         ),
     }
+
+    failures = getattr(evaluator, "_cache_refresh_failures", {})
+    return {name: replace(snapshot, refresh_failed=bool(failures.get(name, False)))
+            for name, snapshot in snapshots.items()}
 
 
 def _log_evaluator_memory_shape_diagnostics(
@@ -10662,9 +10668,13 @@ def _svi_refresh_cache_status_rows(
     deltas: dict[str, _SviRefreshCacheDelta],
     after: dict[str, _SviRefreshCacheSnapshot] | None = None,
 ) -> list[_SviRefreshCacheStatus]:
-    del after
     ordered_labels = [label for label in ("surrogate", "scaling", "source_metric") if label in deltas]
     rows = [_classify_svi_refresh_cache_delta(label, deltas[label]) for label in ordered_labels]
+    if after is not None:
+        rows = [replace(row, rms="na", max_abs="na", status="retained",
+                        meaning="refresh failed; previous cache retained", style="bold yellow")
+                if after.get(row.name) is not None and after[row.name].enabled and after[row.name].refresh_failed
+                else row for row in rows]
     for label in ordered_labels:
         delta = deltas[label]
         if delta.enabled and (delta.added_arrays or delta.removed_arrays or delta.shape_changed_arrays):
@@ -10878,12 +10888,18 @@ def _refresh_pre_nuts_caches(evaluator: Any, best_fit: np.ndarray, reason: str) 
         surrogate_status = "refreshed"
     evaluator.refresh_scaling_scatter_cache(best_fit, reason=reason)
     evaluator.refresh_source_metric_cache(best_fit, reason=reason)
+    failures = getattr(evaluator, "_cache_refresh_failures", {})
+    if failures.get("surrogate", False):
+        surrogate_status = "retained"
+    scaling_status = ("retained" if failures.get("scaling", False) else "refreshed")
+    prefix = ("[svi] pre_nuts cache refresh results " if any(failures.values())
+              else "[svi] pre_nuts using freshly refreshed caches ")
     return (
-        "[svi] pre_nuts using freshly refreshed caches "
+        prefix +
         f"reason={reason} "
         f"active_inference={active_status} "
         f"surrogate={surrogate_status} "
-        "scaling=refreshed "
+        f"scaling={scaling_status} "
         "source_metric=refreshed"
     )
 
@@ -19070,7 +19086,8 @@ class ClusterJAXEvaluator:
             mass_scatter_cov11=zero_float,
         )
 
-    def _flat_scaling_scatter_arrays_from_cache(self) -> dict[str, jnp.ndarray]:
+    def _flat_scaling_scatter_arrays_from_cache(self, cache_by_z=None) -> dict[str, jnp.ndarray]:
+        cache_by_z = self.scaling_scatter_cache_by_z if cache_by_z is None else cache_by_z
         base = getattr(self, "flat_critical_arc_data", None)
         if base is None:
             empty = jnp.asarray([], dtype=jnp.float64)
@@ -19078,7 +19095,7 @@ class ClusterJAXEvaluator:
         values_by_key: dict[str, list[np.ndarray]] = {key: [] for key in SCALING_SCATTER_CACHE_KEYS}
         for bin_data in self.traced_bin_data:
             n_images = int(np.asarray(bin_data.x_obs).size)
-            cache = self.scaling_scatter_cache_by_z.get(float(bin_data.effective_z_source))
+            cache = cache_by_z.get(float(bin_data.effective_z_source))
             for key in SCALING_SCATTER_CACHE_KEYS:
                 if cache is None:
                     values_by_key[key].append(np.zeros(n_images, dtype=float))
@@ -20267,9 +20284,13 @@ class ClusterJAXEvaluator:
         }:
             self._refresh_flat_scaling_scatter_cache_from_reference(reference_params, reason=reason)
             return
-        self.scaling_scatter_cache_by_z = {}
-        self.scaling_scatter_reference_params = None
+        candidate_by_z = {}
         if len(self._scaling_scatter_component_indices()) == 0 or len(self.scaling_scatter_param_indices) == 0:
+            self.scaling_scatter_cache_by_z = {}
+            self.scaling_scatter_reference_params = None
+            self._refresh_flat_critical_arc_scatter_arrays()
+            self._source_loglike_fn = jax.jit(self._source_loglike_impl)
+            self._set_cache_refresh_failure("scaling", False)
             return
         reference = np.asarray(reference_params, dtype=float)
         reference_jax = jnp.asarray(reference, dtype=jnp.float64)
@@ -20320,8 +20341,7 @@ class ClusterJAXEvaluator:
             validity = self._packed_lens_validity_from_params(reference_jax, bin_data.effective_z_source, stop_gradient=False)
             if not bool(np.asarray(validity.is_valid, dtype=bool)):
                 self._record_invalid_state_host(np.asarray(validity.reason_flags, dtype=bool))
-                self.scaling_scatter_cache_by_z = {}
-                self._refresh_flat_critical_arc_scatter_arrays()
+                self._report_scaling_refresh_failure(reason)
                 return
             beta_x, beta_y = self._ray_shooting_for_components(
                 bin_data.effective_z_source,
@@ -20339,16 +20359,11 @@ class ClusterJAXEvaluator:
                 bin_data, x_obs, y_obs, base_x, base_y, 0.0, 1.0, 1.0
             )
             if not all(np.isfinite(value).all() for value in (sigma_dx, sigma_dy, mass_dx, mass_dy)):
-                _debug_log_line(
-                    "[scaling-scatter] DROPPED per-member scatter cache: non-finite member "
-                    f"derivatives at z={float(bin_data.effective_z_source):.4f}"
-                )
-                self.scaling_scatter_cache_by_z = {}
-                self._refresh_flat_critical_arc_scatter_arrays()
+                self._report_scaling_refresh_failure(reason)
                 return
             sigma_cov00, sigma_cov01, sigma_cov11 = _scatter_covariance_terms_from_member_derivatives(sigma_dx, sigma_dy)
             mass_cov00, mass_cov01, mass_cov11 = _scatter_covariance_terms_from_member_derivatives(mass_dx, mass_dy)
-            self.scaling_scatter_cache_by_z[float(bin_data.effective_z_source)] = {
+            candidate_by_z[float(bin_data.effective_z_source)] = {
                 "sigma_cov00": sigma_cov00,
                 "sigma_cov01": sigma_cov01,
                 "sigma_cov11": sigma_cov11,
@@ -20356,8 +20371,18 @@ class ClusterJAXEvaluator:
                 "mass_cov01": mass_cov01,
                 "mass_cov11": mass_cov11,
             }
+        if not all(np.isfinite(value).all() for cache in candidate_by_z.values() for value in cache.values()):
+            self._report_scaling_refresh_failure(reason)
+            return
+        arrays = self._flat_scaling_scatter_arrays_from_cache(candidate_by_z)
+        candidate_data = replace(self.flat_critical_arc_data, **{
+            f"{field}_scatter_cov{ij}": jnp.asarray(arrays[f"{field}_cov{ij}"], dtype=jnp.float64)
+            for field in ("sigma", "mass") for ij in ("00", "01", "11")
+        })
+        self.scaling_scatter_cache_by_z = candidate_by_z
+        self.flat_critical_arc_data = candidate_data
         self.scaling_scatter_reference_params = reference.copy()
-        self._refresh_flat_critical_arc_scatter_arrays()
+        self._set_cache_refresh_failure("scaling", False)
         self._source_loglike_fn = jax.jit(self._source_loglike_impl)
 
     def _scaling_scatter_member_one_hot_offsets(self, eps: float) -> jnp.ndarray:
@@ -20373,11 +20398,12 @@ class ClusterJAXEvaluator:
         reference_params: np.ndarray,
         reason: str = "manual",
     ) -> None:
-        del reason
-        self.scaling_scatter_cache_by_z = {}
-        self.scaling_scatter_reference_params = None
         if len(self._scaling_scatter_component_indices()) == 0 or len(self.scaling_scatter_param_indices) == 0:
+            self.scaling_scatter_cache_by_z = {}
+            self.scaling_scatter_reference_params = None
             self._refresh_flat_critical_arc_scatter_arrays()
+            self._source_loglike_fn = jax.jit(self._source_loglike_impl)
+            self._set_cache_refresh_failure("scaling", False)
             return
         reference = np.asarray(reference_params, dtype=float)
         reference_jax = jnp.asarray(reference, dtype=jnp.float64)
@@ -20392,7 +20418,7 @@ class ClusterJAXEvaluator:
         )
         if not bool(np.asarray(validity.is_valid, dtype=bool)):
             self._record_invalid_state_host(np.asarray(validity.reason_flags, dtype=bool))
-            self._refresh_flat_critical_arc_scatter_arrays()
+            self._report_scaling_refresh_failure(reason)
             return
         beta_x, beta_y = self._flat_ray_shooting_for_components(
             flat_data.x_obs,
@@ -20448,12 +20474,7 @@ class ClusterJAXEvaluator:
         mass_dx, mass_dy, mass_valid = _member_derivatives_for_field(0.0, 1.0, 1.0)
         finite = all(np.isfinite(value).all() for value in (sigma_dx, sigma_dy, mass_dx, mass_dy))
         if not (sigma_valid and mass_valid and finite):
-            _debug_log_line(
-                "[scaling-scatter] DROPPED per-member scatter cache: "
-                f"sigma_valid={sigma_valid} mass_valid={mass_valid} finite={finite}; "
-                "scatter amplitudes will not inflate the covariance until the next refresh"
-            )
-            self._refresh_flat_critical_arc_scatter_arrays()
+            self._report_scaling_refresh_failure(reason)
             return
         sigma_cov00, sigma_cov01, sigma_cov11 = _scatter_covariance_terms_from_member_derivatives(sigma_dx, sigma_dy)
         mass_cov00, mass_cov01, mass_cov11 = _scatter_covariance_terms_from_member_derivatives(mass_dx, mass_dy)
@@ -20465,9 +20486,11 @@ class ClusterJAXEvaluator:
             "mass_cov01": mass_cov01,
             "mass_cov11": mass_cov11,
         }
-        self.scaling_scatter_cache_by_z = self._scaling_scatter_cache_by_z_from_flat_arrays(derivatives)
-        self.scaling_scatter_reference_params = reference.copy()
-        self.flat_critical_arc_data = replace(
+        if not all(np.isfinite(value).all() for value in derivatives.values()):
+            self._report_scaling_refresh_failure(reason)
+            return
+        candidate_by_z = self._scaling_scatter_cache_by_z_from_flat_arrays(derivatives)
+        candidate_data = replace(
             self.flat_critical_arc_data,
             sigma_scatter_cov00=jnp.asarray(sigma_cov00, dtype=jnp.float64),
             sigma_scatter_cov01=jnp.asarray(sigma_cov01, dtype=jnp.float64),
@@ -20476,6 +20499,10 @@ class ClusterJAXEvaluator:
             mass_scatter_cov01=jnp.asarray(mass_cov01, dtype=jnp.float64),
             mass_scatter_cov11=jnp.asarray(mass_cov11, dtype=jnp.float64),
         )
+        self.scaling_scatter_cache_by_z = candidate_by_z
+        self.flat_critical_arc_data = candidate_data
+        self.scaling_scatter_reference_params = reference.copy()
+        self._set_cache_refresh_failure("scaling", False)
         self._source_loglike_fn = jax.jit(self._source_loglike_impl)
 
     def _refresh_flat_source_metric_cache_from_reference(
@@ -23691,6 +23718,20 @@ class ClusterJAXEvaluator:
         ):
             return None
         return result
+
+    def _set_cache_refresh_failure(self, name: str, failed: bool) -> None:
+        if not hasattr(self, "_cache_refresh_failures"):
+            self._cache_refresh_failures = {}
+        self._cache_refresh_failures[name] = failed
+
+    def _report_scaling_refresh_failure(self, reason: str) -> None:
+        self._set_cache_refresh_failure("scaling", True)
+        message = f"Scaling-scatter refresh failed ({reason}): invalid reference/probe or nonfinite covariance."
+        if not self.scaling_scatter_cache_by_z or self.scaling_scatter_reference_params is None:
+            raise ValueError(message + " No valid previous cache is available for initialization.")
+        message += " Retaining the previous scaling-scatter cache and reference."
+        _debug_log_line(message)
+        warnings.warn(message, RuntimeWarning, stacklevel=3)
 
     def _refresh_flat_surrogate_from_reference(self, reference_params: np.ndarray, reason: str = "manual") -> None:
         del reason

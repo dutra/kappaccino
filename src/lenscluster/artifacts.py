@@ -9,6 +9,7 @@ import h5py
 import numpy as np
 
 from .planning import RunPlan
+from .output_paths import resolve_artifacts_dir
 
 
 @dataclass(frozen=True)
@@ -39,8 +40,7 @@ def root_run_dir(plan: RunPlan) -> Path:
 
 
 def artifacts_dir(run_dir: str | Path) -> Path:
-    path = Path(run_dir)
-    return path if path.name == "artifacts" else path / "artifacts"
+    return resolve_artifacts_dir(run_dir)
 
 
 def _decode_json_dataset(value: Any) -> Any:
@@ -65,7 +65,7 @@ def _resolve_parameter_artifact_path(path: str | Path) -> Path:
         h5_path = candidate / "plot_bundle.h5"
         if h5_path.exists():
             return h5_path
-    direct = candidate / "artifacts" / "plot_bundle.h5"
+    direct = resolve_artifacts_dir(candidate) / "plot_bundle.h5"
     if direct.exists():
         return direct
     matches = sorted(candidate.glob("**/artifacts/plot_bundle.h5"))

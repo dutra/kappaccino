@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from ..output_paths import output_paths, stage_directory, is_results_root
+
+
 import json
 import math
 import os
@@ -1171,6 +1174,8 @@ def _metric_text(value: Any, *, precision: int = 4) -> str:
 
 def _stage_root_from_run_dir(solver_run_dir: str | Path) -> Path:
     run_dir = Path(solver_run_dir)
+    if output_paths(run_dir).modern:
+        return output_paths(run_dir).root
     if run_dir.name in _VALIDATION_STAGE_ORDER:
         return run_dir.parent
     return run_dir
@@ -1178,18 +1183,18 @@ def _stage_root_from_run_dir(solver_run_dir: str | Path) -> Path:
 
 def _validation_stage_dirs(solver_run_dir: str | Path) -> list[tuple[str, Path]]:
     root = _stage_root_from_run_dir(solver_run_dir)
-    if (root / "tables" / "run_summary.json").exists():
+    if not is_results_root(root) and (root / "tables" / "run_summary.json").exists():
         return [(root.name, root)]
     stages: list[tuple[str, Path]] = []
     for stage_name in _VALIDATION_STAGE_ORDER:
-        stage_dir = root / stage_name
-        if (stage_dir / "tables" / "run_summary.json").exists():
+        stage_dir = stage_directory(root, stage_name)
+        if (output_paths(stage_dir).tables / "run_summary.json").exists():
             stages.append((stage_name, stage_dir))
     return stages
 
 
 def _load_stage_run_summary(stage_dir: Path) -> dict[str, Any]:
-    path = stage_dir / "tables" / "run_summary.json"
+    path = output_paths(stage_dir).tables / "run_summary.json"
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
@@ -1198,7 +1203,7 @@ def _load_stage_run_summary(stage_dir: Path) -> dict[str, Any]:
 
 
 def _stage_family_recovery_metrics(stage_dir: Path) -> dict[str, Any]:
-    path = stage_dir / "tables" / "family_diagnostics.csv"
+    path = output_paths(stage_dir).tables / "family_diagnostics.csv"
     if not path.exists():
         return {
             "family_count": np.nan,
@@ -5429,7 +5434,7 @@ def _read_table_artifact(path: Path) -> dict[str, Any]:
 
 
 def _collect_stage_table_artifacts(stage_dir: str | Path) -> dict[str, dict[str, Any]]:
-    tables_dir = Path(stage_dir) / "tables"
+    tables_dir = output_paths(stage_dir).tables
     if not tables_dir.exists():
         return {}
     artifacts: dict[str, dict[str, Any]] = {}
@@ -5443,9 +5448,9 @@ def _validation_stage_manifest(solver_run_dir: str | Path) -> list[dict[str, Any
     run_dir = Path(solver_run_dir)
     root = _stage_root_from_run_dir(run_dir)
     candidates: list[tuple[str, Path]] = []
-    if run_dir.name in _VALIDATION_STAGE_ORDER:
+    if is_results_root(root) or run_dir.name in _VALIDATION_STAGE_ORDER:
         for stage_name in _VALIDATION_STAGE_ORDER:
-            stage_dir = root / stage_name
+            stage_dir = stage_directory(root, stage_name)
             if stage_dir.exists() or stage_dir == run_dir:
                 candidates.append((stage_name, stage_dir))
     else:
@@ -5454,7 +5459,7 @@ def _validation_stage_manifest(solver_run_dir: str | Path) -> list[dict[str, Any
     manifests: list[dict[str, Any]] = []
     for stage_name, stage_dir in candidates:
         artifacts_dir = stage_dir / "artifacts"
-        tables_dir = stage_dir / "tables"
+        tables_dir = output_paths(stage_dir).tables
         manifests.append(
             {
                 "stage": stage_name,

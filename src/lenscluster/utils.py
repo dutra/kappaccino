@@ -324,7 +324,7 @@ def debug_log_line(line: str) -> None:
     _DEBUG_LOG_HANDLE.flush()
 
 
-def set_debug_log_path(path: Path) -> None:
+def set_debug_log_path(path: Path, *, copy_previous: bool = True) -> None:
     global _DEBUG_LOG_PATH
     path = path.resolve()
     if _DEBUG_LOG_PATH == path and _DEBUG_LOG_HANDLE is not None:
@@ -337,7 +337,7 @@ def set_debug_log_path(path: Path) -> None:
             previous_handle.flush()
         except Exception:  # pragma: no cover
             pass
-    if previous_path is not None and previous_path != path and previous_path.exists():
+    if copy_previous and previous_path is not None and previous_path != path and previous_path.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
         if not path.exists():
             path.write_text(previous_path.read_text(encoding="utf-8"), encoding="utf-8")
@@ -346,11 +346,12 @@ def set_debug_log_path(path: Path) -> None:
 
 
 def configure_debug_log(args: argparse.Namespace, run_name: str, run_dir: Path | None = None) -> Path:
-    if run_dir is None:
-        target = Path(args.output_dir) / f"{run_name}.debug.log"
-    else:
-        target = run_dir / "run_debug.log"
-    set_debug_log_path(target)
+    from .output_paths import debug_log_path, is_results_root, output_paths
+
+    target = debug_log_path(args, run_name, run_dir)
+    directory = run_dir if run_dir is not None else Path(args.output_dir) / run_name
+    modern = output_paths(directory).modern or is_results_root(directory)
+    set_debug_log_path(target, copy_previous=not modern)
     return target
 
 

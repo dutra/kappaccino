@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from .output_paths import output_paths, stage_directory, stage_name, is_results_root, resolve_artifacts_dir, RESULTS_LAYOUT
+
+
 import argparse
 import copy
 import gc
@@ -166,6 +169,7 @@ from .plotting import (
     _format_sequential_run_summary_text,
     _generate_plots_and_tables,
     _plot_active_scaling_summary,
+    plot_path as _plot_path,
 )
 from .utils import (
     close_debug_log as _close_debug_log,
@@ -2405,7 +2409,7 @@ def _format_stage1_model_summary_table_from_rows(rows: list[ApproximationRow]) -
 
 
 def _write_stage_model_summary_csv(run_dir: Path, rows: list[ApproximationRow]) -> Path:
-    tables_dir = run_dir / "tables"
+    tables_dir = output_paths(run_dir).tables
     tables_dir.mkdir(parents=True, exist_ok=True)
     path = tables_dir / "stage_model_summary.csv"
     pd.DataFrame(
@@ -2448,7 +2452,7 @@ def _log_stage1_model_summary_table(
 
 
 def _truth_recovery_stage_summary_rows(run_dir: Path) -> list[dict[str, Any]]:
-    tables_dir = run_dir / "tables"
+    tables_dir = output_paths(run_dir).tables
     summary_paths = [
         tables_dir / "truth_recovery_kappa_recovery_summary.csv",
         tables_dir / "truth_recovery_mu_recovery_summary.csv",
@@ -2533,7 +2537,7 @@ def _format_truth_recovery_stage_summary_table(rows: list[dict[str, Any]], stage
 
 
 def _write_truth_recovery_stage_summary_csv(run_dir: Path, rows: list[dict[str, Any]]) -> Path:
-    tables_dir = run_dir / "tables"
+    tables_dir = output_paths(run_dir).tables
     tables_dir.mkdir(parents=True, exist_ok=True)
     path = tables_dir / "truth_recovery_stage_summary.csv"
     pd.DataFrame(rows).to_csv(path, index=False)
@@ -3399,7 +3403,7 @@ def _write_sampler_debug_diagnostics(
     if sampler not in {"numpyro_nuts", *MICROCANONICAL_FIT_METHODS}:
         _log(args, f"[sampler-debug] skipped sampler={posterior.sampler}")
         return {}
-    tables_dir = Path(args.output_dir) / state.run_name / "tables"
+    tables_dir = output_paths(Path(args.output_dir) / state.run_name).tables
     tables_dir.mkdir(parents=True, exist_ok=True)
     retained_indices = list((posterior.init_diagnostics or {}).get("retained_chain_indices", range(posterior.num_chains)))
     diagnostics: dict[str, Any] = {}
@@ -14027,7 +14031,7 @@ SEQUENTIAL_STAGE_ORDER = (
 
 
 def _sequential_stage_name(value: str | Path) -> str:
-    return Path(str(value)).name
+    return stage_name(value)
 
 
 def _is_sequential_stage_path(value: str | Path) -> bool:
@@ -14095,7 +14099,9 @@ def _plots_only_exact_diagnostics_stage(run_dir: Path) -> str | None:
         return None
     if _sequential_stage_name(run_dir) == STAGE2_FREE_SOURCE_FORWARD_FIT_DIR:
         return _sequential_stage_name(run_dir)
-    sibling_stage_dirs = [run_dir.parent / stage_name for stage_name in SEQUENTIAL_STAGE_ORDER]
+    paths = output_paths(run_dir)
+    root = paths.root if paths.modern else run_dir.parent
+    sibling_stage_dirs = [stage_directory(root, name) for name in SEQUENTIAL_STAGE_ORDER]
     return _final_available_sequential_stage(sibling_stage_dirs) or _sequential_stage_name(run_dir)
 
 
@@ -25819,7 +25825,7 @@ def _save_inference_checkpoint(
             ),
     )
     if evaluator.sample_likelihood_mode == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT:
-        tables_dir = run_dir / "tables"
+        tables_dir = output_paths(run_dir).tables
         tables_dir.mkdir(parents=True, exist_ok=True)
         evaluator.latent_displacement_diagnostics(best_fit).to_csv(
             tables_dir / "latent_displacement_diagnostics.csv", index=False)
@@ -26084,6 +26090,7 @@ def _save_plot_bundle_h5(
             "build_state_meta_json",
             {
                 "run_name": state.run_name,
+                "stage_semantic_name": _sequential_stage_name(state.run_name),
                 "model_source": "config",
                 "cosmo_config": state.cosmo_config,
                 "z_lens": state.z_lens,
@@ -26603,7 +26610,7 @@ def _audit_frozen_independent_selection(
                 audit_rows.append({"potfile_order": order, "catalog_row_index": int(row_index), "status": "would_add"})
             for row_index in removed[order]:
                 audit_rows.append({"potfile_order": order, "catalog_row_index": int(row_index), "status": "would_remove"})
-        audit_tables_dir = Path(stage1_run_dir) / "tables"
+        audit_tables_dir = output_paths(stage1_run_dir).tables
         audit_tables_dir.mkdir(parents=True, exist_ok=True)
         pd.DataFrame(audit_rows).to_csv(audit_tables_dir / "perturbation_discovery_stage1_audit.csv", index=False)
     except Exception as error:
@@ -27076,7 +27083,7 @@ def _run_stage3_critical_det_diagnostic(
             release()
     table_path = _write_critical_det_diagnostic_table(
         result,
-        Path(stage3_run_dir) / "tables" / "critical_det_images.csv",
+        output_paths(stage3_run_dir).tables / "critical_det_images.csv",
     )
     _log_stage3_critical_det_diagnostic(
         args,
@@ -29178,7 +29185,7 @@ def _load_frozen_active_scaling_from_previous_stage(
             diagnostics["mapping_errors"] = mapping_errors
         return frozen_indices, diagnostics
 
-    diagnostics_path = run_dir / "tables" / "active_scaling_diagnostics.csv"
+    diagnostics_path = output_paths(run_dir).tables / "active_scaling_diagnostics.csv"
     if diagnostics_path.exists():
         try:
             diagnostics_df = pd.read_csv(diagnostics_path)
@@ -29341,7 +29348,7 @@ def _write_active_scaling_freeze_diagnostics(
         active_population_diagnostics=active_population_diagnostics,
         active_inference_likelihood=active_inference_likelihood,
     )
-    tables_dir = run_dir / "tables"
+    tables_dir = output_paths(run_dir).tables
     tables_dir.mkdir(parents=True, exist_ok=True)
     diagnostics_df.to_csv(tables_dir / "active_scaling_diagnostics.csv", index=False)
     _plot_active_scaling_summary(
@@ -29383,7 +29390,7 @@ def _write_active_scaling_freeze_diagnostics(
         "active_scaling_frozen_active_by_potfile": frozen_by_potfile,
         "active_scaling_frozen_inactive_by_potfile": inactive_by_potfile,
         "active_scaling_diagnostics_csv": str(tables_dir / "active_scaling_diagnostics.csv"),
-        "active_scaling_summary_pdf": str(run_dir / "active_scaling_summary.pdf"),
+        "active_scaling_summary_pdf": str(_plot_path(run_dir, "active_scaling_summary.pdf")),
     }
     return diagnostics_df, np.asarray(frozen_indices, dtype=np.int32), diagnostics
 
@@ -29674,7 +29681,7 @@ def _run_inference(args: argparse.Namespace, state: BuildState, run_dir: Path) -
                 )
                 final_union_diag.update(stage0_collapse_payload)
                 if not final_union_detail_df.empty:
-                    discovery_tables_dir = run_dir / "tables"
+                    discovery_tables_dir = output_paths(run_dir).tables
                     discovery_tables_dir.mkdir(parents=True, exist_ok=True)
                     discovery_table_path = discovery_tables_dir / "perturbation_discovery_diagnostics.csv"
                     final_union_detail_df.to_csv(discovery_table_path, index=False)
@@ -29914,6 +29921,13 @@ def _run_inference(args: argparse.Namespace, state: BuildState, run_dir: Path) -
 
 
 def _previous_stage_artifacts_dir_for_run_dir(run_dir: Path) -> Path | None:
+    paths = output_paths(run_dir)
+    if paths.modern:
+        previous = {
+            STAGE1_BACKPROJECTED_CENTROID_FIT_DIR: STAGE0_FAST_INITIALIZER_DIR,
+            STAGE2_FREE_SOURCE_FORWARD_FIT_DIR: STAGE1_BACKPROJECTED_CENTROID_FIT_DIR,
+        }.get(_sequential_stage_name(run_dir))
+        return stage_directory(paths.root, previous) / "artifacts" if previous else None
     if not _is_sequential_stage_path(run_dir):
         return None
     stage_name = _sequential_stage_name(run_dir)
@@ -29973,7 +29987,7 @@ def _regenerate_active_scaling_summary_from_diagnostics(
     saved_args: dict[str, Any] | None,
     init_diagnostics: dict[str, Any] | None,
 ) -> bool:
-    diagnostics_path = run_dir / "tables" / "active_scaling_diagnostics.csv"
+    diagnostics_path = output_paths(run_dir).tables / "active_scaling_diagnostics.csv"
     if not diagnostics_path.exists():
         _log(args, f"[plots-only] active-scaling summary skipped; missing {diagnostics_path}")
         return False
@@ -30587,7 +30601,7 @@ def _archive_run_inputs(args: argparse.Namespace, state: BuildState, run_dir: Pa
 
 
 def _stage_banner_title_from_run_name(run_name: str) -> str:
-    stage_name = Path(str(run_name)).name
+    stage_name = _sequential_stage_name(run_name)
     labels = {
         STAGE0_FAST_INITIALIZER_DIR: "STAGE 0: stage0_fast_initializer",
         STAGE1_BACKPROJECTED_CENTROID_FIT_DIR: "STAGE 1: stage1_backprojected_centroid_fit",
@@ -30621,7 +30635,8 @@ def _run_single_stage(
     require_frozen_active_scaling: bool = False,
 ) -> Path:
     _configure_debug_log(args, run_name, None)
-    stage_args = _clone_args(args, fit_mode=fit_mode, run_name=run_name, sample_likelihood_mode=sample_likelihood_mode)
+    stage_args = _clone_args(args, fit_mode=fit_mode, run_name=run_name, sample_likelihood_mode=sample_likelihood_mode,
+                             stage_semantic_name=_sequential_stage_name(run_name))
     _log_stage_banner(
         stage_args,
         _stage_banner_title_from_run_name(run_name),
@@ -30784,7 +30799,7 @@ def _run_single_stage_in_fresh_process(
 
 
 def _load_stage_run_summary_for_aggregate(stage_dir: Path) -> dict[str, Any] | None:
-    summary_path = stage_dir / "tables" / "run_summary.json"
+    summary_path = output_paths(stage_dir).tables / "run_summary.json"
     if not summary_path.exists():
         return None
     try:
@@ -30794,7 +30809,7 @@ def _load_stage_run_summary_for_aggregate(stage_dir: Path) -> dict[str, Any] | N
     if not isinstance(payload, dict):
         return None
     payload = dict(payload)
-    payload["stage"] = stage_dir.name
+    payload["stage"] = _sequential_stage_name(stage_dir)
     return payload
 
 
@@ -30813,7 +30828,7 @@ def _write_sequential_run_summary_txt(
     if not rows:
         return None, ""
     text = _format_sequential_run_summary_text(rows, run_name=root_run_name, root_dir=root_dir)
-    path = root_dir / "run_summary.txt"
+    path = root_dir / ("summary.txt" if is_results_root(root_dir) else "run_summary.txt")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
     return path, text
@@ -31077,8 +31092,15 @@ def _run_sequential_v2(args: argparse.Namespace, stage_fit_controls: dict[str, S
             return _run_single_stage_in_fresh_process(stage_args, fit_mode, run_name, **kwargs)
         return _run_single_stage(stage_args, fit_mode, run_name, **kwargs)
 
-    stage0_run_name = str(Path(root_run_name) / STAGE0_FAST_INITIALIZER_DIR)
-    stage1_run_name = str(Path(root_run_name) / STAGE1_BACKPROJECTED_CENTROID_FIT_DIR)
+    def stage_run_name(semantic: str) -> str:
+        output_dir = Path(args.output_dir)
+        directory = stage_directory(
+            output_dir / root_run_name, semantic, layout=getattr(args, "output_layout", "legacy"),
+        )
+        return str(directory.relative_to(output_dir))
+
+    stage0_run_name = stage_run_name(STAGE0_FAST_INITIALIZER_DIR)
+    stage1_run_name = stage_run_name(STAGE1_BACKPROJECTED_CENTROID_FIT_DIR)
     stage1_sampling_engine = str(
         getattr(args, "stage1_sampling_engine", SAMPLING_ENGINE_REFRESHING_SURROGATE_FLAT)
     )
@@ -31193,7 +31215,7 @@ def _run_sequential_v2(args: argparse.Namespace, stage_fit_controls: dict[str, S
     aggregate_stage_dirs: list[Path | None] = [stage0_run_dir, stage1_run_dir]
 
     if stage2_enabled:
-        stage2_run_name = str(Path(root_run_name) / STAGE2_FREE_SOURCE_FORWARD_FIT_DIR)
+        stage2_run_name = stage_run_name(STAGE2_FREE_SOURCE_FORWARD_FIT_DIR)
         stage2_updates: dict[str, Any] = {}
         requested_stage2_engine = str(
             getattr(args, "stage2_sampling_engine", SAMPLING_ENGINE_REFRESHING_SURROGATE_FLAT)
@@ -31237,7 +31259,10 @@ def _run_sequential_v2(args: argparse.Namespace, stage_fit_controls: dict[str, S
         _log(args, f"[magnitude-likelihood] stage2={summary_payload['stage2_use_magnitude_likelihood']}")
         aggregate_stage_dirs.append(stage2_run_dir)
 
-    summary_path = Path(args.output_dir) / root_run_name / "sequential_summary.json"
+    if getattr(args, "output_layout", "legacy") == RESULTS_LAYOUT:
+        _configure_debug_log(args, root_run_name, None)
+    summary_root = Path(args.output_dir) / root_run_name
+    summary_path = (summary_root / "tables" if getattr(args, "output_layout", "legacy") == RESULTS_LAYOUT else summary_root) / "sequential_summary.json"
     summary_path.parent.mkdir(parents=True, exist_ok=True)
     with summary_path.open("w", encoding="utf-8") as handle:
         json.dump(summary_payload, handle, indent=2)
@@ -31860,17 +31885,16 @@ def _has_plot_artifacts(artifacts_dir: Path) -> bool:
 
 def _stage_run_complete(run_dir: str | Path) -> bool:
     path = Path(run_dir)
-    return (path / "artifacts" / "plot_bundle.h5").exists() and (path / "tables" / "run_summary.json").exists()
+    return (path / "artifacts" / "plot_bundle.h5").exists() and (output_paths(path).tables / "run_summary.json").exists()
 
 
 def _stage_run_checkpointed(run_dir: str | Path) -> bool:
     path = Path(run_dir)
-    return _has_plot_artifacts(path / "artifacts") and not (path / "tables" / "run_summary.json").exists()
+    return _has_plot_artifacts(path / "artifacts") and not (output_paths(path).tables / "run_summary.json").exists()
 
 
 def _resolve_run_artifacts_dir(run_dir: str | Path) -> Path:
-    candidate = Path(run_dir)
-    return candidate if candidate.name == "artifacts" else candidate / "artifacts"
+    return resolve_artifacts_dir(run_dir)
 
 
 def _run_typed_plan_dispatch(args: argparse.Namespace, stage_fit_controls: dict[str, StageFitControls]) -> None:
@@ -31878,8 +31902,8 @@ def _run_typed_plan_dispatch(args: argparse.Namespace, stage_fit_controls: dict[
         root_run_name = args.run_name or "cluster_solver"
         root_dir = Path(args.output_dir) / root_run_name
         stage_dirs = [
-            root_dir / STAGE1_BACKPROJECTED_CENTROID_FIT_DIR,
-            root_dir / STAGE2_FREE_SOURCE_FORWARD_FIT_DIR,
+            stage_directory(root_dir, STAGE1_BACKPROJECTED_CENTROID_FIT_DIR),
+            stage_directory(root_dir, STAGE2_FREE_SOURCE_FORWARD_FIT_DIR),
         ]
         if any(_has_plot_artifacts(stage_dir / "artifacts") for stage_dir in stage_dirs):
             exact_diagnostics_stage = _final_available_sequential_stage(stage_dirs)
@@ -31887,6 +31911,12 @@ def _run_typed_plan_dispatch(args: argparse.Namespace, stage_fit_controls: dict[
                 if _has_plot_artifacts(stage_dir / "artifacts"):
                     _configure_debug_log(args, stage_dir.name, stage_dir)
                     _rerender_plots(args, stage_dir, exact_diagnostics_stage=exact_diagnostics_stage)
+            if getattr(args, "output_layout", "legacy") == RESULTS_LAYOUT:
+                _write_sequential_run_summary_txt(
+                    root_dir, root_run_name,
+                    [stage_directory(root_dir, STAGE0_FAST_INITIALIZER_DIR), *stage_dirs],
+                )
+                _configure_debug_log(args, root_run_name, None)
             return
         run_dir = Path(args.output_dir) / (args.run_name or "cluster_solver")
         _configure_debug_log(args, run_dir.name, run_dir)

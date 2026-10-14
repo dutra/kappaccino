@@ -372,6 +372,7 @@ def _runtime_payload(config: LensClusterSolverConfig) -> dict[str, Any]:
         **SOLVER_RUNTIME_DEFAULTS,
         "model_config": config.model,
         "output_dir": config.paths.output_dir,
+        "output_layout": config.paths.layout,
         "run_name": config.paths.run_name,
         "corner_overlay_bayes_dat": config.paths.corner_overlay_bayes_dat,
         "seed": config.runtime.seed,

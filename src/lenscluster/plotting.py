@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from .output_paths import output_paths, stage_name as output_stage_name
+
+
 import argparse
 from collections import Counter
 import importlib
@@ -321,8 +324,9 @@ def _first_int_value(value: Any, default: int) -> int:
 
 def plot_path(root: Path, name: str) -> Path:
     """Return an output plot path, creating the output directory first."""
+    prefix = output_paths(root).figure_prefix or _cluster_plot_filename_prefix(root)
+    root = output_paths(root).figures
     root.mkdir(parents=True, exist_ok=True)
-    prefix = _cluster_plot_filename_prefix(root)
     output_name = _prefixed_plot_filename(name, prefix)
     path = root / output_name
     if path.suffix.lower() in {".png", ".jpg", ".jpeg"}:
@@ -4027,6 +4031,7 @@ def _run_summary(
     max_tree_depth = _first_int_value(getattr(args, "max_tree_depth", 10), 10)
     summary = {
         "run_name": run_name,
+        "stage_semantic_name": output_stage_name(run_name),
         "par_path": state.par_path,
         "fit_mode": state.fit_mode,
         "n_parameters": len(state.parameter_specs),
@@ -9565,7 +9570,7 @@ def _write_truth_grid_quantile_fits(
     *,
     suffixes: Sequence[str] = TRUTH_GRID_QUANTILE_SUFFIXES,
 ) -> None:
-    fits_dir = plot_dir / "fits"
+    fits_dir = output_paths(plot_dir).fits
     fits_dir.mkdir(parents=True, exist_ok=True)
     header = truth_wcs.to_header()
     suffix_set = set(str(suffix) for suffix in suffixes)
@@ -9594,7 +9599,7 @@ def _write_truth_grid_summary(
 ) -> None:
     if not rows:
         return
-    tables_dir = plot_dir / "tables"
+    tables_dir = output_paths(plot_dir).tables
     tables_dir.mkdir(parents=True, exist_ok=True)
     path = tables_dir / "truth_recovery_summary.csv"
     new_df = pd.DataFrame(rows)
@@ -9613,7 +9618,7 @@ def _write_truth_grid_summary(
 def _write_truth_grid_draw_indices(plot_dir: Path, draw_indices: pd.DataFrame) -> None:
     if draw_indices.empty:
         return
-    tables_dir = plot_dir / "tables"
+    tables_dir = output_paths(plot_dir).tables
     tables_dir.mkdir(parents=True, exist_ok=True)
     draw_indices.to_csv(tables_dir / "truth_recovery_draw_indices.csv", index=False)
 
@@ -9964,7 +9969,7 @@ def _posterior_truth_grid_quantiles(
                 }
             )
         aperture_profile_df = pd.DataFrame(rows)
-        tables_dir = plot_dir / "tables"
+        tables_dir = output_paths(plot_dir).tables
         tables_dir.mkdir(parents=True, exist_ok=True)
         aperture_profile_df.to_csv(tables_dir / "truth_recovery_m2d_aperture_profile.csv", index=False)
         _plot_truth_recovery_m2d_aperture_ratio(
@@ -10520,7 +10525,7 @@ def _write_kappa_recovery_from_grid(
     image_points: pd.DataFrame | None = None,
 ) -> None:
     recovery = _quantity_recovery_reduced(kappa_true, model_kappa, "kappa", limits=KAPPA_RECOVERY_LIMITS)
-    tables_dir = plot_dir / "tables"
+    tables_dir = output_paths(plot_dir).tables
     tables_dir.mkdir(parents=True, exist_ok=True)
     recovery["bin_table"].to_csv(tables_dir / "truth_recovery_kappa_recovery_binned.csv", index=False)
     recovery["summary_table"].to_csv(tables_dir / "truth_recovery_kappa_recovery_summary.csv", index=False)
@@ -11160,7 +11165,7 @@ def _write_truth_recovery_m2d_aperture_profile(
     if profile_df.empty:
         _log(None, "[truth-recovery:m2d] skipped: aperture profile has no finite pixels")
         return
-    tables_dir = plot_dir / "tables"
+    tables_dir = output_paths(plot_dir).tables
     tables_dir.mkdir(parents=True, exist_ok=True)
     profile_df.to_csv(tables_dir / "truth_recovery_m2d_aperture_profile.csv", index=False)
     _plot_truth_recovery_m2d_aperture_ratio(plot_dir, profile_df, center)
@@ -11385,7 +11390,7 @@ def _write_abs_mu_recovery_from_grid(
         limits=axis_limits,
         stat_limits=axis_limits,
     )
-    tables_dir = plot_dir / "tables"
+    tables_dir = output_paths(plot_dir).tables
     tables_dir.mkdir(parents=True, exist_ok=True)
     recovery["bin_table"].to_csv(tables_dir / "truth_recovery_mu_recovery_binned.csv", index=False)
     recovery["summary_table"].to_csv(tables_dir / "truth_recovery_mu_recovery_summary.csv", index=False)
@@ -12031,7 +12036,7 @@ def _image_catalog_family_cluster_enabled(args: argparse.Namespace, run_dir: Pat
     image_dir = getattr(args, "image_catalog_family_cutout_image_dir", None)
     if image_dir is None or not str(image_dir).strip():
         return False
-    stage_name = Path(run_dir).name
+    stage_name = output_stage_name(run_dir)
     if stage_name in {"stage1_backprojected_centroid_fit", "stage2_free_source_forward_fit"}:
         return True
     return not stage_name.startswith("stage")
@@ -12042,7 +12047,7 @@ def _image_catalog_family_cutout_enabled(args: argparse.Namespace, run_dir: Path
         return False
     if not bool(getattr(args, "image_catalog_family_cutouts", True)):
         return False
-    stage_name = Path(run_dir).name
+    stage_name = output_stage_name(run_dir)
     if stage_name == "stage2_free_source_forward_fit":
         return True
     if stage_name == "stage1_backprojected_centroid_fit":
@@ -14303,7 +14308,7 @@ def _generate_plots_and_tables(
     runtime_sec: float,
     args: argparse.Namespace,
 ) -> dict[str, Any]:
-    tables_dir = run_dir / "tables"
+    tables_dir = output_paths(run_dir).tables
     tables_dir.mkdir(parents=True, exist_ok=True)
     global _SHOW_PLOTS
     if _is_stage0_minimal_output(state, args):

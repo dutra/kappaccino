@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from .output_paths import stage_directory
+
+
 import argparse
 import json
 import os
@@ -389,21 +392,21 @@ def _has_warm_artifacts(artifacts_dir: Path) -> bool:
 def _resolve_warm_stage(cluster: ClusterInput, warm_stage: str) -> WarmStageResolution:
     if not cluster.par_path.is_file():
         raise FileNotFoundError(f"Cluster {cluster.key}: par file does not exist: {cluster.par_path}")
-    stage1_artifacts_dir = cluster.warm_run_dir / single.STAGE1_BACKPROJECTED_CENTROID_FIT_DIR / "artifacts"
+    stage1_artifacts_dir = stage_directory(cluster.warm_run_dir, single.STAGE1_BACKPROJECTED_CENTROID_FIT_DIR) / "artifacts"
     if not _has_warm_artifacts(stage1_artifacts_dir):
         raise FileNotFoundError(
             f"Cluster {cluster.key}: missing stage1 warm artifacts: {stage1_artifacts_dir}"
         )
     stages = DEFAULT_WARM_STAGE_PRIORITY if warm_stage == "auto" else (warm_stage,)
     for stage_name in stages:
-        stage_artifacts_dir = cluster.warm_run_dir / stage_name / "artifacts"
+        stage_artifacts_dir = stage_directory(cluster.warm_run_dir, stage_name) / "artifacts"
         if _has_warm_artifacts(stage_artifacts_dir):
             return WarmStageResolution(
                 stage_name=stage_name,
                 stage_artifacts_dir=stage_artifacts_dir,
                 stage1_artifacts_dir=stage1_artifacts_dir,
             )
-    searched = ", ".join(str(cluster.warm_run_dir / stage / "artifacts") for stage in stages)
+    searched = ", ".join(str(stage_directory(cluster.warm_run_dir, stage) / "artifacts") for stage in stages)
     raise FileNotFoundError(f"Cluster {cluster.key}: missing requested warm artifacts; searched {searched}")
 
 

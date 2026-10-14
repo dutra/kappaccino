@@ -7,6 +7,7 @@ from typing import Any
 
 from .artifacts import root_run_dir
 from .planning import RunPlan
+from .output_paths import prepare_output
 from .stages import ClusterSolverStageExecutor, StageExecutor
 from .utils import install_astropy_wcs_warning_filters
 
@@ -24,6 +25,7 @@ class LensClusterRunner:
         self._stage_executor = stage_executor or ClusterSolverStageExecutor()
 
     def run(self, plan: RunPlan) -> RunResult:
+        prepare_output(plan)
         install_astropy_wcs_warning_filters()
 
         from . import cluster_solver

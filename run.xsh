@@ -41,6 +41,7 @@ from lenscluster.config import (
 )
 from lenscluster.planning import compile_run_plan
 from lenscluster.runner import LensClusterRunner
+from lenscluster.output_paths import validate_run_label
 
 OUTPUT_DIR_LABEL = "jun26a_anistropic_possigma01_nomaglikelihood_magcut24_externalshear"
 
@@ -59,13 +60,13 @@ FF_RGB_DISPLAY = RGBDisplayConfig(q=6.8, stretch=0.0158, minimum=0.00105, red_ga
 def _usage() -> str:
     return (
         "Usage: xonsh run.xsh <cluster> "
-        "[--campaign NAME] [--covariance anisotropic|isotropic] "
+        "[--campaign NAME] [--run-label NAME] [--covariance anisotropic|isotropic] "
         "[--magnitude-likelihood on|off]\n"
         f"Valid clusters: {VALID_CLUSTERS}"
     )
 
 
-def _parse_args(argv: list[str]) -> tuple[str, str, str, bool]:
+def _parse_args(argv: list[str]) -> tuple[str, str, str, bool, str | None]:
     if len(argv) == 2 and argv[1] in {"--help", "-h"}:
         print(_usage())
         raise SystemExit(0)
@@ -76,11 +77,13 @@ def _parse_args(argv: list[str]) -> tuple[str, str, str, bool]:
     cluster = str(argv[1]).strip().upper()
     values = {
         "campaign": OUTPUT_DIR_LABEL,
+        "run_label": None,
         "covariance": "anisotropic",
         "magnitude_likelihood": "off",
     }
     flag_to_key = {
         "--campaign": "campaign",
+        "--run-label": "run_label",
         "--covariance": "covariance",
         "--magnitude-likelihood": "magnitude_likelihood",
     }
@@ -118,7 +121,14 @@ def _parse_args(argv: list[str]) -> tuple[str, str, str, bool]:
     if not campaign_name or campaign_name in {".", ".."} or "/" in campaign_name or "\\" in campaign_name:
         print("--campaign must be a nonempty single path segment.")
         raise SystemExit(2)
-    return cluster, campaign_name, covariance_mode, use_magnitude_likelihood
+    run_label = values["run_label"]
+    if run_label is not None:
+        try:
+            validate_run_label(run_label)
+        except ValueError as exc:
+            print(f"--run-label: {exc}")
+            raise SystemExit(2) from exc
+    return cluster, campaign_name, covariance_mode, use_magnitude_likelihood, run_label
 
 
 FF_SIMS_CLUSTERS = {
@@ -318,6 +328,7 @@ def build_config(
     campaign_name: str,
     covariance_mode: str,
     use_magnitude_likelihood: bool,
+    run_label: str | None = None,
 ) -> LensClusterSolverConfig:
     if cluster not in FF_SIMS_CLUSTERS:
         raise ValueError(f"cluster must be one of {', '.join(sorted(FF_SIMS_CLUSTERS))}; got {cluster!r}.")
@@ -325,23 +336,18 @@ def build_config(
 
     perturbation_detection_multiplier = 1.0
     perturbation_top_k = 10
-    warmup = 100, 200
-    samples = 50, 200
+    warmup = 100, 500
+    samples = 50, 250
     max_tree_depth = 8, 8
     stage0_likelihood = "source"
     stage1_likelihood = "source"
     stage2_forward_mode = "isotropic-latent-displacement"
     critical_arc_anisotropic_covariance = covariance_mode == "anisotropic"
-    variant_name = f"{covariance_mode}_maglikelihood" if use_magnitude_likelihood else covariance_mode
-
-    output_dir = (
-        f"results/{campaign_name}/{cluster_config['cluster_key']}/{variant_name}_"
-        f"PDdet{perturbation_detection_multiplier:g}_TOPK_{perturbation_top_k}_"
-        f"T{max_tree_depth}W{warmup}S{samples}"
-        f"maglikelihood{use_magnitude_likelihood}"
+    output_dir = f"results/{campaign_name}/{cluster_config['cluster_key']}"
+    run_name = validate_run_label(
+        run_label if run_label is not None else f"{covariance_mode}-latent" + ("-mag" if use_magnitude_likelihood else "")
     )
-    run_name = f"{cluster_config['cluster_key']}_S1{stage1_likelihood}_S2{stage2_forward_mode}" 
-    
+
     return LensClusterSolverConfig(
         model=LensModelConfig(
             reference=ReferenceFrameConfig(reference=3, ra0_deg=0.0, dec0_deg=0.0),
@@ -351,7 +357,7 @@ def build_config(
             member_populations=(cluster_config["member_population"],),
             image_constraints=ImageConstraintsConfig(catalog_path=cluster_config["image_catalog"], sigma_arcsec=0.5),
         ),
-        paths=RunPathsConfig(output_dir=output_dir, run_name=run_name),
+        paths=RunPathsConfig(output_dir=output_dir, run_name=run_name, layout="results-v1", figure_prefix=cluster_config["cluster_key"]),
         runtime=RuntimeConfig(
             seed=seed,
             chains=cores,
@@ -378,7 +384,7 @@ def build_config(
             source_position_parameterization="prior-whitened",
         ),
         schedule=StageScheduleConfig(
-            fit_method=("svi+nuts", "svi+nuts"),# "svi+nuts"),
+            fit_method=("svi", "svi+nuts"),# "svi+nuts"),
             refresh_every=(None, None, None),# 2000),
             svi_steps=(10_000, 20_000, 20_000),# 20_000),
             warmup=warmup,
@@ -468,7 +474,7 @@ def build_config(
     )
 
 
-requested_cluster, campaign_name, covariance_mode, use_magnitude_likelihood = _parse_args(sys.argv)
+requested_cluster, campaign_name, covariance_mode, use_magnitude_likelihood, run_label = _parse_args(sys.argv)
 if requested_cluster not in FF_SIMS_CLUSTERS:
     print(f"Unknown cluster: {sys.argv[1]!r}\n{_usage()}")
     raise SystemExit(2)
@@ -479,6 +485,7 @@ config = build_config(
     campaign_name=campaign_name,
     covariance_mode=covariance_mode,
     use_magnitude_likelihood=use_magnitude_likelihood,
+    run_label=run_label,
 )
 plan = compile_run_plan(config)
 print(

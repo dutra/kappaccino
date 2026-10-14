@@ -12,6 +12,8 @@ class RunPathsConfig:
     output_dir: str | Path = "plots"
     run_name: str | None = None
     corner_overlay_bayes_dat: str | Path | None = None
+    layout: str = "legacy"
+    figure_prefix: str | None = None
 
 
 @dataclass(frozen=True)
@@ -334,6 +336,14 @@ def _jsonable(value: Any) -> Any:
 
 
 def validate_config(config: LensClusterSolverConfig) -> None:
+    from .output_paths import RESULTS_LAYOUT, validate_run_label
+
+    if config.paths.layout not in {"legacy", RESULTS_LAYOUT}:
+        raise ValueError("Unknown output layout")
+    if config.paths.layout == RESULTS_LAYOUT:
+        validate_run_label(config.paths.run_name or "")
+        if config.workflow.fit_mode != "sequential":
+            raise ValueError("results-v1 requires the sequential workflow")
     _validate_model_config(config.model)
     if isinstance(config.runtime.seed, bool) or not isinstance(config.runtime.seed, Integral) or int(config.runtime.seed) < 0:
         raise ValueError("seed must be a nonnegative integer.")

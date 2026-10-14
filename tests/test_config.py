@@ -873,12 +873,12 @@ def test_run_xsh_is_self_contained_ff_sims_runner() -> None:
     assert "matplotlib.use" not in text
     assert "MPLBACKEND" not in text
     assert "--campaign" in text
+    assert "--run-label" in text
+    assert 'layout="results-v1"' in text
     assert "--covariance" in text
     assert "--magnitude-likelihood" in text
     assert "VALID_COVARIANCE_MODES" in text
     assert "VALID_MAGNITUDE_LIKELIHOOD_MODES" in text
-    assert 'variant_name = f"{covariance_mode}_maglikelihood" if use_magnitude_likelihood else covariance_mode' in text
-    assert 'f"results/{campaign_name}/{cluster_config[\'cluster_key\']}/{variant_name}_"' in text
     assert 'stage0_likelihood = "source"' in text
     assert 'stage1_likelihood = "source"' in text
     assert 'stage0_likelihood = "local-jacobian"' not in text

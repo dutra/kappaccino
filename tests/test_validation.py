@@ -21189,7 +21189,7 @@ def test_aggregate_bias_parameter_classification_keeps_gamma_ml_absolute() -> No
     assert not aggregate_plots.is_fractional_bias_parameter("potfile.gamma_ml")
 
 
-def test_aggregate_parameter_recovery_missing_outputs_warn_or_fail(tmp_path: Path) -> None:
+def test_aggregate_parameter_recovery_missing_outputs_are_in_inventory_or_fail(tmp_path: Path) -> None:
     import lenscluster.mock_validation.aggregate_plots as aggregate_plots
 
     campaign = tmp_path / "jul2_2215_mock_validation"
@@ -21200,11 +21200,14 @@ def test_aggregate_parameter_recovery_missing_outputs_warn_or_fail(tmp_path: Pat
         stage="stage1_backprojected_centroid_fit",
     )
 
-    with pytest.warns(RuntimeWarning, match="Missing aggregate input"):
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
         parameter_df, inventory_df = aggregate_plots.collect_parameter_recovery(campaign)
+    assert not [warning for warning in caught if issubclass(warning.category, RuntimeWarning)]
 
     assert len(parameter_df) == 2
     assert int(inventory_df["loaded"].sum()) == 1
+    assert int((~inventory_df["exists"].astype(bool)).sum()) > 0
     with pytest.raises(FileNotFoundError, match="Missing aggregate input"):
         aggregate_plots.collect_parameter_recovery(campaign, strict=True)
 
@@ -21941,6 +21944,29 @@ def test_representative_seed_summary_prints_rich_table(monkeypatch: pytest.Monke
     assert "42" in rendered
     assert "3" in rendered
     assert "00012345" not in rendered
+
+
+def test_aggregate_input_summary_prints_single_rich_table(monkeypatch: pytest.MonkeyPatch) -> None:
+    import lenscluster.mock_validation.aggregate_plots as aggregate_plots
+
+    console = aggregate_plots.Console(record=True, width=120, highlight=False)
+    monkeypatch.setattr(aggregate_plots, "AGGREGATE_CONSOLE", console)
+    inventory = pd.DataFrame(
+        [
+            {"seed": 12345, "exists": True, "loaded": True},
+            {"seed": 12346, "exists": True, "loaded": True},
+            {"seed": 12347, "exists": False, "loaded": False},
+            {"seed": 12348, "exists": True, "loaded": False},
+        ]
+    )
+
+    aggregate_plots._print_aggregate_input_summary((("parameters", inventory),))
+
+    rendered = console.export_text()
+    assert "Aggregate input summary" in rendered
+    assert "parameters" in rendered
+    assert "2" in rendered
+    assert "1" in rendered
 
 
 def test_m2d_representative_seed_tie_breaks_by_median_ess_then_seed(tmp_path: Path) -> None:

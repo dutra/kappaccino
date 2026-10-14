@@ -293,7 +293,6 @@ def collect_parameter_recovery(
                     inventory_rows.append(inventory)
                     if strict:
                         raise FileNotFoundError(message)
-                    warnings.warn(message, RuntimeWarning, stacklevel=2)
                     continue
                 try:
                     records = _parameter_records_from_result(result_path, stage)
@@ -303,7 +302,6 @@ def collect_parameter_recovery(
                     inventory_rows.append(inventory)
                     if strict:
                         raise
-                    warnings.warn(message, RuntimeWarning, stacklevel=2)
                     continue
                 inventory["loaded"] = True
                 inventory["message"] = f"loaded {len(records)} parameter rows"
@@ -374,7 +372,6 @@ def collect_magnification_recovery(
                     inventory_rows.append(inventory)
                     if strict:
                         raise FileNotFoundError(message)
-                    warnings.warn(message, RuntimeWarning, stacklevel=2)
                     continue
                 try:
                     records = _table_records_from_recovery_result(result_path, stage, "magnification")
@@ -384,7 +381,6 @@ def collect_magnification_recovery(
                     inventory_rows.append(inventory)
                     if strict:
                         raise
-                    warnings.warn(message, RuntimeWarning, stacklevel=2)
                     continue
                 inventory["loaded"] = True
                 inventory["message"] = f"loaded {len(records)} magnification rows"
@@ -466,7 +462,6 @@ def collect_image_residual_recovery(
                     inventory_rows.append(inventory)
                     if strict:
                         raise FileNotFoundError(message)
-                    warnings.warn(message, RuntimeWarning, stacklevel=2)
                     continue
                 try:
                     records = _table_records_from_recovery_result(result_path, stage, "posterior_image_rms")
@@ -476,7 +471,6 @@ def collect_image_residual_recovery(
                     inventory_rows.append(inventory)
                     if strict:
                         raise
-                    warnings.warn(message, RuntimeWarning, stacklevel=2)
                     continue
                 inventory["loaded"] = True
                 inventory["message"] = f"loaded {len(records)} posterior image RMS rows"
@@ -554,7 +548,6 @@ def collect_image_residual_draws_recovery(
                     inventory_rows.append(inventory)
                     if strict:
                         raise FileNotFoundError(message)
-                    warnings.warn(message, RuntimeWarning, stacklevel=2)
                     continue
                 try:
                     records = _table_records_from_recovery_result(result_path, stage, "posterior_image_residual_draws")
@@ -564,7 +557,6 @@ def collect_image_residual_draws_recovery(
                     inventory_rows.append(inventory)
                     if strict:
                         raise
-                    warnings.warn(message, RuntimeWarning, stacklevel=2)
                     continue
                 inventory["loaded"] = True
                 inventory["message"] = f"loaded {len(records)} posterior image residual rows"
@@ -2306,7 +2298,6 @@ def collect_subhalo_shmf_inputs(
                 message = f"Missing SHMF aggregate input: {path}"
                 if strict:
                     raise FileNotFoundError(message)
-                warnings.warn(message, RuntimeWarning, stacklevel=2)
                 continue
             try:
                 payload = _load_json(path)
@@ -2314,7 +2305,6 @@ def collect_subhalo_shmf_inputs(
                 message = f"Could not read {path}: {type(exc).__name__}: {exc}"
                 if strict:
                     raise
-                warnings.warn(message, RuntimeWarning, stacklevel=2)
                 continue
             truth_mass = _truth_subhalo_masses(payload)
             recovered_log_mass = _recovered_stage_subhalo_log_masses(payload, stage)
@@ -2322,7 +2312,6 @@ def collect_subhalo_shmf_inputs(
                 message = f"Missing truth or recovered SHMF masses for {stage} in {path}"
                 if strict:
                     raise ValueError(message)
-                warnings.warn(message, RuntimeWarning, stacklevel=2)
                 continue
             if not selection:
                 selection = _truth_subhalo_selection(payload)
@@ -2927,7 +2916,6 @@ def collect_m2d_aperture_inputs(
             message = f"Missing truth.json for M2D aperture recovery: {truth_path}"
             if strict:
                 raise FileNotFoundError(message)
-            warnings.warn(message, RuntimeWarning, stacklevel=2)
             continue
         truth = _load_json(truth_path)
         kpc = float(truth["kpc_per_arcsec"])
@@ -2939,7 +2927,6 @@ def collect_m2d_aperture_inputs(
                 message = f"Missing posterior bundle for M2D aperture recovery: {seed_dir.name}/{variant}/{stage}"
                 if strict:
                     raise FileNotFoundError(message)
-                warnings.warn(message, RuntimeWarning, stacklevel=2)
                 continue
             draws, names, runtime_args = loaded
             sigma_width = float(runtime_args.get("independent_scaling_free_log_sigma_offset_width", 0.0))
@@ -3182,6 +3169,31 @@ def _print_representative_seed_summary(representative_df: pd.DataFrame) -> None:
     AGGREGATE_CONSOLE.print(table)
 
 
+def _print_aggregate_input_summary(inventories: tuple[tuple[str, pd.DataFrame], ...]) -> None:
+    table = Table(title="Aggregate input summary")
+    table.add_column("input", style="cyan")
+    table.add_column("loaded", justify="right", style="bold")
+    table.add_column("missing", justify="right")
+    table.add_column("failed", justify="right")
+    table.add_column("seeds", justify="right")
+    rows_added = False
+    for label, inventory_df in inventories:
+        if inventory_df.empty:
+            continue
+        exists = inventory_df["exists"].astype(bool) if "exists" in inventory_df else pd.Series(True, index=inventory_df.index)
+        loaded = inventory_df["loaded"].astype(bool) if "loaded" in inventory_df else pd.Series(False, index=inventory_df.index)
+        failed = exists & ~loaded
+        loaded_seeds = int(inventory_df.loc[loaded, "seed"].nunique()) if "seed" in inventory_df else 0
+        table.add_row(
+            str(label),
+            f"{int(loaded.sum())}",
+            f"{int((~exists).sum())}",
+            f"{int(failed.sum())}",
+            f"{loaded_seeds}",
+        )
+        rows_added = True
+    if rows_added:
+        AGGREGATE_CONSOLE.print(table)
 
 
 def _m2d_two_panel_axes() -> tuple[Any, Any, Any]:
@@ -3506,6 +3518,14 @@ def write_aggregate_plots(
             strict=strict,
         )
         advance("aggregate plots: image residual draws")
+        _print_aggregate_input_summary(
+            (
+                ("parameters", inventory_df),
+                ("magnification", _magnification_inventory_df),
+                ("image RMS", _image_residual_inventory_df),
+                ("image residual draws", _image_residual_draws_inventory_df),
+            )
+        )
 
         parameter_table_path = output_path / "parameter_recovery_table.csv"
         aggregate_parameter_table_path = output_path / "aggregate_parameter_recovery_table.csv"

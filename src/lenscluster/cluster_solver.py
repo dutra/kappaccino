@@ -101,7 +101,7 @@ Path(_MPLCONFIGDIR).mkdir(parents=True, exist_ok=True)
 jax_config.update("jax_enable_x64", True)
 
 from jaxtronomy.LensModel.lens_model_bulk import LensModelBulk
-from jaxtronomy.LensModel.Profiles.dpie_nie import DPIENIE
+from jaxtronomy.LensModel.Profiles.dpie_nie_e import DPIE_NIE_E as DPIENIE
 from .config import IndependentMemberHaloConfig, LensModelConfig, MemberPopulationConfig, PriorConfig
 from .lenstool_parser import (
     _load_arc_constraints_catalog as _load_declared_arc_constraints_catalog,
@@ -864,13 +864,13 @@ class TracedArcConstraintData:
     sigma_curvature_arcsec_inv: jnp.ndarray
     reliability: jnp.ndarray
     n_arcs: int = 0
-ORIGINAL_DPIE_PROFILE_NAME = "DPIE_NIE"
+ORIGINAL_DPIE_PROFILE_NAME = "DPIE_NIE_E"
 UNSUPPORTED_PJAFFE_PROFILE_NAMES = {
     "PJAFFE_COMPACT",
     "PJAFFE_ELLIPSE_POTENTIAL",
     "PJAFFE_ELLIPSE_POTENTIAL_COMPACT",
 }
-GROUPED_DPIE_BACKEND_LABEL = "grouped_dpie_nie"
+GROUPED_DPIE_BACKEND_LABEL = "grouped_dpie_nie_e"
 
 
 def _validate_supported_lens_model_list(lens_model_list: list[str], context: str) -> None:
@@ -879,7 +879,7 @@ def _validate_supported_lens_model_list(lens_model_list: list[str], context: str
         joined = ", ".join(unsupported)
         raise ValueError(
             f"{context} uses unsupported compact/PJAFFE lens profiles ({joined}). "
-            "Regenerate the artifacts with the DPIE_NIE profile."
+            "Regenerate the artifacts with the DPIE_NIE_E profile."
         )
 
 
@@ -18525,11 +18525,18 @@ class ClusterJAXEvaluator:
         self.invalid_state_rejection_count = 0
         self.invalid_state_reason_counts = {name: 0 for name in INVALID_STATE_REASON_NAMES}
         self.use_bulk_ray_shooting = True
+        # Old artifacts keep their on-disk provenance; use the Cartesian profile at runtime.
+        if "DPIE_NIE" in state.lens_model_list:
+            state.lens_model_list = [
+                ORIGINAL_DPIE_PROFILE_NAME if name == "DPIE_NIE" else name
+                for name in state.lens_model_list
+            ]
+            _log(None, "[profiles] legacy DPIE_NIE resolved to DPIE_NIE_E at runtime")
         _validate_supported_lens_model_list(state.lens_model_list, "BuildState")
         unsupported_grouped_profiles = sorted(set(str(name) for name in state.lens_model_list) - {ORIGINAL_DPIE_PROFILE_NAME, "SHEAR"})
         if unsupported_grouped_profiles:
             raise RuntimeError(
-                "Mandatory grouped lensing backend supports only DPIE_NIE and SHEAR profiles; "
+                "Mandatory grouped lensing backend supports only DPIE_NIE_E and SHEAR profiles; "
                 f"unsupported profiles={unsupported_grouped_profiles}."
             )
         if ORIGINAL_DPIE_PROFILE_NAME in set(str(name) for name in state.lens_model_list) and not (
@@ -20144,7 +20151,10 @@ class ClusterJAXEvaluator:
                 mask = mask & jnp.zeros_like(mask, dtype=bool)
             squared_sum = jnp.sum(jnp.where(mask, jnp.square(values), 0.0))
             count = jnp.sum(jnp.where(mask, 1.0, 0.0))
-            return jnp.sqrt(squared_sum / jnp.maximum(count, 1.0))
+            # An absent scatter field is a constant zero, not sqrt(0) on an
+            # inactive differentiable branch (whose derivative is singular).
+            mean_square = squared_sum / jnp.maximum(count, 1.0)
+            return jnp.where(count > 0, jnp.sqrt(jnp.where(count > 0, mean_square, 1.0)), 0.0)
 
         return (
             _field_scale(spec_jax["sigma_log_scatter_param_index"]),
@@ -22678,7 +22688,7 @@ class ClusterJAXEvaluator:
         unsupported = sorted(set(int(value) for value in selected_profiles.tolist()) - {DP_IE_PROFILE, SHEAR_PROFILE})
         if unsupported:
             raise RuntimeError(
-                "Mandatory grouped lensing backend supports only DPIE_NIE and SHEAR profiles; "
+                "Mandatory grouped lensing backend supports only DPIE_NIE_E and SHEAR profiles; "
                 f"unsupported profile codes={unsupported}."
             )
         dpie_indices = indices[selected_profiles == DP_IE_PROFILE].astype(np.int32)
@@ -22787,7 +22797,7 @@ class ClusterJAXEvaluator:
         unsupported = sorted(set(int(value) for value in selected_profiles.tolist()) - {DP_IE_PROFILE, SHEAR_PROFILE})
         if unsupported:
             raise RuntimeError(
-                "Mandatory grouped lensing backend supports only DPIE_NIE and SHEAR profiles; "
+                "Mandatory grouped lensing backend supports only DPIE_NIE_E and SHEAR profiles; "
                 f"unsupported profile codes={unsupported}."
             )
         rows = [jnp.zeros((indices.size, x.shape[0]), dtype=jnp.float64) for _ in range(6)]
@@ -22900,7 +22910,7 @@ class ClusterJAXEvaluator:
         unsupported = sorted(set(int(value) for value in selected_profiles.tolist()) - {DP_IE_PROFILE, SHEAR_PROFILE})
         if unsupported:
             raise RuntimeError(
-                "Mandatory grouped lensing backend supports only DPIE_NIE and SHEAR profiles; "
+                "Mandatory grouped lensing backend supports only DPIE_NIE_E and SHEAR profiles; "
                 f"unsupported profile codes={unsupported}."
             )
         outputs = [jnp.zeros_like(x, dtype=jnp.float64) for _ in range(6)]
@@ -25717,7 +25727,10 @@ def _rebuild_state_from_h5(path: Path) -> tuple[BuildState, dict[str, Any], dict
             for field_name in PackedLensSpec.__dataclass_fields__
         }
         packed_lens_spec = PackedLensSpec(**packed_payload)
-        lens_model_list = [str(name) for name in meta.get("lens_model_list", [])]
+        lens_model_list = [
+            ORIGINAL_DPIE_PROFILE_NAME if str(name) == "DPIE_NIE" else str(name)
+            for name in meta.get("lens_model_list", [])
+        ]
         _validate_supported_lens_model_list(lens_model_list, str(path))
         state = BuildState(
             run_name=str(meta["run_name"]),

@@ -5,9 +5,9 @@ import math
 
 import jax
 import jax.numpy as jnp
-from jaxtronomy.LensModel.Profiles.dpie_nie import DPIENIE
+from jaxtronomy.LensModel.Profiles.dpie_nie_e import DPIE_NIE_E as DPIENIE
 
-ORIGINAL_DPIE_PROFILE_NAME = "DPIE_NIE"
+ORIGINAL_DPIE_PROFILE_NAME = "DPIE_NIE_E"
 SHEAR_PROFILE_NAME = "SHEAR"
 
 
@@ -66,7 +66,7 @@ def static_lens_state_from_kwargs(
     gamma1: list[float] = []
     gamma2: list[float] = []
     for name, kwargs in zip(lens_model_list, kwargs_lens):
-        if str(name) == ORIGINAL_DPIE_PROFILE_NAME:
+        if str(name) in {ORIGINAL_DPIE_PROFILE_NAME, "DPIE_NIE"}:
             profile_type.append(1)
             sigma0.append(float(kwargs.get("sigma0", 0.0)))
             ra.append(float(kwargs.get("Ra", kwargs.get("ra", 0.0))))
@@ -89,7 +89,7 @@ def static_lens_state_from_kwargs(
             gamma1.append(float(kwargs.get("gamma1", 0.0)))
             gamma2.append(float(kwargs.get("gamma2", 0.0)))
         else:
-            raise ValueError(f"Unsupported mock lens profile {name!r}; only DPIE_NIE and SHEAR are supported.")
+            raise ValueError(f"Unsupported mock lens profile {name!r}; only DPIE_NIE_E and SHEAR are supported.")
     return StaticLensState(
         profile_type=jnp.asarray(profile_type, dtype=jnp.int32),
         sigma0=jnp.asarray(sigma0, dtype=jnp.float64),

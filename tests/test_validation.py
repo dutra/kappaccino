@@ -11013,7 +11013,7 @@ def test_cluster_solver_original_profile_maps_dpie_to_dpie_nie() -> None:
         ],
     )
 
-    assert lens_model_list == ["DPIE_NIE", "SHEAR"]
+    assert lens_model_list == ["DPIE_NIE_E", "SHEAR"]
 
 
 def test_decode_mode9_prior_accepts_finite_and_lower_only_truncation() -> None:
@@ -13121,7 +13121,7 @@ def test_grouped_lensing_hot_paths_do_not_string_index_packed_state() -> None:
 
 
 def test_grouped_dpie_shear_backend_matches_lensmodelbulk_reference() -> None:
-    lens_model_list = ["DPIE_NIE", "DPIE_NIE", "SHEAR"]
+    lens_model_list = ["DPIE_NIE_E", "DPIE_NIE_E", "SHEAR"]
     packed_state = PackedLensState(
         profile_type=jnp.asarray(
             [cluster_solver.DP_IE_PROFILE, cluster_solver.DP_IE_PROFILE, cluster_solver.SHEAR_PROFILE],
@@ -13163,7 +13163,7 @@ def test_grouped_dpie_shear_backend_matches_lensmodelbulk_reference() -> None:
     grouped_beta = cluster_solver.ClusterJAXEvaluator._ray_shooting_for_components(fake, 2.0, x, y, packed_state)
     grouped_jacobian = cluster_solver.ClusterJAXEvaluator._lensing_jacobian_for_components(fake, 2.0, x, y, packed_state)
 
-    model = cluster_solver.LensModelBulk(unique_lens_model_list=["DPIE_NIE", "SHEAR"], multi_plane=False)
+    model = cluster_solver.LensModelBulk(unique_lens_model_list=["DPIE_NIE_E", "SHEAR"], multi_plane=False)
     kwargs = model.prepare_ray_shooting_kwargs(
         lens_model_list,
         [

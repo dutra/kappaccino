@@ -549,3 +549,12 @@ Pagul21 catalogs do not include multiple-image family memberships, so each
 generated image is a single-image pseudo-family and does not by itself provide
 a science-ready strong-lensing constraint. Replace `obs_arcs.cat` with real HFF
 multiple-image family labels before using these files for an actual mass fit.
+
+### Cartesian dPIE backend
+
+New runs use `DPIE_NIE_E` from the local lenstronomy and JAXtronomy forks.
+It preserves the existing dPIE normalization and radii while evaluating directly
+in `e1,e2`, including exact circularity. Spatial Hessians are analytic.
+Saved `DPIE_NIE` states resolve to this backend when loaded; saved files are not
+rewritten. Both original library profiles remain available for compatibility.
+See [validation and timing](docs/benchmarks/cartesian_profiles_20261010.md).

@@ -421,11 +421,19 @@ Nearby source redshifts are grouped by fractional lensing-efficiency
 1% in lensing strength, which automatically makes bins finer near the cluster
 and coarser at high source redshift.
 
-When `--svi-steps` is larger than `--refresh-every`, SVI is run in blocks.
-Each block's median is checked for physical validity before it becomes the
-next starting point; an invalid median retains the last valid center.
+`full_flat` evaluates both lensing predictions and first-order member-scatter
+covariance at the current parameters inside JAX. The covariance and its parameter
+derivatives are computed directly; scaling-cache refresh requests are no-ops.
+`refreshing_surrogate_flat` retains its reference-based deflection and scatter
+caches. Direct covariance evaluation preserves the existing scatter model but
+costs more, particularly when computing likelihood gradients.
+
+When `--svi-steps` is larger than `--refresh-every`, SVI is run in blocks for either
+engine. Each block's median is checked for physical validity before it becomes
+the next starting point; an invalid median retains the last valid center.
 Applicable surrogate caches are refreshed at that accepted center and held fixed
-during NUTS.
+during NUTS. Full-flat member-scatter covariance remains parameter-dependent
+during both SVI and NUTS.
 
 For `--fit-mode evidence-ns`, the solver skips the sequential stages and builds
 one joint evidence target with analytically marginalized source positions under

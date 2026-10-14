@@ -8066,7 +8066,7 @@ def test_scatter_image_covariance_congruence_identity_inverse() -> None:
     evaluator = cluster_solver.ClusterJAXEvaluator(
         state=state,
         match_tolerance_arcsec=0.1,
-        sampling_engine="full_flat",
+        sampling_engine="refreshing_surrogate_flat",
         sample_likelihood_mode=SAMPLE_LIKELIHOOD_LOCAL_JACOBIAN,
     )
     reference = cluster_solver._default_theta(state.parameter_specs)
@@ -8513,38 +8513,17 @@ def test_full_flat_local_jacobian_refreshes_metric_cache_with_unit_flag() -> Non
     assert np.asarray(flat.flat_source_metric_cache.jac_a00).shape == (4,)
 
 
-def test_full_flat_scaling_scatter_cache_matches_per_bin_refresh() -> None:
+def test_full_flat_scaling_scatter_refresh_is_noop() -> None:
     state = _minimal_two_bin_local_jacobian_state_with_scaling_scatter()
-    legacy = cluster_solver.ClusterJAXEvaluator(
-        state=state,
-        match_tolerance_arcsec=0.1,
-        sampling_engine="full_flat",
-        sample_likelihood_mode=SAMPLE_LIKELIHOOD_LOCAL_JACOBIAN,
-    )
-    flat = cluster_solver.ClusterJAXEvaluator(
-        state=state,
-        match_tolerance_arcsec=0.1,
-        sampling_engine="full_flat",
-        sample_likelihood_mode=SAMPLE_LIKELIHOOD_LOCAL_JACOBIAN,
-    )
+    evaluator = cluster_solver.ClusterJAXEvaluator(state, 0.1, sampling_engine="full_flat")
     reference = cluster_solver._default_theta(state.parameter_specs)
-
-    legacy.refresh_scaling_scatter_cache(reference, reason="test")
-    flat.refresh_scaling_scatter_cache(reference, reason="test")
-
-    _assert_cache_dicts_allclose(
-        flat.scaling_scatter_cache_by_z,
-        legacy.scaling_scatter_cache_by_z,
-        cluster_solver.SCALING_SCATTER_CACHE_KEYS,
-    )
-    np.testing.assert_allclose(
-        np.asarray(flat.flat_critical_arc_data.sigma_scatter_cov00),
-        np.concatenate(
-            [legacy.scaling_scatter_cache_by_z[2.0]["sigma_cov00"], legacy.scaling_scatter_cache_by_z[3.0]["sigma_cov00"]]
-        ),
-        rtol=1.0e-8,
-        atol=1.0e-8,
-    )
+    old_fn = evaluator._source_loglike_fn
+    old_data = evaluator.flat_critical_arc_data
+    evaluator.refresh_scaling_scatter_cache(reference, reason="test")
+    assert evaluator.scaling_scatter_cache_by_z == {}
+    assert evaluator.scaling_scatter_reference_params is None
+    assert evaluator._source_loglike_fn is old_fn
+    assert evaluator.flat_critical_arc_data is old_data
 
 
 def test_lens_model_bulk_accepts_per_image_sigma0_matrix() -> None:

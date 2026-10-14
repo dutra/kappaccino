@@ -1751,7 +1751,9 @@ def _solver_active_approximation_items(evaluator: Any) -> list[str]:
         and _count_items(getattr(evaluator, "_scaling_scatter_component_indices", lambda: [])()) > 0
         and not perturbation_stage0
     ):
-        items.append("scaling_scatter_cache=linearized Bergamini sigma/mass covariance")
+        items.append("scaling_scatter=direct first-order Bergamini sigma/mass covariance"
+                     if getattr(evaluator, "sampling_engine", None) == SAMPLING_ENGINE_FULL_FLAT
+                     else "scaling_scatter_cache=linearized Bergamini sigma/mass covariance")
     source_covariance_mode = str(
         getattr(evaluator, "source_plane_covariance_mode", SOURCE_PLANE_COVARIANCE_MODE_MAGNIFICATION)
     )
@@ -2042,7 +2044,7 @@ def _active_approximation_rows(evaluator: Any) -> list[ApproximationRow]:
         _count_items(getattr(evaluator, "scaling_scatter_param_indices", [])) > 0
         and _count_items(getattr(evaluator, "_scaling_scatter_component_indices", lambda: [])()) > 0
     ):
-        rows.append(("scaling_scatter_cache", "linearized", "cache"))
+        rows.append(("scaling_scatter_cache", "direct" if getattr(evaluator, "sampling_engine", None) == SAMPLING_ENGINE_FULL_FLAT else "linearized", "cache"))
     elif _count_items(getattr(evaluator, "scaling_scatter_param_indices", [])) > 0:
         rows.append(("scaling_scatter_cache", "disabled_no_cached_scaling", "cache"))
     if (
@@ -2313,7 +2315,7 @@ def _stage_model_summary_rows(evaluator: Any) -> list[ApproximationRow]:
         _count_items(getattr(evaluator, "scaling_scatter_param_indices", [])) > 0
         and _count_items(getattr(evaluator, "_scaling_scatter_component_indices", lambda: [])()) > 0
     ):
-        rows.append(("scaling_scatter_cache", "linearized", "cache"))
+        rows.append(("scaling_scatter_cache", "direct" if getattr(evaluator, "sampling_engine", None) == SAMPLING_ENGINE_FULL_FLAT else "linearized", "cache"))
     elif _count_items(getattr(evaluator, "scaling_scatter_param_indices", [])) > 0:
         rows.append(("scaling_scatter_cache", "disabled_no_cached_scaling", "cache"))
     else:
@@ -10233,6 +10235,7 @@ class _SviRefreshCacheSnapshot:
     probes: dict[str, _SviRefreshArrayProbe]
     total_nbytes: int = 0
     refresh_failed: bool = False
+    direct: bool = False
 
 
 @dataclass(frozen=True)
@@ -10431,7 +10434,7 @@ def _svi_refresh_evaluator_snapshot(evaluator: Any) -> dict[str, _SviRefreshCach
         "scaling": _svi_refresh_cache_snapshot(
             getattr(evaluator, "scaling_scatter_cache_by_z", {}),
             getattr(evaluator, "scaling_scatter_reference_params", None),
-            enabled=not perturbation_stage0,
+            enabled=not perturbation_stage0 and getattr(evaluator, "sampling_engine", None) != SAMPLING_ENGINE_FULL_FLAT,
         ),
         "source_metric": _svi_refresh_cache_snapshot(
             getattr(evaluator, "source_metric_cache_by_z", {}),
@@ -10441,7 +10444,9 @@ def _svi_refresh_evaluator_snapshot(evaluator: Any) -> dict[str, _SviRefreshCach
     }
 
     failures = getattr(evaluator, "_cache_refresh_failures", {})
-    return {name: replace(snapshot, refresh_failed=bool(failures.get(name, False)))
+    return {name: replace(snapshot, refresh_failed=bool(failures.get(name, False)),
+                          direct=(name == "scaling" and not perturbation_stage0
+                                  and getattr(evaluator, "sampling_engine", None) == SAMPLING_ENGINE_FULL_FLAT))
             for name, snapshot in snapshots.items()}
 
 
@@ -10675,6 +10680,10 @@ def _svi_refresh_cache_status_rows(
                         meaning="refresh failed; previous cache retained", style="bold yellow")
                 if after.get(row.name) is not None and after[row.name].enabled and after[row.name].refresh_failed
                 else row for row in rows]
+    if after is not None:
+        rows = [replace(row, rms="na", max_abs="na", status="direct",
+                        meaning="computed at current parameters; no cache", style="dim")
+                if after.get(row.name) is not None and after[row.name].direct else row for row in rows]
     for label in ordered_labels:
         delta = deltas[label]
         if delta.enabled and (delta.added_arrays or delta.removed_arrays or delta.shape_changed_arrays):
@@ -10891,8 +10900,9 @@ def _refresh_pre_nuts_caches(evaluator: Any, best_fit: np.ndarray, reason: str) 
     failures = getattr(evaluator, "_cache_refresh_failures", {})
     if failures.get("surrogate", False):
         surrogate_status = "retained"
-    scaling_status = ("retained" if failures.get("scaling", False) else "refreshed")
-    prefix = ("[svi] pre_nuts cache refresh results " if any(failures.values())
+    scaling_status = ("direct" if getattr(evaluator, "sampling_engine", None) == SAMPLING_ENGINE_FULL_FLAT
+                      else "retained" if failures.get("scaling", False) else "refreshed")
+    prefix = ("[svi] pre_nuts cache refresh results " if any(failures.values()) or scaling_status == "direct"
               else "[svi] pre_nuts using freshly refreshed caches ")
     return (
         prefix +
@@ -20224,7 +20234,7 @@ class ClusterJAXEvaluator:
         if len(self._scaling_scatter_component_indices()) == 0 or len(self.scaling_scatter_param_indices) == 0:
             zeros = jnp.zeros_like(beta_x)
             return zeros, zeros
-        cache = self.scaling_scatter_cache_by_z.get(float(bin_data.effective_z_source))
+        cache = self._scaling_scatter_covariance_for_bin(physical_params, bin_data.effective_z_source)
         if cache is None:
             zeros = jnp.zeros_like(beta_x)
             return zeros, zeros
@@ -20284,7 +20294,7 @@ class ClusterJAXEvaluator:
         zeros = jnp.zeros_like(inv00)
         if len(self._scaling_scatter_component_indices()) == 0 or len(self.scaling_scatter_param_indices) == 0:
             return zeros, zeros, zeros, jnp.ones_like(inv00, dtype=bool)
-        cache = self.scaling_scatter_cache_by_z.get(float(bin_data.effective_z_source))
+        cache = self._scaling_scatter_covariance_for_bin(physical_params, bin_data.effective_z_source)
         if cache is None:
             return zeros, zeros, zeros, jnp.ones_like(inv00, dtype=bool)
         sigma_scatter, mass_scatter = self._scaling_scatter_field_scales_from_physical(physical_params)
@@ -20317,6 +20327,8 @@ class ClusterJAXEvaluator:
         return cov00, cov01, cov11, finite
 
     def refresh_scaling_scatter_cache(self, reference_params: np.ndarray, reason: str = "manual") -> None:
+        if self.sampling_engine == SAMPLING_ENGINE_FULL_FLAT:
+            return
         if self.sampling_engine in {
             SAMPLING_ENGINE_FULL_FLAT,
             SAMPLING_ENGINE_REFRESHING_SURROGATE_FLAT,
@@ -20761,6 +20773,74 @@ class ClusterJAXEvaluator:
                 raise ValueError(f"Unsupported profile type {profile}.")
         return kwargs_lens
 
+    def _direct_scaling_scatter_covariance(
+        self, physical_params: jnp.ndarray, flat_data: FlatCriticalArcData,
+    ) -> dict[str, jnp.ndarray]:
+        """Current-model independent-member covariance, differentiated inside JIT.
+
+        Offsets are shared only to batch the calculation: member deflections stay
+        separate until their outer products are summed. No coherent cross terms.
+        """
+        indices = self._scaling_scatter_component_indices()
+        zeros = jnp.zeros_like(flat_data.x_obs)
+        if len(indices) == 0 or len(self.scaling_scatter_param_indices) == 0:
+            return {key: zeros for key in SCALING_SCATTER_CACHE_KEYS}
+        base, validity = self._build_flat_packed_lens_state_with_validity_from_physical(
+            physical_params, flat_data, stop_gradient=False
+        )
+
+        def evaluate(_):
+            # Shape and position do not depend on the scatter offsets. Keeping
+            # them outside the inner AD avoids the circular-profile angle JVP;
+            # outer likelihood derivatives through these quantities are retained.
+            def member_alpha(radius_offset):
+                packed, _validity = self._build_flat_packed_lens_state_with_validity_from_physical(
+                    physical_params, flat_data, stop_gradient=False,
+                    core_log_offset=radius_offset, cut_log_offset=radius_offset,
+                )
+                return jax.vmap(lambda sigma, ra, rs, e1, e2, cx, cy: jnp.stack(
+                    DPIENIE.derivatives(flat_data.x_obs, flat_data.y_obs,
+                                        sigma, ra, rs, e1, e2, cx, cy), axis=-1
+                ))(packed.sigma0[indices], packed.Ra[indices], packed.Rs[indices],
+                   base.e1[indices], base.e2[indices], base.center_x[indices], base.center_y[indices])
+
+            # d_sigma = 2 alpha - 2 d_mass: sigma scatter scales v by exp(s)
+            # and both radii by exp(-2s); deflection is linear in v**2.
+            # One JVP supplies the mass response and reuses its primal for sigma.
+            # This identity also preserves softening and excess-cut transforms.
+            alpha, mass_response = jax.jvp(member_alpha, (jnp.asarray(0., dtype=jnp.float64),),
+                                           (jnp.asarray(1., dtype=jnp.float64),))
+            derivative = jnp.stack((2.0 * (alpha - mass_response), mass_response), axis=-1)
+            result = {}
+            for field_index, field in enumerate(("sigma", "mass")):
+                dx, dy = derivative[:, :, 0, field_index], derivative[:, :, 1, field_index]
+                result[f"{field}_cov00"] = jnp.sum(dx * dx, axis=0)
+                result[f"{field}_cov01"] = jnp.sum(dx * dy, axis=0)
+                result[f"{field}_cov11"] = jnp.sum(dy * dy, axis=0)
+            return result
+
+        return jax.lax.cond(validity.is_valid, evaluate,
+                            lambda _: {key: jnp.full_like(zeros, jnp.nan) for key in SCALING_SCATTER_CACHE_KEYS},
+                            operand=None)
+
+    def _scaling_scatter_covariance_for_bin(self, physical_params, z_source):
+        if self.sampling_engine != SAMPLING_ENGINE_FULL_FLAT:
+            return self.scaling_scatter_cache_by_z.get(float(z_source))
+        arrays = self._direct_scaling_scatter_covariance(physical_params, self.flat_critical_arc_data)
+        start = 0
+        for bin_data in self.traced_bin_data:
+            end = start + len(bin_data.x_obs)
+            if float(bin_data.effective_z_source) == float(z_source):
+                return {key: value[start:end] for key, value in arrays.items()}
+            start = end
+        raise ValueError(f"No traced source plane for scatter covariance at z={z_source}.")
+
+    def _flat_scaling_scatter_covariance(self, physical_params, flat_data):
+        if self.sampling_engine == SAMPLING_ENGINE_FULL_FLAT:
+            return self._direct_scaling_scatter_covariance(physical_params, flat_data)
+        return {f"{field}_cov{ij}": getattr(flat_data, f"{field}_scatter_cov{ij}")
+                for field in ("sigma", "mass") for ij in ("00", "01", "11")}
+
     def _flat_scaling_scatter_image_covariance_from_inverse(
         self,
         physical_params: jnp.ndarray,
@@ -20774,6 +20854,7 @@ class ClusterJAXEvaluator:
         zeros = jnp.zeros_like(inv00)
         if len(self._scaling_scatter_component_indices()) == 0 or len(self.scaling_scatter_param_indices) == 0:
             return zeros, zeros, zeros, jnp.ones_like(inv00, dtype=bool)
+        covariance = self._flat_scaling_scatter_covariance(physical_params, flat_data)
         sigma_scatter, mass_scatter = self._scaling_scatter_field_scales_from_physical(physical_params)
 
         def image_cov(
@@ -20792,15 +20873,15 @@ class ClusterJAXEvaluator:
 
         sigma00, sigma01, sigma11 = image_cov(
             sigma_scatter,
-            flat_data.sigma_scatter_cov00,
-            flat_data.sigma_scatter_cov01,
-            flat_data.sigma_scatter_cov11,
+            covariance["sigma_cov00"],
+            covariance["sigma_cov01"],
+            covariance["sigma_cov11"],
         )
         mass00, mass01, mass11 = image_cov(
             mass_scatter,
-            flat_data.mass_scatter_cov00,
-            flat_data.mass_scatter_cov01,
-            flat_data.mass_scatter_cov11,
+            covariance["mass_cov00"],
+            covariance["mass_cov01"],
+            covariance["mass_cov11"],
         )
         cov00 = sigma00 + mass00
         cov01 = sigma01 + mass01
@@ -20816,16 +20897,17 @@ class ClusterJAXEvaluator:
         zeros = jnp.zeros_like(flat_data.x_obs)
         if len(self._scaling_scatter_component_indices()) == 0 or len(self.scaling_scatter_param_indices) == 0:
             return zeros, zeros
+        covariance = self._flat_scaling_scatter_covariance(physical_params, flat_data)
         sigma_scatter, mass_scatter = self._scaling_scatter_field_scales_from_physical(physical_params)
         # Source-plane diagonal fallback: variance terms of the per-member covariance
         # (sum_g v_g v_g^T); the source-plane cross term is dropped on this path.
         var_x = (
-            jnp.square(sigma_scatter) * flat_data.sigma_scatter_cov00
-            + jnp.square(mass_scatter) * flat_data.mass_scatter_cov00
+            jnp.square(sigma_scatter) * covariance["sigma_cov00"]
+            + jnp.square(mass_scatter) * covariance["mass_cov00"]
         )
         var_y = (
-            jnp.square(sigma_scatter) * flat_data.sigma_scatter_cov11
-            + jnp.square(mass_scatter) * flat_data.mass_scatter_cov11
+            jnp.square(sigma_scatter) * covariance["sigma_cov11"]
+            + jnp.square(mass_scatter) * covariance["mass_cov11"]
         )
         return var_x, var_y
 
@@ -21536,7 +21618,8 @@ class ClusterJAXEvaluator:
             image_presence_count_margin=self.image_presence_count_margin,
             residual_loss=self.likelihood_stabilizer_residual_loss,
             student_t_nu=self.likelihood_stabilizer_student_t_nu,
-            critical_arc_anisotropic_covariance=self.critical_arc_anisotropic_covariance,
+            **({"critical_arc_anisotropic_covariance": self.critical_arc_anisotropic_covariance}
+               if self.sample_likelihood_mode == SAMPLE_LIKELIHOOD_CRITICAL_ARC_ANISOTROPIC_IMAGE_PLANE else {}),
             critical_direction_sigma_arcsec=self.critical_arc_critical_direction_sigma_arcsec,
             base_prob=self.critical_arc_base_prob,
             max_prob=self.critical_arc_max_prob,
@@ -21800,7 +21883,8 @@ class ClusterJAXEvaluator:
             image_presence_count_margin=self.image_presence_count_margin,
             residual_loss=self.likelihood_stabilizer_residual_loss,
             student_t_nu=self.likelihood_stabilizer_student_t_nu,
-            critical_arc_anisotropic_covariance=self.critical_arc_anisotropic_covariance,
+            **({"critical_arc_anisotropic_covariance": self.critical_arc_anisotropic_covariance}
+               if self.sample_likelihood_mode == SAMPLE_LIKELIHOOD_CRITICAL_ARC_ANISOTROPIC_IMAGE_PLANE else {}),
             critical_direction_sigma_arcsec=self.critical_arc_critical_direction_sigma_arcsec,
             base_prob=self.critical_arc_base_prob,
             max_prob=self.critical_arc_max_prob,
@@ -24126,16 +24210,23 @@ class ClusterJAXEvaluator:
                 return self._flat_refreshing_surrogate_critical_arc_source_loglike_impl(params)
             return jnp.asarray(BAD_LOG_LIKE, dtype=jnp.float64)
         if engine == SAMPLING_ENGINE_FULL_FLAT:
-            if self.sample_likelihood_mode == SAMPLE_LIKELIHOOD_SOURCE:
-                return self._flat_source_loglike_impl(params)
-            if self.sample_likelihood_mode == SAMPLE_LIKELIHOOD_LOCAL_JACOBIAN:
-                return self._flat_local_jacobian_source_loglike_impl(params)
-            if self.sample_likelihood_mode in {
-                SAMPLE_LIKELIHOOD_CRITICAL_ARC_MIXTURE_IMAGE_PLANE,
-                SAMPLE_LIKELIHOOD_CRITICAL_ARC_ANISOTROPIC_IMAGE_PLANE,
-            }:
-                return self._flat_critical_arc_source_loglike_impl(params)
-            return jnp.asarray(BAD_LOG_LIKE, dtype=jnp.float64)
+            functions = {
+                SAMPLE_LIKELIHOOD_SOURCE: self._flat_source_loglike_impl,
+                SAMPLE_LIKELIHOOD_LOCAL_JACOBIAN: self._flat_local_jacobian_source_loglike_impl,
+                SAMPLE_LIKELIHOOD_CRITICAL_ARC_MIXTURE_IMAGE_PLANE: self._flat_critical_arc_source_loglike_impl,
+                SAMPLE_LIKELIHOOD_CRITICAL_ARC_ANISOTROPIC_IMAGE_PLANE: self._flat_critical_arc_source_loglike_impl,
+            }
+            if self.sample_likelihood_mode not in functions:
+                return jnp.asarray(BAD_LOG_LIKE, dtype=jnp.float64)
+            physical = self._physical_parameter_vector(params)
+            _, validity = self._build_flat_packed_lens_state_with_validity_from_physical(
+                physical, self.flat_critical_arc_data, stop_gradient=True
+            )
+            # Reject before differentiating the scatter calculation. Masking a
+            # NaN covariance afterwards can contaminate gradients of its scales.
+            return jax.lax.cond(validity.is_valid & jnp.all(jnp.isfinite(params)),
+                                functions[self.sample_likelihood_mode],
+                                lambda _: jnp.asarray(BAD_LOG_LIKE, dtype=jnp.float64), params)
         raise RuntimeError(
             f"Unsupported sampling_engine={engine!r}; non-flat sampling engines have been removed. "
             "Use 'full_flat' or 'refreshing_surrogate_flat'."
@@ -24938,7 +25029,12 @@ class ClusterJAXEvaluator:
                         if candidate.size == n_images:
                             family_indices = candidate
                             break
-                    cache = getattr(self, "scaling_scatter_cache_by_z", {}).get(float(effective_z))
+                    cache = self._scaling_scatter_covariance_for_bin(physical_params, effective_z)
+                    if self.sampling_engine == SAMPLING_ENGINE_FULL_FLAT and (
+                        cache is None or family_indices is None
+                        or not all(np.isfinite(np.asarray(value)).all() for value in cache.values())
+                    ):
+                        raise ValueError("Direct member-scatter covariance is unavailable for this family.")
                     if cache is not None and family_indices is not None:
                         sigma_scatter, mass_scatter = self._scaling_scatter_field_scales_from_physical(
                             physical_params
@@ -24992,6 +25088,8 @@ class ClusterJAXEvaluator:
                             jnp.zeros_like(x_obs),
                         )
                 except Exception:
+                    if self.sampling_engine == SAMPLING_ENGINE_FULL_FLAT:
+                        raise
                     scatter_cov00 = jnp.zeros_like(x_obs)
                     scatter_cov01 = jnp.zeros_like(x_obs)
                     scatter_cov11 = jnp.zeros_like(x_obs)

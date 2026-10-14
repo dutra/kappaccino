@@ -847,7 +847,7 @@ def _recovered_model_tables(
         active_scaling_min=int(_artifact_arg(artifact_args, "active_scaling_min", DEFAULT_ACTIVE_SCALING_MIN)),
         refresh_every=_parse_refresh_every_value(_artifact_arg(artifact_args, "refresh_every", DEFAULT_REFRESH_EVERY)),
         refresh_param_drift_frac=float(_artifact_arg(artifact_args, "refresh_param_drift_frac", DEFAULT_REFRESH_PARAM_DRIFT_FRAC)),
-        source_plane_covariance_floor=float(_artifact_arg(artifact_args, "source_plane_covariance_floor", 1.0e-6)),
+        source_plane_covariance_floor=_artifact_arg(artifact_args, "source_plane_covariance_floor", None),
         source_plane_covariance_mode=str(
             _artifact_arg(
                 artifact_args,
@@ -1546,7 +1546,7 @@ def _posterior_prediction_uncertainty_tables(
             active_scaling_min=int(_artifact_arg(artifact_args, "active_scaling_min", DEFAULT_ACTIVE_SCALING_MIN)),
             refresh_every=_parse_refresh_every_value(_artifact_arg(artifact_args, "refresh_every", DEFAULT_REFRESH_EVERY)),
             refresh_param_drift_frac=float(_artifact_arg(artifact_args, "refresh_param_drift_frac", DEFAULT_REFRESH_PARAM_DRIFT_FRAC)),
-            source_plane_covariance_floor=float(_artifact_arg(artifact_args, "source_plane_covariance_floor", 1.0e-6)),
+            source_plane_covariance_floor=_artifact_arg(artifact_args, "source_plane_covariance_floor", None),
             source_plane_covariance_mode=str(
                 _artifact_arg(
                     artifact_args,

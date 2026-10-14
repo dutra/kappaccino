@@ -156,7 +156,11 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         choices=single.SAMPLING_ENGINES,
         default=single.SAMPLING_ENGINE_REFRESHING_SURROGATE_FLAT,
     )
-    parser.add_argument("--source-plane-covariance-floor", type=float, default=1.0e-6)
+    parser.add_argument(
+        "--source-plane-covariance-floor", type=float, default=None,
+        help=("Covariance floor: full-jacobian source inference requires zero; other modes default to 1e-6. "
+              "Magnification retains legacy determinant scaling."),
+    )
     parser.add_argument("--scaling-scatter", action="store_true")
     parser.add_argument("--refresh-every", type=single._parse_refresh_every_value, nargs="+", default=[single.DEFAULT_REFRESH_EVERY])
     parser.add_argument(

@@ -60,6 +60,7 @@ from .image_diagnostics import (
 )
 from .jax_cosmology import critical_surface_density_angle_from_config
 from .jax_cosmology import kpc_per_arcsec_from_config as _kpc_per_arcsec_from_config
+from .config import resolve_source_plane_covariance_floor
 from .model import BuildState, EvaluationResult, ParameterSpec, PosteriorResults
 from .model import convert_theta_to_latent as _convert_theta_to_latent
 from .model import display_lower as _display_lower
@@ -4358,7 +4359,7 @@ def _run_summary(
         sigma_array = np.asarray(sigma_values, dtype=float)
         finite_sigma = sigma_array[np.isfinite(sigma_array)]
         if finite_sigma.size:
-            covariance_floor = float(getattr(args, "source_plane_covariance_floor", 0.0))
+            covariance_floor = resolve_source_plane_covariance_floor(getattr(args, "source_plane_covariance_floor", None), getattr(args, "sample_likelihood_mode", "source"), getattr(args, "source_plane_covariance_mode", "magnification"))
             sigma_eff2 = finite_sigma**2 + q50**2 + covariance_floor
             summary["image_sigma_eff_variance_arcsec2"] = {
                 "min": float(np.min(sigma_eff2)),
@@ -4398,7 +4399,7 @@ def _run_summary(
             sigma_array = np.asarray(sigma_values, dtype=float)
             finite_sigma = sigma_array[np.isfinite(sigma_array)]
             if finite_sigma.size:
-                covariance_floor = float(getattr(args, "source_plane_covariance_floor", 0.0))
+                covariance_floor = resolve_source_plane_covariance_floor(getattr(args, "source_plane_covariance_floor", None), getattr(args, "sample_likelihood_mode", "source"), getattr(args, "source_plane_covariance_mode", "magnification"))
                 sigma_eff2 = finite_sigma**2 + float(q50) ** 2 + covariance_floor
                 summary["image_sigma_eff_variance_arcsec2"] = {
                     "min": float(np.min(sigma_eff2)),
@@ -6469,9 +6470,16 @@ def _source_plane_residual_components(
         dy = dy[finite]
         dx_values.append(dx)
         dy_values.append(dy)
-        norm_x_values.append(dx / sigma)
-        norm_y_values.append(dy / sigma)
-        radial_values.append(np.sqrt(dx**2 + dy**2) / sigma)
+        if "source_covariance_arcsec2" in pred:
+            covariance = np.asarray(pred["source_covariance_arcsec2"], dtype=float)[finite]
+            whitened = np.linalg.solve(np.linalg.cholesky(covariance), np.stack((dx, dy), axis=-1)[..., None])[..., 0]
+            norm_x_values.append(whitened[:, 0])
+            norm_y_values.append(whitened[:, 1])
+            radial_values.append(np.linalg.norm(whitened, axis=-1))
+        else:
+            norm_x_values.append(dx / sigma)
+            norm_y_values.append(dy / sigma)
+            radial_values.append(np.sqrt(dx**2 + dy**2) / sigma)
     dx = np.concatenate(dx_values) if dx_values else np.asarray([], dtype=float)
     dy = np.concatenate(dy_values) if dy_values else np.asarray([], dtype=float)
     norm_x = np.concatenate(norm_x_values) if norm_x_values else np.asarray([], dtype=float)
@@ -6527,7 +6535,7 @@ def _plot_source_plane_residual_histogram(
     _plot_gaussian_component_histogram(
         axes[1],
         normalized_component,
-        xlabel="Signed source-plane residual / sigma_eff",
+        xlabel="Whitened source-plane residual",
         title="Normalized Components",
         standard_normal=True,
     )
@@ -6551,7 +6559,7 @@ def _plot_source_plane_residual_histogram(
         fontsize=9,
         bbox={"boxstyle": "round,pad=0.25", "facecolor": "white", "edgecolor": "0.8", "alpha": 0.9},
     )
-    axes[2].set_xlabel("Radial source-plane residual / sigma_eff")
+    axes[2].set_xlabel("Source-plane Mahalanobis distance")
     axes[2].set_ylabel("Density")
     axes[2].set_title("Radial Residuals")
     axes[2].legend(fontsize=8)
@@ -6877,8 +6885,11 @@ def _clone_fit_quality_evaluator(evaluator: Any, args: argparse.Namespace) -> An
         refresh_param_drift_frac=float(
             getattr(args, "refresh_param_drift_frac", getattr(evaluator, "refresh_param_drift_frac", DEFAULT_REFRESH_PARAM_DRIFT_FRAC))
         ),
-        source_plane_covariance_floor=float(
-            getattr(args, "source_plane_covariance_floor", getattr(evaluator, "source_plane_covariance_floor", 1.0e-6))
+        source_plane_covariance_mode=str(getattr(
+            args, "source_plane_covariance_mode", getattr(evaluator, "source_plane_covariance_mode", "magnification")
+        )),
+        source_plane_covariance_floor=getattr(
+            args, "source_plane_covariance_floor", getattr(evaluator, "source_plane_covariance_floor", None)
         ),
         source_plane_outlier_sigma_arcsec=float(
             getattr(

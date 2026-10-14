@@ -201,7 +201,8 @@ class ScalingModelConfig:
 @dataclass(frozen=True)
 class LikelihoodConfig:
     pos_sigma_arcsec: float | None = None
-    source_plane_covariance_floor: float = 1.0e-6
+    source_plane_covariance_floor: float | None = None
+    # magnification: legacy determinant scaling; full-jacobian: full propagated covariance.
     source_plane_covariance_mode: str = "magnification"
     critical_arc_anisotropic_covariance: bool = True
     image_presence_penalty_weight: float | None = None
@@ -625,3 +626,16 @@ def _validate_positive_lognormal_prior(name: str, prior: PriorConfig) -> None:
         raise ValueError(f"{name}.mean must lie strictly inside bounds.")
     if std <= 0.0:
         raise ValueError(f"{name}.std must be positive.")
+
+
+def resolve_source_plane_covariance_floor(value: float | None, sample_likelihood_mode: str,
+                                          # magnification: legacy determinant scaling; full-jacobian: full propagated covariance.
+    source_plane_covariance_mode: str = "magnification") -> float:
+    """Only opt-in full Jacobian propagation requires zero covariance floor."""
+    full = sample_likelihood_mode == "source" and source_plane_covariance_mode == "full-jacobian"
+    if value is None:
+        return 0.0 if full else 1.0e-6
+    floor = float(value)
+    if full and floor != 0.0:
+        raise ValueError("Source-plane inference requires source_plane_covariance_floor=0.")
+    return max(floor, 0.0)

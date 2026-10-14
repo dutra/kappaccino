@@ -275,49 +275,46 @@ Positive quantities such as scaling `sigma` and `cutkpc` are sampled in latent
 log space and converted back to physical units when building the lens model and
 writing outputs.
 
-The source-plane likelihood also includes a global positive intrinsic scatter
-parameter, `source.sigma_int`, sampled in log space. It is combined in
-quadrature with the configured positional uncertainty:
-
-```text
-sigma_eff_i^2 = sigma_arcsec_i^2 + source_sigma_int^2
-```
+The source-plane likelihood includes a global positive intrinsic scatter
+parameter, `source.sigma_int`, sampled in log space and added isotropically to
+the propagated positional covariance.
 
 ## Likelihood
 
-Inference uses a source-plane Gaussian likelihood. For each observed image, the
-current lens model ray-shoots the image position to the source plane. Within
-each multiply imaged family, the source position is estimated as the weighted
-centroid of those ray-shot source positions. The log likelihood penalizes the
-scatter around that family centroid:
+For source-plane inference, the lens model ray-shoots each observed image to
+`beta_i`. The Gaussian inlier density is
 
 ```text
-log L = -0.5 * sum_i [
-  ((beta_x_i - beta_bar_x)^2 + (beta_y_i - beta_bar_y)^2) / sigma_eff_i^2
-  + 2 log(2 pi sigma_eff_i^2)
-]
+log L_i = -0.5 * [(beta_i - beta_f)^T C_i^-1 (beta_i - beta_f)
+                  + log det C_i + 2 log(2 pi)]
 ```
 
-`sigma_eff_i` is the positional uncertainty plus inferred intrinsic scatter.
-When scaling scatter is enabled, the likelihood uses separate diagonal
-`x`/`y` variances with the linearized scaling-scatter contribution added on top
-of `sigma_eff_i^2`. Single-image families are excluded from this source-plane
-scatter likelihood because their source-plane residual is zero by construction.
-Exact image-plane solving is used for fit-quality diagnostics and plots; it is
-not currently the sampled posterior likelihood.
+The existing reliability-weighted outlier mixture and optional Student-t loss
+are retained. Reliability does not enter the precision-weighted centroid.
+Single-image families remain excluded from the positional likelihood.
 
-The sampled likelihood uses a cached magnification-weighted source-plane
-metric. It periodically computes the local magnification at each observed image
-and uses the equal-area circularized source-plane variance
-`sigma_img^2 / |mu| + sigma_int^2`. It preserves the local area scaling of the
-full Jacobian covariance while keeping likelihood evaluations scalar and fast.
-The covariance floor for this metric is controlled with
-`--source-plane-covariance-floor`.
+The opt-in `source_plane_covariance_mode="full-jacobian"` propagates the observational uncertainty through the full
+local Jacobian, `C_i = sigma_obs_i^2 A_i A_i^T + sigma_src^2 I + diag(Vx_i, Vy_i)`.
+Family source positions are profiled with precision weights `W_i = C_i^-1`;
+residuals and log determinants use the same covariance. Full-flat evaluation
+uses current Jacobians; the refreshing surrogate retains its cached Jacobians.
+Warm-up retains zero member variance. Source scatter must be positive (the
+existing prior spans 0.001–2 arcsec).
+
+The default `source_plane_covariance_mode="magnification"` retains the legacy
+determinant-scaled covariance and coordinatewise centroids; `"unit"` also retains
+its existing behavior. Only `"full-jacobian"` requires positive source scatter and
+zero covariance/gain floors. An unspecified `source_plane_covariance_floor`
+resolves to zero for this new source-plane mode and 1e-6 otherwise.
+
+To select the new covariance in `run.xsh`, set
+`source_plane_covariance_mode="full-jacobian"` in `LikelihoodConfig`. Use
+`sample_likelihood_mode="source"` for source-plane fitting. The image-plane
+`--covariance` option selects a separate setting.
 
 When `--image-plane-mode local-jacobian` is selected, the sequential workflow
 adds a third `stage3_image_plane` fit initialized from the source-plane joint
-stage. This stage uses the same SVI/NUTS method as stage 2, but replaces the
-scalar magnification weighting with the full local 2x2 lensing Jacobian
+stage. This stage uses the same SVI/NUTS method as stage 2, and uses the local 2x2 lensing Jacobian
 covariance at each observed image. It is still a differentiable local
 approximation, not a full image-finding likelihood.
 

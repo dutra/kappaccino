@@ -102,7 +102,10 @@ jax_config.update("jax_enable_x64", True)
 
 from jaxtronomy.LensModel.lens_model_bulk import LensModelBulk
 from jaxtronomy.LensModel.Profiles.dpie_nie_e import DPIE_NIE_E as DPIENIE
-from .config import IndependentMemberHaloConfig, LensModelConfig, MemberPopulationConfig, PriorConfig
+from .config import (
+    IndependentMemberHaloConfig, LensModelConfig, MemberPopulationConfig, PriorConfig,
+    resolve_source_plane_covariance_floor,
+)
 from .lenstool_parser import (
     _load_arc_constraints_catalog as _load_declared_arc_constraints_catalog,
     _load_dat_catalog as _load_declared_dat_catalog,
@@ -218,8 +221,10 @@ DEFAULT_ACTIVE_SCALING_GALAXIES = 64
 DEFAULT_ACTIVE_SCALING_CUMULATIVE_FRACTION = 0.995
 DEFAULT_ACTIVE_SCALING_MIN = 4
 SOURCE_PLANE_COVARIANCE_MODE_MAGNIFICATION = "magnification"
+SOURCE_PLANE_COVARIANCE_MODE_FULL_JACOBIAN = "full-jacobian"
 SOURCE_PLANE_COVARIANCE_MODE_UNIT = "unit"
 SOURCE_PLANE_COVARIANCE_MODES = (
+    SOURCE_PLANE_COVARIANCE_MODE_FULL_JACOBIAN,
     SOURCE_PLANE_COVARIANCE_MODE_MAGNIFICATION,
     SOURCE_PLANE_COVARIANCE_MODE_UNIT,
 )
@@ -1316,7 +1321,10 @@ def _local_jacobian_metric_mode_for_values(
     if sample_mode == SAMPLE_LIKELIHOOD_SOURCE:
         if str(source_plane_covariance_mode) == SOURCE_PLANE_COVARIANCE_MODE_UNIT:
             return LOCAL_JACOBIAN_METRIC_UNIT
-        return LOCAL_JACOBIAN_METRIC_REFRESHED_MAGNIFICATION
+        if str(source_plane_covariance_mode) == SOURCE_PLANE_COVARIANCE_MODE_MAGNIFICATION:
+            return LOCAL_JACOBIAN_METRIC_REFRESHED_MAGNIFICATION
+        return (LOCAL_JACOBIAN_METRIC_CURRENT_EXACT if engine == SAMPLING_ENGINE_FULL_FLAT
+                else LOCAL_JACOBIAN_METRIC_FROZEN_REFRESHED)
     return LOCAL_JACOBIAN_METRIC_NOT_USED
 
 
@@ -2021,6 +2029,8 @@ def _active_approximation_rows(evaluator: Any) -> list[ApproximationRow]:
         getattr(evaluator, "source_plane_covariance_mode", SOURCE_PLANE_COVARIANCE_MODE_MAGNIFICATION)
     )
     rows.append(("source_plane_covariance_mode", _format_approximation_value(source_covariance_mode), "likelihood"))
+    if str(getattr(evaluator, "sample_likelihood_mode", "")) == SAMPLE_LIKELIHOOD_SOURCE:
+        rows.append(("source_plane_covariance_formulation", ("full_jacobian_precision_centroid" if source_covariance_mode == SOURCE_PLANE_COVARIANCE_MODE_FULL_JACOBIAN else source_covariance_mode), "likelihood"))
     if str(getattr(evaluator, "sample_likelihood_mode", SAMPLE_LIKELIHOOD_SOURCE)) == SAMPLE_LIKELIHOOD_LOCAL_JACOBIAN:
         rows.append(("local_jacobian_metric", _format_approximation_value(_local_jacobian_metric_mode(evaluator)), "likelihood"))
     source_position_count = sum(
@@ -2307,6 +2317,8 @@ def _stage_model_summary_rows(evaluator: Any) -> list[ApproximationRow]:
         ("cached_inactive_scaling", _format_approximation_value(cached_scaling), "active"),
         ("excluded_scaling", _format_approximation_value(excluded_scaling), "active"),
     ]
+    if sample_likelihood_mode == SAMPLE_LIKELIHOOD_SOURCE:
+        rows.append(("source_plane_covariance_formulation", ("full_jacobian_precision_centroid" if source_covariance_mode == SOURCE_PLANE_COVARIANCE_MODE_FULL_JACOBIAN else source_covariance_mode), "likelihood"))
     if sample_likelihood_mode == SAMPLE_LIKELIHOOD_LOCAL_JACOBIAN:
         rows.append(("local_jacobian_metric", _format_approximation_value(_local_jacobian_metric_mode(evaluator)), "likelihood"))
     if bool(getattr(getattr(evaluator, "state", None), "perturbation_discovery_stage0", False)):
@@ -5127,6 +5139,59 @@ def _linearized_source_plane_population_delta(
     return jnp.where(finite, delta, jnp.full_like(delta, jnp.nan))
 
 
+
+def _linearized_full_covariance_source_plane_population_delta(
+    beta_x: jnp.ndarray,
+    beta_y: jnp.ndarray,
+    delta_beta_x: jnp.ndarray,
+    delta_beta_y: jnp.ndarray,
+    family_idx: jnp.ndarray,
+    n_families: int,
+    sigma_per_image: jnp.ndarray,
+    reliability_per_image: jnp.ndarray,
+    image_has_constraint: jnp.ndarray,
+    source_sigma_int: jnp.ndarray,
+    scatter_var_x: jnp.ndarray,
+    scatter_var_y: jnp.ndarray,
+    jac_a00: jnp.ndarray,
+    jac_a01: jnp.ndarray,
+    jac_a10: jnp.ndarray,
+    jac_a11: jnp.ndarray,
+    covariance_floor: float,
+    *,
+    max_gain: float = DEFAULT_LIKELIHOOD_STABILIZER_MAX_GAIN,
+    max_residual_arcsec: float = DEFAULT_LIKELIHOOD_STABILIZER_MAX_RESIDUAL_ARCSEC,
+) -> jnp.ndarray:
+    """Fixed-covariance quadratic change under candidate source displacements."""
+    del reliability_per_image
+    if float(covariance_floor) != 0.0 or float(max_gain) != 0.0:
+        raise ValueError("Source-plane propagation requires zero covariance and gain floors.")
+    if int(delta_beta_x.shape[0]) == 0:
+        return jnp.zeros((0,), dtype=jnp.float64)
+    _, _, precision, family_chol, centroid, _ = _source_plane_statistics(
+        beta_x, beta_y, family_idx, n_families, sigma_per_image,
+        source_sigma_int, scatter_var_x, scatter_var_y,
+        jac_a00, jac_a01, jac_a10, jac_a11,
+    )
+    residual = jnp.stack((beta_x, beta_y), axis=-1) - centroid[family_idx]
+    rx, ry = _smooth_residual_cap(residual[:, 0], residual[:, 1], max_residual_arcsec)
+    residual = jnp.stack((rx, ry), axis=-1)
+
+    def change(dx, dy):
+        shift = jnp.stack((dx, dy), axis=-1)
+        rhs = jnp.zeros((n_families, 2), dtype=shift.dtype).at[family_idx].add(
+            jnp.einsum("nij,nj->ni", precision, shift)
+        )
+        mean_shift = _cho_solve_2x2(family_chol, rhs[..., None])[..., 0]
+        centered = shift - mean_shift[family_idx]
+        weighted = jnp.einsum("nij,nj->ni", precision, centered)
+        quad_change = jnp.sum((2.0 * residual + centered) * weighted, axis=-1)
+        return -0.5 * jnp.sum(jnp.where(image_has_constraint, quad_change, 0.0))
+
+    delta = jax.vmap(change)(delta_beta_x, delta_beta_y)
+    return jnp.where((source_sigma_int > 0.0) & jnp.isfinite(delta), delta, jnp.nan)
+
+
 def _linearized_local_jacobian_population_delta_source_only(
     beta_x: jnp.ndarray,
     beta_y: jnp.ndarray,
@@ -5209,6 +5274,75 @@ def _linearized_local_jacobian_population_delta_source_only(
     return jnp.where(finite, delta, jnp.full_like(delta, jnp.nan))
 
 
+def _cholesky_2x2(matrix: jnp.ndarray) -> jnp.ndarray:
+    """Batched SPD Cholesky specialized to two coordinates; no determinant division."""
+    l00 = jnp.sqrt(matrix[..., 0, 0])
+    l10 = matrix[..., 1, 0] / l00
+    l11 = jnp.sqrt(matrix[..., 1, 1] - jnp.square(l10))
+    return jnp.stack((jnp.stack((l00, jnp.zeros_like(l00)), axis=-1),
+                      jnp.stack((l10, l11), axis=-1)), axis=-2)
+
+
+def _solve_lower_2x2(chol: jnp.ndarray, rhs: jnp.ndarray) -> jnp.ndarray:
+    """Forward substitution for batched matrices and one or more RHS columns."""
+    y0 = rhs[..., 0, :] / chol[..., 0, 0, None]
+    y1 = (rhs[..., 1, :] - chol[..., 1, 0, None] * y0) / chol[..., 1, 1, None]
+    return jnp.stack((y0, y1), axis=-2)
+
+
+def _cho_solve_2x2(chol: jnp.ndarray, rhs: jnp.ndarray) -> jnp.ndarray:
+    """Reuse the Cholesky factor for forward and backward substitution."""
+    y = _solve_lower_2x2(chol, rhs)
+    x1 = y[..., 1, :] / chol[..., 1, 1, None]
+    x0 = (y[..., 0, :] - chol[..., 1, 0, None] * x1) / chol[..., 0, 0, None]
+    return jnp.stack((x0, x1), axis=-2)
+
+
+def _source_plane_statistics(
+    beta_x: jnp.ndarray,
+    beta_y: jnp.ndarray,
+    family_idx: jnp.ndarray,
+    n_families: int,
+    sigma_per_image: jnp.ndarray,
+    source_sigma_int: jnp.ndarray,
+    scatter_var_x: jnp.ndarray,
+    scatter_var_y: jnp.ndarray,
+    jac_a00: jnp.ndarray,
+    jac_a01: jnp.ndarray,
+    jac_a10: jnp.ndarray,
+    jac_a11: jnp.ndarray,
+) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
+    """Propagated covariance and profiled sources, batched inside the caller's JIT.
+
+    All images contribute to their family centroid, including singleton families;
+    the likelihood's image_has_constraint mask is applied only to log densities.
+    """
+    sigma2 = jnp.square(sigma_per_image)
+    source_var = jnp.square(source_sigma_int)
+    c00 = sigma2 * (jac_a00**2 + jac_a01**2) + source_var + scatter_var_x
+    c11 = sigma2 * (jac_a10**2 + jac_a11**2) + source_var + scatter_var_y
+    c01 = sigma2 * (jac_a00 * jac_a10 + jac_a01 * jac_a11)
+    covariance = jnp.stack((jnp.stack((c00, c01), axis=-1),
+                            jnp.stack((c01, c11), axis=-1)), axis=-2)
+    chol = _cholesky_2x2(covariance)
+    precision = _cho_solve_2x2(chol, jnp.broadcast_to(jnp.eye(2), covariance.shape))
+    beta = jnp.stack((beta_x, beta_y), axis=-1)
+    weighted_beta = jnp.einsum("nij,nj->ni", precision, beta)
+    # Aggregate the symmetric precision and RHS in a single segmented addition.
+    contributions = jnp.stack((precision[:, 0, 0], precision[:, 0, 1], precision[:, 1, 1],
+                               weighted_beta[:, 0], weighted_beta[:, 1]), axis=-1)
+    sums = jnp.zeros((n_families, 5), dtype=beta.dtype).at[family_idx].add(contributions)
+    family_precision = jnp.stack((jnp.stack((sums[:, 0], sums[:, 1]), axis=-1),
+                                 jnp.stack((sums[:, 1], sums[:, 2]), axis=-1)), axis=-2)
+    rhs = sums[:, 3:]
+    # Empty family slots carry no density and must not generate singular solves.
+    family_precision = jnp.where((sums[:, 0] > 0)[:, None, None], family_precision, jnp.eye(2))
+    family_chol = _cholesky_2x2(family_precision)
+    centroid = _cho_solve_2x2(family_chol, rhs[..., None])[..., 0]
+    logdet = 2.0 * jnp.sum(jnp.log(jnp.diagonal(chol, axis1=-2, axis2=-1)), axis=-1)
+    return covariance, chol, precision, family_chol, centroid, logdet
+
+
 def _source_plane_bin_loglike(
     beta_x: jnp.ndarray,
     beta_y: jnp.ndarray,
@@ -5271,6 +5405,72 @@ def _source_plane_bin_loglike(
         jnp.all(jnp.isfinite(inv_abs_mu))
         & jnp.all(jnp.isfinite(sigma2_x))
         & jnp.all(jnp.isfinite(sigma2_y))
+        & jnp.all(jnp.isfinite(dx))
+        & jnp.all(jnp.isfinite(dy))
+        & jnp.all(jnp.isfinite(family_ll))
+        & jnp.isfinite(bin_loglike)
+    )
+    return jnp.where(finite, bin_loglike, jnp.asarray(BAD_LOG_LIKE, dtype=jnp.float64))
+
+
+
+def _full_covariance_source_plane_bin_loglike(
+    beta_x: jnp.ndarray,
+    beta_y: jnp.ndarray,
+    family_idx: jnp.ndarray,
+    n_families: int,
+    sigma_per_image: jnp.ndarray,
+    reliability_per_image: jnp.ndarray,
+    image_has_constraint: jnp.ndarray,
+    source_sigma_int: jnp.ndarray,
+    scatter_var_x: jnp.ndarray,
+    scatter_var_y: jnp.ndarray,
+    jac_a00: jnp.ndarray,
+    jac_a01: jnp.ndarray,
+    jac_a10: jnp.ndarray,
+    jac_a11: jnp.ndarray,
+    covariance_floor: float,
+    outlier_sigma_arcsec: float,
+    max_gain: float = DEFAULT_LIKELIHOOD_STABILIZER_MAX_GAIN,
+    max_residual_arcsec: float = DEFAULT_LIKELIHOOD_STABILIZER_MAX_RESIDUAL_ARCSEC,
+    residual_loss: str = DEFAULT_LIKELIHOOD_STABILIZER_RESIDUAL_LOSS,
+    student_t_nu: float = DEFAULT_LIKELIHOOD_STABILIZER_STUDENT_T_NU,
+) -> jnp.ndarray:
+    if float(covariance_floor) != 0.0 or float(max_gain) != 0.0:
+        raise ValueError("Source-plane propagation requires zero covariance and gain floors.")
+    covariance, chol, _precision, _family_chol, centroid, logdet = _source_plane_statistics(
+        beta_x, beta_y, family_idx, n_families, sigma_per_image,
+        source_sigma_int, scatter_var_x, scatter_var_y,
+        jac_a00, jac_a01, jac_a10, jac_a11,
+    )
+    reliability = jnp.clip(reliability_per_image, 1.0e-6, 1.0 - 1.0e-6)
+    dx = beta_x - centroid[family_idx, 0]
+    dy = beta_y - centroid[family_idx, 1]
+    dx, dy = _smooth_residual_cap(dx, dy, max_residual_arcsec)
+    residual = jnp.stack((dx, dy), axis=-1)
+    whitened = _solve_lower_2x2(chol, residual[..., None])[..., 0]
+    quad = jnp.sum(jnp.square(whitened), axis=-1)
+    if str(residual_loss) == LIKELIHOOD_STABILIZER_RESIDUAL_LOSS_STUDENT_T:
+        family_ll = _student_t_2d_loglike_from_quad_logdet(
+            quad,
+            logdet,
+            student_t_nu,
+        )
+    else:
+        family_ll = -0.5 * (
+            quad
+            + 2.0 * jnp.log(2.0 * jnp.pi)
+            + logdet
+        )
+    outlier_sigma2 = jnp.square(jnp.asarray(outlier_sigma_arcsec, dtype=jnp.float64))
+    outlier_ll = -0.5 * (
+        (dx**2 + dy**2) / outlier_sigma2 + 2.0 * jnp.log(2.0 * jnp.pi * outlier_sigma2)
+    )
+    mixture_ll = jnp.logaddexp(jnp.log(reliability) + family_ll, jnp.log1p(-reliability) + outlier_ll)
+    bin_loglike = jnp.sum(jnp.where(image_has_constraint, mixture_ll, 0.0))
+    finite = (
+        (source_sigma_int > 0.0)
+        & jnp.all(jnp.isfinite(covariance))
         & jnp.all(jnp.isfinite(dx))
         & jnp.all(jnp.isfinite(dy))
         & jnp.all(jnp.isfinite(family_ll))
@@ -18101,7 +18301,7 @@ class ClusterJAXEvaluator:
         perturbation_discovery_top_k: int | None = DEFAULT_PERTURBATION_DISCOVERY_TOP_K,
         refresh_every: int | None = DEFAULT_REFRESH_EVERY,
         refresh_param_drift_frac: float = DEFAULT_REFRESH_PARAM_DRIFT_FRAC,
-        source_plane_covariance_floor: float = 1.0e-6,
+        source_plane_covariance_floor: float | None = None,
         source_plane_covariance_mode: str = SOURCE_PLANE_COVARIANCE_MODE_MAGNIFICATION,
         source_plane_outlier_sigma_arcsec: float = DEFAULT_SOURCE_PLANE_OUTLIER_SIGMA_ARCSEC,
         sample_likelihood_mode: str = SAMPLE_LIKELIHOOD_SOURCE,
@@ -18220,7 +18420,9 @@ class ClusterJAXEvaluator:
             raise ValueError("perturbation_discovery_top_k must be a nonnegative integer or None.")
         self.refresh_every = _parse_refresh_every_value(refresh_every)
         self.refresh_param_drift_frac = float(refresh_param_drift_frac)
-        self.source_plane_covariance_floor = max(float(source_plane_covariance_floor), 0.0)
+        self.source_plane_covariance_floor = resolve_source_plane_covariance_floor(
+            source_plane_covariance_floor, str(sample_likelihood_mode), str(source_plane_covariance_mode)
+        )
         self.source_plane_covariance_mode = str(source_plane_covariance_mode)
         if self.source_plane_covariance_mode not in SOURCE_PLANE_COVARIANCE_MODES:
             raise ValueError(
@@ -18230,6 +18432,9 @@ class ClusterJAXEvaluator:
             )
         self.source_plane_outlier_sigma_arcsec = max(float(source_plane_outlier_sigma_arcsec), 1.0e-6)
         self.sample_likelihood_mode = str(sample_likelihood_mode)
+        if self._full_source_covariance_enabled():
+            if float(likelihood_stabilizer_max_gain) != 0.0:
+                raise ValueError("Source-plane inference requires likelihood_stabilizer_max_gain=0.")
         self.critical_arc_source_position_policy = _critical_arc_source_position_policy_from_value(
             critical_arc_source_position_policy
         )
@@ -18640,6 +18845,13 @@ class ClusterJAXEvaluator:
             idx for idx, spec in enumerate(self.state.parameter_specs) if spec.component_family == "source_scatter"
         ]
         self.source_sigma_int_param_index = int(source_scatter_indices[0]) if source_scatter_indices else -1
+        if self._full_source_covariance_enabled():
+            if len(source_scatter_indices) != 1:
+                raise ValueError("Source-plane inference requires one positive source-scatter parameter.")
+            source_spec = self.state.parameter_specs[self.source_sigma_int_param_index]
+            source_lower = source_spec.physical_lower if source_spec.physical_lower is not None else source_spec.lower
+            if not np.isfinite(source_lower) or source_lower <= 0.0:
+                raise ValueError("Source-plane inference requires a strictly positive source-scatter lower bound.")
         image_scatter_indices = [
             idx for idx, spec in enumerate(self.state.parameter_specs) if spec.component_family == "image_scatter"
         ]
@@ -19212,6 +19424,20 @@ class ClusterJAXEvaluator:
 
     def _refresh_flat_source_metric_arrays(self) -> None:
         self.flat_source_metric_cache = self._flat_source_metric_arrays_from_cache()
+
+    def _full_source_covariance_enabled(self) -> bool:
+        return (self.sample_likelihood_mode == SAMPLE_LIKELIHOOD_SOURCE
+                and self.source_plane_covariance_mode == SOURCE_PLANE_COVARIANCE_MODE_FULL_JACOBIAN)
+
+    def _source_plane_loglike_for_covariance(self, *, jac_a00, jac_a01, jac_a10, jac_a11,
+                                            inv_abs_mu=None, **kwargs):
+        if self._full_source_covariance_enabled():
+            return _full_covariance_source_plane_bin_loglike(
+                jac_a00=jac_a00, jac_a01=jac_a01, jac_a10=jac_a10, jac_a11=jac_a11, **kwargs)
+        if inv_abs_mu is None:
+            inv_abs_mu = (jnp.ones_like(jac_a00) if self._source_plane_unit_covariance_enabled()
+                          else jnp.clip(jnp.abs(jac_a00 * jac_a11 - jac_a01 * jac_a10), 1.0e-6, 1.0e6))
+        return _source_plane_bin_loglike(inv_abs_mu=inv_abs_mu, **kwargs)
 
     def _source_plane_unit_covariance_enabled(self) -> bool:
         return (
@@ -21148,7 +21374,7 @@ class ClusterJAXEvaluator:
                 inactive_loglikes = jax.vmap(inactive_local_loglike)(inactive_beta_x, inactive_beta_y, *inactive_jac_entries)
         else:
             source_metric = self.flat_source_metric_cache
-            exact_loglike = _source_plane_bin_loglike(
+            exact_loglike = self._source_plane_loglike_for_covariance(
                 beta_x=beta_x,
                 beta_y=beta_y,
                 family_idx=flat_data.global_family_index_per_image,
@@ -21160,6 +21386,10 @@ class ClusterJAXEvaluator:
                 scatter_var_x=scatter_var_x,
                 scatter_var_y=scatter_var_y,
                 inv_abs_mu=source_metric.inv_abs_mu,
+                jac_a00=source_metric.jac_a00,
+                jac_a01=source_metric.jac_a01,
+                jac_a10=source_metric.jac_a10,
+                jac_a11=source_metric.jac_a11,
                 covariance_floor=self.source_plane_covariance_floor,
                 outlier_sigma_arcsec=self.source_plane_outlier_sigma_arcsec,
                 max_gain=self.likelihood_stabilizer_max_gain,
@@ -21169,7 +21399,7 @@ class ClusterJAXEvaluator:
             )
 
             def inactive_source_loglike(one_beta_x: jnp.ndarray, one_beta_y: jnp.ndarray) -> jnp.ndarray:
-                return _source_plane_bin_loglike(
+                return self._source_plane_loglike_for_covariance(
                     beta_x=one_beta_x,
                     beta_y=one_beta_y,
                     family_idx=flat_data.global_family_index_per_image,
@@ -21181,6 +21411,10 @@ class ClusterJAXEvaluator:
                     scatter_var_x=scatter_var_x,
                     scatter_var_y=scatter_var_y,
                     inv_abs_mu=source_metric.inv_abs_mu,
+                    jac_a00=source_metric.jac_a00,
+                    jac_a01=source_metric.jac_a01,
+                    jac_a10=source_metric.jac_a10,
+                    jac_a11=source_metric.jac_a11,
                     covariance_floor=self.source_plane_covariance_floor,
                     outlier_sigma_arcsec=self.source_plane_outlier_sigma_arcsec,
                     max_gain=self.likelihood_stabilizer_max_gain,
@@ -21330,7 +21564,7 @@ class ClusterJAXEvaluator:
             flat_data,
         )
         source_metric = self.flat_source_metric_cache
-        flat_loglike = _source_plane_bin_loglike(
+        flat_loglike = self._source_plane_loglike_for_covariance(
             beta_x=beta_x,
             beta_y=beta_y,
             family_idx=flat_data.global_family_index_per_image,
@@ -21342,6 +21576,10 @@ class ClusterJAXEvaluator:
             scatter_var_x=scatter_var_x,
             scatter_var_y=scatter_var_y,
             inv_abs_mu=source_metric.inv_abs_mu,
+            jac_a00=source_metric.jac_a00,
+            jac_a01=source_metric.jac_a01,
+            jac_a10=source_metric.jac_a10,
+            jac_a11=source_metric.jac_a11,
             covariance_floor=self.source_plane_covariance_floor,
             outlier_sigma_arcsec=self.source_plane_outlier_sigma_arcsec,
             max_gain=self.likelihood_stabilizer_max_gain,
@@ -21465,11 +21703,7 @@ class ClusterJAXEvaluator:
             physical_params,
             flat_data,
         )
-        if self._source_plane_unit_covariance_enabled():
-            inv_abs_mu = jnp.ones_like(flat_data.x_obs, dtype=jnp.float64)
-        else:
-            inv_abs_mu = jnp.clip(jnp.abs(jac_a00 * jac_a11 - jac_a01 * jac_a10), 1.0e-6, 1.0e6)
-        flat_loglike = _source_plane_bin_loglike(
+        flat_loglike = self._source_plane_loglike_for_covariance(
             beta_x=beta_x,
             beta_y=beta_y,
             family_idx=flat_data.global_family_index_per_image,
@@ -21480,7 +21714,10 @@ class ClusterJAXEvaluator:
             source_sigma_int=source_sigma_int,
             scatter_var_x=scatter_var_x,
             scatter_var_y=scatter_var_y,
-            inv_abs_mu=inv_abs_mu,
+            jac_a00=jac_a00,
+            jac_a01=jac_a01,
+            jac_a10=jac_a10,
+            jac_a11=jac_a11,
             covariance_floor=self.source_plane_covariance_floor,
             outlier_sigma_arcsec=self.source_plane_outlier_sigma_arcsec,
             max_gain=self.likelihood_stabilizer_max_gain,
@@ -21497,7 +21734,6 @@ class ClusterJAXEvaluator:
             invalid
             | (~jnp.all(jnp.isfinite(beta_x)))
             | (~jnp.all(jnp.isfinite(beta_y)))
-            | (~jnp.all(jnp.isfinite(inv_abs_mu)))
             | (~jnp.all(jnp.isfinite(scatter_var_x)))
             | (~jnp.all(jnp.isfinite(scatter_var_y)))
             | (~jnp.isfinite(flat_loglike))
@@ -24243,7 +24479,61 @@ class ClusterJAXEvaluator:
         self.timing_totals["family_aggregate"] += elapsed
         return value
 
+    def _full_covariance_source_summary(self, params: np.ndarray | jnp.ndarray) -> dict[str, dict[str, Any]]:
+        """Report the same sources and metric used by the source-plane evaluator."""
+        theta = jnp.asarray(params, dtype=jnp.float64)
+        physical = self._physical_parameter_vector(theta)
+        data = self.flat_critical_arc_data
+        if self.sampling_engine == SAMPLING_ENGINE_REFRESHING_SURROGATE_FLAT:
+            beta_x, beta_y, invalid, _ = self._flat_surrogate_beta(theta, physical, data)
+            metric = self.flat_source_metric_cache
+            jacobian = (metric.jac_a00, metric.jac_a01, metric.jac_a10, metric.jac_a11)
+        else:
+            geometry = {}
+            if bool(getattr(self, "fit_cosmology_flat_wcdm", False)):
+                scale, factors = self._sampled_cosmology_geometry_for_physical(physical)
+                geometry = dict(kpc_per_arcsec=scale, dpie_sigma0_factors=factors)
+            packed, validity = self._build_flat_packed_lens_state_with_validity_from_physical(
+                physical, data, stop_gradient=True, **geometry,
+            )
+            invalid = ~validity.is_valid
+            beta_x, beta_y, *jacobian = self._flat_ray_shooting_and_lensing_jacobian_for_components(
+                data.x_obs, data.y_obs, packed,
+            )
+        scatter_x, scatter_y = self._flat_scaling_scatter_extra_variance_from_physical(physical, data)
+        source_sigma = self._source_sigma_int_from_physical(physical)
+        covariance, _, _, _, centroids, _ = _source_plane_statistics(
+            beta_x, beta_y, data.global_family_index_per_image, data.n_families,
+            data.sigma_per_image, source_sigma, scatter_x, scatter_y, *jacobian,
+        )
+        beta = np.asarray(jnp.stack((beta_x, beta_y), axis=-1))
+        centers, cov = np.asarray(centroids), np.asarray(covariance)
+        indices = np.asarray(data.global_family_index_per_image)
+        summaries = {}
+        for f, family_id in enumerate(data.family_ids):
+            mask = indices == f
+            residual = beta[mask] - centers[f]
+            radius = np.linalg.norm(residual, axis=-1)
+            failed = bool(invalid) or not (np.isfinite(residual).all() and np.isfinite(cov[mask]).all())
+            summaries[str(family_id)] = {
+                "source_x": float(centers[f, 0]) if not failed else float("nan"),
+                "source_y": float(centers[f, 1]) if not failed else float("nan"),
+                "source_beta_x": beta[mask, 0], "source_beta_y": beta[mask, 1],
+                "source_sigma_int_arcsec": float(source_sigma),
+                # Scalar summary retained for plotting compatibility; full covariance is also exposed.
+                "source_sigma_eff_arcsec": float(np.sqrt(np.mean(np.trace(cov[mask], axis1=-2, axis2=-1)) / 2.0)),
+                "source_covariance_arcsec2": cov[mask],
+                "image_sigma_int_arcsec": self._image_sigma_int_numpy(params),
+                "source_plane_rms": float(np.sqrt(np.mean(radius**2))) if not failed else float("nan"),
+                "residual_max": float(np.max(radius)) if not failed else float("nan"),
+                "x_pred": np.full(mask.sum(), np.nan), "y_pred": np.full(mask.sum(), np.nan),
+                "exact_image_rms": np.nan, "failed": failed,
+            }
+        return summaries
+
     def _family_source_summary(self, params: np.ndarray | jnp.ndarray) -> dict[str, dict[str, Any]]:
+        if self._full_source_covariance_enabled():
+            return self._full_covariance_source_summary(params)
         summaries: dict[str, dict[str, Any]] = {}
         params_jax = jnp.asarray(params, dtype=jnp.float64)
         physical_params = self._physical_parameter_vector(params_jax)
@@ -25214,7 +25504,10 @@ class ClusterJAXEvaluator:
             uses_sampled_source = _critical_arc_uses_sampled_source_positions(
                 self.critical_arc_source_position_policy
             )
-        if uses_sampled_source and sampled_source is not None:
+        if self._full_source_covariance_enabled():
+            summary = self._full_covariance_source_summary(params)[str(family.family_id)]
+            source_x, source_y = summary["source_x"], summary["source_y"]
+        elif uses_sampled_source and sampled_source is not None:
             source_x, source_y = sampled_source
         else:
             source_x = float(np.average(np.asarray(beta_x, dtype=float), weights=weights))
@@ -26243,7 +26536,7 @@ def _source_position_prior_values_from_artifacts(artifacts_dir: Path) -> dict[st
         active_scaling_min=int(saved_args.get("active_scaling_min", DEFAULT_ACTIVE_SCALING_MIN)),
         refresh_every=_parse_saved_refresh_every_value(saved_args.get("refresh_every", DEFAULT_REFRESH_EVERY)),
         refresh_param_drift_frac=float(saved_args.get("refresh_param_drift_frac", DEFAULT_REFRESH_PARAM_DRIFT_FRAC)),
-        source_plane_covariance_floor=float(saved_args.get("source_plane_covariance_floor", 1.0e-6)),
+        source_plane_covariance_floor=saved_args.get("source_plane_covariance_floor"),
         source_plane_covariance_mode=str(
             saved_args.get("source_plane_covariance_mode", SOURCE_PLANE_COVARIANCE_MODE_MAGNIFICATION)
         ),
@@ -29696,7 +29989,7 @@ def _rerender_plots(
         active_scaling_min=int(plot_saved_args.get("active_scaling_min", DEFAULT_ACTIVE_SCALING_MIN)),
         refresh_every=_parse_saved_refresh_every_value(plot_saved_args.get("refresh_every", DEFAULT_REFRESH_EVERY)),
         refresh_param_drift_frac=float(plot_saved_args.get("refresh_param_drift_frac", DEFAULT_REFRESH_PARAM_DRIFT_FRAC)),
-        source_plane_covariance_floor=float(plot_saved_args.get("source_plane_covariance_floor", 1.0e-6)),
+        source_plane_covariance_floor=plot_saved_args.get("source_plane_covariance_floor"),
         source_plane_covariance_mode=str(
             plot_saved_args.get("source_plane_covariance_mode", SOURCE_PLANE_COVARIANCE_MODE_MAGNIFICATION)
         ),

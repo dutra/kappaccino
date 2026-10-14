@@ -23355,6 +23355,13 @@ class ClusterJAXEvaluator:
         params = self._replace_surrogate_params(reference_params, surrogate_params)
         packed_state = self._build_packed_lens_state(params, z_source)
         validity = self._packed_lens_validity_from_params(params, z_source, stop_gradient=True)
+        # Surrogate parameters are scaling, softening, and cosmology only.
+        # Shapes are fixed: exclude their undefined polar-coordinate tangents
+        # at circular profiles (atan2(0, 0)) from forward-mode differentiation.
+        packed_state = packed_state._replace(
+            e1=jax.lax.stop_gradient(packed_state.e1),
+            e2=jax.lax.stop_gradient(packed_state.e2),
+        )
         cached_component_indices = getattr(
             self,
             "cached_scaling_component_indices",
@@ -23428,6 +23435,13 @@ class ClusterJAXEvaluator:
             flat_data,
             stop_gradient=True,
         )
+        # Surrogate parameters are scaling, softening, and cosmology only.
+        # Shapes are fixed: exclude their undefined polar-coordinate tangents
+        # at circular profiles (atan2(0, 0)) from forward-mode differentiation.
+        packed_state = packed_state._replace(
+            e1=jax.lax.stop_gradient(packed_state.e1),
+            e2=jax.lax.stop_gradient(packed_state.e2),
+        )
         cached_component_indices = getattr(
             self,
             "cached_scaling_component_indices",
@@ -23477,103 +23491,30 @@ class ClusterJAXEvaluator:
         reference_jax = jnp.asarray(reference, dtype=jnp.float64)
         surrogate_reference = reference[self.surrogate_param_indices]
         surrogate_reference_jax = jnp.asarray(surrogate_reference, dtype=jnp.float64)
-        inactive_surrogate_concat = np.asarray(
-            self._flat_inactive_surrogate_concat(
-                surrogate_reference_jax,
-                reference_jax,
-                include_jacobian=include_jacobian,
-            ),
-            dtype=float,
+        physical = self._physical_parameter_vector(reference_jax)
+        _, validity = self._build_flat_packed_lens_state_with_validity_from_physical(
+            physical, self.flat_critical_arc_data, stop_gradient=False,
         )
-        if not np.isfinite(inactive_surrogate_concat).all():
+        if not bool(np.asarray(validity.is_valid)):
+            self._record_invalid_state_host(np.asarray(validity.reason_flags, dtype=bool))
             return None
 
+        def value_with_aux(selected):
+            value = self._flat_inactive_surrogate_concat(selected, reference_jax, include_jacobian=include_jacobian)
+            return value, value
+
+        # Only differentiate selected parameters, retaining the reference values
+        # as auxiliary output so the primal calculation is shared.
+        derivative_jax, value_jax = jax.jacfwd(value_with_aux, has_aux=True)(surrogate_reference_jax)
+        deriv = np.asarray(derivative_jax, dtype=float)
+        inactive_surrogate_concat = np.asarray(value_jax, dtype=float)
         n_obs = int(np.asarray(self.flat_critical_arc_data.x_obs).size)
-        n_surrogate = len(self.surrogate_param_indices)
-        n_blocks = 6 if include_jacobian else 2
-        deriv = np.zeros((n_blocks * n_obs, n_surrogate), dtype=float)
         x_obs_np = np.asarray(self.flat_critical_arc_data.x_obs, dtype=float)
         y_obs_np = np.asarray(self.flat_critical_arc_data.y_obs, dtype=float)
-
-        for local_index, param_index in enumerate(self.surrogate_param_indices.tolist()):
-            spec = self.state.parameter_specs[int(param_index)]
-            nominal_step = float(self._inactive_fd_step(spec))
-            theta0 = float(reference[param_index])
-            lower = float(spec.lower)
-            upper = float(spec.upper)
-            minus_room = float(theta0 - lower) if np.isfinite(lower) else float("inf")
-            plus_room = float(upper - theta0) if np.isfinite(upper) else float("inf")
-            minus_step = nominal_step if not np.isfinite(lower) else min(nominal_step, max(0.0, 0.5 * minus_room))
-            plus_step = nominal_step if not np.isfinite(upper) else min(nominal_step, max(0.0, 0.5 * plus_room))
-            can_use_minus = minus_step > 1.0e-12
-            can_use_plus = plus_step > 1.0e-12
-
-            plus_eval: np.ndarray | None = None
-            minus_eval: np.ndarray | None = None
-
-            if can_use_plus:
-                plus_theta = reference.copy()
-                plus_theta[param_index] = _clip_value_to_safe_bounds(theta0 + plus_step, spec, boundary_frac=0.0)
-                plus_physical = self._physical_parameter_vector(jnp.asarray(plus_theta, dtype=jnp.float64))
-                _plus_packed, plus_validity = self._build_flat_packed_lens_state_with_validity_from_physical(
-                    plus_physical,
-                    self.flat_critical_arc_data,
-                    stop_gradient=False,
-                )
-                if not bool(np.asarray(plus_validity.is_valid, dtype=bool)):
-                    self._record_invalid_state_host(np.asarray(plus_validity.reason_flags, dtype=bool))
-                    return None
-                plus_eval = np.asarray(
-                    self._flat_inactive_surrogate_concat(
-                        jnp.asarray(plus_theta[self.surrogate_param_indices], dtype=jnp.float64),
-                        jnp.asarray(plus_theta, dtype=jnp.float64),
-                        include_jacobian=include_jacobian,
-                    ),
-                    dtype=float,
-                )
-                if not np.isfinite(plus_eval).all():
-                    return None
-
-            if can_use_minus:
-                minus_theta = reference.copy()
-                minus_theta[param_index] = _clip_value_to_safe_bounds(theta0 - minus_step, spec, boundary_frac=0.0)
-                minus_physical = self._physical_parameter_vector(jnp.asarray(minus_theta, dtype=jnp.float64))
-                _minus_packed, minus_validity = self._build_flat_packed_lens_state_with_validity_from_physical(
-                    minus_physical,
-                    self.flat_critical_arc_data,
-                    stop_gradient=False,
-                )
-                if not bool(np.asarray(minus_validity.is_valid, dtype=bool)):
-                    self._record_invalid_state_host(np.asarray(minus_validity.reason_flags, dtype=bool))
-                    return None
-                minus_eval = np.asarray(
-                    self._flat_inactive_surrogate_concat(
-                        jnp.asarray(minus_theta[self.surrogate_param_indices], dtype=jnp.float64),
-                        jnp.asarray(minus_theta, dtype=jnp.float64),
-                        include_jacobian=include_jacobian,
-                    ),
-                    dtype=float,
-                )
-                if not np.isfinite(minus_eval).all():
-                    return None
-
-            if plus_eval is not None and minus_eval is not None:
-                delta = float(plus_theta[param_index] - minus_theta[param_index])
-                if delta <= 0.0:
-                    return None
-                deriv[:, local_index] = (plus_eval - minus_eval) / delta
-            elif plus_eval is not None:
-                delta = float(plus_theta[param_index] - theta0)
-                if delta <= 0.0:
-                    return None
-                deriv[:, local_index] = (plus_eval - inactive_surrogate_concat) / delta
-            elif minus_eval is not None:
-                delta = float(theta0 - minus_theta[param_index])
-                if delta <= 0.0:
-                    return None
-                deriv[:, local_index] = (inactive_surrogate_concat - minus_eval) / delta
-            else:
-                return None
+        n_blocks = 6 if include_jacobian else 2
+        if (inactive_surrogate_concat.shape != (n_blocks * n_obs,)
+                or deriv.shape != (n_blocks * n_obs, len(self.surrogate_param_indices))):
+            return None
 
         result: dict[str, np.ndarray] = {
             "inactive_alpha_x": inactive_surrogate_concat[:n_obs],
@@ -23615,110 +23556,32 @@ class ClusterJAXEvaluator:
         reference_jax = jnp.asarray(reference, dtype=jnp.float64)
         surrogate_reference = reference[self.surrogate_param_indices]
         surrogate_reference_jax = jnp.asarray(surrogate_reference, dtype=jnp.float64)
-        inactive_surrogate_concat = np.asarray(
-            self._inactive_surrogate_concat(
-                surrogate_reference_jax,
-                reference_jax,
-                effective_z_source,
-                x_obs,
-                y_obs,
-                include_jacobian=include_jacobian,
-            ),
-            dtype=float,
+        validity = self._packed_lens_validity_from_params(
+            reference_jax, effective_z_source, stop_gradient=False,
         )
-        if not np.isfinite(inactive_surrogate_concat).all():
+        if not bool(np.asarray(validity.is_valid)):
+            self._record_invalid_state_host(np.asarray(validity.reason_flags, dtype=bool))
             return None
 
-        n_obs = len(np.asarray(x_obs))
-        n_surrogate = len(self.surrogate_param_indices)
-        n_blocks = 6 if include_jacobian else 2
-        deriv = np.zeros((n_blocks * n_obs, n_surrogate), dtype=float)
+        def value_with_aux(selected):
+            value = self._inactive_surrogate_concat(
+                selected, reference_jax, effective_z_source, x_obs, y_obs,
+                include_jacobian=include_jacobian,
+            )
+            return value, value
+
+        # Only differentiate selected parameters, retaining the reference values
+        # as auxiliary output so the primal calculation is shared.
+        derivative_jax, value_jax = jax.jacfwd(value_with_aux, has_aux=True)(surrogate_reference_jax)
+        deriv = np.asarray(derivative_jax, dtype=float)
+        inactive_surrogate_concat = np.asarray(value_jax, dtype=float)
+        n_obs = int(np.asarray(x_obs).size)
         x_obs_np = np.asarray(x_obs, dtype=float)
         y_obs_np = np.asarray(y_obs, dtype=float)
-
-        for local_index, param_index in enumerate(self.surrogate_param_indices.tolist()):
-            spec = self.state.parameter_specs[int(param_index)]
-            nominal_step = float(self._inactive_fd_step(spec))
-            theta0 = float(reference[param_index])
-            lower = float(spec.lower)
-            upper = float(spec.upper)
-            minus_room = float(theta0 - lower) if np.isfinite(lower) else float("inf")
-            plus_room = float(upper - theta0) if np.isfinite(upper) else float("inf")
-            minus_step = nominal_step if not np.isfinite(lower) else min(nominal_step, max(0.0, 0.5 * minus_room))
-            plus_step = nominal_step if not np.isfinite(upper) else min(nominal_step, max(0.0, 0.5 * plus_room))
-            can_use_minus = minus_step > 1.0e-12
-            can_use_plus = plus_step > 1.0e-12
-
-            plus_eval: np.ndarray | None = None
-            minus_eval: np.ndarray | None = None
-
-            if can_use_plus:
-                plus_theta = reference.copy()
-                plus_theta[param_index] = _clip_value_to_safe_bounds(theta0 + plus_step, spec, boundary_frac=0.0)
-                plus_validity = self._packed_lens_validity_from_params(
-                    jnp.asarray(plus_theta, dtype=jnp.float64),
-                    effective_z_source,
-                    stop_gradient=False,
-                )
-                if not bool(np.asarray(plus_validity.is_valid, dtype=bool)):
-                    self._record_invalid_state_host(np.asarray(plus_validity.reason_flags, dtype=bool))
-                    return None
-                plus_eval = np.asarray(
-                    self._inactive_surrogate_concat(
-                        jnp.asarray(plus_theta[self.surrogate_param_indices], dtype=jnp.float64),
-                        jnp.asarray(plus_theta, dtype=jnp.float64),
-                        effective_z_source,
-                        x_obs,
-                        y_obs,
-                        include_jacobian=include_jacobian,
-                    ),
-                    dtype=float,
-                )
-                if not np.isfinite(plus_eval).all():
-                    return None
-
-            if can_use_minus:
-                minus_theta = reference.copy()
-                minus_theta[param_index] = _clip_value_to_safe_bounds(theta0 - minus_step, spec, boundary_frac=0.0)
-                minus_validity = self._packed_lens_validity_from_params(
-                    jnp.asarray(minus_theta, dtype=jnp.float64),
-                    effective_z_source,
-                    stop_gradient=False,
-                )
-                if not bool(np.asarray(minus_validity.is_valid, dtype=bool)):
-                    self._record_invalid_state_host(np.asarray(minus_validity.reason_flags, dtype=bool))
-                    return None
-                minus_eval = np.asarray(
-                    self._inactive_surrogate_concat(
-                        jnp.asarray(minus_theta[self.surrogate_param_indices], dtype=jnp.float64),
-                        jnp.asarray(minus_theta, dtype=jnp.float64),
-                        effective_z_source,
-                        x_obs,
-                        y_obs,
-                        include_jacobian=include_jacobian,
-                    ),
-                    dtype=float,
-                )
-                if not np.isfinite(minus_eval).all():
-                    return None
-
-            if plus_eval is not None and minus_eval is not None:
-                delta = float(plus_theta[param_index] - minus_theta[param_index])
-                if delta <= 0.0:
-                    return None
-                deriv[:, local_index] = (plus_eval - minus_eval) / delta
-            elif plus_eval is not None:
-                delta = float(plus_theta[param_index] - theta0)
-                if delta <= 0.0:
-                    return None
-                deriv[:, local_index] = (plus_eval - inactive_surrogate_concat) / delta
-            elif minus_eval is not None:
-                delta = float(theta0 - minus_theta[param_index])
-                if delta <= 0.0:
-                    return None
-                deriv[:, local_index] = (inactive_surrogate_concat - minus_eval) / delta
-            else:
-                return None
+        n_blocks = 6 if include_jacobian else 2
+        if (inactive_surrogate_concat.shape != (n_blocks * n_obs,)
+                or deriv.shape != (n_blocks * n_obs, len(self.surrogate_param_indices))):
+            return None
 
         result: dict[str, np.ndarray] = {
             "inactive_alpha_x": inactive_surrogate_concat[:n_obs],
@@ -23762,15 +23625,25 @@ class ClusterJAXEvaluator:
         _debug_log_line(message)
         warnings.warn(message, RuntimeWarning, stacklevel=3)
 
+    def _report_surrogate_refresh_failure(self, reason: str) -> None:
+        self._set_cache_refresh_failure("surrogate", True)
+        message = (
+            f"Surrogate refresh failed ({reason}): invalid reference or nonfinite values/derivatives. "
+            f"Invalid-state counts: {self.invalid_state_reason_counts}."
+        )
+        has_cache = (self.flat_surrogate_cache is not None
+                     if self.sampling_engine == SAMPLING_ENGINE_REFRESHING_SURROGATE_FLAT
+                     else bool(self.surrogate_cache_by_z))
+        if not has_cache or self.surrogate_reference_params is None:
+            raise ValueError(message + " No valid previous cache is available for initialization.")
+        message += " Retaining the previous surrogate cache and reference."
+        _debug_log_line(message)
+        warnings.warn(message, RuntimeWarning, stacklevel=3)
+
     def _refresh_flat_surrogate_from_reference(self, reference_params: np.ndarray, reason: str = "manual") -> None:
-        del reason
         if not self.surrogate_enabled:
             return
         reference = np.asarray(reference_params, dtype=float)
-        self.surrogate_reference_params = reference.copy()
-        self.surrogate_reference_param_values = reference[self.surrogate_param_indices].copy()
-        self.surrogate_cache_by_z = {}
-        self.flat_surrogate_cache = None
         reference_jax = jnp.asarray(reference, dtype=jnp.float64)
         physical_params = self._physical_parameter_vector(reference_jax)
         _packed_state, validity = self._build_flat_packed_lens_state_with_validity_from_physical(
@@ -23780,8 +23653,7 @@ class ClusterJAXEvaluator:
         )
         if not bool(np.asarray(validity.is_valid, dtype=bool)):
             self._record_invalid_state_host(np.asarray(validity.reason_flags, dtype=bool))
-            self.surrogate_reference_params = None
-            self.surrogate_reference_param_values = np.zeros(len(self.surrogate_param_indices), dtype=float)
+            self._report_surrogate_refresh_failure(reason)
             return
         inactive_surrogate = self._build_flat_inactive_surrogate_jacobian(
             reference,
@@ -23791,10 +23663,9 @@ class ClusterJAXEvaluator:
             ),
         )
         if inactive_surrogate is None:
-            self.surrogate_reference_params = None
-            self.surrogate_reference_param_values = np.zeros(len(self.surrogate_param_indices), dtype=float)
+            self._report_surrogate_refresh_failure(reason)
             return
-        self.flat_surrogate_cache = FlatSurrogateCache(
+        candidate = FlatSurrogateCache(
             inactive_alpha_x=jnp.asarray(inactive_surrogate["inactive_alpha_x"], dtype=jnp.float64),
             inactive_alpha_y=jnp.asarray(inactive_surrogate["inactive_alpha_y"], dtype=jnp.float64),
             inactive_alpha_dx_dparams=jnp.asarray(inactive_surrogate["inactive_alpha_dx_dparams"], dtype=jnp.float64),
@@ -23840,7 +23711,12 @@ class ClusterJAXEvaluator:
                 else None
             ),
         )
-        self.surrogate_cache_by_z = self._surrogate_cache_by_z_from_flat_cache(self.flat_surrogate_cache)
+        candidate_by_z = self._surrogate_cache_by_z_from_flat_cache(candidate)
+        self.flat_surrogate_cache = candidate
+        self.surrogate_cache_by_z = candidate_by_z
+        self.surrogate_reference_params = reference.copy()
+        self.surrogate_reference_param_values = reference[self.surrogate_param_indices].copy()
+        self._set_cache_refresh_failure("surrogate", False)
         self.full_refresh_count += 1
         self._source_loglike_fn = jax.jit(self._source_loglike_impl)
 
@@ -23851,10 +23727,7 @@ class ClusterJAXEvaluator:
         if not self.surrogate_enabled:
             return
         reference = np.asarray(reference_params, dtype=float)
-        self.surrogate_reference_params = reference.copy()
-        self.surrogate_reference_param_values = reference[self.surrogate_param_indices].copy()
-        self.surrogate_cache_by_z = {}
-        self.flat_surrogate_cache = None
+        candidate_by_z = {}
         reference_jax = jnp.asarray(reference, dtype=jnp.float64)
         for bin_data in self.traced_bin_data:
             x_obs = jnp.asarray(bin_data.x_obs, dtype=jnp.float64)
@@ -23863,10 +23736,7 @@ class ClusterJAXEvaluator:
             validity = self._packed_lens_validity_from_params(reference_jax, bin_data.effective_z_source, stop_gradient=False)
             if not bool(np.asarray(validity.is_valid, dtype=bool)):
                 self._record_invalid_state_host(np.asarray(validity.reason_flags, dtype=bool))
-                self.surrogate_cache_by_z = {}
-                self.flat_surrogate_cache = None
-                self.surrogate_reference_params = None
-                self.surrogate_reference_param_values = np.zeros(len(self.surrogate_param_indices), dtype=float)
+                self._report_surrogate_refresh_failure(reason)
                 return
             inactive_surrogate = self._build_inactive_surrogate_jacobian(
                 reference,
@@ -23876,10 +23746,7 @@ class ClusterJAXEvaluator:
                 include_jacobian=_surrogate_refresh_needs_inactive_jacobian(self.sample_likelihood_mode),
             )
             if inactive_surrogate is None:
-                self.surrogate_cache_by_z = {}
-                self.flat_surrogate_cache = None
-                self.surrogate_reference_params = None
-                self.surrogate_reference_param_values = np.zeros(len(self.surrogate_param_indices), dtype=float)
+                self._report_surrogate_refresh_failure(reason)
                 return
             reference_jacobian_entries = None
             if self.sample_likelihood_mode in {
@@ -23958,7 +23825,7 @@ class ClusterJAXEvaluator:
                 catastrophe_rho = np.where(np.isfinite(catastrophe_rho), catastrophe_rho, 0.0)
                 catastrophe_kappa_tangent_x = np.where(np.isfinite(catastrophe_kappa_tangent_x), catastrophe_kappa_tangent_x, 0.0)
                 catastrophe_kappa_tangent_y = np.where(np.isfinite(catastrophe_kappa_tangent_y), catastrophe_kappa_tangent_y, 0.0)
-            self.surrogate_cache_by_z[bin_data.effective_z_source] = SurrogateBinCache(
+            candidate_by_z[bin_data.effective_z_source] = SurrogateBinCache(
                 effective_z_source=float(bin_data.effective_z_source),
                 fold_regularized_kappa_eff=fold_regularized_kappa_eff,
                 fold_regularized_near_indices=fold_regularized_near_indices,
@@ -23969,8 +23836,10 @@ class ClusterJAXEvaluator:
                 catastrophe_kappa_tangent_y=catastrophe_kappa_tangent_y,
                 **inactive_surrogate,
             )
-        if self.sampling_engine == SAMPLING_ENGINE_REFRESHING_SURROGATE_FLAT:
-            self._refresh_flat_surrogate_cache()
+        self.surrogate_cache_by_z = candidate_by_z
+        self.surrogate_reference_params = reference.copy()
+        self.surrogate_reference_param_values = reference[self.surrogate_param_indices].copy()
+        self._set_cache_refresh_failure("surrogate", False)
         self.full_refresh_count += 1
         self._source_loglike_fn = jax.jit(self._source_loglike_impl)
 

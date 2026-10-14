@@ -871,10 +871,22 @@ def test_run_xsh_is_self_contained_ff_sims_runner() -> None:
     assert "%matplotlib" not in text
     assert "matplotlib.use" not in text
     assert "MPLBACKEND" not in text
+    assert "--campaign" in text
+    assert "--covariance" in text
+    assert "--magnitude-likelihood" in text
+    assert "VALID_COVARIANCE_MODES" in text
+    assert "VALID_MAGNITUDE_LIKELIHOOD_MODES" in text
+    assert 'variant_name = f"{covariance_mode}_maglikelihood" if use_magnitude_likelihood else covariance_mode' in text
+    assert 'f"results/{campaign_name}/{cluster_config[\'cluster_key\']}/{variant_name}_"' in text
     assert 'stage0_likelihood = "source"' in text
     assert "stage0_likelihood=stage0_likelihood" in text
     assert "perturbation_discovery_top_k=perturbation_top_k" in text
     assert "stage1_likelihood =" in text
+    assert "critical_arc_anisotropic_covariance=critical_arc_anisotropic_covariance" in text
+    assert "use_magnitude_likelihood=use_magnitude_likelihood" in text
+    assert "use_magnitude_likelihood={config.likelihood.use_magnitude_likelihood}" in text
+    assert "critical_arc_anisotropic_covariance={config.likelihood.critical_arc_anisotropic_covariance}" in text
+    assert "cczz" not in text
     assert "critical-arc-centroid" not in text
     assert "critical-arc-mixture" not in text
 

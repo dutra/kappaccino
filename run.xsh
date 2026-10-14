@@ -49,12 +49,75 @@ HFF_RGB_BANDS = ["F435W", "F606W", "F814W", "F105W", "F125W", "F140W", "F160W"]
 HFF_RGB_DISPLAY = {"q": 6.4, "stretch": 0.0145, "minimum": -5.5e-4, "red_gain": 0.47, "green_gain": 0.91, "blue_gain": 3.95}
 
 VALID_CLUSTERS = "ARES, HERA"
+VALID_COVARIANCE_MODES = ("anisotropic", "isotropic")
+VALID_MAGNITUDE_LIKELIHOOD_MODES = ("off", "on")
 FF_RGB_BANDS = ("F435W", "F606W", "F814W")
 FF_RGB_DISPLAY = RGBDisplayConfig(q=6.8, stretch=0.0158, minimum=0.00105, red_gain=0.62, green_gain=0.78, blue_gain=3.65)
 
 
 def _usage() -> str:
-    return f"Usage: xonsh run.xsh <cluster>\nValid clusters: {VALID_CLUSTERS}"
+    return (
+        "Usage: xonsh run.xsh <cluster> "
+        "[--campaign NAME] [--covariance anisotropic|isotropic] "
+        "[--magnitude-likelihood on|off]\n"
+        f"Valid clusters: {VALID_CLUSTERS}"
+    )
+
+
+def _parse_args(argv: list[str]) -> tuple[str, str, str, bool]:
+    if len(argv) == 2 and argv[1] in {"--help", "-h"}:
+        print(_usage())
+        raise SystemExit(0)
+    if len(argv) < 2:
+        print(_usage())
+        raise SystemExit(2)
+
+    cluster = str(argv[1]).strip().upper()
+    values = {
+        "campaign": OUTPUT_DIR_LABEL,
+        "covariance": "anisotropic",
+        "magnitude_likelihood": "off",
+    }
+    flag_to_key = {
+        "--campaign": "campaign",
+        "--covariance": "covariance",
+        "--magnitude-likelihood": "magnitude_likelihood",
+    }
+    index = 2
+    while index < len(argv):
+        flag = argv[index]
+        if flag in {"--help", "-h"}:
+            print(_usage())
+            raise SystemExit(0)
+        if flag not in flag_to_key:
+            print(f"Unknown argument: {flag!r}\n{_usage()}")
+            raise SystemExit(2)
+        if index + 1 >= len(argv):
+            print(f"Missing value for {flag}.\n{_usage()}")
+            raise SystemExit(2)
+        values[flag_to_key[flag]] = argv[index + 1]
+        index += 2
+
+    covariance_mode = str(values["covariance"]).strip().lower()
+    if covariance_mode not in VALID_COVARIANCE_MODES:
+        print(f"Covariance mode must be 'anisotropic' or 'isotropic'; got {values['covariance']!r}.\n{_usage()}")
+        raise SystemExit(2)
+    magnitude_likelihood_mode = str(values["magnitude_likelihood"]).strip().lower()
+    if magnitude_likelihood_mode not in VALID_MAGNITUDE_LIKELIHOOD_MODES:
+        print(
+            "Magnitude likelihood must be 'on' or 'off'; "
+            f"got {values['magnitude_likelihood']!r}.\n{_usage()}"
+        )
+        raise SystemExit(2)
+    use_magnitude_likelihood = magnitude_likelihood_mode == "on"
+    if use_magnitude_likelihood and covariance_mode != "anisotropic":
+        print("--magnitude-likelihood on is only supported with --covariance anisotropic.")
+        raise SystemExit(2)
+    campaign_name = str(values["campaign"]).strip()
+    if not campaign_name or campaign_name in {".", ".."} or "/" in campaign_name or "\\" in campaign_name:
+        print("--campaign must be a nonempty single path segment.")
+        raise SystemExit(2)
+    return cluster, campaign_name, covariance_mode, use_magnitude_likelihood
 
 
 FF_SIMS_CLUSTERS = {
@@ -218,12 +281,17 @@ FF_SIMS_CLUSTERS = {
 }
 
 
-def build_config(cluster: str, *, cores: int) -> LensClusterSolverConfig:
+def build_config(
+    cluster: str,
+    *,
+    cores: int,
+    campaign_name: str,
+    covariance_mode: str,
+    use_magnitude_likelihood: bool,
+) -> LensClusterSolverConfig:
     if cluster not in FF_SIMS_CLUSTERS:
         raise ValueError(f"cluster must be one of {', '.join(sorted(FF_SIMS_CLUSTERS))}; got {cluster!r}.")
     cluster_config = FF_SIMS_CLUSTERS[cluster]
-
-    use_magnitude_likelihood = False
 
     perturbation_detection_multiplier = 1.0
     perturbation_top_k = 10
@@ -239,9 +307,12 @@ def build_config(cluster: str, *, cores: int) -> LensClusterSolverConfig:
     
     #stage1_likelihood = "critical-arc-anisotropic"
 
+    critical_arc_anisotropic_covariance = covariance_mode == "anisotropic"
+    variant_name = f"{covariance_mode}_maglikelihood" if use_magnitude_likelihood else covariance_mode
 
     output_dir = (
-        f"{cluster_config['output_dir']}_PDdet{perturbation_detection_multiplier:g}_TOPK_{perturbation_top_k}_"
+        f"results/{campaign_name}/{cluster_config['cluster_key']}/{variant_name}_"
+        f"PDdet{perturbation_detection_multiplier:g}_TOPK_{perturbation_top_k}_"
         f"T{max_tree_depth}W{warmup}S{samples}"
         f"maglikelihood{use_magnitude_likelihood}"
     )
@@ -294,7 +365,6 @@ def build_config(cluster: str, *, cores: int) -> LensClusterSolverConfig:
             z_bin_efficiency_tol=0.0,
             svi_learning_rate=0.0005,
         ),
-cczz
         scaling=ScalingModelConfig(
             independent_scaling_free_log_sigma_offset_width=0.45,
             independent_scaling_free_log_mass_offset_width=0.55,
@@ -312,6 +382,7 @@ cczz
         ),
         likelihood=LikelihoodConfig(
             use_magnitude_likelihood=use_magnitude_likelihood,
+            critical_arc_anisotropic_covariance=critical_arc_anisotropic_covariance,
             # magnitude_base_scatter_prior=PriorConfig(
             #     kind="lognormal",
             #     lower=0.01,
@@ -371,20 +442,26 @@ cczz
     )
 
 
-if len(sys.argv) != 2:
-    print(_usage())
-    raise SystemExit(2)
-
-requested_cluster = sys.argv[1].strip().upper()
+requested_cluster, campaign_name, covariance_mode, use_magnitude_likelihood = _parse_args(sys.argv)
 if requested_cluster not in FF_SIMS_CLUSTERS:
     print(f"Unknown cluster: {sys.argv[1]!r}\n{_usage()}")
     raise SystemExit(2)
 
-config = build_config(requested_cluster, cores=cores)
+config = build_config(
+    requested_cluster,
+    cores=cores,
+    campaign_name=campaign_name,
+    covariance_mode=covariance_mode,
+    use_magnitude_likelihood=use_magnitude_likelihood,
+)
 plan = compile_run_plan(config)
 print(
     f"[config] cluster={requested_cluster} run_name={plan.output.run_name} "
-    f"output_dir={plan.output.output_dir} chains={plan.runtime.chains}"
+    f"output_dir={plan.output.output_dir} chains={plan.runtime.chains} "
+    f"campaign={campaign_name} covariance={covariance_mode} "
+    f"use_magnitude_likelihood={config.likelihood.use_magnitude_likelihood} "
+    f"critical_arc_anisotropic_covariance={config.likelihood.critical_arc_anisotropic_covariance} "
+    f"pos_sigma_arcsec={config.likelihood.pos_sigma_arcsec}"
 )
 
 start = time.monotonic()

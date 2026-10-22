@@ -18,6 +18,10 @@ from .sampling import (LATENT_FAMILIES, posterior_model, prior_model, sample_sit
                        unconstrained_from_theta)
 
 HYPERPARAMETER_FAMILIES = frozenset({"member_velocity_scatter", "source_scatter"})
+BAD_POTENTIAL = 1.0e29                      # potentials at or above this come from the invalid-model sentinel
+# Strong-Wolfe zoom line search: backtracking from unit steps fails on the steep initial objective (sources at the
+# centroids with a 0.02" scatter), and stopping on a failed line search leaves the starts unconverged.
+LBFGS_OPTIONS: dict[str, Any] = dict(linesearch="zoom", maxls=60, history_size=20)
 
 
 def prior_starts(state: ModelState, n_starts: int, seed: int) -> np.ndarray:
@@ -47,7 +51,7 @@ def multistart_map(state: ModelState, evaluator: Evaluator, starts: np.ndarray, 
     def potential(u):
         return potential_energy(model, (), {}, unravel(u))
 
-    solver = jaxopt.LBFGS(fun=potential, maxiter=int(max_iter), tol=1.0e-6, linesearch="backtracking", history_size=20)
+    solver = jaxopt.LBFGS(fun=potential, maxiter=int(max_iter), tol=1.0e-6, **LBFGS_OPTIONS)
     started = time.perf_counter()
     run = jax.jit(jax.vmap(lambda u: solver.run(u)))
     result = run(jnp.asarray(u0))
@@ -56,9 +60,9 @@ def multistart_map(state: ModelState, evaluator: Evaluator, starts: np.ndarray, 
     iterations = np.asarray(result.state.iter_num)
     gradient_norm = np.asarray(result.state.error)
     elapsed = time.perf_counter() - started
-    finite = np.isfinite(final_potential) & np.isfinite(final_u).all(axis=1)
+    finite = np.isfinite(final_potential) & np.isfinite(final_u).all(axis=1) & (final_potential < BAD_POTENTIAL)
     if not finite.any():
-        raise RuntimeError("Every multi-start optimization ended at a non-finite potential.")
+        raise RuntimeError("Every multi-start optimization ended at a non-finite or invalid potential.")
     # Scale for the mode distance: spread of the finite starts, per unconstrained coordinate.
     scale = np.where(finite.sum() > 1, np.std(u0[finite], axis=0), 1.0)
     scale = np.where(scale > 0, scale, 1.0)

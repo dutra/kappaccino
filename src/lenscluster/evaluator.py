@@ -273,5 +273,6 @@ class Evaluator:
         latent[ix], latent[iy] = offsets[:, 0], offsets[:, 1]
         return latent
 
-    def source_positions(self, params: jnp.ndarray) -> np.ndarray:
-        return np.asarray(self.statistics(params)["source_by_family"])
+    def source_positions(self, params: jnp.ndarray) -> jnp.ndarray:
+        """Physical source positions per family, (F, 2); traceable under jit and vmap."""
+        return self.statistics(params)["source_by_family"]

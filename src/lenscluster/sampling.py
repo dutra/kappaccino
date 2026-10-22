@@ -202,6 +202,17 @@ def block_mass_seed(model, specs: list[ParameterSpec], reference_theta: np.ndarr
     return [global_names], inverse_mass, diagnostics
 
 
+def chain_diagnostics(grouped_theta: np.ndarray) -> dict[str, Any]:
+    """Split-R-hat and effective sample size per parameter (NaN with a single chain)."""
+    from numpyro.diagnostics import effective_sample_size, split_gelman_rubin
+    chains, draws, n = grouped_theta.shape
+    if chains < 2 or draws < 4:
+        return {"r_hat": [float("nan")] * n, "n_eff": [float("nan")] * n, "max_r_hat": float("nan"), "min_n_eff": float("nan")}
+    r_hat = np.asarray(split_gelman_rubin(grouped_theta), dtype=float)
+    n_eff = np.asarray(effective_sample_size(grouped_theta), dtype=float)
+    return {"r_hat": r_hat.tolist(), "n_eff": n_eff.tolist(), "max_r_hat": float(np.nanmax(r_hat)), "min_n_eff": float(np.nanmin(n_eff))}
+
+
 def run_nuts(state: ModelState, evaluator: Evaluator, starts: np.ndarray, *, warmup: int, samples: int, chains: int,
              chain_method: str, max_tree_depth: int, target_accept: float, initial_step_size: float, seed: int,
              thin: int = 1, print_summary: bool = False, log=print) -> PosteriorResults:
@@ -244,7 +255,7 @@ def run_nuts(state: ModelState, evaluator: Evaluator, starts: np.ndarray, *, war
         f"mean_steps={num_steps.mean():.1f} draws={flat.shape[0]}")
     best = int(np.nanargmax(np.where(finite, log_prob, -np.inf)))
     diagnostics = dict(mass_seed=mass_diagnostics, elapsed_seconds=float(elapsed), chain_method=chain_method,
-                       n_nonfinite_draws=int((~finite).sum()))
+                       n_nonfinite_draws=int((~finite).sum()), **chain_diagnostics(grouped_theta))
     return PosteriorResults(samples=flat, physical=physical, log_prob=log_prob, accept_prob=accept, diverging=diverging,
                            num_steps=num_steps, warmup_steps=int(warmup), sample_steps=int(samples), num_chains=int(chains),
                            grouped_samples=grouped_theta, diagnostics=diagnostics,

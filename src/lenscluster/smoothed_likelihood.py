@@ -185,6 +185,8 @@ def transport_sources(offsets, whitening, prior_mean, prior_sigma):
     offsets = jnp.asarray(offsets)
     source = whitening["centroid"] + jnp.einsum("fij,fj->fi", whitening["cholesky"], offsets)
     sigma = jnp.asarray(prior_sigma)
+    if sigma.ndim == 1:                       # one width per family, shared by both coordinates
+        sigma = sigma[:, None]
     physical_log_prior = -0.5 * jnp.sum(((source - jnp.asarray(prior_mean)) / sigma)**2 + 2.0 * jnp.log(sigma) + _LOG_2PI, axis=-1)
     base_log_prior = -0.5 * jnp.sum(offsets**2 + _LOG_2PI, axis=-1)
     log_jacobian = -0.5 * whitening["logdet_precision"]

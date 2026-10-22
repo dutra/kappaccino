@@ -197,3 +197,26 @@ def run(config: LensClusterSolverConfig) -> RunResult:
         return RunResult(paths, state, evaluator, posterior, search, audit, resumed=False)
     finally:
         log.close()
+
+
+def dry_run(config: LensClusterSolverConfig) -> dict[str, Any]:
+    """Describe the single stage without running it: model size, provisional classification and search size."""
+    config = config.validate()
+    state = build_state(config)
+    evaluator = Evaluator(state)
+    state = classify(state, evaluator, state.initial_theta, config, reference_cut_kpc=None, beta_radius=None, log=lambda _: None)
+    classification = state.members.classification
+    return {
+        "stage": "single-stage: classify -> multi-start MAP -> reclassify -> NUTS -> audit -> outputs",
+        "output": str(run_paths(config).root),
+        "likelihood": "smoothed-local-image-plane",
+        "parameters": int(state.n_parameters), "images": int(state.images.n_images), "families": int(state.images.n_families),
+        "members": int(len(state.members.member_ids)), "components": int(len(state.base_components)),
+        "provisional_classification": {"exact": classification.get("exact_count"), "mandatory": classification.get("mandatory_count"),
+                                       "far_field": int(len(state.members.member_ids)) - int(classification.get("exact_count", 0)),
+                                       "inflated_cut_kpc": classification.get("inflated_cut_kpc")},
+        "search": {"n_starts": int(config.search.n_starts), "lbfgs_max_iter": int(config.search.lbfgs_max_iter), "max_chain_modes": int(config.search.max_chain_modes)},
+        "sampling": {"chains": int(config.runtime.chains), "warmup": int(config.sampling.warmup), "samples": int(config.sampling.samples),
+                     "max_tree_depth": int(config.sampling.max_tree_depth)},
+        "config": config.to_json_dict(),
+    }

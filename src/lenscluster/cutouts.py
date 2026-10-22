@@ -222,18 +222,21 @@ def build_rgb_display(band_images: Mapping[str, BandImage], *, bands: Sequence[s
     weights = _hff_channel_weights(keys)
     hff = len(keys) > 3 and all(weights.get(role) for role in ("blue", "green", "red"))
     reference = DEFAULT_HFF_RGB_REFERENCE_BAND if DEFAULT_HFF_RGB_REFERENCE_BAND in keys else keys[-1]
-    fluxscales = compute_fnu_band_fluxscales({b: band_images[b].photflam for b in keys}, {b: band_images[b].photplam for b in keys}, reference_band=reference)
+    fluxscales = compute_fnu_band_fluxscales({b: getattr(band_images.get(b), "photflam", None) for b in keys},
+                                             {b: getattr(band_images.get(b), "photplam", None) for b in keys}, reference_band=reference)
+    backgrounds = {b: float(getattr(band_images.get(b), "background", 0.0) or 0.0) for b in keys}
     if minimum is None:
         if hff:
             minimum = DEFAULT_HFF_RGB_MINIMUM
         else:
-            sigmas = [band_images[b].background_sigma * float(fluxscales.get(b, 1.0)) for b in keys if band_images[b].background_sigma > 0]
+            sigmas = [float(getattr(band_images.get(b), "background_sigma", 0.0) or 0.0) * float(fluxscales.get(b, 1.0)) for b in keys]
+            sigmas = [v for v in sigmas if v > 0]
             minimum = CALIBRATED_RGB_MINIMUM_SKY_SIGMA * float(np.median(sigmas)) if sigmas else DEFAULT_RGB_MINIMUM
     return CalibratedRGBDisplayConfig(
         q=(DEFAULT_HFF_RGB_Q if hff else DEFAULT_CALIBRATED_RGB_Q) if q is None else float(q),
         stretch=(DEFAULT_HFF_RGB_STRETCH if hff else DEFAULT_CALIBRATED_RGB_STRETCH) if stretch is None else float(stretch),
         channel_gains=dict((DEFAULT_HFF_RGB_CHANNEL_GAINS if hff else DEFAULT_CALIBRATED_RGB_CHANNEL_GAINS) if channel_gains is None else channel_gains),
-        minimum=float(minimum), band_backgrounds={b: float(band_images[b].background) for b in keys}, band_fluxscales=fluxscales,
+        minimum=float(minimum), band_backgrounds=backgrounds, band_fluxscales=fluxscales,
         warm_highlight_desaturation=DEFAULT_HFF_RGB_WARM_HIGHLIGHT_DESATURATION if hff else DEFAULT_CALIBRATED_RGB_WARM_HIGHLIGHT_DESATURATION,
         channel_weights=weights if hff else {}, highlight_knee=DEFAULT_HFF_RGB_HIGHLIGHT_KNEE if hff else 1.0,
         highlight_ceiling=DEFAULT_HFF_RGB_HIGHLIGHT_CEILING if hff else 1.0, highlight_softness=DEFAULT_HFF_RGB_HIGHLIGHT_SOFTNESS if hff else 0.44)

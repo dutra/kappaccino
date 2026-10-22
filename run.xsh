@@ -1,13 +1,12 @@
 $XONSH_SHOW_TRACEBACK = True
 
+import json
 import os
 import sys
 import time
-import json
-from dataclasses import asdict
 from pathlib import Path
 
-cores = 4  # Default chain count; CPU setup follows the resolved RuntimeConfig.
+cores = 4  # NUTS chains; one JAX CPU device per chain.
 seed = 12345
 pos_sigma_arcsec = 0.5
 
@@ -26,42 +25,36 @@ from lenscluster.config import (
     LensModelConfig,
     LikelihoodConfig,
     LogNormalPriorConfig,
+    MemberConfig,
     MemberPopulationConfig,
-    MemberTierConfig,
     PriorConfig,
     RGBDisplayConfig,
     ReferenceFrameConfig,
     RunPathsConfig,
     RuntimeConfig,
+    SamplingConfig,
     ScalingModelConfig,
+    SearchConfig,
     ShearHaloConfig,
-    StageScheduleConfig,
     TruthRecoveryConfig,
-    WorkflowConfig,
 )
-from lenscluster.planning import compile_run_plan
-from lenscluster.runner import LensClusterRunner
-from lenscluster.output_paths import validate_run_label
-from lenscluster.jax_cosmology import kpc_per_arcsec_from_config
 from lenscluster.cpu_runtime import configure_cpu_runtime, resolve_cpu_plan
+from lenscluster.jax_cosmology import kpc_per_arcsec_from_config
 
-OUTPUT_DIR_LABEL = "oct21_smoothed_local"
+OUTPUT_DIR_LABEL = "oct22_single_stage"
 
 # HFF display settings for observed clusters.
 HFF_RGB_BANDS = ["F435W", "F606W", "F814W", "F105W", "F125W", "F140W", "F160W"]
 HFF_RGB_DISPLAY = {"q": 6.4, "stretch": 0.0145, "minimum": -5.5e-4, "red_gain": 0.47, "green_gain": 0.91, "blue_gain": 3.95}
 
 VALID_CLUSTERS = "ARES, HERA, AS1063"
-VALID_MAGNITUDE_LIKELIHOOD_MODES = ("off", "on")
 FF_RGB_BANDS = ("F435W", "F606W", "F814W")
 FF_RGB_DISPLAY = RGBDisplayConfig(q=6.8, stretch=0.0158, minimum=0.00105, red_gain=0.62, green_gain=0.78, blue_gain=3.65)
 
 
 def _usage() -> str:
     return (
-        "Usage: xonsh run.xsh <cluster> "
-        "[--campaign NAME] [--run-label NAME] [--image-metadata PATH] "
-        "[--dry-run] [--magnitude-likelihood off]\n"
+        "Usage: xonsh run.xsh <cluster> [--campaign NAME] [--run-label NAME] [--image-metadata PATH] [--dry-run]\n"
         f"Valid clusters: {VALID_CLUSTERS}"
     )
 
@@ -73,21 +66,9 @@ def _parse_args(argv: list[str]) -> dict:
     if len(argv) < 2:
         print(_usage())
         raise SystemExit(2)
-
     cluster = str(argv[1]).strip().upper()
-    values = {
-        "campaign": OUTPUT_DIR_LABEL,
-        "run_label": None,
-        "magnitude_likelihood": "off",
-        "image_metadata": None,
-        "dry_run": False,
-    }
-    flag_to_key = {
-        "--campaign": "campaign",
-        "--run-label": "run_label",
-        "--magnitude-likelihood": "magnitude_likelihood",
-        "--image-metadata": "image_metadata",
-    }
+    values = {"campaign": OUTPUT_DIR_LABEL, "run_label": None, "image_metadata": None, "dry_run": False}
+    flag_to_key = {"--campaign": "campaign", "--run-label": "run_label", "--image-metadata": "image_metadata"}
     index = 2
     while index < len(argv):
         flag = argv[index]
@@ -98,38 +79,17 @@ def _parse_args(argv: list[str]) -> dict:
         if flag in {"--help", "-h"}:
             print(_usage())
             raise SystemExit(0)
-        if flag not in flag_to_key:
-            print(f"Unknown argument: {flag!r}\n{_usage()}")
-            raise SystemExit(2)
-        if index + 1 >= len(argv):
-            print(f"Missing value for {flag}.\n{_usage()}")
+        if flag not in flag_to_key or index + 1 >= len(argv):
+            print(f"Unknown argument or missing value: {flag!r}\n{_usage()}")
             raise SystemExit(2)
         values[flag_to_key[flag]] = argv[index + 1]
         index += 2
-
-    magnitude_likelihood_mode = str(values["magnitude_likelihood"]).strip().lower()
-    if magnitude_likelihood_mode not in VALID_MAGNITUDE_LIKELIHOOD_MODES:
-        print(
-            "Magnitude likelihood must be 'on' or 'off'; "
-            f"got {values['magnitude_likelihood']!r}.\n{_usage()}"
-        )
-        raise SystemExit(2)
-    use_magnitude_likelihood = magnitude_likelihood_mode == "on"
-    if use_magnitude_likelihood:
-        print("smoothed-local-image-plane supports positions only; --magnitude-likelihood on is unsupported.")
-        raise SystemExit(2)
-    campaign_name = str(values["campaign"]).strip()
-    if not campaign_name or campaign_name in {".", ".."} or "/" in campaign_name or "\\" in campaign_name:
-        print("--campaign must be a nonempty single path segment.")
-        raise SystemExit(2)
-    run_label = values["run_label"]
-    if run_label is not None:
-        try:
-            validate_run_label(run_label)
-        except ValueError as exc:
-            print(f"--run-label: {exc}")
-            raise SystemExit(2) from exc
-    return dict(cluster=cluster, campaign_name=campaign_name, run_label=run_label,
+    for key in ("campaign", "run_label"):
+        value = values[key]
+        if value is not None and (not str(value).strip() or str(value) in {".", ".."} or "/" in str(value) or "\\" in str(value)):
+            print(f"--{key.replace('_', '-')} must be a nonempty single path segment.")
+            raise SystemExit(2)
+    return dict(cluster=cluster, campaign_name=str(values["campaign"]).strip(), run_label=values["run_label"],
                 dry_run=values["dry_run"], image_metadata=values["image_metadata"])
 
 
@@ -415,14 +375,10 @@ def build_runtime(cores: int) -> RuntimeConfig:
     return RuntimeConfig(
         seed=seed,
         chains=cores,
-        resume="all",
-        quick_diagnostics=False,
-        debug_sampler_diagnostics=True,
+        resume=True,
         numpyro_print_summary=True,
         nuts_chain_method="parallel",
         cpu_threads_per_chain=2,  # Shared CPU budget = concurrent chains * this value; None disables tuning.
-        dense_mass="lens-and-hyperparameters",
-        jax_clear_caches_after_svi_refresh=False,
     )
 
 
@@ -431,33 +387,18 @@ def build_config(
     *,
     cores: int,
     campaign_name: str,
-    covariance_mode: str = "anisotropic",
-    use_magnitude_likelihood: bool = False,
     run_label: str | None = None,
     image_metadata: str | None = None,
     runtime: RuntimeConfig | None = None,
 ) -> LensClusterSolverConfig:
     if cluster not in CLUSTERS:
         raise ValueError(f"cluster must be one of {', '.join(sorted(CLUSTERS))}; got {cluster!r}.")
-    if use_magnitude_likelihood:
-        raise ValueError("smoothed-local-image-plane supports positions only.")
-    if covariance_mode != "anisotropic":
-        raise ValueError("smoothed-local-image-plane uses the propagated covariance; an isotropic override is unsupported.")
     is_hff = cluster not in FF_SIMS_CLUSTERS
     cluster_config = _hff_clusters()[cluster] if is_hff else FF_SIMS_CLUSTERS[cluster]
-
-    warmup = 200, 500
-    samples = 100, 500
-    max_tree_depth = 8, 8
-    stage0_likelihood = "smoothed-local-image-plane"
-    stage1_likelihood = "smoothed-local-image-plane"
-    stage2_forward_mode = "smoothed-local-image-plane"
     output_dir = f"results/{campaign_name}/{cluster_config['cluster_key']}"
-    run_name = validate_run_label(
-        run_label if run_label is not None else "smoothed-local-image-plane"
-    )
+    run_name = run_label if run_label is not None else "smoothed-local-image-plane"
 
-    config = LensClusterSolverConfig(
+    return LensClusterSolverConfig(
         model=LensModelConfig(
             reference=cluster_config.get("reference", ReferenceFrameConfig(reference=3, ra0_deg=0.0, dec0_deg=0.0)),
             cosmology=cluster_config["cosmology"],
@@ -469,45 +410,21 @@ def build_config(
                 sigma_floor_arcsec=0.5, metadata_path=image_metadata,
             ),
         ),
-        paths=RunPathsConfig(output_dir=output_dir, run_name=run_name, layout="results-v1", figure_prefix=cluster_config["cluster_key"]),
+        paths=RunPathsConfig(output_dir=output_dir, run_name=run_name, figure_prefix=cluster_config["cluster_key"]),
         runtime=runtime if runtime is not None else build_runtime(cores),
-        workflow=WorkflowConfig(
-            fit_mode="sequential",
-            sampling_engine="tiered_members",
-            stage0_likelihood=stage0_likelihood,
-            stage1_likelihood=stage1_likelihood,
-            stage2_forward_mode=stage2_forward_mode,
-            stage1_sampling_engine="tiered_members",
-            stage2_sampling_engine="tiered_members",
-            stage2_fresh_process=True,
-            exact_image_diagnostics_stage2=True,
-            best_value="maximum-likelihood",
-            image_plane_newton_steps=0,
-            source_position_parameterization="likelihood-whitened",
-        ),
-        schedule=StageScheduleConfig(
-            fit_method=("svi+nuts", "svi+nuts"),
-            refresh_every=(None, None, None),
-            svi_steps=(10_000, 10_000, 10_000),
-            warmup=warmup,
-            samples=samples,
-            sampling_refresh_runs=(1, 1),
-            max_tree_depth=max_tree_depth,
-            target_accept=0.7,
-            z_bin_efficiency_tol=0.0,
-            svi_learning_rate=0.0005,
-        ),
+        search=SearchConfig(n_starts=128, lbfgs_max_iter=500, mode_margin=10.0, max_chain_modes=4),
+        sampling=SamplingConfig(warmup=1000, samples=500, max_tree_depth=8, target_accept=0.7),
+        members=MemberConfig(far_field_cut_radii=3.0, cut_radius_inflation=2.0, template_tolerance=0.1, top_exact=None),
         scaling=ScalingModelConfig(
             member_velocity_scatter_prior=LogNormalPriorConfig(median=0.02, log_sigma=1.0),
-            potfile_alpha_sigma_prior_mean=0.25,
-            potfile_alpha_sigma_prior_std=0.3,
-            potfile_alpha_sigma_prior_lower=0.05,
-            potfile_alpha_sigma_prior_upper=0.50,
-            potfile_beta_radius_prior_mean=0.50,
-            potfile_beta_radius_prior_std=0.20,
-            potfile_beta_radius_prior_lower=0.0,
-            potfile_beta_radius_prior_upper=float("inf"),
-            scaling_scatter=True,
+            alpha_sigma_prior_mean=0.25,
+            alpha_sigma_prior_std=0.3,
+            alpha_sigma_prior_lower=0.05,
+            alpha_sigma_prior_upper=0.50,
+            beta_radius_prior_mean=0.50,
+            beta_radius_prior_std=0.20,
+            beta_radius_prior_lower=0.0,
+            beta_radius_prior_upper=float("inf"),
             softening_length_kpc=float(cluster_config["softening_length_kpc"]),
             softening_length_prior_log_sigma=float(cluster_config["softening_length_prior_log_sigma"]),
         ),
@@ -515,17 +432,10 @@ def build_config(
             source_scatter_prior=LogNormalPriorConfig(median=0.02, log_sigma=0.7),
             source_position_prior_mean_arcsec=(0.0, 0.0),
             source_position_prior_sigma_arcsec=100.0,
-            use_magnitude_likelihood=False,
             pos_sigma_arcsec=pos_sigma_arcsec,
-            source_plane_covariance_mode="full-jacobian",
-            source_plane_covariance_floor=0.0,
-            image_presence_penalty_weight=0.0,
         ),
         image_diagnostics=ImageDiagnosticsConfig(
-            critical_arc_singular_threshold=0.1,
-            arc_recovery_p_arc_threshold=0.1,
-            posterior_image_diagnostic_draws=0,
-            posterior_image_diagnostic_mode="exact",
+            posterior_image_diagnostic_draws=32,
             exact_image_min_distance_arcsec=0.5,
             exact_image_precision_limit=1.0e-2,
             exact_image_num_iter_max=100,
@@ -539,74 +449,41 @@ def build_config(
             kappa_true_fits=cluster_config.get("kappa_true_fits"),
             gammax_true_fits=cluster_config.get("gammax_true_fits"),
             gammay_true_fits=cluster_config.get("gammay_true_fits"),
-            truth_grid_mode="posterior",
-            posterior_truth_recovery_draws=0,
+            posterior_truth_recovery_draws=64,
             truth_grid_size=256,
             caustic_source_redshift=9.0,
-        ),
-        member_tiers=MemberTierConfig(
-            top_sampled=20,  # "all" samples an offset for every population member; None uses the classifier.
-            top_exact=50,  # "all" uses exact profiles for every member; None uses the classifier.
         ),
         image_catalog=ImageCatalogCutoutConfig(
             image_dir="data/BUFFALO_Images" if is_hff else "data/ff_sims",
             image_scale="auto",
             bands=tuple(HFF_RGB_BANDS) if is_hff else FF_RGB_BANDS,
             rgb=RGBDisplayConfig(**HFF_RGB_DISPLAY) if is_hff else FF_RGB_DISPLAY,
-            mode="full",
-            cutouts=False,
         ),
     )
-
-    return config
 
 
 def main(argv=None):
     options = _parse_args(sys.argv if argv is None else argv)
-    requested_cluster = options["cluster"]
-    if requested_cluster not in CLUSTERS:
-        print(f"Unknown cluster: {requested_cluster!r}\n{_usage()}")
+    cluster = options["cluster"]
+    if cluster not in CLUSTERS:
+        print(f"Unknown cluster: {cluster!r}\n{_usage()}")
         return 2
     runtime = build_runtime(cores)
     cpu_plan = resolve_cpu_plan(runtime.chains, runtime.nuts_chain_method, runtime.cpu_threads_per_chain)
     if not options["dry_run"]:
         configure_cpu_runtime(runtime.chains, runtime.nuts_chain_method, runtime.cpu_threads_per_chain)
-    config = build_config(
-        requested_cluster, cores=cores, campaign_name=options["campaign_name"],
-        run_label=options["run_label"], image_metadata=options["image_metadata"], runtime=runtime,
-    )
-    plan = compile_run_plan(config)
+    config = build_config(cluster, cores=cores, campaign_name=options["campaign_name"], run_label=options["run_label"],
+                          image_metadata=options["image_metadata"], runtime=runtime).validate()
     if options["dry_run"]:
-        from lenscluster.lenstool_parser import _load_multiple_images_catalog
-        constraints = config.model.image_constraints
-        reference = config.model.reference
-        images = _load_multiple_images_catalog(
-            constraints.catalog_path,
-            (reference.reference, reference.ra0_deg, reference.dec0_deg),
-            metadata_path=constraints.metadata_path,
-            sigma_arcsec=constraints.sigma_arcsec,
-            sigma_floor_arcsec=constraints.sigma_floor_arcsec,
-        )
-        print(json.dumps({
-            "dry_run": True,
-            "cpu_plan": cpu_plan.to_dict(),
-            "config": config.to_json_dict(),
-            "stages": [asdict(stage) for stage in plan.stages],
-            "images": len(images),
-            "families": int(images["family_id"].nunique()),
-            "known_parities": int((images["parity"] != 0).sum()),
-            "sigma_obs_arcsec_range": [float(images["sigma_obs_arcsec"].min()), float(images["sigma_obs_arcsec"].max())],
-        }, indent=2, default=str))
+        from lenscluster.pipeline import dry_run
+        print(json.dumps({"dry_run": True, "cpu_plan": cpu_plan.to_dict(), **dry_run(config)}, indent=2, default=str))
         return 0
-    print(
-        f"[config] cluster={requested_cluster} run_name={plan.output.run_name} "
-        f"output_dir={plan.output.output_dir} chains={plan.runtime.chains} "
-        f"likelihood=smoothed-local-image-plane source_positions=likelihood-whitened "
-        f"sigma_obs_floor_arcsec={config.model.image_constraints.sigma_floor_arcsec}"
-    )
+    from lenscluster.pipeline import run
+    print(f"[config] cluster={cluster} run_name={config.paths.run_name} output_dir={config.paths.output_dir} "
+          f"chains={runtime.chains} n_starts={config.search.n_starts} sigma_obs_floor_arcsec={config.model.image_constraints.sigma_floor_arcsec}")
     start = time.monotonic()
     try:
-        LensClusterRunner().run(plan)
+        run(config)
     finally:
         print(f"[timing] elapsed={time.monotonic() - start:.2f}s")
     return 0

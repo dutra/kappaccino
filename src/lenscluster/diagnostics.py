@@ -70,7 +70,7 @@ def image_recovery_tables(state: ModelState, evaluator: Evaluator, posterior: Po
     n_draws = min(int(config.posterior_image_diagnostic_draws), len(posterior.samples))
     draws = posterior.samples[np.linspace(0, len(posterior.samples) - 1, n_draws).astype(int)] if n_draws else np.empty((0, state.n_parameters))
     by_label: dict[str, list[dict[str, Any]]] = {}
-    rms_rows = []
+    rms_rows, draw_rows = [], []
     for draw_index, theta in enumerate(draws):
         prediction = predictions_at(solver, state, evaluator, theta)
         residuals = np.asarray([r["image_residual_arcsec"] for r in prediction["image_rows"]], dtype=float)
@@ -78,6 +78,9 @@ def image_recovery_tables(state: ModelState, evaluator: Evaluator, posterior: Po
                          "image_rms_arcsec": float(np.sqrt(np.nanmean(residuals ** 2))) if np.isfinite(residuals).any() else np.nan})
         for row in prediction["image_rows"]:
             by_label.setdefault(row["image_label"], []).append(row)
+            draw_rows.append({"draw_index": draw_index, "family_id": row["family_id"], "image_label": row["image_label"],
+                              "recovered": row["image_recovery_status"] == "recovered", "image_residual_arcsec": row["image_residual_arcsec"],
+                              "magnification_model": row["magnification_model"]})
     log(f"[diagnostics] exact images at best fit + {n_draws} draws in {solver.timing['exact_solver']:.1f}s of solver time")
     image_rows = []
     for row in best["image_rows"]:
@@ -100,7 +103,8 @@ def image_recovery_tables(state: ModelState, evaluator: Evaluator, posterior: Po
                                  "magnification_model_q50", "magnification_model_q84"}]].copy() if not image_df.empty else pd.DataFrame()
     count_df = pd.DataFrame(best["count_rows"])
     return {"image_fit_quality": image_df, "image_count_recovery": count_df, "model_magnification": magnification_df,
-            "image_recovery_extra_images": pd.DataFrame(best["extra_rows"]), "posterior_image_rms": pd.DataFrame(rms_rows)}
+            "image_recovery_extra_images": pd.DataFrame(best["extra_rows"]), "posterior_image_rms": pd.DataFrame(rms_rows),
+            "posterior_image_residual_draws": pd.DataFrame(draw_rows)}
 
 
 def fit_summary(state: ModelState, image_df: pd.DataFrame, count_df: pd.DataFrame) -> dict[str, Any]:

@@ -11,53 +11,17 @@ import pytest
 from lenscluster import cluster_solver as solver
 
 
-def _controls() -> dict[str, solver.StageFitControls]:
-    return {
-        "stage2": solver.StageFitControls("svi", 1, 0, 1, 1, 1),
-        "stage3": solver.StageFitControls("svi", 1, 0, 1, 1, 1),
-        "stage4": solver.StageFitControls("svi+nuts", 1, 0, 1, 1, 1),
-    }
 
 
 def _sequential_args(tmp_path: Path, **updates: Any) -> argparse.Namespace:
     payload: dict[str, Any] = {
-        "output_dir": str(tmp_path),
-        "run_name": "root",
-        "par_path": "input.par",
+        "output_dir": str(tmp_path), "run_name": "root",
         "fit_mode": solver.FIT_MODE_SEQUENTIAL,
-        "image_plane_mode": solver.IMAGE_PLANE_MODE_CRITICAL_ARC_MIXTURE,
-        "stage3_image_plane_mode": solver.STAGE3_IMAGE_PLANE_MODE_AUTO,
-        "start_at_stage3": True,
-        "resume": False,
-        "skip_plots": False,
-        "quick_diagnostics": False,
-        "plots_only": False,
-        "skip_validation": True,
-        "exact_image_diagnostics_stage3": False,
-        "skip_critical_det_diagnostic": True,
-        "skip_stage3_image_plane_local_jacobian": False,
-        "stage4_fresh_process": True,
-        "stage4_sampling_engine": solver.STAGE4_SAMPLING_ENGINE_INHERIT,
-        "sampling_engine": solver.SAMPLING_ENGINE_REFRESHING_SURROGATE_FLAT,
-        "fit_cosmology_flat_wcdm": False,
     }
     payload.update(updates)
     return argparse.Namespace(**payload)
 
 
-def _patch_sequential_fast_paths(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(solver, "_normalize_stage_fit_controls", lambda _args: _controls())
-    monkeypatch.setattr(solver, "_stage3_image_plane_enabled", lambda _args: True)
-    monkeypatch.setattr(solver, "_stage4_image_plane_enabled", lambda _args: True)
-    monkeypatch.setattr(solver, "_stage3_sample_likelihood_mode", lambda _args: solver.SAMPLE_LIKELIHOOD_LOCAL_JACOBIAN)
-    monkeypatch.setattr(
-        solver,
-        "_stage4_sample_likelihood_mode",
-        lambda _args: solver.SAMPLE_LIKELIHOOD_CRITICAL_ARC_MIXTURE_IMAGE_PLANE,
-    )
-    monkeypatch.setattr(solver, "_physical_best_fit_values_from_artifacts", lambda _path: {"theta": 1.0})
-    monkeypatch.setattr(solver, "_source_position_prior_values_from_artifacts", lambda _path: {"1": (0.0, 0.0)})
-    monkeypatch.setattr(solver, "_write_sequential_run_summary_txt", lambda *_args, **_kwargs: (None, ""))
 
 
 def test_fresh_stage_process_error_is_propagated(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -93,7 +57,7 @@ def test_fresh_stage_process_error_is_propagated(monkeypatch: pytest.MonkeyPatch
         solver._run_single_stage_in_fresh_process(
             _sequential_args(tmp_path),
             "joint",
-            "root/stage4_critical_arc_mixture_image_plane",
+            "root/stage2_free_source_forward_fit",
         )
 
 
@@ -111,6 +75,7 @@ def test_prepare_direct_evaluator_clears_after_initial_refresh(monkeypatch: pyte
         scaling_scatter_cache_by_z: dict[float, Any] = {}
         source_metric_cache_by_z: dict[float, Any] = {}
         surrogate_reference_params = None
+        flat_surrogate_cache = object()
         scaling_scatter_reference_params = None
         source_metric_reference_params = None
         state = argparse.Namespace(family_data=[], bin_data=[], parameter_specs=[])

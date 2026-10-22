@@ -54,6 +54,7 @@ PAPER_PARAMETERS = (
     "potfile.sigma",
     "potfile.cutkpc",
     "potfile.alpha_sigma",
+    "potfile.beta_radius",
     "potfile.gamma_ml",
     "cosmology_Om0",
     "cosmology_w0",
@@ -72,10 +73,11 @@ VARIANT_LABELS = {
     "isotropic": "Isotropic",
 }
 VARIANT_COLORS = {
-    "anisotropic": "tab:blue",
-    "anisotropic_maglikelihood": "tab:orange",
-    "isotropic": "tab:green",
+    "anisotropic": "#2878A5",
+    "anisotropic_maglikelihood": "#D55E00",
+    "isotropic": "#009E73",
 }
+VARIANT_LINESTYLES = {"anisotropic": "-", "anisotropic_maglikelihood": "--", "isotropic": "-."}
 STAGE_MARKERS = {
     "stage1_backprojected_centroid_fit": "o",
     "stage2_free_source_forward_fit": "s",
@@ -85,14 +87,14 @@ VARIANT_MARKERS = {
     "anisotropic_maglikelihood": "D",
     "isotropic": "s",
 }
-AGGREGATE_LEGEND_FONT_SIZE = 16
+AGGREGATE_LEGEND_FONT_SIZE = 12
 M2D_COMPONENT_LEGEND_FONT_SIZE = 11
-PAPER_PARAMETER_LEGEND_FONT_SIZE = 24
+PAPER_PARAMETER_LEGEND_FONT_SIZE = 18
 PAPER_PARAMETER_LEGEND_MARKER_SIZE = 9
 PAPER_PARAMETER_LEGEND_HANDLE_LENGTH = 0.7
 PAPER_PARAMETER_LEGEND_HANDLE_TEXT_PAD = 0.25
 PAPER_PARAMETER_PANEL_WSPACE = 0.42
-PAPER_PARAMETER_PANEL_HSPACE = 0.24
+PAPER_PARAMETER_PANEL_HSPACE = 0.34
 JOINT_SIGMA_RCUT_SPECS = {
     "potfile": {
         "sigma_parameter": "potfile.sigma",
@@ -119,7 +121,7 @@ JOINT_SCALING_PARAMETERS = tuple(
     for parameter in (spec["sigma_parameter"], spec["rcut_parameter"])
 )
 JOINT_SCALING_LEVELS = (2.30, 5.99)
-AGGREGATE_PARAMETER_POINT_ALPHA = 0.58
+AGGREGATE_PARAMETER_POINT_ALPHA = 1.0
 IMAGE_RESIDUAL_DISTRIBUTION_RANGE_QUANTILE = 0.99
 IMAGE_RESIDUAL_DISTRIBUTION_RANGE_PADDING = 1.10
 IMAGE_RESIDUAL_DISTRIBUTION_RANGE_STEP_ARCSEC = 0.05
@@ -143,6 +145,7 @@ ABSOLUTE_BIAS_SUFFIXES = (
 )
 ABSOLUTE_BIAS_PARAMETERS = {
     "potfile.alpha_sigma",
+    "potfile.beta_radius",
     "potfile.gamma_ml",
     "cosmology_Om0",
     "cosmology_w0",
@@ -710,6 +713,7 @@ PARAMETER_DISPLAY_LABELS = {
     "potfile.cutkpc": r"Subhalos $r_\mathrm{cut}$",
     "potfile.log10_mass_msun": r"Subhalos $\log_{10} M$",
     "potfile.alpha_sigma": r"Subhalos $\alpha_\sigma$",
+    "potfile.beta_radius": r"Subhalos $\beta_r$",
     "potfile.gamma_ml": r"Subhalos $\gamma_\mathrm{ML}$",
     "cosmology_Om0": r"$\Omega_m$",
     "cosmology_w0": r"$w_0$",
@@ -972,18 +976,18 @@ def _draw_seed_parameter_axis(ax: plt.Axes, page_df: pd.DataFrame, parameter: st
             capsize=1.8,
             capthick=0.65,
             linestyle="none",
-            alpha=0.30,
+            alpha=0.45,
             zorder=1,
             label="_nolegend_",
         )
         ax.scatter(
             x,
             median,
-            s=21.0,
+            s=42.0,
             marker=VARIANT_MARKERS.get(variant, "o"),
-            facecolors=_stage_marker_facecolor(stage, variant_color),
+            facecolors="none" if variant == "anisotropic_maglikelihood" else _stage_marker_facecolor(stage, variant_color),
             edgecolors=_stage_marker_edgecolor(stage, variant_color),
-            linewidths=0.75,
+            linewidths=1.0,
             alpha=AGGREGATE_PARAMETER_POINT_ALPHA,
             zorder=2,
             label=variant_label(variant),
@@ -1058,18 +1062,18 @@ def _draw_source_position_recovery_axis(
             capsize=1.8,
             capthick=0.65,
             linestyle="none",
-            alpha=0.30,
+            alpha=0.45,
             zorder=1,
             label="_nolegend_",
         )
         ax.scatter(
             x,
             median,
-            s=21.0,
+            s=42.0,
             marker=VARIANT_MARKERS.get(variant, "o"),
-            facecolors=_stage_marker_facecolor(stage, variant_color),
+            facecolors="none" if variant == "anisotropic_maglikelihood" else _stage_marker_facecolor(stage, variant_color),
             edgecolors=_stage_marker_edgecolor(stage, variant_color),
-            linewidths=0.75,
+            linewidths=1.0,
             alpha=AGGREGATE_PARAMETER_POINT_ALPHA,
             zorder=2,
         )
@@ -1148,17 +1152,22 @@ def _plot_seed_recovery_single_page(
     return fig
 
 
-def _variant_legend_handles(variants: tuple[str, ...], *, markersize: float | None = None) -> list[Line2D]:
+def _variant_legend_handles(
+    variants: tuple[str, ...], *, ax: plt.Axes, markersize: float | None = None
+) -> list[Any]:
     return [
-        Line2D(
-            [0],
-            [0],
+        ax.errorbar(
+            [],
+            [],
+            yerr=[],
             marker=VARIANT_MARKERS.get(variant, "o"),
             color=color,
-            markerfacecolor=color,
+            markerfacecolor="none" if variant == "anisotropic_maglikelihood" else color,
             markeredgecolor=_darken_color(color),
             markersize=markersize,
             linestyle="none",
+            elinewidth=0.8,
+            capsize=2.0,
             label=variant_label(variant),
         )
         for variant in variants
@@ -1172,7 +1181,10 @@ def _add_paper_variant_legend(
     variants: tuple[str, ...] = DEFAULT_VARIANTS,
     blank_axes: list[plt.Axes] | None = None,
 ) -> None:
-    variant_handles = _variant_legend_handles(variants, markersize=PAPER_PARAMETER_LEGEND_MARKER_SIZE)
+    legend_ax = blank_axes[-1] if blank_axes else fig.axes[-1]
+    variant_handles = _variant_legend_handles(
+        variants, ax=legend_ax, markersize=PAPER_PARAMETER_LEGEND_MARKER_SIZE
+    )
     if blank_axes:
         ax = blank_axes[-1]
         ax.axis("off")
@@ -1198,7 +1210,7 @@ def _add_paper_variant_legend(
 
 
 def _add_variant_legend(fig: plt.Figure, *, variants: tuple[str, ...] = DEFAULT_VARIANTS) -> None:
-    variant_handles = _variant_legend_handles(variants)
+    variant_handles = _variant_legend_handles(variants, ax=fig.axes[0])
     fig.legend(
         handles=variant_handles,
         loc="upper center",
@@ -1981,18 +1993,18 @@ def plot_aggregate_magnification_recovery(
                 capsize=1.8,
                 capthick=0.65,
                 linestyle="none",
-                alpha=0.30,
+                alpha=0.45,
                 zorder=1,
                 label="_nolegend_",
             )
             ax.scatter(
                 truth[valid],
                 abs_q50[valid],
-                s=21.0,
+                s=42.0,
                 marker=VARIANT_MARKERS.get(variant, "o"),
-                facecolors="white" if stage.startswith("stage1") else variant_color,
+                facecolors="none" if variant == "anisotropic_maglikelihood" else ("white" if stage.startswith("stage1") else variant_color),
                 edgecolors=variant_color if stage.startswith("stage1") else _darken_color(variant_color),
-                linewidths=0.75,
+                linewidths=1.0,
                 alpha=AGGREGATE_PARAMETER_POINT_ALPHA,
                 zorder=2,
                 label=label,
@@ -2005,9 +2017,12 @@ def plot_aggregate_magnification_recovery(
             ax.set_ylim(limits)
         ax.set_xlabel(r"Image $|\mu|$ (truth)")
         ax.set_ylabel(r"Image $|\mu|$ (fit)")
-        handles, labels = ax.get_legend_handles_labels()
-        if labels:
-            ax.legend(handles, labels, loc="best", frameon=False, fontsize=AGGREGATE_LEGEND_FONT_SIZE)
+        handles = _variant_legend_handles(
+            tuple(v for v in _ordered_variants_from_df(plot_df) if v in labeled_variants),
+            ax=ax,
+        )
+        if handles:
+            ax.legend(handles=handles, loc="best", frameon=False, fontsize=AGGREGATE_LEGEND_FONT_SIZE)
         fig.tight_layout()
         fig.savefig(path, dpi=300)
         plt.close(fig)
@@ -2143,7 +2158,7 @@ def plot_aggregate_image_residual_distribution(
                     hist_q16[finite_hist],
                     hist_q84[finite_hist],
                     color=color,
-                    alpha=0.18,
+                    alpha=0.14,
                     step="mid",
                     linewidth=0.0,
                 )
@@ -2152,11 +2167,12 @@ def plot_aggregate_image_residual_distribution(
                     hist_q50[finite_hist],
                     where="mid",
                     color=color,
-                    linewidth=2.0,
+                    linewidth=1.6,
+                    linestyle=VARIANT_LINESTYLES.get(variant, "-"),
                     label=variant_label(variant),
                 )
-        ax.set_ylabel("image frequency")
-        ax.set_xlabel("image residual (arcsec)")
+        ax.set_ylabel("Number of images")
+        ax.set_xlabel("Image-position residual (arcsec)")
         ax.set_xlim(0.0, x_max)
         handles, labels = ax.get_legend_handles_labels()
         if labels:
@@ -2378,6 +2394,7 @@ def build_subhalo_shmf_tables(
                     "bin_width": float(bin_widths[index]),
                     "truth_count": int(truth_counts[index]),
                     "recovered_count": int(recovered_counts[index]),
+                    "count_residual": int(recovered_counts[index] - truth_counts[index]),
                     "truth_density": float(truth_density[index]),
                     "recovered_density": float(recovered_density[index]),
                     "recovered_to_truth": float(ratio[index]) if np.isfinite(ratio[index]) else np.nan,
@@ -2418,6 +2435,7 @@ def build_subhalo_shmf_tables(
         for variant, variant_frame in stage_frame.groupby("variant", sort=False):
             add_summary_rows(variant_frame, series="recovered", variant=str(variant), value_column="recovered_density")
             add_summary_rows(variant_frame, series="ratio", variant=str(variant), value_column="recovered_to_truth")
+            add_summary_rows(variant_frame, series="count_residual", variant=str(variant), value_column="count_residual")
     return seed_df, pd.DataFrame(summary_rows)
 
 
@@ -2474,60 +2492,70 @@ def plot_subhalo_shmf_summary(
         return tuple()
     paths: list[Path] = []
     selection = selection or {}
-    empirical_y = _positive_shmf_plot_values(summary_df)
-    y_ceiling = float(np.nanmax(empirical_y) * 1.15) if empirical_y.size else np.nan
+    variants = _ordered_variants_from_df(
+        summary_df[summary_df["series"].astype(str) == "recovered"]
+    )
+    if not variants:
+        return tuple()
+    truth = summary_df[(summary_df["series"] == "truth") & (summary_df["variant"] == "truth")].sort_values("bin_index")
+    median_values = summary_df.loc[summary_df["series"].isin(["truth", "recovered"]), "value_median"].to_numpy(dtype=float)
+    finite_values = median_values[np.isfinite(median_values)]
+    ceiling = max(1.0, float(finite_values.max()) * 1.35) if finite_values.size else 1.0
+    residual_values = summary_df.loc[summary_df["series"] == "count_residual", ["value_q16", "value_q84"]].to_numpy(dtype=float)
+    finite_residuals = residual_values[np.isfinite(residual_values)]
+    residual_limit = max(1.0, float(np.abs(finite_residuals).max()) * 1.15) if finite_residuals.size else 1.0
+
+    def bin_edges(frame: pd.DataFrame) -> np.ndarray:
+        return np.r_[frame["log_mass_left"].to_numpy(dtype=float), frame["log_mass_right"].iloc[-1]]
+
     for fmt in formats:
         path = output_base.with_suffix(f".{fmt}")
-        fig, axes = plt.subplots(2, 1, figsize=(7.2, 7.0), sharex=True, gridspec_kw={"height_ratios": [2.2, 1.0]})
-        top_ax, ratio_ax = axes
-        truth = summary_df[(summary_df["series"] == "truth") & (summary_df["variant"] == "truth")].sort_values("bin_index")
-        if not truth.empty:
-            x = truth["log_mass_center"].to_numpy(dtype=float)
-            y = truth["value_median"].to_numpy(dtype=float)
-            y16 = truth["value_q16"].to_numpy(dtype=float)
-            y84 = truth["value_q84"].to_numpy(dtype=float)
-            mask = np.isfinite(x) & np.isfinite(y) & np.isfinite(y16) & np.isfinite(y84)
-            top_ax.fill_between(x[mask], y16[mask], y84[mask], color="0.7", alpha=0.35, step="mid")
-            top_ax.step(x[mask], y[mask], where="mid", color="0.25", linewidth=2.0, label="Truth")
-            bin_widths = (truth["log_mass_right"] - truth["log_mass_left"]).to_numpy(dtype=float)
-            schechter_norm = float(np.nansum(np.where(mask, y * bin_widths, 0.0)))
-            curve = _schechter_shmf_curve(selection, x, schechter_norm)
-            if curve is not None:
-                curve_mask = np.isfinite(curve)
-                if np.any(curve_mask):
-                    top_ax.plot(x[curve_mask], curve[curve_mask], color="0.1", linestyle="--", linewidth=1.3, label="Schechter")
-        for variant in _ordered_variants_from_df(
-            summary_df[summary_df["series"].astype(str).isin(["recovered", "ratio"])]
-        ):
+        fig, axes = plt.subplots(
+            2, len(variants), figsize=(4.1 * len(variants), 5.5), squeeze=False,
+            sharex=True, sharey="row",
+            gridspec_kw={"height_ratios": [2.4, 1], "hspace": 0.08, "wspace": 0.08},
+        )
+        for col, variant in enumerate(variants):
+            top, bottom = axes[:, col]
             recovered = summary_df[(summary_df["series"] == "recovered") & (summary_df["variant"] == variant)].sort_values("bin_index")
-            if recovered.empty:
-                continue
-            x = recovered["log_mass_center"].to_numpy(dtype=float)
-            y = recovered["value_median"].to_numpy(dtype=float)
-            y16 = recovered["value_q16"].to_numpy(dtype=float)
-            y84 = recovered["value_q84"].to_numpy(dtype=float)
-            mask = np.isfinite(x) & np.isfinite(y) & np.isfinite(y16) & np.isfinite(y84)
+            edges = bin_edges(recovered)
             color = VARIANT_COLORS.get(variant, "0.35")
-            top_ax.fill_between(x[mask], y16[mask], y84[mask], color=color, alpha=0.18, step="mid")
-            top_ax.step(x[mask], y[mask], where="mid", color=color, linewidth=2.0, label=variant_label(variant))
-            ratio = summary_df[(summary_df["series"] == "ratio") & (summary_df["variant"] == variant)].sort_values("bin_index")
-            if not ratio.empty:
-                rx = ratio["log_mass_center"].to_numpy(dtype=float)
-                ry = ratio["value_median"].to_numpy(dtype=float)
-                ry16 = ratio["value_q16"].to_numpy(dtype=float)
-                ry84 = ratio["value_q84"].to_numpy(dtype=float)
-                finite = np.isfinite(ry)
-                ratio_ax.fill_between(rx[finite], ry16[finite], ry84[finite], color=color, alpha=0.18, step="mid")
-                ratio_ax.step(rx[finite], ry[finite], where="mid", color=color, linewidth=2.0)
-        if np.isfinite(y_ceiling) and y_ceiling > 0.0:
-            top_ax.set_ylim(0.0, y_ceiling)
-        top_ax.set_ylabel(r"$dN/d\log M$")
-        top_ax.legend(loc="best", frameon=False, fontsize=AGGREGATE_LEGEND_FONT_SIZE)
-        ratio_ax.axhline(1.0, color="0.25", linewidth=1.0)
-        ratio_ax.set_xlabel(r"$\log(M/M_\odot)$")
-        ratio_ax.set_ylabel("Recovered / Truth")
-        fig.tight_layout()
-        fig.savefig(path, dpi=300)
+            y = recovered["value_median"].to_numpy(dtype=float)
+            top.stairs(y, edges, color=color, linewidth=1.8, label=variant_label(variant))
+            if not truth.empty:
+                truth_edges = bin_edges(truth)
+                x = truth["log_mass_center"].to_numpy(dtype=float)
+                y = truth["value_median"].to_numpy(dtype=float)
+                top.stairs(y, truth_edges, color="0.25", linestyle="--", linewidth=1.6,
+                           label="Truth", zorder=4)
+                widths = (truth["log_mass_right"] - truth["log_mass_left"]).to_numpy(dtype=float)
+                curve = _schechter_shmf_curve(selection, x, float(np.nansum(y * widths)))
+                if curve is not None:
+                    top.plot(x, curve, color="0.45", linestyle=":", linewidth=1.4,
+                             label="Schechter")
+            top.set_ylim(-0.02 * ceiling, ceiling)
+            top.legend(loc="upper right", frameon=False, fontsize=10)
+            bottom.axhline(0, color="0.35", linestyle="--", linewidth=1.0)
+            residual = summary_df[(summary_df["series"] == "count_residual") & (summary_df["variant"] == variant)].sort_values("bin_index")
+            if not residual.empty:
+                x = residual["log_mass_center"].to_numpy(dtype=float)
+                y = residual["value_median"].to_numpy(dtype=float)
+                lower = residual["value_q16"].to_numpy(dtype=float)
+                upper = residual["value_q84"].to_numpy(dtype=float)
+                valid = np.isfinite(x) & np.isfinite(y) & np.isfinite(lower) & np.isfinite(upper)
+                bottom.errorbar(x[valid], y[valid],
+                                yerr=np.array([y[valid] - lower[valid], upper[valid] - y[valid]]),
+                                fmt=VARIANT_MARKERS.get(variant, "o"), color=color,
+                                markersize=5, elinewidth=1.2, capsize=2.5, zorder=3)
+            bottom.set_ylim(-residual_limit, residual_limit)
+            bottom.set_xlabel(r"$\log_{10}(M/M_\odot)$", fontsize=12)
+            for ax in (top, bottom):
+                ax.grid(False, which="both")
+                ax.tick_params(labelsize=10)
+        axes[0, 0].set_ylabel(r"$dN/d\log_{10} M$", fontsize=12)
+        axes[1, 0].set_ylabel(r"$N_{\rm recovered}-N_{\rm true}$", fontsize=12)
+        fig.subplots_adjust(left=0.10, right=0.99, bottom=0.12, top=0.98)
+        fig.savefig(path, dpi=300, bbox_inches="tight")
         plt.close(fig)
         paths.append(path)
     return tuple(paths)
@@ -2542,56 +2570,67 @@ def plot_subhalo_shmf_seed(
     selection_variant: str = "anisotropic",
     selection: dict[str, Any] | None = None,
 ) -> tuple[Path, ...]:
+    """Separate fit variants so coincident histogram steps cannot hide each other."""
     if seed_df.empty:
         return tuple()
-    seed_rows = seed_df[seed_df["seed"].astype(int) == int(representative_seed)].copy()
-    if seed_rows.empty:
+    rows = seed_df[seed_df["seed"].astype(int) == int(representative_seed)].copy()
+    if rows.empty:
         return tuple()
-    paths: list[Path] = []
-    selection = selection or {}
-    empirical = seed_rows[["truth_density", "recovered_density"]].to_numpy(dtype=float).ravel()
-    empirical = empirical[np.isfinite(empirical) & (empirical > 0.0)]
-    y_ceiling = float(np.nanmax(empirical) * 1.15) if empirical.size else np.nan
+    variants = _ordered_variants_from_df(rows)
+    truth = rows[rows["variant"].astype(str) == selection_variant].sort_values("bin_index")
+    if truth.empty:
+        truth = rows.drop_duplicates("bin_index").sort_values("bin_index")
+    x_truth = truth["log_mass_center"].to_numpy(dtype=float)
+    y_truth = truth["truth_density"].to_numpy(dtype=float)
+    widths = (truth["log_mass_right"] - truth["log_mass_left"]).to_numpy(dtype=float)
+    curve = _schechter_shmf_curve(selection or {}, x_truth, float(np.nansum(y_truth * widths)))
+    empirical = rows[["truth_density", "recovered_density"]].to_numpy(dtype=float)
+    finite = empirical[np.isfinite(empirical)]
+    ceiling = float(finite.max() * 1.35) if finite.size else 1.0
+    ratio_values = rows["recovered_to_truth"].to_numpy(dtype=float)
+    finite_ratio = ratio_values[np.isfinite(ratio_values)]
+    ratio_top = max(1.2, float(finite_ratio.max()) * 1.15) if finite_ratio.size else 1.2
+    paths = []
     for fmt in formats:
         path = output_base.with_suffix(f".{fmt}")
-        fig, axes = plt.subplots(2, 1, figsize=(7.2, 7.0), sharex=True, gridspec_kw={"height_ratios": [2.2, 1.0]})
-        top_ax, ratio_ax = axes
-        truth = seed_rows[seed_rows["variant"].astype(str) == str(selection_variant)].sort_values("bin_index")
-        if truth.empty:
-            truth = seed_rows.drop_duplicates("bin_index").sort_values("bin_index")
-        if not truth.empty:
-            x = truth["log_mass_center"].to_numpy(dtype=float)
-            y = truth["truth_density"].to_numpy(dtype=float)
-            mask = np.isfinite(x) & np.isfinite(y)
-            top_ax.step(x[mask], y[mask], where="mid", color="0.25", linewidth=2.0, label="Truth")
-            bin_widths = (truth["log_mass_right"] - truth["log_mass_left"]).to_numpy(dtype=float)
-            schechter_norm = float(np.nansum(np.where(mask, y * bin_widths, 0.0)))
-            curve = _schechter_shmf_curve(selection, x, schechter_norm)
-            if curve is not None:
-                curve_mask = np.isfinite(curve)
-                if np.any(curve_mask):
-                    top_ax.plot(x[curve_mask], curve[curve_mask], color="0.1", linestyle="--", linewidth=1.3, label="Schechter")
-        for variant in _ordered_variants_from_df(seed_rows):
-            recovered = seed_rows[seed_rows["variant"].astype(str) == str(variant)].sort_values("bin_index")
-            if recovered.empty:
-                continue
+        fig, axes = plt.subplots(
+            2, len(variants), figsize=(4.1 * len(variants), 5.5), squeeze=False,
+            sharex=True, sharey="row",
+            gridspec_kw={"height_ratios": [2.4, 1], "hspace": 0.08, "wspace": 0.08},
+        )
+        for col, variant in enumerate(variants):
+            top, bottom = axes[:, col]
+            recovered = rows[rows["variant"].astype(str) == variant].sort_values("bin_index")
             x = recovered["log_mass_center"].to_numpy(dtype=float)
             y = recovered["recovered_density"].to_numpy(dtype=float)
-            mask = np.isfinite(x) & np.isfinite(y)
+            edges = np.r_[recovered["log_mass_left"].to_numpy(dtype=float),
+                          recovered["log_mass_right"].iloc[-1]]
+            truth_edges = np.r_[truth["log_mass_left"].to_numpy(dtype=float),
+                                truth["log_mass_right"].iloc[-1]]
             color = VARIANT_COLORS.get(variant, "0.35")
-            top_ax.step(x[mask], y[mask], where="mid", color=color, linewidth=2.0, label=variant_label(variant))
+            top.stairs(y, edges, fill=True, color=color, alpha=0.18, linewidth=0)
+            top.stairs(y, edges, color=color, linewidth=1.8, label=variant_label(variant))
+            top.stairs(y_truth, truth_edges, color="0.18", linestyle="--", linewidth=1.6,
+                       label="Truth", zorder=4)
+            if curve is not None:
+                top.plot(x_truth, curve, color="0.45", linestyle=":", linewidth=1.4,
+                         label="Schechter")
+            top.set_ylim(0, ceiling)
+            top.legend(loc="upper right", frameon=False, fontsize=10)
             ratio = recovered["recovered_to_truth"].to_numpy(dtype=float)
-            ratio_mask = np.isfinite(x) & np.isfinite(ratio)
-            ratio_ax.step(x[ratio_mask], ratio[ratio_mask], where="mid", color=color, linewidth=2.0)
-        if np.isfinite(y_ceiling) and y_ceiling > 0.0:
-            top_ax.set_ylim(0.0, y_ceiling)
-        top_ax.set_ylabel(r"$dN/d\log M$")
-        top_ax.legend(loc="best", frameon=False, fontsize=AGGREGATE_LEGEND_FONT_SIZE)
-        ratio_ax.axhline(1.0, color="0.25", linewidth=1.0)
-        ratio_ax.set_xlabel(r"$\log(M/M_\odot)$")
-        ratio_ax.set_ylabel("Recovered / Truth")
-        fig.tight_layout()
-        fig.savefig(path, dpi=300)
+            valid = np.isfinite(x) & np.isfinite(ratio)
+            bottom.axhline(1, color="0.35", linestyle="--", linewidth=1.0)
+            bottom.scatter(x[valid], ratio[valid], color=color,
+                           marker=VARIANT_MARKERS.get(variant, "o"), s=30, zorder=3)
+            bottom.set_ylim(-0.08, ratio_top)
+            bottom.set_xlabel(r"$\log_{10}(M/M_\odot)$", fontsize=12)
+            for ax in (top, bottom):
+                ax.grid(False, which="both")
+                ax.tick_params(labelsize=10)
+        axes[0, 0].set_ylabel(r"$dN/d\log_{10} M$", fontsize=12)
+        axes[1, 0].set_ylabel("Recovered / truth", fontsize=12)
+        fig.subplots_adjust(left=0.10, right=0.99, bottom=0.12, top=0.98)
+        fig.savefig(path, dpi=300, bbox_inches="tight")
         plt.close(fig)
         paths.append(path)
     return tuple(paths)
@@ -2691,7 +2730,7 @@ M2D_APERTURE_AZIMUTH_SAMPLES = 64
 M2D_APERTURE_INTEGRATION_RADII = 240
 M2D_GHOST_CHAIN_LOGPROB_DROP = 20.0
 M2D_COMPONENT_GROUPS = ("halo", "bcg", "members")
-M2D_COMPONENT_COLORS = {"halo": "#4477AA", "bcg": "#CC6677", "members": "#228833"}
+M2D_COMPONENT_COLORS = {"halo": "#2878A5", "bcg": "#8C6BB1", "members": "#2A9D8F"}
 M2D_VARIANT_LINESTYLES = ("-", "--", "-.", ":")
 
 
@@ -2831,7 +2870,7 @@ def _m2d_model_groups(
     """Physical dPIE components implied by one posterior draw.
 
     Mirrors the packed-state mapping: members follow the scaling relation
-    (beta = 1 + gamma_ml - 2 alpha_sigma) with promoted members applying their
+    (gamma_ml = 2 alpha_sigma + beta - 1) with promoted members applying their
     delta-unit offsets (radius delta = mass - 2 sigma, as in the sampler).
     """
     kpc = float(kpc_per_arcsec)
@@ -2849,8 +2888,7 @@ def _m2d_model_groups(
     cut_ref = float(theta_by_name["potfile.cutkpc"])
     core_ref = float(theta_by_name["potfile.corekpc"])
     alpha = float(theta_by_name["potfile.alpha_sigma"])
-    gamma = float(theta_by_name["potfile.gamma_ml"])
-    beta = 1.0 + gamma - 2.0 * alpha
+    beta = float(theta_by_name["potfile.beta_radius"])
     v_disp, core, cut, xs, ys = [], [], [], [], []
     for member in member_catalog:
         member_id = str(member["id"])
@@ -3200,9 +3238,9 @@ def _m2d_two_panel_axes() -> tuple[Any, Any, Any]:
     fig, (top_ax, resid_ax) = plt.subplots(
         2,
         1,
-        figsize=(6.3, 5.4),
+        figsize=(6.3, 6.0),
         sharex=True,
-        gridspec_kw={"height_ratios": [3, 1], "hspace": 0.08},
+        gridspec_kw={"height_ratios": [2.5, 1], "hspace": 0.08},
     )
     return fig, top_ax, resid_ax
 
@@ -3219,7 +3257,7 @@ def _m2d_finish_axes(
     top_ax.set_xscale("log")
     top_ax.set_yscale("log")
     top_ax.set_ylabel(r"$M_{\rm 2D}(<R)$ ($M_\odot$)")
-    top_ax.grid(True, alpha=0.25)
+    top_ax.grid(False, which="both")
     legend_kwargs: dict[str, Any] = {"loc": "lower right", "frameon": False}
     if legend_fontsize is not None:
         legend_kwargs["fontsize"] = legend_fontsize
@@ -3235,7 +3273,7 @@ def _m2d_finish_axes(
         resid_ax.set_ylim(float(residual_reference) - limit, float(residual_reference) + limit)
     resid_ax.set_xlabel(r"$R$ (kpc)")
     resid_ax.set_ylabel(residual_ylabel)
-    resid_ax.grid(True, alpha=0.25)
+    resid_ax.grid(False, which="both")
 
 
 def plot_m2d_aperture_recovery(
@@ -3341,7 +3379,7 @@ def plot_m2d_aperture_components(
                     )
                     truth_drawn = True
                 linestyle = M2D_VARIANT_LINESTYLES[variant_index % len(M2D_VARIANT_LINESTYLES)]
-                label = group if variant_index == 0 else None
+                label = {"halo": "Main halo", "bcg": "BCG", "members": "Members"}[group] if variant_index == 0 else None
                 top_ax.plot(
                     radius,
                     selection["model_q50"].to_numpy(dtype=float),
@@ -3365,15 +3403,21 @@ def plot_m2d_aperture_components(
                 linewidth=1.6,
                 label=variant_label(variant),
             )
-        top_ax.plot([], [], color="0.3", linestyle=":", linewidth=1.2, label="truth")
+        top_ax.plot([], [], color="0.3", linestyle=":", linewidth=1.2, label="Truth")
         _m2d_finish_axes(
             top_ax,
             resid_ax,
             np.concatenate(resid_collect) if resid_collect else np.asarray([]),
             legend_fontsize=M2D_COMPONENT_LEGEND_FONT_SIZE,
             residual_reference=1.0,
-            residual_ylabel=r"$M_{\rm comp}^{\rm model}/M_{\rm comp}^{\rm truth}$",
+            residual_ylabel=r"$M_{\rm model}/M_{\rm true}$",
         )
+        handles, labels = top_ax.get_legend_handles_labels()
+        component_legend = top_ax.legend(handles[:3], labels[:3], loc="upper left",
+                                        frameon=False, fontsize=M2D_COMPONENT_LEGEND_FONT_SIZE)
+        top_ax.add_artist(component_legend)
+        top_ax.legend(handles[3:], labels[3:], loc="lower right", frameon=False,
+                      fontsize=M2D_COMPONENT_LEGEND_FONT_SIZE)
         fig.savefig(path, dpi=300, bbox_inches="tight")
         plt.close(fig)
         paths.append(path)
@@ -3551,6 +3595,15 @@ def write_aggregate_plots(
         advance("aggregate plots: tables")
 
         apply_lenscluster_plot_style()
+        plt.rcParams.update({
+            "axes.linewidth": 1.0,
+            "xtick.major.width": 1.0, "ytick.major.width": 1.0,
+            "xtick.minor.width": 0.7, "ytick.minor.width": 0.7,
+            "xtick.major.size": 4.5, "ytick.major.size": 4.5,
+            "xtick.minor.size": 2.5, "ytick.minor.size": 2.5,
+            "legend.markerscale": 1.0,
+            "legend.handletextpad": 0.5,
+        })
         paper_stage = _paper_recovery_stage(stages)
         representative_seeds_by_stage: dict[str, int | None] = {}
         representative_seed_frames: list[pd.DataFrame] = []

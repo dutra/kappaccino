@@ -1,12 +1,223 @@
 # Lenscluster Workflow
 
-This repository now has two public fitting workflows: the sequential optimizer/sampler path and the one-shot `evidence-ns` path. The sequential path runs:
+## Current cluster launcher
 
-1. Fit the large-scale cluster model with SVI.
-2. Fit the joint large+small model with SVI, initialized from the large-scale SVI solution.
-3. Optionally run NUTS on the joint model with `--fit-method svi+nuts`, or use a direct sampler with `--fit-method mchmc` / `--fit-method mclmc`.
-4. Optionally run an image-plane refinement stage with `--image-plane-mode local-jacobian`.
-5. Optionally run a final image-plane stage using `--image-plane-mode linearized-forward-beta-image-plane`, `--image-plane-mode forward-metric-image-plane`, `--image-plane-mode critical-arc-mixture-image-plane`, or `--image-plane-mode fold-regularized-forward-beta-image-plane`.
+`run.xsh` fits Ares, Hera, or AS1063 using `smoothed-local-image-plane` in all
+three stages. It samples family source positions, integrates image astrometric
+displacements, and includes the conditional, smoothed absolute Jacobian
+determinant in the positional likelihood. The launcher supports positions only;
+`--magnitude-likelihood on` is rejected. Other likelihood modes remain available
+through the Python configuration API.
+
+Validate the configuration and catalogs without creating run outputs:
+
+```bash
+/home/dutra/.conda/envs/lenstronomy/bin/python -m xonsh run.xsh HERA --dry-run
+```
+
+Launch a fit with a distinct result label:
+
+```bash
+/home/dutra/.conda/envs/lenstronomy/bin/python -m xonsh run.xsh HERA \
+  --campaign oct21_smoothed_local --run-label position-fit
+```
+
+CPU setup follows `build_runtime()` in `run.xsh`. The launcher uses
+`RuntimeConfig(chains=cores, nuts_chain_method="parallel", cpu_threads_per_chain=2)`.
+Changing `chains` also changes the JAX CPU-device count and the shared CPU budget:
+two, four, or six parallel chains request four, eight, or twelve allowed CPUs.
+The budget is capped by the process's existing affinity mask, preferring distinct
+physical cores before SMT siblings. JAX shares these CPUs across chains; chains
+are not individually pinned. BLAS/OpenMP and NumExpr use one thread to avoid
+nested parallelism. This setup applies to all stages and is inherited by the
+fresh stage-2 process. The resolved CPU plan appears in `--dry-run`, startup
+logging, and saved runtime arguments.
+
+Set `cpu_threads_per_chain=None` to retain the existing CPU affinity and library
+thread settings. Python callers enabling this option must call
+`configure_cpu_runtime(runtime.chains, runtime.nuts_chain_method, runtime.cpu_threads_per_chain)`
+from `lenscluster.cpu_runtime` before any JAX backend initialization, including
+JAX cosmology calculations. The launcher handles this ordering automatically.
+The runner rejects ineffective late changes and does not alter the chain count
+when the available CPU allocation is smaller than the requested budget.
+
+`scripts/benchmark_cpu_threads.py` compares CPU budgets in separate processes
+against saved smoothed-model artifacts. It checks complete short NUTS trajectories
+against a supplied reference and separates compilation from synchronized execution
+timing. These measurements do not establish posterior convergence or ESS per second.
+
+The production `nuts.run` timer waits for every chain's final state, samples,
+and collected diagnostics. Its elapsed time and saved `nuts_runtime` include
+compilation, warmup, and sampling; summary printing and posterior reporting
+are timed separately. New runs also save `nuts_runtime_seconds`,
+`nuts_runtime_synchronized=True`, and `nuts_runtime_scope` in the sampler's
+initialization diagnostics. Earlier saved runtimes are not corrected retroactively.
+
+Stage 0 uses exact member profiles with catalog shapes, sampled sources, and
+provisionally absorbed member scatter. It provides the model used to assign
+four member classes. Stage 1 uses those fixed classes for SVI; stage 2 uses the
+same likelihood and classes for SVI followed by NUTS. Both sampled classes have
+one velocity-dispersion offset per member; their core and cut radii remain on
+the scaling relations. Absorbed members contribute positional covariance,
+determinant variance, and their cross-covariance. The stage-0 absorbed population
+does not yet satisfy the final covariance budget and is an initializer only.
+
+The default source prior is a Gaussian centered on the coordinate origin with
+100 arcsec standard deviation per coordinate. It remains fixed across stages.
+Sources use likelihood-whitened coordinates with the required prior and
+change-of-variables correction. The source scatter has prior
+`LogNormal(log(0.02 arcsec), 0.7)`; the shared logarithmic velocity-dispersion
+scatter has prior `LogNormal(log(0.02), 1.0)`. These are configured priors, not
+measurements from galaxy kinematics. NUTS adapts a dense block for lens parameters
+and hyperparameters, with diagonal source and member-offset coordinates.
+
+Member scaling uses `scaling_relation_mode="velocity-radius-exponents"` across
+all engines. It samples `alpha_sigma` and `beta_radius` directly. Both core and
+cut radii scale as luminosity to `beta_radius`; velocity dispersion scales as
+luminosity to `alpha_sigma`. The mass-to-light tilt is derived for every joint
+draw as `gamma_ml = 2 * alpha_sigma + beta_radius - 1`, with no additional prior.
+Configure the radius-exponent prior through:
+
+```python
+ScalingModelConfig(
+    potfile_beta_radius_prior_mean=0.5,
+    potfile_beta_radius_prior_std=0.2,
+    potfile_beta_radius_prior_lower=0.0,
+    potfile_beta_radius_prior_upper=float("inf"),
+)
+```
+
+This is a normal distribution truncated below at zero, not a lognormal prior.
+The launcher retains its cluster-specific normalization and alpha priors.
+Historical alpha/gamma configurations and artifacts cannot be loaded or resumed;
+use a fresh run label. Existing result files are left untouched. Synthetic mock
+configurations likewise specify `subhalo_beta_radius` and its uniform truth-draw
+half-width; gamma is recorded only as a derived truth quantity.
+
+Astrometric errors default to 0.5 arcsec per coordinate and have a 0.5 arcsec
+floor. Optional `--image-metadata PATH` reads a CSV keyed by `image_label`, with
+`sigma_obs_arcsec` and/or `parity` columns. Parity is `-1`, `+1`, or `0` for
+unknown. Missing rows or blank cells use the default error and unknown parity;
+invalid supplied values, duplicate labels, and unknown labels are rejected.
+Only independently established parities should be supplied. Unknown parity
+uses both determinant signs, and no model assigns a parity flag.
+
+Member classification limits summed template deflection errors to
+`0.1 sigma_src` and finite changes in `log h` to 0.1. Individual scatter effects
+use the paper's `sqrt(0.1)` threshold, with finite changes in `log h` used at
+every image. The total absorbed deflection variance must be below
+`sigma_src**2 / 4`. Tier membership stays fixed during sampling; the posterior
+audit checks its approximation budgets again. Exact profiles are used for
+posterior lens-equation checks and lensing maps.
+
+In `run.xsh`, set `MemberTierConfig(top_sampled=K, top_exact=L)` to select
+fixed numbers of population members by their worst normalized error impact
+over the reference models and images. Sampling ranks scatter effects; exact
+evaluation ranks far-field approximation errors. Each option defaults to
+`None`, which retains automatic classification for that axis. Zero selects
+none, and counts above the catalog size select all. Independent halos are
+excluded. Explicit counts are never increased to satisfy budgets: failures
+are printed and saved. Members with unusable far-field templates must fit
+within `top_exact`, or selection stops. Without enough uncertainty draws,
+explicit rankings use the valid initialization reference, while automatic
+axes retain their conservative fallback. Saved budgets include the ranking
+scores and identities; changing either limit requires a new run label.
+
+After stages 1 and 2, the terminal also compares frozen counts with the smallest
+impact-ranked prefixes that satisfy the budgets at the posterior median and
+up to 16 deterministic saved draws, using actual posterior scatters. Counts,
+identities, reference indices, and measured budgets are saved under
+`budget_required_members` in each stage's `member_tier_audit.json`. This does
+not change membership or claim a minimum over arbitrary member subsets. The
+separate audit of frozen membership still checks every saved draw.
+
+Sampling evaluates exact dPIE members through batched JAX kernels using
+JAXtronomy's factored dPIE expression and normalization, and
+approximate members through JAX tensor contractions at the current parameters.
+The exact kernel computes the Hessian's spatial derivatives analytically;
+fixed catalog geometry remains in its own batch. Parameter gradients and
+Hessians are still differentiated by JAX.
+Only geometric terms are cached. The sampling kernel contracts the total
+spatial derivative directly, avoiding a per-member derivative output while
+retaining member deflections and Jacobians for the scatter covariance.
+Smoothed mode dispatches directly to its own likelihood, skips the legacy
+brightness ranking and source-metric cache construction, and rejects legacy
+warm-up or surrogate modes. Exact image diagnostics use its sampled physical
+sources. Shared JAXtronomy lens kernels and reporting utilities remain in use.
+The two sampling rejection guards use a fixed reference with a validated
+finite likelihood and gradient. Proposals rejected by the lens or scatter
+checks evaluate the physics at that reference before selecting the original
+rejection value, keeping those rejected likelihood gradients zero. The
+reference is established from each evaluator's latent initialization values;
+it does not move the source prior or require refreshes. An invalid reference
+stops initialization with an explicit error.
+
+Unknown image parity uses the closed-form two-sided Gaussian absolute
+determinant moment, with bounded intermediate ratios and analytic derivatives
+to retain small tail gradients. Independently supplied parity keeps the
+branch-restricted moment. All-unknown catalogs compile without the one-sided
+tail quadrature. Zero-variance limits and determinant-degeneracy flags are
+preserved; no variance floor is introduced.
+
+Both stage audits also print the saved best-fit far-field error relative to
+exact dPIE. The table reports maximum net and summed member deflection errors,
+the finite change in `log h` used by the budget, and the net Jacobian error.
+Violations of the configured deflection and `log h` criteria appear in red;
+nonfinite errors are failures. Jacobian error is informational because no
+separate tolerance is defined. Per-image values are saved in
+`best_fit_template_errors` within `member_tier_audit.json`.
+
+Classification uses the initialization reference and 16 deterministic joint SVI
+draws. Fewer than 16 distinct finite draws trigger all-exact/all-sampled classes.
+Selection caps source scatter at its prior median and floors member scatter at
+its prior median. The saved budgets describe that finite reference ensemble,
+not the entire prior. Audits check the posterior median and every saved draw,
+save failures without changing the classes, and report absorbed magnification
+variance separately with a critical-curve flag.
+
+After stage 1, a diagnostic reclassification reports frozen versus proposed
+class counts, entries, exits, and transition counts in the terminal. Stage 2
+keeps the original membership. The stage-1 artifacts save the proposed classes
+in `member_tier_proposal.json`, their reference budgets in
+`member_tier_proposal_budgets.json`, and every proposed identity change in
+`member_tier_comparison.json`. This check does not enable surrogate refreshes.
+
+Set `posterior_image_diagnostic_draws=0` and `posterior_truth_recovery_draws=0`
+to evaluate only the selected best-fit model for these diagnostics. Zero truth
+draws override both `truth_grid_mode="median"` and `"posterior"`; the saved
+summary identifies `best_fit` mode and reports no posterior spread.
+
+The likelihood uses first-order astrometric and absorbed-member perturbations,
+and its per-image marginals neglect residual correlations between images caused
+by absorbed members. It conditions on the catalog and does not score absent
+images or selection. Numerical tests and short sampler checks do not establish
+posterior convergence, parameter-recovery coverage, or scientific calibration.
+See [the review notes](paper/smoothed_likelihood_implementation_notes.md) for the
+normalization convention requiring manuscript review.
+
+Run manifests fingerprint catalogs and image metadata and record the new
+algorithm revision. Incompatible results require a different run label.
+
+Bounded execution checks are available independently of the cluster launcher:
+
+```bash
+PYTHONPATH=src /home/dutra/.conda/envs/lenstronomy/bin/python \
+  scripts/validate_smoothed_workflow.py --output /tmp/smoothed_synthetic_check
+PYTHONPATH=src /home/dutra/.conda/envs/lenstronomy/bin/python \
+  scripts/validate_smoothed_likelihood.py --output-dir /tmp/smoothed_hera_check
+```
+
+The first runs the three-stage workflow on a synthetic fixture, including the
+fresh-process final stage. The second uses two Hera families and eight catalog
+members for synchronized timing and short SVI/NUTS checks. Both save reports
+that separate execution evidence from scientific validation.
+
+## Other inference modes
+
+The repository also retains the earlier source-plane/image-plane likelihoods
+and the one-shot `evidence-ns` path. The following descriptions and command
+examples document those earlier interfaces; the current cluster launcher uses
+the typed configuration and invocation above.
 
 Use `--fit-method svi` for a fast variational result, `--fit-method svi+nuts` for SVI initialization followed by posterior sampling, or `--fit-method mchmc` / `--fit-method mclmc` for direct BlackJAX microcanonical sampling in the model's latent parameter space. In the current sequential workflow, `--fit-method`, `--warmup`, `--samples`, and `--max-tree-depth` configure the sampled production stages, while `--svi-steps` and `--refresh-every` configure the initializer, backprojected-centroid fit, and optional free-source forward fit. Nested sampling is reserved for the one-shot evidence workflow: use `--fit-mode evidence-ns` with an explicit `--evidence-source-prior-sigma-arcsec`; `--fit-method`, `--svi-steps`, `--warmup`, and `--samples` are ignored in that mode.
 
@@ -58,7 +269,9 @@ python -m cluster_solver \
   --plot-caustics
 ```
 
-The same command with scalar `--fit-method svi` skips NUTS in every sampled stage and writes the AutoNormal guide posterior. A mixed command such as `--fit-method svi+nuts svi --svi-steps 2000 500 --warmup 1000 0 --samples 250 100 --max-tree-depth 8 6` runs NUTS in stage 2 and an SVI-only image-plane stage 3; when stage 3 is skipped before stage 4, the second value controls stage 4, and when both stage 3 and stage 4 run, a third value controls the final stage-4 directory. A scalar `--fit-method mchmc` or `--fit-method mclmc` runs the selected microcanonical sampler in every sampled stage; staged values can mix them with `svi` or `svi+nuts`.
+Sequential production methods are configured separately for stages 1 and 2.
+Use `fit_method=("svi", "svi+nuts")` for an SVI stage 1 followed by SVI and NUTS
+in stage 2. Stage 0 always provides the initializer.
 
 One-shot evidence nested sampling example:
 
@@ -247,17 +460,18 @@ in the `.par` file. Supported profiles are dPIE (`81`) and shear (`14`), with
 fields such as `x_centre`, `y_centre`, `ellipticite`, `angle_pos`,
 `core_radius_kpc`, `cut_radius_kpc`, `v_disp`, and `gamma`.
 
-Member-galaxy subhalos are dPIE components generated from potfiles. If the
-potfile provides priors, the free scaling hyperparameters are `sigma`, `cutkpc`,
-`corekpc`, `vdslope`, and `slope`. Their nominal scaling relation is:
+Member-galaxy subhalos are dPIE components generated from member catalogs. The
+scaling hyperparameters are `sigma`, `cutkpc`, `corekpc`, `alpha_sigma`, and
+`beta_radius`. Their mean scaling relation is:
 
 ```text
-sigma_i = sigma_ref * L_i^(1 / vdslope)
-core_i  = core_ref  * L_i^(2 / slope)
-cut_i   = cut_ref   * L_i^(2 / slope)
+sigma_i = sigma_ref * L_i^alpha_sigma
+core_i  = core_ref  * L_i^beta_radius
+cut_i   = cut_ref   * L_i^beta_radius
 ```
 
-where `L_i` is the catalog luminosity ratio relative to `mag0`.
+where `L_i` is the catalog luminosity ratio relative to `mag0`. The derived
+mass-to-light tilt is `gamma_ml = 2 * alpha_sigma + beta_radius - 1`.
 
 With `--scaling-scatter`, the model also samples positive scatter
 hyperparameters per potfile for the requested fields: `sigma_log_scatter`,
@@ -307,81 +521,27 @@ its existing behavior. Only `"full-jacobian"` requires positive source scatter a
 zero covariance/gain floors. An unspecified `source_plane_covariance_floor`
 resolves to zero for this new source-plane mode and 1e-6 otherwise.
 
-To select the new covariance in `run.xsh`, set
-`source_plane_covariance_mode="full-jacobian"` in `LikelihoodConfig`. Use
-`sample_likelihood_mode="source"` for source-plane fitting. The image-plane
-`--covariance` option selects a separate setting.
+For the legacy source-plane mode, set
+`source_plane_covariance_mode="full-jacobian"` in `LikelihoodConfig` and use
+`sample_likelihood_mode="source"`. The current launcher instead selects the
+smoothed local image-plane likelihood described above.
 
-When `--image-plane-mode local-jacobian` is selected, the sequential workflow
-adds a third `stage3_image_plane` fit initialized from the source-plane joint
-stage. This stage uses the same SVI/NUTS method as stage 2, and uses the local 2x2 lensing Jacobian
-covariance at each observed image. It is still a differentiable local
-approximation, not a full image-finding likelihood.
+The sequential workflow contains stage 0 (initializer), stage 1, and optional
+stage 2. Set `WorkflowConfig.stage1_likelihood` to `"local-jacobian"`,
+`"critical-arc"`, or `"critical-arc-anisotropic"` to choose the stage-1 image-plane
+approximation, or `"source"` for source-plane fitting.
 
-Stage 3 can also be selected explicitly with `--stage3-image-plane-mode`.
-The default `auto` preserves the historical behavior: local-Jacobian stage 3
-for `--image-plane-mode local-jacobian`, and local-Jacobian stage 3 before a
-final stage 4 unless `--skip-stage3-image-plane-local-jacobian` is passed.
-Use `--image-plane-mode none --stage3-image-plane-mode critical-arc-mixture-image-plane`
-to run `stage3_image_plane` with a critical-arc point/arc mixture likelihood
-but without sampled source coordinates. In that stage-3 centroid mode, each
-family source position is recomputed at every likelihood evaluation as the
-current weighted centroid of the ray-shot image positions, with weights
-proportional to reliability divided by image-plane variance.
+Set `WorkflowConfig.stage2_forward_mode` to `"linearized"`, `"critical-arc"`,
+`"critical-arc-anisotropic"`, or `"isotropic-latent-displacement"` to enable
+stage 2 with sampled family source positions. Set it to `"none"` to finish
+at stage 1. The current launcher uses `smoothed-local-image-plane` in every stage.
+The anisotropic critical-arc likelihood remains available in stages 1 and 2.
 
-When `--image-plane-mode linearized-forward-beta-image-plane` is selected, the
-workflow adds `stage4_linearized_image_plane`. By default it also runs
-`stage3_image_plane` first; pass `--skip-stage3-image-plane-local-jacobian` or
-`--stage3-image-plane-mode none` to initialize stage 4 directly from
-`stage2_free_source_forward_fit`. This final stage samples the lens
-parameters plus explicit 2D source positions for each multiply imaged family,
-initialized from the previous sampled stage's source centroids. The sampled likelihood computes one
-local image-plane correction at each observed image even when
-`--image-plane-newton-steps 0`; positive values add that many further Newton
-updates before scoring the image-plane displacement. It uses its own
-`image_sigma_int` scatter parameter in image-plane units.
-
-For sequential resumes, `--resume` is equivalent to `--resume all`: completed
-stages are reused/finalized and their outputs may be refreshed. Use
-`--resume fast` to load existing previous-stage artifacts and run only the final
-enabled stage, such as a missing stage 4 initialized from an existing
-`stage3_image_plane` run.
-
-When `--image-plane-mode forward-metric-image-plane` is selected, the workflow
-adds `stage4_forward_metric_image_plane`. It samples the same explicit 2D source
-positions as the linearized forward-beta stage, but leaves the residual in source
-coordinates and scores it with the proposal-current forward image covariance
-`A Sigma_img A^T`, where `A = d beta / d theta` at the observed image. This
-avoids the inverse-Jacobian image displacement while still using image-plane
-positional uncertainties. This mode requires `--image-plane-newton-steps 0` and
-does not support `source-position-parameterization=conditional-whitened`.
-
-When `--image-plane-mode fold-regularized-forward-beta-image-plane` is selected,
-the workflow adds `stage4_fold_regularized_image_plane`. It uses the same
-explicit source-position target as `forward-metric-image-plane`, but near a
-critical Jacobian it scores the residual by solving the local signed fold
-equation in the singular-vector frame of `A = d beta / d theta`. The constrained
-component uses the linear image-plane displacement, while the critical component
-uses the minimum real root distance of
-`0.5 kappa_eff theta_crit^2 + s_min theta_crit + r_crit = 0`. `kappa_eff` is
-estimated by finite-differencing the lensing Jacobian along the observed
-critical image-plane direction; with `--sampling-engine refreshing_surrogate_flat`,
-the curvature and near-critical row mask are refreshed with the surrogate cache
-and reused between refreshes. `--fold-curvature-arcsec-inv` remains only as a
-fallback scale for direct helper use. Away from criticality, or when no local
-real root exists, the row falls back to the ordinary forward-metric inlier. It
-requires `--image-plane-newton-steps 0` and does not support
-`source-position-parameterization=conditional-whitened`.
-
-When `--image-plane-mode critical-arc-mixture-image-plane` is selected, the
-stage-4 likelihood uses explicit sampled source coordinates, an observed-anchor
-LM image-plane correction, and a point/arc residual mixture whose broad
-critical-direction branch turns on near singular local Jacobians. The
-critical-arc likelihood always evaluates the full exact point/arc mixture;
-there are no speed-mode approximations or masked near-critical row splits. Use
-`--stage3-image-plane-mode critical-arc-mixture-image-plane` when the same
-critical-arc residual model should be used in stage 3 with centroid source
-positions instead of sampled explicit source coordinates.
+For sequential resumes, `resume="all"` reuses or finalizes completed stages
+and may refresh their outputs. `resume="fast"` loads the preceding stages'
+artifacts and processes only the final enabled stage. A run directory with
+an incompatible manifest requires a different run label; manifests and
+saved results are not migrated.
 
 Optional CAB arc-morphology constraints are supplied by `image.arcfile` as an
 independent arc catalog, not as image annotations. Rows have the form
@@ -396,14 +556,14 @@ branch when the local stretch direction or branch choice is ill-defined.
 If `--fit-cosmology-flat-wcdm` is enabled, every executed sequential fitting
 stage samples the flat wCDM cosmology parameters.
 
-The explicit-beta stage-4 image-plane modes also include a smooth
+The explicit-beta image-plane modes also include a smooth
 observed-image presence penalty by default. For each observed image, the local
 image-plane residual is converted to a soft presence probability with
 `--image-presence-match-radius-arcsec` and
 `--image-presence-temperature-arcsec`; each family then receives a smooth
 penalty when the reliability-weighted number of present observed images falls
 below the catalog count. The effective default
-`--image-presence-penalty-weight` is `2.0` for sequential stage 4 and `0.0`
+`--image-presence-penalty-weight` is `2.0` for eligible forward image-plane modes and `0.0`
 for evidence, non-image-plane likelihoods, and critical-arc mixture likelihoods;
 pass a positive value to enable it. In `critical-arc-mixture-image-plane`, the
 presence probability reuses the critical-arc branch probability and counts an
@@ -418,8 +578,29 @@ Nearby source redshifts are grouped by fractional lensing-efficiency
 1% in lensing strength, which automatically makes bins finer near the cluster
 and coarser at high source redshift.
 
-`full_flat` evaluates both lensing predictions and first-order member-scatter
-covariance at the current parameters inside JAX. The covariance and its parameter
+`tiered_members` is the engine for `smoothed-local-image-plane`, used by all
+three stages in `run.xsh`. It evaluates the current likelihood with four fixed
+member classes: exact/sample, exact/absorb, approximate/sample, and
+approximate/absorb. Approximate members use the far-field profiles during
+sampling; `top_sampled` and `top_exact` independently control the selected counts.
+Set both to `"all"` to sample every population member's velocity offset and use
+exact profiles for every member. Either axis can use `"all"` independently;
+`None` retains automatic classification. Independent halos keep their standalone
+models and are excluded from population counts.
+Stage 0 uses exact member profiles and provisional absorbed scatter before
+classification. Reported maps, magnifications, and image residuals use exact
+profiles. No surrogate refresh is used. The `full_flat` spelling resolves to
+`tiered_members` for the smoothed likelihood. This engine alias does not permit
+loading historical alpha/gamma runs; artifacts must use the current sampled
+beta parameterization. Other likelihood modes retain `full_flat`.
+
+The smoothed engine uses a standalone `TieredMembersEvaluator`. It shares packed
+lens physics and exact reporting with the legacy evaluator, while its constructor,
+image data, source transformations, and likelihood path are separate. It does not
+initialize surrogate models, legacy member selection, or legacy covariance caches.
+
+For those older likelihoods, `full_flat` evaluates both lensing predictions and
+first-order member-scatter covariance at the current parameters inside JAX. The covariance and its parameter
 derivatives are computed directly; scaling-cache refresh requests are no-ops.
 `refreshing_surrogate_flat` retains its reference-based deflection and scatter
 caches. Direct covariance evaluation preserves the existing scatter model but
@@ -429,7 +610,7 @@ When `--svi-steps` is larger than `--refresh-every`, SVI is run in blocks for ei
 engine. Each block's median is checked for physical validity before it becomes
 the next starting point; an invalid median retains the last valid center.
 Applicable surrogate caches are refreshed at that accepted center and held fixed
-during NUTS. Full-flat member-scatter covariance remains parameter-dependent
+during NUTS. Direct member-scatter covariance remains parameter-dependent
 during both SVI and NUTS.
 
 For `--fit-mode evidence-ns`, the solver skips the sequential stages and builds
@@ -447,20 +628,34 @@ JAXNS evidence diagnostics `ns_log_z_mean` and `ns_log_z_uncert`.
 
 ## Outputs
 
-For `--run-name joint_workflow`, outputs are written to:
+In the `results-v1` layout, every stage saves its figures under
+`stages/stageN/figures/`, including the final stage. Final-stage tables and FITS
+products are written at the run root. Earlier stages retain their own products.
 
-- `plots/m0416_original/joint_workflow/stage0_fast_initializer/`
-- `plots/m0416_original/joint_workflow/stage1_backprojected_centroid_fit/`
-- `plots/m0416_original/joint_workflow/stage2_free_source_forward_fit/` when `--stage2-forward-mode` is enabled
-- `plots/m0416_original/joint_workflow/stage3_image_plane/` when `--image-plane-mode local-jacobian`, when `--stage3-image-plane-mode critical-arc-mixture-image-plane`, or before stage 4 unless skipped
-- `plots/m0416_original/joint_workflow/stage4_linearized_image_plane/` when `--image-plane-mode linearized-forward-beta-image-plane`
-- `plots/m0416_original/joint_workflow/stage4_forward_metric_image_plane/` when `--image-plane-mode forward-metric-image-plane`
-- `plots/m0416_original/joint_workflow/stage4_fold_regularized_image_plane/` when `--image-plane-mode fold-regularized-forward-beta-image-plane`
-- `plots/m0416_original/joint_workflow/sequential_summary.json`
+For a run root `results/<campaign>/<cluster>/<run-label>`, stage outputs are:
 
-Each stage writes:
+- `stages/stage0/` for the initializer.
+- `stages/stage1/` for the first fit.
+- `stages/stage2/` when `stage2_forward_mode` is enabled.
+- `tables/sequential_summary.json` and `summary.txt` for the run summary.
+
+With stage 2 enabled, supply three entries in `svi_steps` and `refresh_every`
+for stages 0–2, and two production entries in `fit_method`, `warmup`, `samples`,
+`sampling_refresh_runs`, and `max_tree_depth` for stages 1–2. Without stage 2,
+supply two initializer entries and one production entry.
+
+Each completed stage writes:
 
 - `artifacts/plot_bundle.h5`
+- `artifacts/svi/plot_bundle.h5` for every stage that runs SVI, saved immediately
+  after SVI and retained when NUTS follows. This standalone bundle contains the
+  guide draws in reported physical units, the guide center, diagnostics, and
+  the SVI model's parameter definitions. Load it with the same artifact reader,
+  passing `artifacts/svi` instead of `artifacts`. Match parameters by name when
+  comparing with the final bundle because member selection can change the model
+  between SVI and NUTS. Existing runs are not backfilled. SVI `log_prob` uses
+  sampling-parameter coordinates; NUTS potential energies include unconstraining
+  Jacobians, so these stored values are not directly comparable.
 - `tables/run_summary.json`
 - `tables/potential_summary.csv`
 - `tables/family_diagnostics.csv`
@@ -470,7 +665,7 @@ Each stage writes:
   `subhalo_radial_distribution.pdf`;
   with `--plot-caustics`, this also includes `absolute_magnification.pdf`
 
-`run.xsh` is a thin wrapper around the same command.
+The current `run.xsh` constructs a typed configuration directly.
 
 The implementation uses a standard `src/lenscluster/` package layout. The
 repository-root `cluster_solver.py` remains as a compatibility shim, so existing
@@ -567,5 +762,6 @@ See [validation and timing](docs/benchmarks/cartesian_profiles_20261010.md).
 The experimental stage-2 `isotropic-latent-displacement` mode uses explicit
 family sources, current full Jacobians, and full direct member-scatter covariance.
 It requires `full_flat` and an explicit positive
-`latent_displacement_sigma_beta_arcsec`; `run.xsh` uses 0.03 arcsec.
+`latent_displacement_sigma_beta_arcsec`; this is a separate legacy mode from
+the current launcher.
 See [the mathematical contract and limitations](docs/isotropic_latent_displacement.md).

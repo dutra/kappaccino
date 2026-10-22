@@ -138,6 +138,17 @@ def image_prediction_for_family_latent(
         unavailable_reason=unavailable_reason,
         unavailable_status=unavailable_status,
     )
+    smoothed_model = getattr(getattr(evaluator, "state", None), "smoothed_model", None)
+    if smoothed_model is not None:
+        # The new model stores validated, floored errors by image label. Family
+        # sigma remains a scalar for legacy models and must not replace them.
+        metadata = smoothed_model["image_metadata"]
+        for row in image_rows:
+            sigma_obs = float(metadata[row["image_label"]]["sigma_obs_arcsec"])
+            row["sigma_arcsec"] = sigma_obs
+            row["image_sigma_eff_arcsec"] = image_sigma_eff_arcsec(
+                sigma_obs, image_sigma_int_arcsec, covariance_floor
+            )
     magnification_common_keys = [
         "family_id",
         "image_label",

@@ -287,8 +287,8 @@ def test_render_converts_catalogs_and_writes_loadable_pars(tmp_path: Path) -> No
     ares_scaling_specs, _ares_scaling_indices, _ares_scaling_models = _build_scaling_parameter_specs(
         parsed["potfiles"]
     )
-    assert {"alpha_sigma", "gamma_ml"} <= {spec.field for spec in ares_scaling_specs}
-    assert {"vdslope", "slope", "beta_radius"}.isdisjoint({spec.field for spec in ares_scaling_specs})
+    assert {"alpha_sigma", "beta_radius"} <= {spec.field for spec in ares_scaling_specs}
+    assert {"vdslope", "slope", "gamma_ml"}.isdisjoint({spec.field for spec in ares_scaling_specs})
 
     hera_par = output / "hera" / "hera_lenscluster.par"
     _hera_parsed, _hera_potentials_df, _hera_images_df, _hera_arcs_df, hera_potentials_with_priors = load_best_par(hera_par)
@@ -339,8 +339,8 @@ def test_render_converts_catalogs_and_writes_loadable_pars(tmp_path: Path) -> No
     hera_scaling_specs, _hera_scaling_indices, _hera_scaling_models = _build_scaling_parameter_specs(
         _hera_parsed["potfiles"]
     )
-    assert {"alpha_sigma", "gamma_ml"} <= {spec.field for spec in hera_scaling_specs}
-    assert {"vdslope", "slope", "beta_radius"}.isdisjoint({spec.field for spec in hera_scaling_specs})
+    assert {"alpha_sigma", "beta_radius"} <= {spec.field for spec in hera_scaling_specs}
+    assert {"vdslope", "slope", "gamma_ml"}.isdisjoint({spec.field for spec in hera_scaling_specs})
     assert not (
         {
             "G1_x_centre",

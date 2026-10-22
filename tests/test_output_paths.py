@@ -18,9 +18,9 @@ from lenscluster.planning import compile_run_plan
 
 @pytest.fixture(scope="module")
 def launcher():
-    source = Path("run.xsh").read_text().split("\nrequested_cluster,")[0]
+    source = Path("run.xsh").read_text()
     source = "\n".join(line for line in source.splitlines() if not line.startswith("$"))
-    namespace = {"__file__": str(Path("run.xsh").resolve())}
+    namespace = {"__file__": str(Path("run.xsh").resolve()), "__name__": "launcher_test"}
     exec(compile(source, "run.xsh", "exec"), namespace)
     return namespace
 
@@ -28,30 +28,34 @@ def launcher():
 @pytest.fixture
 def config(tmp_path, launcher):
     config = launcher["build_config"](
-        "HERA", cores=1, campaign_name="test", covariance_mode="isotropic",
+        "HERA", cores=1, campaign_name="test",
         use_magnitude_likelihood=False,
     )
-    return replace(config, paths=replace(config.paths, output_dir=tmp_path), truth=TruthRecoveryConfig())
+    # Keep these general output and resume tests on a legacy model as well as
+    # the dedicated smoothed-likelihood tests in test_smoothed_config.py.
+    return replace(
+        config, paths=replace(config.paths, output_dir=tmp_path), truth=TruthRecoveryConfig(),
+        workflow=replace(config.workflow, stage0_likelihood="source", stage1_likelihood="source",
+                         sampling_engine="full_flat", stage1_sampling_engine="full_flat", stage2_sampling_engine="full_flat",
+                         stage2_forward_mode="isotropic-latent-displacement",
+                         source_position_parameterization="prior-whitened"),
+        runtime=replace(config.runtime, dense_mass="full"),
+        likelihood=replace(config.likelihood, latent_displacement_sigma_beta_arcsec=0.02,
+                           source_plane_covariance_mode="unit"),
+    )
 
 
-@pytest.mark.parametrize("covariance,mag,label", [
-    ("isotropic", False, "isotropic-latent"),
-    ("anisotropic", False, "anisotropic-latent"),
-    ("anisotropic", True, "anisotropic-latent-mag"),
-])
-def test_launcher_labels(launcher, covariance, mag, label):
-    parsed = launcher["_parse_args"](["run.xsh", "hera", "--campaign", "example", "--covariance", covariance,
-                                      "--magnitude-likelihood", "on" if mag else "off"])
-    assert parsed == ("HERA", "example", covariance, mag, None)
-    config = launcher["build_config"]("HERA", cores=1, campaign_name="example", covariance_mode=covariance,
-                                      use_magnitude_likelihood=mag)
-    assert Path(config.paths.output_dir) / config.paths.run_name == Path("results/example/hera") / label
+def test_launcher_labels(launcher):
+    parsed = launcher["_parse_args"](["run.xsh", "hera", "--campaign", "example", "--magnitude-likelihood", "off"])
+    assert parsed == dict(cluster="HERA", campaign_name="example", run_label=None, dry_run=False, image_metadata=None)
+    config = launcher["build_config"]("HERA", cores=1, campaign_name="example")
+    assert Path(config.paths.output_dir) / config.paths.run_name == Path("results/example/hera/smoothed-local-image-plane")
     assert config.paths.layout == RESULTS_LAYOUT
 
 
 def test_explicit_label(launcher):
-    assert launcher["_parse_args"](["run.xsh", "hera", "--run-label", "comparison-2"])[-1] == "comparison-2"
-    config = launcher["build_config"]("HERA", cores=1, campaign_name="example", covariance_mode="isotropic",
+    assert launcher["_parse_args"](["run.xsh", "hera", "--run-label", "comparison-2"])["run_label"] == "comparison-2"
+    config = launcher["build_config"]("HERA", cores=1, campaign_name="example",
                                       use_magnitude_likelihood=False, run_label="comparison-2")
     assert config.paths.run_name == "comparison-2"
 
@@ -63,6 +67,20 @@ def test_invalid_label(launcher, label):
     with pytest.raises(SystemExit) as exc:
         launcher["_parse_args"](["run.xsh", "hera", "--run-label", label])
     assert exc.value.code == 2
+
+
+def test_figure_paths_stay_with_each_stage(config):
+    plan = compile_run_plan(config)
+    prepare_output(plan)
+    root = plan.output.output_dir / plan.output.run_name
+    for number in range(3):
+        stage = root / f"stages/stage{number}"
+        figures = output_paths(stage).figures
+        assert figures == stage / "figures"
+        figures.mkdir(parents=True)
+        (figures / "hera_corner.pdf").write_bytes(str(number).encode())
+    for number in range(3):
+        assert (root / f"stages/stage{number}/figures/hera_corner.pdf").read_bytes() == str(number).encode()
 
 
 @pytest.mark.parametrize("stage2", [False, True])
@@ -87,6 +105,7 @@ def test_output_tree_and_completion(config, stage2):
         paths = output_paths(directory)
         assert stage_name(directory) == stage.name
         assert paths.products == (root if directory == final else directory)
+        assert paths.figures == directory / "figures"
         assert plotting.plot_path(directory, "corner.pdf") == paths.figures / "hera_corner.pdf"
         assert paths.artifacts == directory / "artifacts"
         paths.artifacts.mkdir()
@@ -170,6 +189,7 @@ def test_fresh_process_reads_manifest(config):
 
 @pytest.mark.parametrize("modern", [False, True])
 def test_warm_start_and_plots_only(config, monkeypatch, tmp_path, modern):
+    import h5py
     from lenscluster import cluster_solver as solver, multi_cluster_solver as multi
     if not modern:
         config = replace(config, paths=replace(config.paths, layout="legacy"))
@@ -179,7 +199,11 @@ def test_warm_start_and_plots_only(config, monkeypatch, tmp_path, modern):
     for name in (STAGES["stage1"], STAGES["stage2"]):
         artifacts = stage_directory(root, name) / "artifacts"
         artifacts.mkdir(parents=True, exist_ok=True)
-        (artifacts / "plot_bundle.h5").touch()
+        with h5py.File(artifacts / "plot_bundle.h5", "w") as handle:
+            solver._write_h5_json(handle, "runtime_args_json", {
+                key: value for key, value in plan.runtime_args.values.items()
+                if key == "scaling_relation_mode" or key.startswith("potfile_")
+            })
     par = tmp_path / "input.par"
     par.touch()
     warm = multi._resolve_warm_stage(multi.ClusterInput("hera", par, root), "auto")
@@ -261,11 +285,13 @@ def test_synthetic_sequential_outputs_and_resume(config, monkeypatch):
         assert [path.name for path in inferred] == ["stage0", "stage1", "stage2"]
         assert (root / "summary.txt").is_file()
         assert (root / "tables/sequential_summary.json").is_file()
-        assert (root / "figures/hera_smoke.pdf").is_file()
+        for stage in ("stage0", "stage1", "stage2"):
+            assert (root / "stages" / stage / "figures/hera_smoke.pdf").is_file()
+        assert not (root / "figures").exists()
         assert (root / "fits/truth_recovery_kappa_model_median.fits").is_file()
         assert (root / "stages/stage2/inputs/input_manifest.json").is_file()
         assert not (root / "stages/stage2/tables").exists()
-        assert not (root / "stages/stage2/figures").exists()
+        assert (root / "stages/stage2/figures").is_dir()
         assert not (root / "stages/stage2/fits").exists()
         # Simulate interruption after the final checkpoint, then resume.
         (root / "tables/run_summary.json").unlink()
@@ -298,7 +324,8 @@ def test_saved_run_readers(config):
     final = root / "stages/stage2"
     assert artifacts_dir(root) == final / "artifacts"
     assert _resolve_parameter_artifact_path(root) == final / "artifacts/plot_bundle.h5"
-    assert _validation_stage_dirs(root) == [(semantic, stage_directory(root, semantic)) for semantic in STAGES.values()]
+    assert _validation_stage_dirs(root) == [(STAGES[key], stage_directory(root, STAGES[key]))
+                                            for key in ("stage0", "stage1", "stage2")]
     assert _validation_stage_dirs(final) == _validation_stage_dirs(root)
     manifest = _validation_stage_manifest(root)
     assert manifest[-1]["tables_dir"] == root / "tables"

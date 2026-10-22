@@ -173,8 +173,7 @@ def test_configuration_handoff_pickle_and_invalid_settings():
     for bad in [None,0.,np.nan]:
         with pytest.raises(ValueError,match='positive'):
             compile_run_plan(replace(c,likelihood=replace(c.likelihood,latent_displacement_sigma_beta_arcsec=bad)))
-    with pytest.raises(ValueError,match='full_flat'):
-        compile_run_plan(replace(c,workflow=replace(c.workflow,stage2_sampling_engine='refreshing_surrogate_flat')))
+    compile_run_plan(replace(c,workflow=replace(c.workflow,stage2_sampling_engine='refreshing_surrogate_flat')))
     with pytest.raises(ValueError,match='prior-whitened'):
         compile_run_plan(replace(c,workflow=replace(c.workflow,source_position_parameterization='conditional-whitened')))
 
@@ -201,3 +200,151 @@ def test_zero_scatter_evaluator_vectorization_and_invalid_model():
     batch=jax.jit(jax.vmap(ev._source_loglike_impl))(jnp.stack([t,t]))
     np.testing.assert_allclose(batch[0],batch[1]);assert np.isfinite(batch).all()
     assert ev._source_loglike_impl(jnp.array(t).at[0].set(jnp.nan))==cs.BAD_LOG_LIKE
+
+
+def test_sampled_sigma_beta_prior_and_likelihood_gradient(monkeypatch):
+    from lenscluster.model import latent_to_physical
+    fixed, _ = fixture()
+    spec = cs._build_latent_displacement_sigma_beta_spec(.03, .7)
+    assert spec.prior_kind == 'normal' and spec.std == .7
+    assert np.isneginf(spec.lower) and np.isposinf(spec.upper)
+    for u in [-.7, 0., .7]:
+        np.testing.assert_allclose(latent_to_physical(spec.mean + u, spec), .03*np.exp(u))
+    fixed.state.parameter_specs.append(spec)
+    ev = cs.ClusterJAXEvaluator(fixed.state, .1, sampling_engine='full_flat',
+        sample_likelihood_mode=MODE, latent_displacement_sigma_beta_arcsec=.03)
+    t = jnp.asarray(cs._default_theta(ev.state.parameter_specs))
+    idx = ev.latent_displacement_sigma_beta_param_index
+    # Controlled local lens isolates this scale from the fixture's huge member covariance.
+    ev.scaling_scatter_param_indices=np.array([], dtype=np.int32)
+    monkeypatch.setattr(ev, '_flat_ray_shooting_and_lensing_jacobian_for_components',
+        lambda x,y,packed: (x*.01,y*.01,jnp.ones_like(x)*.2,jnp.zeros_like(x),
+                             jnp.zeros_like(x),jnp.ones_like(x)*.1))
+    fn = jax.jit(ev._source_loglike_impl)
+    gradient = jax.jit(jax.grad(fn))(t)
+    h=1e-5
+    np.testing.assert_allclose(gradient[idx], (fn(t.at[idx].add(h))-fn(t.at[idx].add(-h)))/(2*h), rtol=1e-5)
+    assert np.isfinite(gradient).all() and abs(gradient[idx]) > 1e-8
+    for shift in [0., .7]:
+        theta=t.at[idx].add(shift)
+        expected=.03*np.exp(shift)
+        physical=ev._physical_parameter_vector(theta)
+        np.testing.assert_allclose(ev._latent_displacement_sigma_beta_from_physical(physical), expected)
+        diagnostics=ev.latent_displacement_diagnostics(theta)
+        np.testing.assert_allclose(diagnostics.sigma_beta_arcsec, expected)
+        np.testing.assert_allclose(diagnostics.loglike.sum(), fn(theta))
+    delta=ev._latent_displacement_statistics(t.at[idx].add(.7))['covariance']-ev._latent_displacement_statistics(t)['covariance']
+    expected_delta=(.03**2*(np.exp(1.4)-1))*np.eye(2)
+    np.testing.assert_allclose(delta, np.broadcast_to(expected_delta,delta.shape),atol=1e-14)
+
+
+def test_sampled_sigma_beta_configuration_and_state():
+    from lenscluster.planning import compile_run_plan
+    c=configured()
+    c=replace(c, likelihood=replace(c.likelihood,sample_latent_displacement_sigma_beta=True))
+    plan=compile_run_plan(c)
+    assert plan.runtime_args.sample_latent_displacement_sigma_beta
+    assert plan.runtime_args.latent_displacement_sigma_beta_prior_log_sigma == .7
+    args=cs._clone_args(plan.runtime_args,sample_likelihood_mode=MODE)
+    initial=cs._build_state_from_inputs(cs._clone_args(args,sample_likelihood_mode='source'),fit_mode_override='joint')
+    centers={str(f.family_id):(0.,0.) for f in initial.family_data}
+    state=cs._build_state_from_inputs(args,fit_mode_override='joint',source_position_prior_values=centers)
+    specs=[s for s in state.parameter_specs if s.sample_name=='source_sigma_beta']
+    assert len(specs)==1
+    assert specs[0].mean==np.log(.03)
+    source_state=cs._build_state_from_inputs(cs._clone_args(args,sample_likelihood_mode='source'),fit_mode_override='joint')
+    assert not any(s.sample_name=='source_sigma_beta' for s in source_state.parameter_specs)
+    for width in [0.,-.1,np.nan,np.inf]:
+        with pytest.raises(ValueError,match='positive'):
+            compile_run_plan(replace(c,likelihood=replace(c.likelihood,latent_displacement_sigma_beta_prior_log_sigma=width)))
+
+
+def test_sampled_sigma_beta_resume_settings(tmp_path):
+    path=tmp_path/'artifacts';path.mkdir()
+    saved=dict(sample_likelihood_mode=MODE,latent_displacement_sigma_beta_arcsec=.03,
+               sample_latent_displacement_sigma_beta=True,latent_displacement_sigma_beta_prior_log_sigma=.7)
+    with h5py.File(path/'plot_bundle.h5','w') as h:
+        h['runtime_args_json']=json.dumps(saved)
+    args=argparse.Namespace(**saved)
+    assert cs._stage_run_cosmology_compatible(args,tmp_path)[0]
+    args.sample_latent_displacement_sigma_beta=False
+    assert not cs._stage_run_cosmology_compatible(args,tmp_path)[0]
+    args.sample_latent_displacement_sigma_beta=True
+    args.latent_displacement_sigma_beta_prior_log_sigma=.8
+    assert not cs._stage_run_cosmology_compatible(args,tmp_path)[0]
+
+
+def test_sampled_sigma_beta_saved_bundle_roundtrip(tmp_path):
+    from lenscluster.planning import compile_run_plan
+    c=configured()
+    c=replace(c,likelihood=replace(c.likelihood,sample_latent_displacement_sigma_beta=True))
+    args=cs._clone_args(compile_run_plan(c).runtime_args,sample_likelihood_mode=MODE,sampling_engine='full_flat')
+    initial=cs._build_state_from_inputs(cs._clone_args(args,sample_likelihood_mode='source'),fit_mode_override='joint')
+    centers={str(f.family_id):(0.,0.) for f in initial.family_data}
+    state=cs._build_state_from_inputs(args,fit_mode_override='joint',source_position_prior_values=centers)
+    latent=cs._default_theta(state.parameter_specs)
+    from lenscluster.model import latent_to_physical
+    physical=np.array([latent_to_physical(v,s) for v,s in zip(latent,state.parameter_specs)])
+    posterior=cs.PosteriorResults(samples=physical[None,:],log_prob=np.zeros(1),
+        accept_prob=np.ones(1),diverging=np.zeros(1,dtype=bool),num_steps=np.ones(1),
+        warmup_steps=0,sample_steps=1,num_chains=1)
+    path=tmp_path/'plot_bundle.h5'
+    cs._save_plot_bundle_h5(path,state,args,physical,posterior)
+    rebuilt,saved,arrays,_=cs._rebuild_state_from_h5(path)
+    assert saved['sample_latent_displacement_sigma_beta']
+    idx=next(i for i,s in enumerate(rebuilt.parameter_specs) if s.sample_name=='source_sigma_beta')
+    assert rebuilt.parameter_specs[idx].transform_kind=='log_positive'
+    np.testing.assert_allclose(arrays['best_fit'][idx],.03)
+    ev=cs.ClusterJAXEvaluator(rebuilt,.1,sampling_engine='full_flat',
+        sample_likelihood_mode=MODE,latent_displacement_sigma_beta_arcsec=.03)
+    converted=ev.reported_physical_to_latent_parameter_vector(arrays['best_fit'])
+    np.testing.assert_allclose(converted[idx],np.log(.03))
+    np.testing.assert_allclose(ev._latent_displacement_sigma_beta_from_physical(ev._physical_parameter_vector(converted)),.03)
+
+
+@pytest.mark.parametrize('engine', ['full_flat', 'refreshing_surrogate_flat'])
+def test_optional_magnitude_integration(engine):
+    base, theta = fixture()
+    ev = cs.ClusterJAXEvaluator(
+        base.state, .1, sampling_engine=engine,
+        sample_likelihood_mode=MODE, latent_displacement_sigma_beta_arcsec=.03,
+        use_magnitude_likelihood=True,
+    )
+    theta = jnp.asarray(theta)
+    if ev.surrogate_enabled:
+        ev.refresh_surrogate(theta)
+    data = ev.flat_critical_arc_data
+    n = len(data.x_obs)
+    magnitudes = 25.0 + np.arange(n) * .13
+    errors = np.full(n, .2)
+    ev.flat_critical_arc_data = replace(
+        data, magnitude_per_image=jnp.asarray(magnitudes),
+        magnitude_error_per_image=jnp.asarray(errors),
+        reliability_per_image=jnp.ones(n),
+    )
+    stats = ev._latent_displacement_statistics(theta)
+    # Independent scalar reference, with no additional magnitude scatter/bias.
+    abs_mu = 1 / np.maximum(np.abs(np.linalg.det(stats['jacobian'])), 1e-12)
+    corrected = magnitudes + 2.5 * np.log10(abs_mu + ev.magnitude_mu_floor)
+    family = np.asarray(data.global_family_index_per_image)
+    expected_mag = 0.0
+    for f in range(data.n_families):
+        selected = (family == f) & np.asarray(data.image_has_constraint)
+        if selected.sum() < 2:
+            continue
+        variance = np.maximum(errors[selected], ev.magnitude_sigma_floor)**2
+        precision = 1 / variance
+        residual = corrected[selected] - np.average(corrected[selected], weights=precision)
+        expected_mag -= .5 * (np.sum(residual**2 / variance + np.log(2*np.pi*variance))
+                               + np.log(precision.sum()))
+    fn = jax.jit(ev._source_loglike_impl)
+    value, gradient = jax.jit(jax.value_and_grad(ev._source_loglike_impl))(theta)
+    expected_pos = float(stats['loglike'].sum())
+    assert abs(expected_mag) > 1e-6
+    np.testing.assert_allclose(value, expected_pos + expected_mag, rtol=1e-10, atol=1e-8)
+    assert np.isfinite(gradient).all()
+    h = 1e-4
+    finite_difference = (fn(theta.at[0].add(h)) - fn(theta.at[0].add(-h))) / (2*h)
+    np.testing.assert_allclose(gradient[0], finite_difference, rtol=2e-4, atol=1e-5)
+    ev.use_magnitude_likelihood = False
+    np.testing.assert_allclose(ev._source_loglike_impl(theta), expected_pos, rtol=1e-10)

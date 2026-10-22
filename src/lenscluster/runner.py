@@ -25,6 +25,17 @@ class LensClusterRunner:
         self._stage_executor = stage_executor or ClusterSolverStageExecutor()
 
     def run(self, plan: RunPlan) -> RunResult:
+        threads_per_chain = getattr(plan.runtime_args, "cpu_threads_per_chain", None)
+        if threads_per_chain is not None:
+            from .cpu_runtime import configure_cpu_runtime
+            cpu_plan = configure_cpu_runtime(
+                plan.runtime.chains, plan.runtime_args.nuts_chain_method, threads_per_chain
+            )
+            plan.runtime_args.values["cpu_runtime_plan"] = cpu_plan.to_dict()
+            if not plan.runtime.quiet:
+                print(f"[cpu] chains={cpu_plan.chains} devices={cpu_plan.jax_cpu_devices} "
+                      f"cpus={list(cpu_plan.selected_cpu_ids)} "
+                      f"threads_per_chain_budget={threads_per_chain} blas_threads=1")
         prepare_output(plan)
         install_astropy_wcs_warning_filters()
 

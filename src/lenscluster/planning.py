@@ -50,6 +50,7 @@ class StagePlan:
     sampling_refresh_runs: int
     max_tree_depth: int
     output_plan: OutputPlan
+    member_tier_phase: str | None = None
 
 
 @dataclass(frozen=True)
@@ -182,7 +183,7 @@ SOLVER_RUNTIME_DEFAULTS: dict[str, Any] = {
 
 
 def compile_run_plan(config: LensClusterSolverConfig) -> RunPlan:
-    config.validate()
+    config = config.validate()
     payload = _runtime_payload(config)
     run_name = _resolved_run_name(config)
     payload["run_name"] = run_name
@@ -248,7 +249,7 @@ def _stage_plans(config: LensClusterSolverConfig, output: OutputPlan) -> tuple[S
             name="stage0_fast_initializer",
             fit_mode="stage0_fast_initializer",
             fit_method="svi",
-            sampling_engine="full_flat",
+            sampling_engine=("tiered_members" if workflow.stage0_likelihood == "smoothed-local-image-plane" else "full_flat"),
             sample_likelihood_mode=_stage_likelihood_sample_mode(workflow.stage0_likelihood, field_name="stage0_likelihood"),
             likelihood_family=_stage_likelihood_family(workflow.stage0_likelihood, field_name="stage0_likelihood"),
             source_position_policy=_stage_likelihood_source_position_policy(workflow.stage0_likelihood),
@@ -259,6 +260,7 @@ def _stage_plans(config: LensClusterSolverConfig, output: OutputPlan) -> tuple[S
             sampling_refresh_runs=schedule.sampling_refresh_runs[production_index_stage1],
             max_tree_depth=schedule.max_tree_depth[production_index_stage1],
             output_plan=OutputPlan(output.run_name, output.output_dir, stage0_minimal_outputs=True),
+            member_tier_phase="initializer" if workflow.stage0_likelihood == "smoothed-local-image-plane" else None,
         ),
         StagePlan(
             name="stage1_backprojected_centroid_fit",
@@ -275,6 +277,7 @@ def _stage_plans(config: LensClusterSolverConfig, output: OutputPlan) -> tuple[S
             sampling_refresh_runs=schedule.sampling_refresh_runs[production_index_stage1],
             max_tree_depth=schedule.max_tree_depth[production_index_stage1],
             output_plan=output,
+            member_tier_phase="fixed" if workflow.stage1_likelihood == "smoothed-local-image-plane" else None,
         ),
     ]
     if workflow.stage2_forward_mode != "none":
@@ -294,13 +297,14 @@ def _stage_plans(config: LensClusterSolverConfig, output: OutputPlan) -> tuple[S
                 sampling_refresh_runs=schedule.sampling_refresh_runs[production_index_stage2],
                 max_tree_depth=schedule.max_tree_depth[production_index_stage2],
                 output_plan=output,
+                member_tier_phase="fixed" if workflow.stage2_forward_mode == "smoothed-local-image-plane" else None,
             )
         )
     return tuple(stages)
 
 
 def _stage_likelihood_sample_mode(likelihood: str, *, field_name: str) -> str:
-    if likelihood in {"source", "local-jacobian"}:
+    if likelihood in {"source", "local-jacobian", "smoothed-local-image-plane"}:
         return likelihood
     if likelihood == "critical-arc":
         return "critical-arc-mixture-image-plane"
@@ -310,7 +314,7 @@ def _stage_likelihood_sample_mode(likelihood: str, *, field_name: str) -> str:
 
 
 def _stage_likelihood_family(likelihood: str, *, field_name: str) -> str:
-    if likelihood in {"source", "local-jacobian"}:
+    if likelihood in {"source", "local-jacobian", "smoothed-local-image-plane"}:
         return likelihood
     if likelihood in {"critical-arc", "critical-arc-anisotropic"}:
         return "critical-arc"
@@ -334,8 +338,8 @@ def _stage1_source_position_policy(stage1_likelihood: str) -> str:
 
 
 def _stage2_sample_likelihood_mode(stage2_forward_mode: str) -> str:
-    if stage2_forward_mode == "isotropic-latent-displacement":
-        return "isotropic-latent-displacement"
+    if stage2_forward_mode in {"isotropic-latent-displacement", "smoothed-local-image-plane"}:
+        return stage2_forward_mode
     if stage2_forward_mode == "linearized":
         return "linearized-forward-beta-image-plane"
     if stage2_forward_mode == "critical-arc":
@@ -346,8 +350,8 @@ def _stage2_sample_likelihood_mode(stage2_forward_mode: str) -> str:
 
 
 def _stage2_likelihood_family(stage2_forward_mode: str) -> str:
-    if stage2_forward_mode == "isotropic-latent-displacement":
-        return "isotropic-latent-displacement"
+    if stage2_forward_mode in {"isotropic-latent-displacement", "smoothed-local-image-plane"}:
+        return stage2_forward_mode
     if stage2_forward_mode == "linearized":
         return "linearized"
     if stage2_forward_mode in {"critical-arc", "critical-arc-anisotropic"}:
@@ -390,10 +394,12 @@ def _runtime_payload(config: LensClusterSolverConfig) -> dict[str, Any]:
         "jax_default_device": config.runtime.jax_default_device,
         "smc_device": config.runtime.smc_device,
         "nuts_chain_method": config.runtime.nuts_chain_method,
+        "cpu_threads_per_chain": config.runtime.cpu_threads_per_chain,
         "dense_mass": config.runtime.dense_mass,
         "jax_clear_caches_after_svi_refresh": config.runtime.jax_clear_caches_after_svi_refresh,
         "fit_mode": config.workflow.fit_mode,
         "sampling_engine": config.workflow.sampling_engine,
+        "sample_likelihood_mode": ("smoothed-local-image-plane" if config.workflow.stage0_likelihood == "smoothed-local-image-plane" else "source"),
         "stage1_sampling_engine": config.workflow.stage1_sampling_engine,
         "stage0_likelihood": config.workflow.stage0_likelihood,
         "stage1_likelihood": config.workflow.stage1_likelihood,
@@ -401,7 +407,6 @@ def _runtime_payload(config: LensClusterSolverConfig) -> dict[str, Any]:
         "stage2_sampling_engine": config.workflow.stage2_sampling_engine,
         "stage2_fresh_process": config.workflow.stage2_fresh_process,
         "exact_image_diagnostics_stage2": config.workflow.exact_image_diagnostics_stage2,
-        "exact_image_diagnostics_stage3": config.workflow.exact_image_diagnostics_stage3,
         "best_value": config.workflow.best_value,
         "image_plane_mode": config.workflow.image_plane_mode,
         "image_plane_newton_steps": config.workflow.image_plane_newton_steps,
@@ -440,17 +445,28 @@ def _runtime_payload(config: LensClusterSolverConfig) -> dict[str, Any]:
             "potfile_alpha_sigma_prior_std": config.scaling.potfile_alpha_sigma_prior_std,
             "potfile_alpha_sigma_prior_lower": config.scaling.potfile_alpha_sigma_prior_lower,
             "potfile_alpha_sigma_prior_upper": config.scaling.potfile_alpha_sigma_prior_upper,
-            "potfile_gamma_ml_prior_mean": config.scaling.potfile_gamma_ml_prior_mean,
-            "potfile_gamma_ml_prior_std": config.scaling.potfile_gamma_ml_prior_std,
-            "potfile_gamma_ml_prior_lower": config.scaling.potfile_gamma_ml_prior_lower,
-            "potfile_gamma_ml_prior_upper": config.scaling.potfile_gamma_ml_prior_upper,
+            "potfile_beta_radius_prior_mean": config.scaling.potfile_beta_radius_prior_mean,
+            "potfile_beta_radius_prior_std": config.scaling.potfile_beta_radius_prior_std,
+            "potfile_beta_radius_prior_lower": config.scaling.potfile_beta_radius_prior_lower,
+            "potfile_beta_radius_prior_upper": config.scaling.potfile_beta_radius_prior_upper,
             "scaling_scatter": config.scaling.scaling_scatter,
+            "member_velocity_scatter_prior_median": config.scaling.member_velocity_scatter_prior.median,
+            "member_velocity_scatter_prior_log_sigma": config.scaling.member_velocity_scatter_prior.log_sigma,
+            **{f"member_tier_{name}": value for name, value in vars(config.member_tiers).items()},
             "softening_length_kpc": config.scaling.softening_length_kpc,
             "softening_length_prior_log_sigma": config.scaling.softening_length_prior_log_sigma,
             "pos_sigma_arcsec": config.likelihood.pos_sigma_arcsec,
+            "source_scatter_prior_median_arcsec": config.likelihood.source_scatter_prior.median,
+            "smoothed_likelihood_revision": config.likelihood.smoothed_likelihood_revision,
+            "source_scatter_prior_log_sigma": config.likelihood.source_scatter_prior.log_sigma,
+            "source_position_prior_mean_x_arcsec": config.likelihood.source_position_prior_mean_arcsec[0],
+            "source_position_prior_mean_y_arcsec": config.likelihood.source_position_prior_mean_arcsec[1],
+            "source_position_prior_sigma_arcsec": config.likelihood.source_position_prior_sigma_arcsec,
             "source_plane_covariance_floor": config.likelihood.source_plane_covariance_floor,
             "source_plane_covariance_mode": config.likelihood.source_plane_covariance_mode,
             "latent_displacement_sigma_beta_arcsec": config.likelihood.latent_displacement_sigma_beta_arcsec,
+            "sample_latent_displacement_sigma_beta": config.likelihood.sample_latent_displacement_sigma_beta,
+            "latent_displacement_sigma_beta_prior_log_sigma": config.likelihood.latent_displacement_sigma_beta_prior_log_sigma,
             "critical_arc_anisotropic_covariance": config.likelihood.critical_arc_anisotropic_covariance,
             "image_presence_penalty_weight": config.likelihood.image_presence_penalty_weight,
             "image_presence_match_radius_arcsec": config.likelihood.image_presence_match_radius_arcsec,

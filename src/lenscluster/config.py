@@ -4,7 +4,9 @@ import math
 from dataclasses import asdict, dataclass, field, replace
 from numbers import Integral
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
+
+SMOOTHED_LIKELIHOOD_REVISION = "smoothed-local-image-plane-v1"
 
 
 @dataclass(frozen=True)
@@ -24,6 +26,14 @@ class PriorConfig:
     mean: float | None = None
     std: float | None = None
     step: float | None = None
+
+
+@dataclass(frozen=True)
+class LogNormalPriorConfig:
+    """Untruncated positive prior, parameterized by median and log-space width."""
+
+    median: float
+    log_sigma: float
 
 
 @dataclass(frozen=True)
@@ -94,6 +104,8 @@ class MemberPopulationConfig:
 class ImageConstraintsConfig:
     catalog_path: str | Path
     sigma_arcsec: float = 0.5
+    metadata_path: str | Path | None = None
+    sigma_floor_arcsec: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -129,6 +141,7 @@ class RuntimeConfig:
     jax_default_device: str = "auto"
     smc_device: str = "auto"
     nuts_chain_method: str = "parallel"
+    cpu_threads_per_chain: int | None = None
     dense_mass: str = "full"
     jax_clear_caches_after_svi_refresh: bool = True
 
@@ -144,7 +157,6 @@ class WorkflowConfig:
     stage2_sampling_engine: str = "refreshing_surrogate_flat"
     stage2_fresh_process: bool = True
     exact_image_diagnostics_stage2: bool = False
-    exact_image_diagnostics_stage3: bool = False
     best_value: str = "map"
     image_plane_mode: str = "none"
     image_plane_newton_steps: int = 0
@@ -184,18 +196,32 @@ class PerturbationDiscoveryConfig:
 
 
 @dataclass(frozen=True)
+class MemberTierConfig:
+    top_sampled: int | Literal["all"] | None = None
+    top_exact: int | Literal["all"] | None = None
+    kernel_deflection_fraction: float = 0.1
+    kernel_log_h_tolerance: float = 0.1
+    scatter_deflection_fraction: float = math.sqrt(0.1)
+    scatter_log_h_tolerance: float = math.sqrt(0.1)
+    absorbed_variance_fraction: float = 0.25
+
+
+@dataclass(frozen=True)
 class ScalingModelConfig:
+    member_velocity_scatter_prior: LogNormalPriorConfig = field(
+        default_factory=lambda: LogNormalPriorConfig(median=0.02, log_sigma=1.0)
+    )
     independent_scaling_free_log_sigma_offset_width: float = 0.10
     independent_scaling_free_log_mass_offset_width: float = 0.20
-    scaling_relation_mode: str = "direct-exponents"
+    scaling_relation_mode: str = "velocity-radius-exponents"
     potfile_alpha_sigma_prior_mean: float = 0.25
     potfile_alpha_sigma_prior_std: float = 0.04
     potfile_alpha_sigma_prior_lower: float = 0.10
     potfile_alpha_sigma_prior_upper: float = 0.40
-    potfile_gamma_ml_prior_mean: float = 0.00
-    potfile_gamma_ml_prior_std: float = 0.12
-    potfile_gamma_ml_prior_lower: float = -0.40
-    potfile_gamma_ml_prior_upper: float = 0.40
+    potfile_beta_radius_prior_mean: float = 0.50
+    potfile_beta_radius_prior_std: float = 0.20
+    potfile_beta_radius_prior_lower: float = 0.0
+    potfile_beta_radius_prior_upper: float = float("inf")
     scaling_scatter: bool = False
     softening_length_kpc: float = 0.0
     softening_length_prior_log_sigma: float = 0.15
@@ -203,7 +229,16 @@ class ScalingModelConfig:
 
 @dataclass(frozen=True)
 class LikelihoodConfig:
+    smoothed_likelihood_revision: str = SMOOTHED_LIKELIHOOD_REVISION
+    source_scatter_prior: LogNormalPriorConfig = field(
+        default_factory=lambda: LogNormalPriorConfig(median=0.02, log_sigma=0.7)
+    )
+    source_position_prior_mean_arcsec: tuple[float, float] = (0.0, 0.0)
+    source_position_prior_sigma_arcsec: float = 100.0
+    # Fixed value, or prior median when sample_latent_displacement_sigma_beta is true.
     latent_displacement_sigma_beta_arcsec: float | None = None
+    sample_latent_displacement_sigma_beta: bool = False
+    latent_displacement_sigma_beta_prior_log_sigma: float = 0.7
     pos_sigma_arcsec: float | None = None
     source_plane_covariance_floor: float | None = None
     # magnification: legacy determinant scaling; full-jacobian: full propagated covariance.
@@ -305,6 +340,7 @@ class LensClusterSolverConfig:
     schedule: StageScheduleConfig = field(default_factory=StageScheduleConfig)
     members: MemberSelectionConfig = field(default_factory=MemberSelectionConfig)
     perturbation: PerturbationDiscoveryConfig = field(default_factory=PerturbationDiscoveryConfig)
+    member_tiers: MemberTierConfig = field(default_factory=MemberTierConfig)
     scaling: ScalingModelConfig = field(default_factory=ScalingModelConfig)
     likelihood: LikelihoodConfig = field(default_factory=LikelihoodConfig)
     image_diagnostics: ImageDiagnosticsConfig = field(default_factory=ImageDiagnosticsConfig)
@@ -316,10 +352,14 @@ class LensClusterSolverConfig:
 
     def validate(self) -> "LensClusterSolverConfig":
         validate_config(self)
-        return self
+        from .sampling_engines import canonical_workflow_engines
+        return replace(self, workflow=replace(self.workflow, **canonical_workflow_engines(asdict(self.workflow))))
 
     def to_json_dict(self) -> dict[str, Any]:
-        return _jsonable(asdict(self))
+        from .sampling_engines import canonical_workflow_engines
+        result = _jsonable(asdict(self))
+        result["workflow"] = canonical_workflow_engines(result["workflow"])
+        return result
 
     def to_run_dict(self) -> dict[str, Any]:
         return self.to_json_dict()
@@ -335,6 +375,63 @@ def _jsonable(value: Any) -> Any:
     return value
 
 
+def _uses_smoothed_likelihood(config: LensClusterSolverConfig) -> bool:
+    return "smoothed-local-image-plane" in (
+        config.workflow.stage0_likelihood,
+        config.workflow.stage1_likelihood,
+        config.workflow.stage2_forward_mode,
+    )
+
+
+def _validate_smoothed_config(config: LensClusterSolverConfig) -> None:
+    workflow = config.workflow
+    if workflow.fit_mode != "sequential" or any(
+        mode != "smoothed-local-image-plane"
+        for mode in (workflow.stage0_likelihood, workflow.stage1_likelihood, workflow.stage2_forward_mode)
+    ):
+        raise ValueError("smoothed-local-image-plane requires the sequential workflow with all three stages using that likelihood.")
+    if config.likelihood.smoothed_likelihood_revision != SMOOTHED_LIKELIHOOD_REVISION:
+        raise ValueError("Unsupported smoothed_likelihood_revision; use a new run for the current algorithm.")
+    if workflow.source_position_parameterization not in {"likelihood-whitened", "direct"}:
+        raise ValueError("smoothed-local-image-plane requires likelihood-whitened or direct source positions.")
+    for mode, engine in (
+        (workflow.stage0_likelihood, "tiered_members"),
+        (workflow.stage1_likelihood, workflow.stage1_sampling_engine),
+        (workflow.stage2_forward_mode, workflow.stage2_sampling_engine),
+    ):
+        if mode == "smoothed-local-image-plane" and engine not in {"full_flat", "tiered_members"}:
+            raise ValueError("smoothed-local-image-plane requires tiered_members; surrogate caches are unsupported.")
+    if config.likelihood.use_magnitude_likelihood:
+        raise ValueError("smoothed-local-image-plane supports positions only; magnitude likelihood is unsupported.")
+    if config.model is not None and config.model.arc_constraints:
+        raise ValueError("smoothed-local-image-plane supports image positions only, without arc constraints.")
+    if config.likelihood.source_plane_covariance_floor not in (None, 0.0):
+        raise ValueError("smoothed-local-image-plane requires source_plane_covariance_floor=0.")
+    if config.runtime.dense_mass not in {"full", "diagonal", "lens-and-hyperparameters"}:
+        raise ValueError("Unsupported dense_mass setting for smoothed-local-image-plane.")
+    for name, prior in (
+        ("source_scatter_prior", config.likelihood.source_scatter_prior),
+        ("member_velocity_scatter_prior", config.scaling.member_velocity_scatter_prior),
+    ):
+        if not isinstance(prior, LogNormalPriorConfig):
+            raise ValueError(f"{name} must be a LogNormalPriorConfig.")
+        if not all(math.isfinite(float(value)) and float(value) > 0.0 for value in (prior.median, prior.log_sigma)):
+            raise ValueError(f"{name} median and log_sigma must be finite and positive.")
+    mean = config.likelihood.source_position_prior_mean_arcsec
+    if len(mean) != 2 or not all(math.isfinite(float(value)) for value in mean):
+        raise ValueError("source_position_prior_mean_arcsec requires two finite coordinates.")
+    sigma = config.likelihood.source_position_prior_sigma_arcsec
+    if not math.isfinite(float(sigma)) or sigma <= 0.0:
+        raise ValueError("source_position_prior_sigma_arcsec must be finite and positive.")
+    for name, value in asdict(config.member_tiers).items():
+        if name in {"top_sampled", "top_exact"}:
+            if value != "all" and value is not None and (isinstance(value, bool) or not isinstance(value, int) or value < 0):
+                raise ValueError(f"member_tiers.{name} must be a nonnegative integer, 'all', or None.")
+            continue
+        if not math.isfinite(float(value)) or not 0.0 < float(value) < 1.0:
+            raise ValueError(f"member_tiers.{name} must be finite and lie between zero and one.")
+
+
 def validate_config(config: LensClusterSolverConfig) -> None:
     from .output_paths import RESULTS_LAYOUT, validate_run_label
 
@@ -345,10 +442,17 @@ def validate_config(config: LensClusterSolverConfig) -> None:
         if config.workflow.fit_mode != "sequential":
             raise ValueError("results-v1 requires the sequential workflow")
     _validate_model_config(config.model)
+    if config.scaling.scaling_relation_mode != "velocity-radius-exponents":
+        raise ValueError("Only velocity-radius-exponents is supported. Start a fresh run with sampled beta_radius; alpha/gamma configurations cannot be resumed.")
     if isinstance(config.runtime.seed, bool) or not isinstance(config.runtime.seed, Integral) or int(config.runtime.seed) < 0:
         raise ValueError("seed must be a nonnegative integer.")
+    if config.runtime.cpu_threads_per_chain is not None:
+        from .cpu_runtime import _positive_integer
+        _positive_integer("cpu_threads_per_chain", config.runtime.cpu_threads_per_chain)
+        _positive_integer("chains", config.runtime.chains)
     workflow = config.workflow
-    flat_sampling_engines = {"full_flat", "refreshing_surrogate_flat"}
+    from .sampling_engines import SAMPLING_ENGINES, canonical_workflow_engines
+    flat_sampling_engines = set(SAMPLING_ENGINES)
     for field_name, value in (
         ("sampling_engine", workflow.sampling_engine),
         ("stage1_sampling_engine", workflow.stage1_sampling_engine),
@@ -356,25 +460,28 @@ def validate_config(config: LensClusterSolverConfig) -> None:
     ):
         if value not in flat_sampling_engines:
             raise ValueError(
-                f"{field_name} must be 'full_flat' or 'refreshing_surrogate_flat'; "
+                f"{field_name} must be one of {SAMPLING_ENGINES}; "
                 f"got {value!r}."
             )
-    stage_likelihoods = {"source", "local-jacobian", "critical-arc", "critical-arc-anisotropic"}
+    stage_likelihoods = {"source", "local-jacobian", "critical-arc", "critical-arc-anisotropic", "smoothed-local-image-plane"}
     if workflow.stage0_likelihood not in stage_likelihoods:
         raise ValueError(
             "stage0_likelihood must be 'source', 'local-jacobian', 'critical-arc', "
-            "or 'critical-arc-anisotropic'."
+            "'critical-arc-anisotropic', or 'smoothed-local-image-plane'."
         )
     if workflow.stage1_likelihood not in stage_likelihoods:
         raise ValueError(
             "stage1_likelihood must be 'source', 'local-jacobian', 'critical-arc', "
-            "or 'critical-arc-anisotropic'."
+            "'critical-arc-anisotropic', or 'smoothed-local-image-plane'."
         )
-    if workflow.stage2_forward_mode not in {"none", "linearized", "critical-arc", "critical-arc-anisotropic", "isotropic-latent-displacement"}:
+    if workflow.stage2_forward_mode not in {"none", "linearized", "critical-arc", "critical-arc-anisotropic", "isotropic-latent-displacement", "smoothed-local-image-plane"}:
         raise ValueError(
             "stage2_forward_mode must be 'none', 'linearized', 'critical-arc', "
-            "'critical-arc-anisotropic', or 'isotropic-latent-displacement'."
+            "'critical-arc-anisotropic', 'isotropic-latent-displacement', or 'smoothed-local-image-plane'."
         )
+    if _uses_smoothed_likelihood(config):
+        _validate_smoothed_config(config)
+    canonical_workflow_engines(asdict(workflow))
     if workflow.stage2_forward_mode == "isotropic-latent-displacement":
         from .latent_displacement import validate_settings
         engine = workflow.stage2_sampling_engine
@@ -382,6 +489,8 @@ def validate_config(config: LensClusterSolverConfig) -> None:
             engine = workflow.stage1_sampling_engine
         validate_settings(config.likelihood.latent_displacement_sigma_beta_arcsec,
                           engine, workflow.source_position_parameterization)
+    from .latent_displacement import validate_prior
+    validate_prior(config.likelihood.latent_displacement_sigma_beta_prior_log_sigma)
     schedule = config.schedule
     expected_stages = _expected_stage_count(workflow)
     expected_production_controls = _expected_production_control_count(workflow)
@@ -435,20 +544,28 @@ def validate_config(config: LensClusterSolverConfig) -> None:
         upper=config.scaling.potfile_alpha_sigma_prior_upper,
     )
     _validate_truncated_normal(
-        "potfile_gamma_ml_prior",
-        mean=config.scaling.potfile_gamma_ml_prior_mean,
-        std=config.scaling.potfile_gamma_ml_prior_std,
-        lower=config.scaling.potfile_gamma_ml_prior_lower,
-        upper=config.scaling.potfile_gamma_ml_prior_upper,
+        "potfile_beta_radius_prior",
+        mean=config.scaling.potfile_beta_radius_prior_mean,
+        std=config.scaling.potfile_beta_radius_prior_std,
+        lower=config.scaling.potfile_beta_radius_prior_lower,
+        upper=config.scaling.potfile_beta_radius_prior_upper,
     )
+    beta = config.scaling
+    if (not all(math.isfinite(v) for v in (beta.potfile_beta_radius_prior_mean,
+                                         beta.potfile_beta_radius_prior_std,
+                                         beta.potfile_beta_radius_prior_lower))
+            or math.isnan(beta.potfile_beta_radius_prior_upper)
+            or beta.potfile_beta_radius_prior_upper == -math.inf
+            or beta.potfile_beta_radius_prior_lower < 0.0):
+        raise ValueError("potfile_beta_radius_prior requires finite mean/std/lower, lower >= 0, and a finite or +infinite upper bound.")
     if config.scaling.independent_scaling_free_log_sigma_offset_width <= 0.0:
         raise ValueError("independent_scaling_free_log_sigma_offset_width must be positive.")
     if config.scaling.independent_scaling_free_log_mass_offset_width <= 0.0:
         raise ValueError("independent_scaling_free_log_mass_offset_width must be positive.")
     if config.truth.truth_grid_mode not in {"median", "posterior"}:
         raise ValueError("truth_grid_mode must be 'median' or 'posterior'.")
-    if config.truth.posterior_truth_recovery_draws is not None and int(config.truth.posterior_truth_recovery_draws) <= 0:
-        raise ValueError("posterior_truth_recovery_draws must be a positive integer or None.")
+    if config.truth.posterior_truth_recovery_draws is not None and int(config.truth.posterior_truth_recovery_draws) < 0:
+        raise ValueError("posterior_truth_recovery_draws must be a nonnegative integer or None.")
     if config.truth.truth_grid_size < 0:
         raise ValueError("truth_grid_size must be nonnegative.")
     likelihood = config.likelihood
@@ -570,8 +687,20 @@ def _validate_model_config(model: LensModelConfig | None) -> None:
     if model.image_constraints is not None:
         if not Path(model.image_constraints.catalog_path).is_file():
             raise ValueError(f"image constraint catalog does not exist: {model.image_constraints.catalog_path}")
-        if model.image_constraints.sigma_arcsec <= 0.0:
-            raise ValueError("image_constraints.sigma_arcsec must be positive.")
+        if not math.isfinite(float(model.image_constraints.sigma_arcsec)) or model.image_constraints.sigma_arcsec <= 0.0:
+            raise ValueError("image_constraints.sigma_arcsec must be finite and positive.")
+        floor = model.image_constraints.sigma_floor_arcsec
+        if not math.isfinite(float(floor)) or floor < 0.0:
+            raise ValueError("image_constraints.sigma_floor_arcsec must be finite and nonnegative.")
+        if model.image_constraints.metadata_path is not None:
+            from .lenstool_parser import _load_multiple_images_catalog
+            _load_multiple_images_catalog(
+                model.image_constraints.catalog_path,
+                (model.reference.reference, model.reference.ra0_deg, model.reference.dec0_deg),
+                metadata_path=model.image_constraints.metadata_path,
+                sigma_arcsec=model.image_constraints.sigma_arcsec,
+                sigma_floor_arcsec=model.image_constraints.sigma_floor_arcsec,
+            )
     for arcs in model.arc_constraints:
         if not Path(arcs.catalog_path).is_file():
             raise ValueError(f"arc constraint catalog does not exist: {arcs.catalog_path}")
@@ -654,7 +783,7 @@ def resolve_source_plane_covariance_floor(value: float | None, sample_likelihood
                                           # magnification: legacy determinant scaling; full-jacobian: full propagated covariance.
     source_plane_covariance_mode: str = "magnification") -> float:
     """Only opt-in full Jacobian propagation requires zero covariance floor."""
-    full = sample_likelihood_mode == "source" and source_plane_covariance_mode == "full-jacobian"
+    full = (sample_likelihood_mode == "source" and source_plane_covariance_mode == "full-jacobian") or sample_likelihood_mode == "smoothed-local-image-plane"
     if value is None:
         return 0.0 if full else 1.0e-6
     floor = float(value)

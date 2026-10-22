@@ -6,11 +6,11 @@ import numpy as np
 import pytest
 
 from lenscluster import cluster_solver as cs
-from test_validation import _minimal_stage4_surrogate_state
+from test_validation import _minimal_forward_surrogate_state
 
 
 def evaluator():
-    state = _minimal_stage4_surrogate_state()
+    state = _minimal_forward_surrogate_state()
     # Connect the selected parameter to a real cached halo, including a circular
     # shape: its polar angle has no derivative but its mass derivative does.
     state.parameter_specs[0] = replace(state.parameter_specs[0], lower=80., upper=160.)

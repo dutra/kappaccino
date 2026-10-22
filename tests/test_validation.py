@@ -158,7 +158,7 @@ def _fixed_potfile_scaling_config(
         "subhalo_cut_radius_mass_slope": 0.0,
         "subhalo_cut_radius_scatter_dex": 0.0,
         "subhalo_alpha_sigma_half_width": 0.0,
-        "subhalo_gamma_ml_half_width": 0.0,
+        "subhalo_beta_radius_half_width": 0.0,
     }
 
 
@@ -561,7 +561,6 @@ def test_caustic_config_from_truth_reads_legacy_min_distance_keys() -> None:
     assert restored_config.subhalo_seed_grid_pixel_arcsec == pytest.approx(1.0)
 
 
-
 def _jax_mock_test_config(**updates: Any) -> SingleBCGMockConfig:
     values = dict(
         **_fixed_large_component_mass_config(),
@@ -878,8 +877,8 @@ def test_single_bcg_mock_realizes_potfile_exponents_from_seed() -> None:
         n_subhalos=4,
         subhalo_alpha_sigma=0.25,
         subhalo_alpha_sigma_half_width=0.05,
-        subhalo_gamma_ml=0.0,
-        subhalo_gamma_ml_half_width=0.10,
+        subhalo_beta_radius=0.5,
+        subhalo_beta_radius_half_width=0.10,
     )
 
     realized = mock_generation._realize_potfile_exponents(config, np.random.default_rng(config.seed))
@@ -890,19 +889,19 @@ def test_single_bcg_mock_realizes_potfile_exponents_from_seed() -> None:
     )
 
     assert 0.20 <= realized.subhalo_alpha_sigma <= 0.30
-    assert -0.10 <= realized.subhalo_gamma_ml <= 0.10
+    assert 0.40 <= realized.subhalo_beta_radius <= 0.60
     assert realized.sampled_subhalo_alpha_sigma == pytest.approx(realized.subhalo_alpha_sigma)
-    assert realized.sampled_subhalo_gamma_ml == pytest.approx(realized.subhalo_gamma_ml)
+    assert realized.sampled_subhalo_beta_radius == pytest.approx(realized.subhalo_beta_radius)
     assert mock_generation._subhalo_beta_radius_from_config(realized) == pytest.approx(
-        1.0 + realized.subhalo_gamma_ml - 2.0 * realized.subhalo_alpha_sigma
+        realized.subhalo_beta_radius
     )
-    assert mock_generation._subhalo_mass_luminosity_exponent(realized) == pytest.approx(1.0 + realized.subhalo_gamma_ml)
+    assert mock_generation._subhalo_mass_luminosity_exponent(realized) == pytest.approx(2.0 * realized.subhalo_alpha_sigma + realized.subhalo_beta_radius)
     assert repeated.subhalo_alpha_sigma == pytest.approx(realized.subhalo_alpha_sigma)
-    assert repeated.subhalo_gamma_ml == pytest.approx(realized.subhalo_gamma_ml)
+    assert repeated.subhalo_beta_radius == pytest.approx(realized.subhalo_beta_radius)
     assert (
         changed.subhalo_alpha_sigma,
-        changed.subhalo_gamma_ml,
-    ) != pytest.approx((realized.subhalo_alpha_sigma, realized.subhalo_gamma_ml))
+        changed.subhalo_beta_radius,
+    ) != pytest.approx((realized.subhalo_alpha_sigma, realized.subhalo_beta_radius))
 
 
 def test_single_bcg_mock_fixed_potfile_exponents_do_not_advance_rng() -> None:
@@ -911,8 +910,8 @@ def test_single_bcg_mock_fixed_potfile_exponents_do_not_advance_rng() -> None:
         n_subhalos=4,
         subhalo_alpha_sigma=0.24,
         subhalo_alpha_sigma_half_width=0.0,
-        subhalo_gamma_ml=0.02,
-        subhalo_gamma_ml_half_width=0.0,
+        subhalo_beta_radius=0.02,
+        subhalo_beta_radius_half_width=0.0,
     )
     rng = np.random.default_rng(51)
     expected_next = np.random.default_rng(51).uniform()
@@ -920,9 +919,9 @@ def test_single_bcg_mock_fixed_potfile_exponents_do_not_advance_rng() -> None:
     realized = mock_generation._realize_potfile_exponents(config, rng)
 
     assert realized.subhalo_alpha_sigma == pytest.approx(0.24)
-    assert realized.subhalo_gamma_ml == pytest.approx(0.02)
+    assert realized.subhalo_beta_radius == pytest.approx(0.02)
     assert realized.sampled_subhalo_alpha_sigma == pytest.approx(0.24)
-    assert realized.sampled_subhalo_gamma_ml == pytest.approx(0.02)
+    assert realized.sampled_subhalo_beta_radius == pytest.approx(0.02)
     assert rng.uniform() == pytest.approx(expected_next)
 
 
@@ -2337,7 +2336,7 @@ def test_input_archive_copies_raw_text_inputs_and_manifest(tmp_path: Path) -> No
     member_path.write_text("members\n", encoding="utf-8")
     image_path.write_text("images\n", encoding="utf-8")
     arc_path.write_text("arcs\n", encoding="utf-8")
-    state = _minimal_stage4_surrogate_state()
+    state = _minimal_forward_surrogate_state()
     state.run_name = "archive_run"
     state.par_path = str(par_path)
     state.parsed = {
@@ -2389,7 +2388,7 @@ def test_input_archive_copies_raw_text_inputs_and_manifest(tmp_path: Path) -> No
 def test_input_archive_skips_config_native_par_sentinel(tmp_path: Path) -> None:
     image_path = tmp_path / "obs_arcs.cat"
     image_path.write_text("images\n", encoding="utf-8")
-    state = _minimal_stage4_surrogate_state()
+    state = _minimal_forward_surrogate_state()
     state.run_name = "archive_config_run"
     state.par_path = cluster_solver.CONFIG_NATIVE_PAR_SENTINEL
     state.parsed = {"image": {"multfile": [1, str(image_path)]}}
@@ -2421,7 +2420,7 @@ def test_input_archive_handles_duplicate_basenames_and_missing_optional_arc(tmp_
     first_member_path.write_text("first\n", encoding="utf-8")
     second_member_path.write_text("second\n", encoding="utf-8")
     image_path.write_text("image\n", encoding="utf-8")
-    state = _minimal_stage4_surrogate_state()
+    state = _minimal_forward_surrogate_state()
     state.run_name = "archive_duplicates"
     state.par_path = str(par_path)
     state.parsed = {"image": {"multfile": [1, "obs.cat"]}}
@@ -2644,7 +2643,7 @@ def test_generate_single_bcg_mock_with_subhalos_uses_potfile(tmp_path: Path) -> 
     assert selection["schechter_alpha"] == pytest.approx(config.subhalo_schechter_alpha)
     assert selection["luminosity_star"] == pytest.approx(1.0)
     assert selection["luminosity_peak"] == pytest.approx(config.subhalo_schechter_alpha + 1.0)
-    assert selection["mass_luminosity_exponent"] == pytest.approx(1.0 + realized_config.subhalo_gamma_ml)
+    assert selection["mass_luminosity_exponent"] == pytest.approx(2.0 * realized_config.subhalo_alpha_sigma + realized_config.subhalo_beta_radius)
     assert selection["max_member_theta_e_arcsec"] > 0.0
     assert selection["pos_sigma_arcsec"] == pytest.approx(config.pos_sigma_arcsec)
     assert math.isinf(selection["max_member_theta_e_over_pos_sigma"])
@@ -2659,15 +2658,15 @@ def test_generate_single_bcg_mock_with_subhalos_uses_potfile(tmp_path: Path) -> 
         float(realized_config.sampled_subhalo_dpie_mass_ref_msun)
     )
     assert truth["parameter_truth"]["potfile.alpha_sigma"] == pytest.approx(realized_config.subhalo_alpha_sigma)
-    assert truth["parameter_truth"]["potfile.gamma_ml"] == pytest.approx(realized_config.subhalo_gamma_ml)
+    assert truth["parameter_truth"]["potfile.gamma_ml"] == pytest.approx(2.0 * realized_config.subhalo_alpha_sigma + realized_config.subhalo_beta_radius - 1.0)
     assert truth["parameter_truth"]["potfile.beta_radius"] == pytest.approx(
         mock_generation._subhalo_beta_radius_from_config(realized_config)
     )
     assert truth["parameter_truth"]["potfile.sampled_alpha_sigma"] == pytest.approx(
         realized_config.sampled_subhalo_alpha_sigma
     )
-    assert truth["parameter_truth"]["potfile.sampled_gamma_ml"] == pytest.approx(
-        realized_config.sampled_subhalo_gamma_ml
+    assert truth["parameter_truth"]["potfile.sampled_beta_radius"] == pytest.approx(
+        realized_config.sampled_subhalo_beta_radius
     )
     assert "potfile.sigma_log_scatter" not in truth["parameter_truth"]
     assert "potfile.mass_log_scatter" not in truth["parameter_truth"]
@@ -2681,7 +2680,7 @@ def test_generate_single_bcg_mock_with_subhalos_uses_potfile(tmp_path: Path) -> 
     for row in truth["subhalos"]:
         luminosity = float(row["luminosity_ratio"])
         assert row["subhalo_dpie_mass_msun"] / selection["dpie_mass_anchor_msun"] == pytest.approx(
-            luminosity ** (1.0 + realized_config.subhalo_gamma_ml)
+            luminosity ** (2.0 * realized_config.subhalo_alpha_sigma + realized_config.subhalo_beta_radius)
         )
     assert selection["parent_count"] >= config.n_subhalos
     assert selection["selected_count"] == config.n_subhalos
@@ -2756,7 +2755,7 @@ def test_subhalo_schechter_luminosity_to_mass_conversion_uses_dpie_scaling() -> 
     mags = mock_generation._subhalo_magnitude_from_luminosity_ratio(luminosities, config)
 
     assert config.subhalo_alpha_sigma == pytest.approx(0.25)
-    assert config.subhalo_gamma_ml == pytest.approx(0.0)
+    assert config.subhalo_beta_radius == pytest.approx(0.5)
     assert mock_generation._subhalo_beta_radius_from_config(config) == pytest.approx(0.50)
     assert exponent == pytest.approx(1.0)
     assert masses[0] == pytest.approx(config.subhalo_mass_ref)
@@ -2872,16 +2871,16 @@ def test_subhalo_spatial_dpie_is_broader_than_compact_gamma() -> None:
         ({"mock_caustic_grid_chunk_memory_gb": float("nan")}, "mock_caustic_grid_chunk_memory_gb"),
         ({"mock_caustic_grid_chunk_memory_gb": float("inf")}, "mock_caustic_grid_chunk_memory_gb"),
         ({"subhalo_alpha_sigma": float("nan")}, "subhalo_alpha_sigma"),
-        ({"subhalo_gamma_ml": float("nan")}, "subhalo_gamma_ml"),
+        ({"subhalo_beta_radius": float("nan")}, "subhalo_beta_radius"),
         ({"subhalo_alpha_sigma_half_width": -0.1}, "subhalo_alpha_sigma_half_width"),
-        ({"subhalo_gamma_ml_half_width": float("nan")}, "subhalo_gamma_ml_half_width"),
+        ({"subhalo_beta_radius_half_width": float("nan")}, "subhalo_beta_radius_half_width"),
         (
-            {"subhalo_alpha_sigma": 0.49, "subhalo_alpha_sigma_half_width": 0.02, "subhalo_gamma_ml": 0.0},
-            "alpha/gamma windows",
+            {"subhalo_alpha_sigma": 0.49, "subhalo_alpha_sigma_half_width": 0.02, "subhalo_beta_radius": 0.0},
+            "beta_radius window",
         ),
         ({"sampled_subhalo_alpha_sigma": float("nan")}, "sampled_subhalo_alpha_sigma"),
-        ({"sampled_subhalo_gamma_ml": float("nan")}, "sampled_subhalo_gamma_ml"),
-        ({"subhalo_alpha_sigma": 0.6, "subhalo_gamma_ml": 0.0}, "nonpositive beta_radius"),
+        ({"sampled_subhalo_beta_radius": float("nan")}, "sampled_subhalo_beta_radius"),
+        ({"subhalo_alpha_sigma": 0.6, "subhalo_beta_radius": 0.0}, "negative beta_radius"),
         ({"source_magnitude_min": float("nan")}, "source_magnitude_min/source_magnitude_max"),
         ({"source_magnitude_max": float("inf")}, "source_magnitude_min/source_magnitude_max"),
         ({"source_magnitude_min": 27.0, "source_magnitude_max": 27.0}, "source_magnitude_min/source_magnitude_max"),
@@ -2955,9 +2954,9 @@ def test_subhalo_spatial_invalid_config_raises(updates: dict[str, Any], message:
         SingleBCGMockConfig(n_primary_families=1, **updates).validate()
 
 
-def test_caustic_config_from_truth_rejects_legacy_subhalo_beta_radius() -> None:
+def test_caustic_config_from_truth_rejects_sampled_gamma() -> None:
     with pytest.raises(ValueError, match="subhalo_beta_radius"):
-        mock_generation._caustic_config_from_truth({"config": {"subhalo_beta_radius": 0.5}})
+        mock_generation._caustic_config_from_truth({"config": {"subhalo_gamma_ml": 0.0}})
 
 
 def test_subhalo_spatial_config_round_trips_from_truth() -> None:
@@ -3041,10 +3040,10 @@ def test_subhalo_spatial_config_round_trips_from_truth() -> None:
             subhalo_cut_radius_prior_fractional_half_width=0.09,
             subhalo_alpha_sigma=0.22,
             subhalo_alpha_sigma_half_width=0.03,
-            subhalo_gamma_ml=0.04,
-            subhalo_gamma_ml_half_width=0.06,
+            subhalo_beta_radius=0.04,
+            subhalo_beta_radius_half_width=0.06,
             sampled_subhalo_alpha_sigma=0.23,
-            sampled_subhalo_gamma_ml=0.02,
+            sampled_subhalo_beta_radius=0.02,
             source_magnitude_min=23.5,
             source_magnitude_max=26.5,
             image_magnitude_sigma_mag=0.12,
@@ -3083,10 +3082,10 @@ def test_subhalo_spatial_config_round_trips_from_truth() -> None:
     assert config.subhalo_cut_radius_prior_fractional_half_width == pytest.approx(0.09)
     assert config.subhalo_alpha_sigma == pytest.approx(0.22)
     assert config.subhalo_alpha_sigma_half_width == pytest.approx(0.03)
-    assert config.subhalo_gamma_ml == pytest.approx(0.04)
-    assert config.subhalo_gamma_ml_half_width == pytest.approx(0.06)
+    assert config.subhalo_beta_radius == pytest.approx(0.04)
+    assert config.subhalo_beta_radius_half_width == pytest.approx(0.06)
     assert config.sampled_subhalo_alpha_sigma == pytest.approx(0.23)
-    assert config.sampled_subhalo_gamma_ml == pytest.approx(0.02)
+    assert config.sampled_subhalo_beta_radius == pytest.approx(0.02)
     assert config.halo.x_centre == pytest.approx(4.2)
     assert config.halo.y_centre == pytest.approx(-3.1)
     assert config.bcg.x_centre == pytest.approx(4.8)
@@ -3190,11 +3189,11 @@ def test_recovered_subhalo_mass_table_uses_recovered_scaling_parameters() -> Non
         sigma_ref_base=np.asarray([0.0, 245.0, 245.0], dtype=float),
         cut_ref_base=np.asarray([0.0, 40.0, 40.0], dtype=float),
         alpha_sigma_base=np.asarray([0.0, 0.25, 0.25], dtype=float),
-        gamma_ml_base=np.asarray([0.0, 0.0, 0.0], dtype=float),
+        beta_radius_base=np.asarray([0.5, 0.5, 0.5], dtype=float),
         sigma_ref_param_index=np.asarray([-1, 0, 0], dtype=int),
         cut_ref_param_index=np.asarray([-1, 1, 1], dtype=int),
         alpha_sigma_param_index=np.asarray([-1, 2, 2], dtype=int),
-        gamma_ml_param_index=np.asarray([-1, 3, 3], dtype=int),
+        beta_radius_param_index=np.asarray([-1, 3, 3], dtype=int),
     )
     state = SimpleNamespace(
         packed_lens_spec=packed,
@@ -3219,8 +3218,8 @@ def test_recovered_subhalo_mass_table_uses_recovered_scaling_parameters() -> Non
 
     # Recovered masses are physical dPIE masses of the fitted member profiles:
     # sigma_i = sigma_ref_fit * L^alpha_fit, cut_i = cut_ref_fit * L^beta_fit,
-    # with beta = 1 + gamma_ml - 2*alpha.
-    beta = 1.0 + 0.60 - 2.0 * 0.30
+    # beta is sampled directly.
+    beta = 0.60
     assert table["catalog_id"].tolist() == ["member001", "member002"]
     assert table["recovered_subhalo_mass_msun"].tolist() == pytest.approx(
         [
@@ -4497,7 +4496,7 @@ def test_m2d_model_groups_apply_scaling_and_promoted_offsets() -> None:
         "bcg.v_disp": 285.0, "bcg.core_radius_kpc": 0.8, "bcg.cut_radius_kpc": 187.0,
         "bcg.x_centre": 0.35, "bcg.y_centre": -0.22,
         "potfile.sigma": 245.0, "potfile.cutkpc": 187.0, "potfile.corekpc": 0.8,
-        "potfile.alpha_sigma": 0.25, "potfile.gamma_ml": 0.1,
+        "potfile.alpha_sigma": 0.25, "potfile.beta_radius": 0.6,
         "potfile.member002.independent_free_log_sigma_delta_unit": 1.0,
         "potfile.member002.independent_free_log_mass_delta_unit": -0.5,
     }
@@ -5638,7 +5637,7 @@ def test_conditional_reported_physical_to_latent_cache_keys_non_source_state() -
     assert evaluator.reported_calls == 6
 
 
-def _minimal_stage4_surrogate_state(
+def _minimal_forward_surrogate_state(
     *,
     fit_cosmology_flat_wcdm: bool = False,
     include_source_positions: bool = False,
@@ -6232,7 +6231,7 @@ def test_perturbation_discovery_top_k_breaks_ties_by_candidate_order() -> None:
 
 
 def _minimal_active_gate_state() -> BuildState:
-    state = _minimal_stage4_surrogate_state()
+    state = _minimal_forward_surrogate_state()
     potfiles = [
         {
             "id": "members",
@@ -6295,7 +6294,7 @@ def _minimal_active_gate_state() -> BuildState:
 
 
 def test_active_scaling_gate_specs_append_after_ordinary_specs() -> None:
-    state = _minimal_stage4_surrogate_state()
+    state = _minimal_forward_surrogate_state()
     records = [
         {
             "potfile_id": "members",
@@ -6719,9 +6718,9 @@ def test_resume_active_scaling_summary_skips_missing_or_empty_diagnostics(tmp_pa
 
 
 def test_load_frozen_active_scaling_from_previous_stage_maps_by_catalog_identity(tmp_path: Path) -> None:
-    state = _stage4_state_with_independent_and_inactive_scaling()
-    stage3_dir = tmp_path / "fit" / "stage3_image_plane"
-    tables_dir = stage3_dir / "tables"
+    state = _forward_state_with_independent_and_inactive_scaling()
+    stage1_dir = tmp_path / "fit" / "stage1_backprojected_centroid_fit"
+    tables_dir = stage1_dir / "tables"
     tables_dir.mkdir(parents=True)
     pd.DataFrame(
         {
@@ -6732,7 +6731,7 @@ def test_load_frozen_active_scaling_from_previous_stage_maps_by_catalog_identity
         }
     ).to_csv(tables_dir / "active_scaling_diagnostics.csv", index=False)
 
-    frozen_indices, diagnostics = cluster_solver._load_frozen_active_scaling_from_previous_stage(stage3_dir, state)
+    frozen_indices, diagnostics = cluster_solver._load_frozen_active_scaling_from_previous_stage(stage1_dir, state)
 
     assert frozen_indices.tolist() == [3]
     assert diagnostics["source"] == "diagnostics_csv"
@@ -6741,19 +6740,19 @@ def test_load_frozen_active_scaling_from_previous_stage_maps_by_catalog_identity
 
 
 def test_previous_stage_frozen_active_scaling_missing_split_has_actionable_error(tmp_path: Path) -> None:
-    state = _stage4_state_with_independent_and_inactive_scaling()
+    state = _forward_state_with_independent_and_inactive_scaling()
 
     with pytest.raises(ValueError, match="Stage 4 must reuse a frozen active-scaling split"):
         cluster_solver._apply_previous_stage_frozen_active_scaling(
             argparse.Namespace(quiet=True),
             state,
-            tmp_path / "fit" / "stage3_image_plane",
+            tmp_path / "fit" / "stage1_backprojected_centroid_fit",
             require_frozen_active_scaling=True,
         )
 
 
 def test_independent_scaling_candidates_are_active_and_not_inactive_surrogate() -> None:
-    state = _minimal_stage4_surrogate_state()
+    state = _minimal_forward_surrogate_state()
     state = replace(
         state,
         potfiles=[{"id": "members", "mag0": 20.0}],
@@ -6852,12 +6851,12 @@ def _single_independent_branch_evaluator() -> cluster_solver.ClusterJAXEvaluator
         cut_ref_base=np.asarray([20.0, 0.0], dtype=float),
         core_ref_base=np.asarray([1.0, 0.0], dtype=float),
         alpha_sigma_base=np.asarray([0.25, 0.0], dtype=float),
-        gamma_ml_base=np.asarray([0.0, 0.0], dtype=float),
+        beta_radius_base=np.asarray([0.5, 0.5], dtype=float),
         sigma_ref_param_index=int_missing.copy(),
         cut_ref_param_index=int_missing.copy(),
         core_ref_param_index=int_missing.copy(),
         alpha_sigma_param_index=int_missing.copy(),
-        gamma_ml_param_index=int_missing.copy(),
+        beta_radius_param_index=int_missing.copy(),
         sigma_log_scatter_param_index=int_missing.copy(),
         mass_log_scatter_param_index=int_missing.copy(),
         independent_branch_role=np.asarray(
@@ -6966,17 +6965,17 @@ def test_packed_lens_state_non_scaling_cut_is_excess_above_effective_core() -> N
     assert np.asarray(details.rs_raw)[1] > np.asarray(details.ra_raw)[1]
 
 
-def test_packed_lens_state_gamma_ml_controls_size_exponent() -> None:
+def test_packed_lens_state_beta_radius_controls_size_exponent() -> None:
     evaluator = _single_independent_branch_evaluator()
     packed_spec = evaluator.state.packed_lens_spec
     packed_spec.luminosity_ratio[0] = 4.0
     packed_spec.alpha_sigma_base = np.full(2, 0.25, dtype=float)
-    packed_spec.gamma_ml_base = np.full(2, 0.0, dtype=float)
+    packed_spec.beta_radius_base = np.full(2, 0.5, dtype=float)
     packed_spec.alpha_sigma_param_index = np.asarray([0, -1], dtype=np.int32)
-    packed_spec.gamma_ml_param_index = np.asarray([1, -1], dtype=np.int32)
+    packed_spec.beta_radius_param_index = np.asarray([1, -1], dtype=np.int32)
     evaluator.packed_spec_jax = cluster_solver.ClusterJAXEvaluator._prepare_packed_spec_arrays(evaluator)
 
-    physical_params = jnp.asarray([0.25, 0.2, 200.0, 2.0, 50.0, 1.0e-8], dtype=jnp.float64)
+    physical_params = jnp.asarray([0.25, 0.7, 200.0, 2.0, 50.0, 1.0e-8], dtype=jnp.float64)
     packed_state, details = evaluator._build_packed_lens_state_details_from_physical(
         physical_params,
         2.0,
@@ -7244,7 +7243,7 @@ def test_independent_branch_weights_follow_deterministic_branch_roles() -> None:
 
 
 def _minimal_two_bin_local_jacobian_state() -> BuildState:
-    state = _minimal_stage4_surrogate_state()
+    state = _minimal_forward_surrogate_state()
     family1 = state.family_data[0]
     bin1 = state.bin_data[0]
     family2 = FamilyData(
@@ -7383,9 +7382,9 @@ def _exact_per_bin_local_jacobian_loglike(
     return jnp.where(invalid_seen, jnp.asarray(cluster_solver.BAD_LOG_LIKE, dtype=jnp.float64), total)
 
 
-def test_critical_arc_stage4_refreshing_surrogate_enables() -> None:
+def test_critical_arc_forward_refreshing_surrogate_enables() -> None:
     evaluator = cluster_solver.ClusterJAXEvaluator(
-        state=_minimal_stage4_surrogate_state(),
+        state=_minimal_forward_surrogate_state(),
         match_tolerance_arcsec=0.1,
         sampling_engine="refreshing_surrogate_flat",
         sample_likelihood_mode=SAMPLE_LIKELIHOOD_CRITICAL_ARC_MIXTURE_IMAGE_PLANE,
@@ -7397,7 +7396,7 @@ def test_critical_arc_stage4_refreshing_surrogate_enables() -> None:
 
 
 def test_refreshing_surrogate_flat_builds_flat_cache() -> None:
-    state = _minimal_stage4_surrogate_state()
+    state = _minimal_forward_surrogate_state()
     evaluator = cluster_solver.ClusterJAXEvaluator(
         state=state,
         match_tolerance_arcsec=0.1,
@@ -7415,8 +7414,8 @@ def test_refreshing_surrogate_flat_builds_flat_cache() -> None:
     )
 
 
-def _stage4_state_with_independent_and_inactive_scaling() -> BuildState:
-    state = _minimal_stage4_surrogate_state()
+def _forward_state_with_independent_and_inactive_scaling() -> BuildState:
+    state = _minimal_forward_surrogate_state()
     packed = state.packed_lens_spec
     append_values = {
         "profile_type": [cluster_solver.DP_IE_PROFILE, cluster_solver.DP_IE_PROFILE],
@@ -7530,8 +7529,8 @@ def _stage4_state_with_independent_and_inactive_scaling() -> BuildState:
     )
 
 
-def _stage4_state_with_all_scaling_selected_independent() -> BuildState:
-    state = _stage4_state_with_independent_and_inactive_scaling()
+def _forward_state_with_all_scaling_selected_independent() -> BuildState:
+    state = _forward_state_with_independent_and_inactive_scaling()
     records = [dict(record) for record in state.scaling_component_records]
     for record in records:
         record["selected_independent"] = True
@@ -7623,7 +7622,7 @@ def test_scalar_index_block_nuts_once_updates_only_selected_indices() -> None:
 
 
 def test_refreshing_surrogate_flat_keeps_independent_scaling_exact() -> None:
-    state = _stage4_state_with_independent_and_inactive_scaling()
+    state = _forward_state_with_independent_and_inactive_scaling()
     evaluator = cluster_solver.ClusterJAXEvaluator(
         state=state,
         match_tolerance_arcsec=0.1,
@@ -7691,7 +7690,7 @@ def test_refreshing_surrogate_flat_keeps_independent_scaling_exact() -> None:
 def test_truth_grid_jax_bulk_uses_trace_safe_real_evaluator_packed_state(tmp_path: Path) -> None:
     from astropy.wcs import WCS
 
-    state = _stage4_state_with_independent_and_inactive_scaling()
+    state = _forward_state_with_independent_and_inactive_scaling()
     evaluator = cluster_solver.ClusterJAXEvaluator(
         state=state,
         match_tolerance_arcsec=0.1,
@@ -7735,7 +7734,7 @@ def test_truth_grid_jax_bulk_uses_trace_safe_real_evaluator_packed_state(tmp_pat
 
 
 def test_stage0_full_flat_initial_state_has_no_free_candidates() -> None:
-    state = replace(_minimal_stage4_surrogate_state(), perturbation_discovery_stage0=True)
+    state = replace(_minimal_forward_surrogate_state(), perturbation_discovery_stage0=True)
     evaluator = cluster_solver.ClusterJAXEvaluator(
         state=state,
         match_tolerance_arcsec=0.1,
@@ -7793,7 +7792,7 @@ def test_transfer_theta_and_posterior_by_sample_name_initializes_new_parameters(
 
 @pytest.mark.parametrize("sample_likelihood_mode", [SAMPLE_LIKELIHOOD_SOURCE, SAMPLE_LIKELIHOOD_LOCAL_JACOBIAN])
 def test_stage0_full_flat_matches_full_flat_value_and_gradient_for_all_independent(sample_likelihood_mode: str) -> None:
-    state = _stage4_state_with_all_scaling_selected_independent()
+    state = _forward_state_with_all_scaling_selected_independent()
     full = cluster_solver.ClusterJAXEvaluator(
         state=state,
         match_tolerance_arcsec=0.1,
@@ -7826,7 +7825,7 @@ def test_stage0_full_flat_matches_full_flat_value_and_gradient_for_all_independe
 
 
 def test_perturbation_discovery_source_matches_full_flat_value_and_gradient() -> None:
-    state = _minimal_stage4_surrogate_state()
+    state = _minimal_forward_surrogate_state()
     full = cluster_solver.ClusterJAXEvaluator(
         state=state,
         match_tolerance_arcsec=0.1,
@@ -7860,7 +7859,7 @@ def test_perturbation_discovery_source_matches_full_flat_value_and_gradient() ->
 
 
 def test_stage0_full_flat_source_magnification_covariance_does_not_require_metric_cache() -> None:
-    state = _minimal_stage4_surrogate_state()
+    state = _minimal_forward_surrogate_state()
     evaluator = cluster_solver.ClusterJAXEvaluator(
         state=state,
         match_tolerance_arcsec=0.1,
@@ -7882,7 +7881,7 @@ def test_stage0_full_flat_source_magnification_covariance_does_not_require_metri
 
 
 def test_perturbation_discovery_local_jacobian_matches_full_flat_value_and_gradient() -> None:
-    state = _minimal_stage4_surrogate_state()
+    state = _minimal_forward_surrogate_state()
     full = cluster_solver.ClusterJAXEvaluator(
         state=state,
         match_tolerance_arcsec=0.1,
@@ -8132,7 +8131,7 @@ def test_scaling_scatter_disabled_when_no_cached_scaling_components() -> None:
 
 
 def test_refreshing_surrogate_flat_accepts_critical_arc_and_builds_jacobian_cache() -> None:
-    state = _minimal_stage4_surrogate_state(include_source_positions=True)
+    state = _minimal_forward_surrogate_state(include_source_positions=True)
     evaluator = cluster_solver.ClusterJAXEvaluator(
         state=state,
         match_tolerance_arcsec=0.1,
@@ -8149,7 +8148,7 @@ def test_refreshing_surrogate_flat_accepts_critical_arc_and_builds_jacobian_cach
 def test_refreshing_surrogate_flat_rejects_still_unsupported_likelihood_mode() -> None:
     with pytest.raises(ValueError, match="refreshing_surrogate_flat.*does not yet support"):
         cluster_solver.ClusterJAXEvaluator(
-            state=_minimal_stage4_surrogate_state(include_source_positions=True),
+            state=_minimal_forward_surrogate_state(include_source_positions=True),
             match_tolerance_arcsec=0.1,
             sampling_engine="refreshing_surrogate_flat",
             sample_likelihood_mode=SAMPLE_LIKELIHOOD_FOLD_REGULARIZED_FORWARD_BETA_IMAGE_PLANE,
@@ -8158,7 +8157,7 @@ def test_refreshing_surrogate_flat_rejects_still_unsupported_likelihood_mode() -
 
 def test_full_flat_critical_arc_flat_data_packs_images_and_source_indices() -> None:
     evaluator = cluster_solver.ClusterJAXEvaluator(
-        state=_minimal_stage4_surrogate_state(include_source_positions=True),
+        state=_minimal_forward_surrogate_state(include_source_positions=True),
         match_tolerance_arcsec=0.1,
         sampling_engine="full_flat",
         sample_likelihood_mode=SAMPLE_LIKELIHOOD_CRITICAL_ARC_MIXTURE_IMAGE_PLANE,
@@ -8179,7 +8178,7 @@ def test_full_flat_critical_arc_flat_data_packs_images_and_source_indices() -> N
 def test_full_flat_rejects_unsupported_likelihood_mode() -> None:
     with pytest.raises(ValueError, match="full_flat"):
         cluster_solver.ClusterJAXEvaluator(
-            state=_minimal_stage4_surrogate_state(include_source_positions=True),
+            state=_minimal_forward_surrogate_state(include_source_positions=True),
             match_tolerance_arcsec=0.1,
             sampling_engine="full_flat",
             sample_likelihood_mode=SAMPLE_LIKELIHOOD_FOLD_REGULARIZED_FORWARD_BETA_IMAGE_PLANE,
@@ -8244,7 +8243,7 @@ def test_full_flat_source_unit_covariance_uses_identity_metric_cache() -> None:
 
 
 def test_full_flat_critical_arc_matches_full_direct_source_positions() -> None:
-    state = _minimal_stage4_surrogate_state(include_source_positions=True)
+    state = _minimal_forward_surrogate_state(include_source_positions=True)
     full = cluster_solver.ClusterJAXEvaluator(
         state=state,
         match_tolerance_arcsec=0.1,
@@ -8273,7 +8272,7 @@ def test_full_flat_critical_arc_matches_full_direct_source_positions() -> None:
 
 
 def test_full_flat_combined_exact_helper_matches_separate_bulk_calls() -> None:
-    state = _minimal_stage4_surrogate_state()
+    state = _minimal_forward_surrogate_state()
     packed = state.packed_lens_spec
     state.packed_lens_spec = replace(
         packed,
@@ -8319,7 +8318,7 @@ def test_full_flat_combined_exact_helper_matches_separate_bulk_calls() -> None:
 
 
 def test_full_flat_sparse_pair_alpha_jacobian_matches_rectangular_rows() -> None:
-    state = _minimal_stage4_surrogate_state()
+    state = _minimal_forward_surrogate_state()
     packed = state.packed_lens_spec
     state.packed_lens_spec = replace(
         packed,
@@ -8375,7 +8374,7 @@ def test_full_flat_sparse_pair_alpha_jacobian_matches_rectangular_rows() -> None
 
 
 def test_full_flat_alpha_only_component_rows_match_alpha_jacobian_rows() -> None:
-    state = _minimal_stage4_surrogate_state()
+    state = _minimal_forward_surrogate_state()
     packed = state.packed_lens_spec
     state.packed_lens_spec = replace(
         packed,
@@ -8570,9 +8569,9 @@ def test_lens_model_bulk_accepts_per_image_sigma0_matrix() -> None:
     np.testing.assert_allclose(np.asarray(flat_hessian), np.asarray(separate_hessian).T, rtol=1.0e-5, atol=1.0e-5)
 
 
-def test_critical_arc_stage4_explicit_image_presence_penalty_is_honored() -> None:
+def test_critical_arc_forward_explicit_image_presence_penalty_is_honored() -> None:
     evaluator = cluster_solver.ClusterJAXEvaluator(
-        state=_minimal_stage4_surrogate_state(),
+        state=_minimal_forward_surrogate_state(),
         match_tolerance_arcsec=0.1,
         sampling_engine="refreshing_surrogate_flat",
         sample_likelihood_mode=SAMPLE_LIKELIHOOD_CRITICAL_ARC_MIXTURE_IMAGE_PLANE,
@@ -8726,7 +8725,7 @@ def test_packed_lens_spec_converts_fixed_shear_to_gamma1gamma2_base() -> None:
 
 
 def test_packed_lens_state_uses_direct_gamma1gamma2_for_shear() -> None:
-    state = _minimal_stage4_surrogate_state()
+    state = _minimal_forward_surrogate_state()
     state.packed_lens_spec.profile_type[:] = np.asarray([cluster_solver.DP_IE_PROFILE, cluster_solver.SHEAR_PROFILE])
     state.packed_lens_spec.component_family[:] = np.asarray([0, 0])
     state.packed_lens_spec.gamma1_base[:] = np.asarray([0.0, 0.01], dtype=float)
@@ -9080,7 +9079,7 @@ def test_refreshing_surrogate_flat_local_jacobian_does_not_request_inactive_jaco
 
 def test_run_summary_stage_fit_quality_table_formats_point_arc_and_missing_sampler_metrics() -> None:
     source_summary = {
-        "run_name": "mock/stage3_image_plane",
+        "run_name": "mock/stage1_backprojected_centroid_fit",
         "sampler": "numpyro_nuts",
         "sample_likelihood_mode": SAMPLE_LIKELIHOOD_SOURCE,
         "observed_image_count": 4,
@@ -9099,7 +9098,7 @@ def test_run_summary_stage_fit_quality_table_formats_point_arc_and_missing_sampl
     }
     source_text = cluster_solver._format_stage_fit_quality_table(source_summary)
 
-    assert source_text.startswith("[stage-fit-quality] stage3_image_plane")
+    assert source_text.startswith("[stage-fit-quality] stage1_backprojected_centroid_fit")
     assert "| point recovered images | 3/4 |" in source_text
     assert "| point RMS residual arcsec | 0.42 |" in source_text
     assert "| point median residual arcsec | 0.31 |" in source_text
@@ -9108,7 +9107,7 @@ def test_run_summary_stage_fit_quality_table_formats_point_arc_and_missing_sampl
 
     arc_summary = {
         **source_summary,
-        "run_name": "mock/stage4_critical_arc_mixture_image_plane",
+        "run_name": "mock/stage2_free_source_forward_fit",
         "sample_likelihood_mode": SAMPLE_LIKELIHOOD_CRITICAL_ARC_MIXTURE_IMAGE_PLANE,
         "arc_aware_recovered_image_count": 4,
         "arc_aware_arc_supported_image_count": 1,
@@ -9923,7 +9922,7 @@ def test_critical_arc_magnification_fold_bounds_tangential_gradient_on_critical(
 
 @pytest.mark.parametrize("lambda_min", [1.0e-2, 1.0e-4, 1.0e-6, 1.0e-8, 1.0e-12])
 def test_critical_arc_gating_gradient_does_not_explode_through_singular_min(lambda_min: float) -> None:
-    # Regression: stage4 SVI init failed ("Cannot find valid initial parameters") because the
+    # Regression: forward SVI init failed ("Cannot find valid initial parameters") because the
     # geometric gating (fold + arc_prob) is differentiated through singular_min = sqrt(lambda_min),
     # whose 1/singular_min slope in the transition zone made d(loglike)/d(lambda_min) spike to
     # ~1e6 per image and overflow numpyro's init check. The gating is detached (stop_gradient),
@@ -11610,22 +11609,22 @@ def test_scaling_parameter_specs_use_direct_exponent_mode_only() -> None:
     ]
     specs, param_indices, _ = cluster_solver._build_scaling_parameter_specs(potfiles, kpc_per_arcsec=10.0)
 
-    assert {"alpha_sigma", "gamma_ml"} <= {spec.field for spec in specs}
-    assert {"vdslope", "slope", "beta_radius"}.isdisjoint({spec.field for spec in specs})
+    assert {"alpha_sigma", "beta_radius"} <= {spec.field for spec in specs}
+    assert {"vdslope", "slope", "gamma_ml"}.isdisjoint({spec.field for spec in specs})
 
     alpha_spec = specs[param_indices[0]["alpha_sigma"]]
-    gamma_spec = specs[param_indices[0]["gamma_ml"]]
+    beta_spec = specs[param_indices[0]["beta_radius"]]
     assert alpha_spec.mean == pytest.approx(cluster_solver.DEFAULT_SOLVER_POTFILE_ALPHA_SIGMA_MEAN)
     assert alpha_spec.std == pytest.approx(cluster_solver.DEFAULT_SOLVER_POTFILE_ALPHA_SIGMA_STD)
     assert alpha_spec.lower == pytest.approx(cluster_solver.DEFAULT_SOLVER_POTFILE_ALPHA_SIGMA_LOWER)
     assert alpha_spec.upper == pytest.approx(cluster_solver.DEFAULT_SOLVER_POTFILE_ALPHA_SIGMA_UPPER)
-    assert gamma_spec.mean == pytest.approx(cluster_solver.DEFAULT_SOLVER_POTFILE_GAMMA_ML_MEAN)
-    assert gamma_spec.std == pytest.approx(cluster_solver.DEFAULT_SOLVER_POTFILE_GAMMA_ML_STD)
-    assert gamma_spec.lower == pytest.approx(cluster_solver.DEFAULT_SOLVER_POTFILE_GAMMA_ML_LOWER)
-    assert gamma_spec.upper == pytest.approx(cluster_solver.DEFAULT_SOLVER_POTFILE_GAMMA_ML_UPPER)
+    assert beta_spec.mean == pytest.approx(cluster_solver.DEFAULT_SOLVER_POTFILE_BETA_RADIUS_MEAN)
+    assert beta_spec.std == pytest.approx(cluster_solver.DEFAULT_SOLVER_POTFILE_BETA_RADIUS_STD)
+    assert beta_spec.lower == pytest.approx(cluster_solver.DEFAULT_SOLVER_POTFILE_BETA_RADIUS_LOWER)
+    assert beta_spec.upper == pytest.approx(cluster_solver.DEFAULT_SOLVER_POTFILE_BETA_RADIUS_UPPER)
 
 
-def test_scaling_parameter_specs_use_configured_alpha_gamma_priors() -> None:
+def test_scaling_parameter_specs_use_configured_alpha_beta_priors() -> None:
     potfiles = [
         {
             "id": "members",
@@ -11643,22 +11642,22 @@ def test_scaling_parameter_specs_use_configured_alpha_gamma_priors() -> None:
         alpha_sigma_prior_std=0.08,
         alpha_sigma_prior_lower=0.05,
         alpha_sigma_prior_upper=0.50,
-        gamma_ml_prior_mean=-0.05,
-        gamma_ml_prior_std=0.25,
-        gamma_ml_prior_lower=-0.80,
-        gamma_ml_prior_upper=0.80,
+        beta_radius_prior_mean=0.55,
+        beta_radius_prior_std=0.25,
+        beta_radius_prior_lower=0.0,
+        beta_radius_prior_upper=0.80,
     )
 
     alpha_spec = specs[param_indices[0]["alpha_sigma"]]
-    gamma_spec = specs[param_indices[0]["gamma_ml"]]
+    beta_spec = specs[param_indices[0]["beta_radius"]]
     assert alpha_spec.mean == pytest.approx(0.24)
     assert alpha_spec.std == pytest.approx(0.08)
     assert alpha_spec.lower == pytest.approx(0.05)
     assert alpha_spec.upper == pytest.approx(0.50)
-    assert gamma_spec.mean == pytest.approx(-0.05)
-    assert gamma_spec.std == pytest.approx(0.25)
-    assert gamma_spec.lower == pytest.approx(-0.80)
-    assert gamma_spec.upper == pytest.approx(0.80)
+    assert beta_spec.mean == pytest.approx(0.55)
+    assert beta_spec.std == pytest.approx(0.25)
+    assert beta_spec.lower == pytest.approx(0.0)
+    assert beta_spec.upper == pytest.approx(0.80)
 
 
 def _log_uniform_image_plane_scatter_spec(floor_arcsec: float = 0.1, upper_arcsec: float = 0.5) -> ParameterSpec:
@@ -11929,8 +11928,36 @@ def test_sampler_debug_extra_fields_are_flag_gated() -> None:
 
     assert default_fields == ("accept_prob", "diverging", "num_steps", "potential_energy")
     assert "energy" in debug_fields
-    assert "adapt_state.step_size" in debug_fields
-    assert "adapt_state.inverse_mass_matrix" in debug_fields
+    assert "adapt_state.step_size" not in debug_fields
+    assert "adapt_state.inverse_mass_matrix" not in debug_fields
+
+
+@pytest.mark.parametrize("n_chains", [1, 2])
+def test_nuts_final_adaptation_snapshot_preserves_mass_blocks(n_chains: int) -> None:
+    dense = np.diag([2.0, 3.0])
+    diagonal = np.asarray([4.0, 5.0, 6.0])
+    state = argparse.Namespace(
+        step_size=np.asarray(0.02) if n_chains == 1 else np.asarray([0.02, 0.03]),
+        inverse_mass_matrix={
+            ("lens",): dense if n_chains == 1 else np.stack([dense, dense * 2]),
+            ("source",): diagonal if n_chains == 1 else np.stack([diagonal, diagonal * 2]),
+        },
+    )
+    extra = cluster_solver._nuts_final_adaptation_extra_fields(state, n_chains)
+    assert extra["adapt_state.step_size"].shape == (n_chains, 1)
+    blocks = extra["adapt_state.inverse_mass_matrix"]
+    assert blocks[("lens",)].shape == (n_chains, 1, 2, 2)
+    assert blocks[("source",)].shape == (n_chains, 1, 3)
+    for chain in range(n_chains):
+        summary = cluster_solver._mass_matrix_chain_summary(blocks, chain, n_chains)
+        assert summary["inverse_mass_total_dim"] == 5
+        assert summary["inverse_mass_diag_min"] == 2.0 * (chain + 1)
+        assert summary["inverse_mass_diag_max"] == 6.0 * (chain + 1)
+    mask = np.arange(n_chains) == n_chains - 1
+    filtered = cluster_solver._filter_extra_field_by_chain_mask(extra, mask)
+    np.testing.assert_array_equal(
+        filtered["adapt_state.inverse_mass_matrix"][("lens",)][0, 0], dense * n_chains
+    )
 
 
 def test_sanitize_grouped_posterior_filters_nested_debug_extra_fields() -> None:
@@ -12009,6 +12036,19 @@ def test_nuts_integrator_debug_table_flags_constant_stuck_chain(tmp_path: Path) 
     assert df.loc[1, "parameter_range_min"] == pytest.approx(0.0)
     assert df.loc[1, "max_tree_depth_saturation_fraction"] == pytest.approx(1.0)
     assert df.loc[1, "step_size_last"] == pytest.approx(1.0e-8)
+
+    extra.update(cluster_solver._nuts_final_adaptation_extra_fields(
+        argparse.Namespace(
+            step_size=np.asarray([0.01, 1.0e-8]),
+            inverse_mass_matrix={("theta",): np.ones((2, 1, 1), dtype=float)},
+        ),
+        2,
+    ))
+    snapshot_df = cluster_solver._write_nuts_integrator_debug_table(
+        tmp_path / "nuts_integrator_snapshot.csv",
+        argparse.Namespace(max_tree_depth=8), posterior, extra, [0, 1],
+    )
+    pd.testing.assert_frame_equal(df, snapshot_df)
 
 
 def test_microcanonical_transition_debug_table_flags_chain_health(tmp_path: Path) -> None:
@@ -13389,7 +13429,7 @@ def test_cluster_solver_resolves_cpu_and_auto_devices() -> None:
     assert cluster_solver._jax_device_backend(cpu_device) == "cpu"
 
 
-def test_image_presence_effective_default_weight_only_stage4() -> None:
+def test_image_presence_effective_default_weight_forward_modes() -> None:
     assert _effective_image_presence_penalty_weight(
         None,
         sample_likelihood_mode=SAMPLE_LIKELIHOOD_LINEARIZED_FORWARD_BETA_IMAGE_PLANE,
@@ -13436,14 +13476,13 @@ def test_stage_fit_controls_reject_four_values() -> None:
         max_tree_depth=[10, 8, 6, 5],
         fit_mode="sequential",
         image_plane_mode=IMAGE_PLANE_MODE_LINEARIZED_FORWARD_BETA,
-        skip_stage3_image_plane_local_jacobian=False,
     )
 
     with pytest.raises(SystemExit, match="at most three"):
         _normalize_stage_fit_controls(args)
 
 
-def test_stage_fit_controls_reject_refreshing_surrogate_stage4_newton_steps() -> None:
+def test_stage_fit_controls_reject_refreshing_surrogate_forward_newton_steps() -> None:
     args = argparse.Namespace(
         fit_method=["svi+nuts", "svi+nuts", "svi"],
         warmup=[2000, 1000, 0],
@@ -13455,19 +13494,6 @@ def test_stage_fit_controls_reject_refreshing_surrogate_stage4_newton_steps() ->
     )
 
     with pytest.raises(SystemExit, match="refreshing_surrogate_flat"):
-        _normalize_stage_fit_controls(args)
-
-
-def test_stage_fit_controls_reject_three_values_without_stage4_mode() -> None:
-    args = argparse.Namespace(
-        fit_method=["svi", "svi", "svi"],
-        warmup=1,
-        samples=2,
-        fit_mode="sequential",
-        image_plane_mode=IMAGE_PLANE_MODE_LOCAL_JACOBIAN,
-    )
-
-    with pytest.raises(SystemExit):
         _normalize_stage_fit_controls(args)
 
 
@@ -13526,46 +13552,6 @@ def test_stage_fit_controls_reject_ns_for_stage2_without_image_plane() -> None:
         _normalize_stage_fit_controls(args)
 
 
-def test_stage_fit_controls_reject_ns_for_final_local_jacobian_stage3() -> None:
-    args = argparse.Namespace(
-        fit_method=["svi+nuts", "ns"],
-        warmup=[2000, 0],
-        samples=[250, 100],
-        fit_mode="sequential",
-        image_plane_mode=IMAGE_PLANE_MODE_LOCAL_JACOBIAN,
-    )
-
-    with pytest.raises(SystemExit, match="evidence-ns"):
-        _normalize_stage_fit_controls(args)
-
-
-def test_stage_fit_controls_reject_ns_for_final_stage4() -> None:
-    args = argparse.Namespace(
-        fit_method=["svi+nuts", "svi+nuts", "ns"],
-        warmup=[2000, 1000, 0],
-        samples=[250, 100, 50],
-        fit_mode="sequential",
-        image_plane_mode=IMAGE_PLANE_MODE_LINEARIZED_FORWARD_BETA,
-    )
-
-    with pytest.raises(SystemExit, match="evidence-ns"):
-        _normalize_stage_fit_controls(args)
-
-
-def test_stage_fit_controls_reject_ns_for_stage4_when_stage3_skipped() -> None:
-    args = argparse.Namespace(
-        fit_method=["svi+nuts", "ns"],
-        warmup=[2000, 0],
-        samples=[250, 50],
-        fit_mode="sequential",
-        image_plane_mode=IMAGE_PLANE_MODE_LINEARIZED_FORWARD_BETA,
-        skip_stage3_image_plane_local_jacobian=True,
-    )
-
-    with pytest.raises(SystemExit, match="evidence-ns"):
-        _normalize_stage_fit_controls(args)
-
-
 def test_stage_fit_controls_reject_ns_before_final_image_plane_stage() -> None:
     args = argparse.Namespace(
         fit_method=["ns", "svi"],
@@ -13586,20 +13572,6 @@ def test_stage_fit_controls_reject_scalar_ns_when_image_plane_stage_enabled() ->
         samples=50,
         fit_mode="sequential",
         image_plane_mode=IMAGE_PLANE_MODE_LOCAL_JACOBIAN,
-    )
-
-    with pytest.raises(SystemExit):
-        _normalize_stage_fit_controls(args)
-
-
-def test_stage_fit_controls_reject_skip_stage3_without_stage4_mode() -> None:
-    args = argparse.Namespace(
-        fit_method="svi",
-        warmup=0,
-        samples=2,
-        fit_mode="sequential",
-        image_plane_mode=IMAGE_PLANE_MODE_LOCAL_JACOBIAN,
-        skip_stage3_image_plane_local_jacobian=True,
     )
 
     with pytest.raises(SystemExit):
@@ -13768,6 +13740,16 @@ def _write_minimal_mock_files(root: Path, *, with_members: bool = False) -> tupl
     return paths, images, truth
 
 
+def test_mock_validation_config_accepts_zero_diagnostic_draws(tmp_path: Path) -> None:
+    config = _mock_validation_config(tmp_path)
+    template = config.solver.template
+    template = replace(template,
+        truth=replace(template.truth, posterior_truth_recovery_draws=0),
+        image_diagnostics=replace(template.image_diagnostics, posterior_image_diagnostic_draws=0))
+    config = replace(config, solver=replace(config.solver, template=template))
+    assert config.validate() is config
+
+
 def test_mock_validation_config_defaults_validate(tmp_path: Path) -> None:
     config = _mock_validation_config(tmp_path)
 
@@ -13851,7 +13833,7 @@ def test_mock_validation_config_defaults_validate(tmp_path: Path) -> None:
                     base.solver,
                     template=replace(
                         base.solver.template,
-                        truth=replace(base.solver.template.truth, posterior_truth_recovery_draws=0),
+                        truth=replace(base.solver.template.truth, posterior_truth_recovery_draws=-1),
                     ),
                 ),
             ),
@@ -14656,7 +14638,6 @@ def test_plot_run_summary_includes_nested_sampling_evidence() -> None:
         run_name="ns_run",
         sample_likelihood_mode=SAMPLE_LIKELIHOOD_SOURCE,
         image_plane_mode=IMAGE_PLANE_MODE_NONE,
-        skip_stage3_image_plane_local_jacobian=False,
         image_plane_newton_steps=0,
         source_position_parameterization="prior-whitened",
         sampling_engine="full_flat",
@@ -15494,7 +15475,7 @@ def _tiny_critical_det_state():
 
 
 def test_critical_det_diagnostic_flags_only_images_below_threshold() -> None:
-    result = cluster_solver._stage3_critical_det_diagnostic_from_evaluator(
+    result = cluster_solver._critical_det_diagnostic_from_evaluator(
         _tiny_critical_det_state(),
         _TinyCriticalDetEvaluator([5.0e-3, 2.0e-2, -9.0e-3]),
         np.asarray([], dtype=float),
@@ -15510,7 +15491,7 @@ def test_critical_det_diagnostic_flags_only_images_below_threshold() -> None:
 
 
 def test_critical_det_diagnostic_empty_table_has_headers(tmp_path: Path) -> None:
-    result = cluster_solver._stage3_critical_det_diagnostic_from_evaluator(
+    result = cluster_solver._critical_det_diagnostic_from_evaluator(
         _tiny_critical_det_state(),
         _TinyCriticalDetEvaluator([5.0e-3, 2.0e-2, -9.0e-3]),
         np.asarray([], dtype=float),
@@ -17393,12 +17374,12 @@ def test_rerender_plots_banner_includes_stage_name(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(cluster_solver, "_run_logged_phase", lambda _args, _phase_name, fn, **_kwargs: fn())
     monkeypatch.setattr(cluster_solver, "_load_artifacts", lambda _artifacts_dir: (_ for _ in ()).throw(RuntimeError("stop after banner")))
     args = argparse.Namespace()
-    run_dir = tmp_path / "fit" / "stage3_image_plane"
+    run_dir = tmp_path / "fit" / "stage1_backprojected_centroid_fit"
 
     with pytest.raises(RuntimeError, match="stop after banner"):
         cluster_solver._rerender_plots(args, run_dir)
 
-    assert banners == [("PLOTS ONLY: STAGE 3: stage3_image_plane", f"run_dir={run_dir}")]
+    assert banners == [("PLOTS ONLY: STAGE 1: stage1_backprojected_centroid_fit", f"run_dir={run_dir}")]
 
 
 def test_rerender_plots_preserves_saved_stage_likelihood_mode(
@@ -17413,6 +17394,7 @@ def test_rerender_plots_preserves_saved_stage_likelihood_mode(
             self.surrogate_enabled = False
             self.timing_totals = {"plot_runtime": 0.0}
             captured["evaluator_sample_likelihood_mode"] = self.sample_likelihood_mode
+            captured["match_tolerance_arcsec"] = _kwargs["match_tolerance_arcsec"]
 
         def reported_physical_to_latent_parameter_vector(self, values: np.ndarray) -> np.ndarray:
             return np.asarray(values, dtype=float)
@@ -17453,6 +17435,7 @@ def test_rerender_plots_preserves_saved_stage_likelihood_mode(
             "sample_likelihood_mode": SAMPLE_LIKELIHOOD_SOURCE,
             "stage2_forward_mode": "none",
             "quick_diagnostics": False,
+            "match_tolerance_arcsec": 5.0,
         }
     )
 
@@ -17489,6 +17472,7 @@ def test_rerender_plots_preserves_saved_stage_likelihood_mode(
     assert captured["evaluator_sample_likelihood_mode"] == SAMPLE_LIKELIHOOD_CRITICAL_ARC_ANISOTROPIC_IMAGE_PLANE
     assert captured["plot_sample_likelihood_mode"] == SAMPLE_LIKELIHOOD_CRITICAL_ARC_ANISOTROPIC_IMAGE_PLANE
     assert captured["plot_stage2_forward_mode"] == "critical-arc-anisotropic"
+    assert captured["match_tolerance_arcsec"] == 5.0
 
 
 def test_sequential_stage2_linearized_runs_as_free_source_forward_fit(
@@ -21732,6 +21716,15 @@ def test_subhalo_shmf_tables_aggregate_seed_quantiles(tmp_path: Path) -> None:
         & (summary_df["bin_index"] == 1)
     ]
     assert ratio_bin1.empty
+    residual_bin1 = summary_df[
+        (summary_df["series"] == "count_residual")
+        & (summary_df["variant"] == "anisotropic")
+        & (summary_df["bin_index"] == 1)
+    ].iloc[0]
+    # Empty truth bins still contribute their paired count errors (0 and 1).
+    assert residual_bin1["value_median"] == pytest.approx(0.5)
+    assert residual_bin1["value_q16"] == pytest.approx(0.16)
+    assert residual_bin1["value_q84"] == pytest.approx(0.84)
 
 
 def test_subhalo_shmf_outputs_create_plot_and_tables(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -22104,7 +22097,7 @@ def test_m2d_component_plot_uses_single_representative_seed(tmp_path: Path, monk
     assert [100.0 * 0.7, 200.0 * 0.7] not in plotted_y
     assert [300.0 * 0.7, 600.0 * 0.7] not in plotted_y
     assert any(values == pytest.approx([1.10, 1.10]) for values in residual_y)
-    assert r"$M_{\rm comp}^{\rm model}/M_{\rm comp}^{\rm truth}$" in ylabel_calls
+    assert r"$M_{\rm model}/M_{\rm true}$" in ylabel_calls
     assert not any("representative seed" in text for text in text_calls)
     assert legend_kwargs
     assert legend_kwargs[-1]["fontsize"] == aggregate_plots.M2D_COMPONENT_LEGEND_FONT_SIZE
@@ -22269,3 +22262,34 @@ def test_aggregate_bias_summary_splits_fractional_and_absolute_parameters(tmp_pa
     assert [path.name for path in paths] == ["parameter_bias_summary.pdf"]
     assert paths[0].exists()
     assert paths[0].stat().st_size > 0
+
+
+@pytest.mark.parametrize('adaptive', [False, True])
+def test_exact_image_local_lm_preserves_partial_matches(adaptive):
+    evaluator = cluster_solver.ClusterJAXEvaluator.__new__(cluster_solver.ClusterJAXEvaluator)
+    evaluator.timing_totals = {}
+    evaluator.match_tolerance_arcsec = 5.0
+    evaluator.exact_image_lm_trust_radius_arcsec = 1.0
+    evaluator.exact_image_min_distance_arcsec = 0.5
+    evaluator.exact_image_adaptive_max_levels = 1
+    family = SimpleNamespace(n_images=2, x_obs=np.array([0., 10.]), y_obs=np.zeros(2))
+
+    def refine(_family, _packed, _sx, _sy, x, y):
+        x = np.asarray(x)
+        ok = x < 5
+        return dict(x=x + 0.5, y=np.asarray(y), converged=ok, finite=np.ones(len(x), bool),
+                    identification_pass=ok, iterations=np.ones(len(x), int),
+                    final_step_arcsec=np.where(ok, 1e-6, 1.),
+                    final_source_residual_arcsec=np.where(ok, 1e-8, 1.))
+
+    evaluator._refine_exact_images_local_lm = refine
+    x, y = evaluator._solve_exact_images_local_lm(family, {}, 0., 0., adaptive=adaptive)
+    match = evaluator._image_match_diagnostics(x, y, family)
+    assert match['recovered_image_mask'].tolist() == [True, False]
+    assert match['recovered_image_count'] == 1
+    assert match['missing_image_count'] == 1
+    assert evaluator._match_images(x, y, family) is None
+    assert evaluator._last_exact_image_solver_diagnostics['exact_image_identification_pass'].tolist() == [True, False]
+    family.x_obs = np.array([10., 20.])
+    with pytest.raises(RuntimeError, match='identification tolerance'):
+        evaluator._solve_exact_images_local_lm(family, {}, 0., 0., adaptive=adaptive)

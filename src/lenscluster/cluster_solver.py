@@ -1,6 +1,13 @@
 from __future__ import annotations
+from .evaluator_support import (_reference_theta_from_init_values, _clip_theta_to_support, _default_theta, _build_cosmology_from_config, _build_geometry_cache, _clip_value_to_safe_bounds)
+
+
 
 from .output_paths import output_paths, stage_directory, stage_name, is_results_root, resolve_artifacts_dir, RESULTS_LAYOUT
+from .sampling_engines import (
+    TIERED_MEMBERS as SAMPLING_ENGINE_TIERED_MEMBERS,
+    canonical_sampling_engine, canonical_runtime_engines,
+)
 
 
 import argparse
@@ -187,22 +194,15 @@ from .utils import (
 )
 
 
+from .lens_physics import (LensPhysicsMixin, ExactImageReportingMixin,
+    _smooth_residual_cap, _anchored_solved_image_plane_step_from_jacobian, _json_arcsec_array, DEFAULT_ANCHORED_IMAGE_PLANE_LM_DAMPING_ABSOLUTE, DEFAULT_ANCHORED_IMAGE_PLANE_LM_DAMPING_RELATIVE, DEFAULT_ANCHORED_IMAGE_PLANE_TRUST_RADIUS_ARCSEC, DEFAULT_EXACT_IMAGE_FINDER, DEFAULT_EXACT_IMAGE_MIN_DISTANCE_ARCSEC, DEFAULT_EXACT_IMAGE_NUM_ITER_MAX, DEFAULT_EXACT_IMAGE_PRECISION_LIMIT, DEFAULT_LIKELIHOOD_STABILIZER_MAX_RESIDUAL_ARCSEC, DEFAULT_MATCH_TOLERANCE, DP_IE_PROFILE, EXACT_IMAGE_FINDER_LENSTRONOMY, EXACT_IMAGE_FINDER_LOCAL_LM, EXACT_IMAGE_FINDER_LOCAL_LM_ADAPTIVE, MIN_JACOBIAN_NORMAL_DETERMINANT_GUARD, SAFE_RADIUS_MARGIN_ARCSEC, SAFE_RADIUS_MARGIN_KPC, SHEAR_PROFILE)
+
 SUPPORTED_PROFILES = {81, 14}
-DP_IE_PROFILE = 81
-SHEAR_PROFILE = 14
-DEFAULT_MATCH_TOLERANCE = 2.0
-DEFAULT_EXACT_IMAGE_MIN_DISTANCE_ARCSEC = 0.1
-DEFAULT_EXACT_IMAGE_PRECISION_LIMIT = 1.0e-8
-DEFAULT_EXACT_IMAGE_NUM_ITER_MAX = 200
-EXACT_IMAGE_FINDER_LENSTRONOMY = "lenstronomy"
-EXACT_IMAGE_FINDER_LOCAL_LM = "local-lm"
-EXACT_IMAGE_FINDER_LOCAL_LM_ADAPTIVE = "local-lm-adaptive"
 EXACT_IMAGE_FINDER_CHOICES = (
     EXACT_IMAGE_FINDER_LENSTRONOMY,
     EXACT_IMAGE_FINDER_LOCAL_LM,
     EXACT_IMAGE_FINDER_LOCAL_LM_ADAPTIVE,
 )
-DEFAULT_EXACT_IMAGE_FINDER = EXACT_IMAGE_FINDER_LENSTRONOMY
 DEFAULT_EXACT_IMAGE_DISPLACEMENT_TOL_ARCSEC = 1.0e-4
 DEFAULT_EXACT_IMAGE_IDENTIFICATION_TOL_ARCSEC = 1.0e-3
 DEFAULT_EXACT_IMAGE_LM_MAX_ITER = 30
@@ -224,6 +224,7 @@ DEFAULT_INITIAL_STEP_SIZE = 1.0e-3
 DEFAULT_ACTIVE_SCALING_GALAXIES = 64
 DEFAULT_ACTIVE_SCALING_CUMULATIVE_FRACTION = 0.995
 DEFAULT_ACTIVE_SCALING_MIN = 4
+SAMPLE_LIKELIHOOD_SMOOTHED = "smoothed-local-image-plane"
 SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT = "isotropic-latent-displacement"
 SOURCE_PLANE_COVARIANCE_MODE_MAGNIFICATION = "magnification"
 SOURCE_PLANE_COVARIANCE_MODE_FULL_JACOBIAN = "full-jacobian"
@@ -262,6 +263,7 @@ NUTS_DENSE_MASS_DIAGONAL = "diagonal"
 NUTS_DENSE_MASS_CHOICES = (
     NUTS_DENSE_MASS_FULL,
     NUTS_DENSE_MASS_DIAGONAL,
+    "lens-and-hyperparameters",
 )
 DEFAULT_NUTS_DENSE_MASS = NUTS_DENSE_MASS_FULL
 # Hessian-seeded dense inverse mass for full-flat NUTS runs. The eigenvalue floor is the
@@ -311,14 +313,14 @@ SAMPLING_ENGINE_REFRESHING_SURROGATE_FLAT = "refreshing_surrogate_flat"
 SINGLE_STAGE_SAMPLING_ENGINES = (
     SAMPLING_ENGINE_FULL_FLAT,
     SAMPLING_ENGINE_REFRESHING_SURROGATE_FLAT,
+    SAMPLING_ENGINE_TIERED_MEMBERS,
 )
 SAMPLING_ENGINES = SINGLE_STAGE_SAMPLING_ENGINES
 STAGE1_SAMPLING_ENGINE_CHOICES = (
     SAMPLING_ENGINE_REFRESHING_SURROGATE_FLAT,
     SAMPLING_ENGINE_FULL_FLAT,
+    SAMPLING_ENGINE_TIERED_MEMBERS,
 )
-STAGE4_SAMPLING_ENGINE_INHERIT = "inherit"
-STAGE4_SAMPLING_ENGINE_CHOICES = (STAGE4_SAMPLING_ENGINE_INHERIT, *SINGLE_STAGE_SAMPLING_ENGINES)
 DEFAULT_SAMPLER = "numpyro_nuts"
 DEFAULT_SOURCE_SIGMA_INT_LOWER_ARCSEC = 1.0e-3
 DEFAULT_SOURCE_SIGMA_INT_UPPER_ARCSEC = 2.0
@@ -363,17 +365,17 @@ DEFAULT_SOFTENING_LENGTH_KPC = 0.0
 DEFAULT_SOFTENING_LENGTH_PRIOR_LOG_SIGMA = 0.15
 LOG_SOFTENING_LENGTH_SAMPLE_NAME = "log_softening_length_kpc"
 SOFTENING_LENGTH_COMPONENT_FAMILY = "softening_length"
-SCALING_RELATION_MODE_DIRECT_EXPONENTS = "direct-exponents"
-SCALING_RELATION_MODES = (SCALING_RELATION_MODE_DIRECT_EXPONENTS,)
-DEFAULT_SCALING_RELATION_MODE = SCALING_RELATION_MODE_DIRECT_EXPONENTS
+SCALING_RELATION_MODE_VELOCITY_RADIUS_EXPONENTS = "velocity-radius-exponents"
+SCALING_RELATION_MODES = (SCALING_RELATION_MODE_VELOCITY_RADIUS_EXPONENTS,)
+DEFAULT_SCALING_RELATION_MODE = SCALING_RELATION_MODE_VELOCITY_RADIUS_EXPONENTS
 DEFAULT_SOLVER_POTFILE_ALPHA_SIGMA_MEAN = 0.25
 DEFAULT_SOLVER_POTFILE_ALPHA_SIGMA_STD = 0.04
 DEFAULT_SOLVER_POTFILE_ALPHA_SIGMA_LOWER = 0.10
 DEFAULT_SOLVER_POTFILE_ALPHA_SIGMA_UPPER = 0.40
-DEFAULT_SOLVER_POTFILE_GAMMA_ML_MEAN = 0.00
-DEFAULT_SOLVER_POTFILE_GAMMA_ML_STD = 0.12
-DEFAULT_SOLVER_POTFILE_GAMMA_ML_LOWER = -0.40
-DEFAULT_SOLVER_POTFILE_GAMMA_ML_UPPER = 0.40
+DEFAULT_SOLVER_POTFILE_BETA_RADIUS_MEAN = 0.50
+DEFAULT_SOLVER_POTFILE_BETA_RADIUS_STD = 0.20
+DEFAULT_SOLVER_POTFILE_BETA_RADIUS_LOWER = 0.0
+DEFAULT_SOLVER_POTFILE_BETA_RADIUS_UPPER = float("inf")
 SOLVER_POTFILE_POSITIVE_PRIOR_COORDINATE = "log_positive_latent"
 # Promotion is detection-referenced: a member is a candidate when a plausible offset of
 # `width` in ln(sigma) (alpha ~ sigma^2 -> image shift ~ ALPHA_LOG_SLOPE * width * |alpha|)
@@ -471,18 +473,14 @@ def _perturbation_discovery_tolerances_from_evaluator(evaluator: Any) -> tuple[f
     )
 DEFAULT_LINEARIZED_BETA_PRIOR_SIGMA_ARCSEC = 2.0
 DEFAULT_SOURCE_PLANE_OUTLIER_SIGMA_ARCSEC = 10.0
-DEFAULT_IMAGE_PRESENCE_STAGE4_PENALTY_WEIGHT = 2.0
+DEFAULT_IMAGE_PRESENCE_FORWARD_PENALTY_WEIGHT = 2.0
 DEFAULT_IMAGE_PRESENCE_MATCH_RADIUS_ARCSEC = 0.30
 DEFAULT_IMAGE_PRESENCE_TEMPERATURE_ARCSEC = 0.10
 DEFAULT_IMAGE_PRESENCE_COUNT_SOFTNESS = 0.05
 DEFAULT_IMAGE_PRESENCE_COUNT_MARGIN = 0.05
 DEFAULT_LIKELIHOOD_STABILIZER_MAX_GAIN = 0.0
-DEFAULT_LIKELIHOOD_STABILIZER_MAX_RESIDUAL_ARCSEC = 0.0
 DEFAULT_CRITICAL_DET_DIAGNOSTIC_THRESHOLD = 1.0e-2
 DEFAULT_ANCHORED_IMAGE_PLANE_SOLVE_STEPS = 3
-DEFAULT_ANCHORED_IMAGE_PLANE_TRUST_RADIUS_ARCSEC = 0.3
-DEFAULT_ANCHORED_IMAGE_PLANE_LM_DAMPING_RELATIVE = 1.0e-3
-DEFAULT_ANCHORED_IMAGE_PLANE_LM_DAMPING_ABSOLUTE = 1.0e-6
 DEFAULT_CRITICAL_ARC_CRITICAL_DIRECTION_SIGMA_ARCSEC = 5.0
 DEFAULT_CRITICAL_ARC_BASE_PROB = 0.10
 DEFAULT_CRITICAL_ARC_MAX_PROB = 0.80
@@ -574,7 +572,6 @@ DEFAULT_COVARIANCE_DIAGONAL_JITTER_ABSOLUTE = 1.0e-12
 MIN_COVARIANCE_DETERMINANT_GUARD = 1.0e-30
 DEFAULT_JACOBIAN_INVERSE_DAMPING_RELATIVE = 1.0e-12
 DEFAULT_JACOBIAN_INVERSE_DAMPING_ABSOLUTE = 1.0e-24
-MIN_JACOBIAN_NORMAL_DETERMINANT_GUARD = 1.0e-30
 LIKELIHOOD_STABILIZER_RESIDUAL_LOSS_GAUSSIAN = "gaussian"
 LIKELIHOOD_STABILIZER_RESIDUAL_LOSS_STUDENT_T = "student-t"
 LIKELIHOOD_STABILIZER_RESIDUAL_LOSSES = (
@@ -597,8 +594,6 @@ SEQUENTIAL_FIDUCIAL_COSMOLOGY_CONFIG: dict[str, float | str] = {
 COSMOLOGY_OM0_SAMPLE_NAME = "cosmology_Om0"
 COSMOLOGY_W0_SAMPLE_NAME = "cosmology_w0"
 SAFE_SCALING_EXPONENT_ABS_MIN = 1.0e-3
-SAFE_RADIUS_MARGIN_ARCSEC = 1.0e-3
-SAFE_RADIUS_MARGIN_KPC = 1.0e-3
 SAFE_VDISP_MARGIN = 1.0e-6
 VDISP_TRUNCATION_FLOOR_KM_S = 1.0e-4
 NUTS_MAX_TREE_SATURATION_WARNING = 0.95
@@ -643,11 +638,13 @@ LOCAL_JACOBIAN_METRIC_UNIT = "unit"
 LOCAL_JACOBIAN_METRIC_NOT_USED = "not_used"
 SOURCE_POSITION_PARAMETERIZATION_DIRECT = "direct"
 SOURCE_POSITION_PARAMETERIZATION_PRIOR_WHITENED = "prior-whitened"
+SOURCE_POSITION_PARAMETERIZATION_LIKELIHOOD_WHITENED = "likelihood-whitened"
 SOURCE_POSITION_PARAMETERIZATION_CONDITIONAL_WHITENED = "conditional-whitened"
 SOURCE_POSITION_PARAMETERIZATIONS = (
     SOURCE_POSITION_PARAMETERIZATION_DIRECT,
     SOURCE_POSITION_PARAMETERIZATION_PRIOR_WHITENED,
     SOURCE_POSITION_PARAMETERIZATION_CONDITIONAL_WHITENED,
+    SOURCE_POSITION_PARAMETERIZATION_LIKELIHOOD_WHITENED,
 )
 IMAGE_PLANE_MODE_NONE = "none"
 IMAGE_PLANE_MODE_LOCAL_JACOBIAN = "local-jacobian"
@@ -659,18 +656,6 @@ IMAGE_PLANE_MODE_CRITICAL_ARC_MIXTURE = "critical-arc-mixture-image-plane"
 IMAGE_PLANE_MODE_CRITICAL_ARC_ANISOTROPIC = "critical-arc-anisotropic-image-plane"
 IMAGE_PLANE_MODE_FOLD_REGULARIZED_FORWARD_BETA = "fold-regularized-forward-beta-image-plane"
 IMAGE_PLANE_MODE_CATASTROPHE_NORMAL_FORM = "catastrophe-normal-form-image-plane"
-STAGE3_IMAGE_PLANE_MODE_AUTO = "auto"
-STAGE3_IMAGE_PLANE_MODE_NONE = "none"
-STAGE3_IMAGE_PLANE_MODE_LOCAL_JACOBIAN = IMAGE_PLANE_MODE_LOCAL_JACOBIAN
-STAGE3_IMAGE_PLANE_MODE_CRITICAL_ARC_MIXTURE = IMAGE_PLANE_MODE_CRITICAL_ARC_MIXTURE
-STAGE3_IMAGE_PLANE_MODE_CRITICAL_ARC_ANISOTROPIC = IMAGE_PLANE_MODE_CRITICAL_ARC_ANISOTROPIC
-STAGE3_IMAGE_PLANE_MODES = (
-    STAGE3_IMAGE_PLANE_MODE_AUTO,
-    STAGE3_IMAGE_PLANE_MODE_NONE,
-    STAGE3_IMAGE_PLANE_MODE_LOCAL_JACOBIAN,
-    STAGE3_IMAGE_PLANE_MODE_CRITICAL_ARC_MIXTURE,
-    STAGE3_IMAGE_PLANE_MODE_CRITICAL_ARC_ANISOTROPIC,
-)
 FIT_MODE_SEQUENTIAL = "sequential"
 FIT_MODE_LARGE_ONLY = "large-only"
 FIT_MODE_JOINT = "joint"
@@ -683,6 +668,7 @@ STAGE1_LIKELIHOOD_LOCAL_JACOBIAN = "local-jacobian"
 STAGE1_LIKELIHOOD_CRITICAL_ARC = "critical-arc"
 STAGE1_LIKELIHOOD_CRITICAL_ARC_ANISOTROPIC = "critical-arc-anisotropic"
 STAGE1_LIKELIHOODS = (
+    SAMPLE_LIKELIHOOD_SMOOTHED,
     STAGE1_LIKELIHOOD_SOURCE,
     STAGE1_LIKELIHOOD_LOCAL_JACOBIAN,
     STAGE1_LIKELIHOOD_CRITICAL_ARC,
@@ -693,6 +679,7 @@ STAGE2_FORWARD_MODE_LINEARIZED = "linearized"
 STAGE2_FORWARD_MODE_CRITICAL_ARC = "critical-arc"
 STAGE2_FORWARD_MODE_CRITICAL_ARC_ANISOTROPIC = "critical-arc-anisotropic"
 STAGE2_FORWARD_MODES = (
+    SAMPLE_LIKELIHOOD_SMOOTHED,
     SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT,
     STAGE2_FORWARD_MODE_NONE,
     STAGE2_FORWARD_MODE_LINEARIZED,
@@ -704,6 +691,7 @@ STAGE2_SAMPLING_ENGINE_CHOICES = (
     STAGE2_SAMPLING_ENGINE_INHERIT,
     SAMPLING_ENGINE_REFRESHING_SURROGATE_FLAT,
     SAMPLING_ENGINE_FULL_FLAT,
+    SAMPLING_ENGINE_TIERED_MEMBERS,
 )
 FIT_METHOD_SVI = "svi"
 FIT_METHOD_SVI_NUTS = "svi+nuts"
@@ -830,6 +818,7 @@ class FlatCriticalArcData:
     global_family_prior_y: jnp.ndarray
     global_family_prior_sigma: jnp.ndarray
     bin_index_per_image: jnp.ndarray
+    # Index within the entire redshift bin, not within an individual family.
     local_image_index_per_image: jnp.ndarray
     # Per-image source-plane scatter covariance terms, summed over cached members g:
     # cov00 = sum_g v_x^2, cov01 = sum_g v_x*v_y, cov11 = sum_g v_y^2 with v_g the
@@ -851,6 +840,8 @@ class FlatSurrogateCache:
     inactive_alpha_y: jnp.ndarray
     inactive_alpha_dx_dparams: jnp.ndarray
     inactive_alpha_dy_dparams: jnp.ndarray
+    member_responses: jnp.ndarray | None = None
+    member_response_derivatives: jnp.ndarray | None = None
     inactive_jacobian_delta_a00: jnp.ndarray | None = None
     inactive_jacobian_delta_a01: jnp.ndarray | None = None
     inactive_jacobian_delta_a10: jnp.ndarray | None = None
@@ -1088,7 +1079,7 @@ def _evaluator_uses_conditional_source_transport(evaluator: Any | None) -> bool:
     return bool(
         evaluator is not None
         and getattr(evaluator, "source_position_parameterization", None)
-        == SOURCE_POSITION_PARAMETERIZATION_CONDITIONAL_WHITENED
+        in {SOURCE_POSITION_PARAMETERIZATION_CONDITIONAL_WHITENED, SOURCE_POSITION_PARAMETERIZATION_LIKELIHOOD_WHITENED}
     )
 
 
@@ -1141,8 +1132,14 @@ def _convert_sample_matrix_to_reported_physical(
         )
     original_shape = array.shape
     flat = array.reshape((-1, original_shape[-1]))
+    if getattr(evaluator, "sample_likelihood_mode", None) == SAMPLE_LIKELIHOOD_SMOOTHED:
+        # Compile the full transport batch so unused likelihood diagnostics
+        # can be eliminated along with per-operation dispatch overhead.
+        convert_batch = evaluator._smoothed_reported_physical_batch
+    else:
+        convert_batch = jax.vmap(evaluator._reported_physical_parameter_vector)
     converted = np.asarray(
-        jax.vmap(evaluator._reported_physical_parameter_vector)(jnp.asarray(flat, dtype=jnp.float64)),
+        convert_batch(jnp.asarray(flat, dtype=jnp.float64)),
         dtype=float,
     )
     return _add_dynamic_cut_reference_offsets_to_reported_array(
@@ -1178,11 +1175,26 @@ def _posterior_results_to_reported_physical(
     ns_diagnostics = _convert_ns_diagnostics_samples(results.ns_diagnostics, parameter_specs, evaluator)
     init_diagnostics = dict(results.init_diagnostics or {})
     init_diagnostics["conditional_source_transport_physical_output"] = True
+    init_diagnostics.setdefault("log_prob_coordinates", "sampling_parameters_before_numpyro_unconstraining")
+    converted_samples = _convert_sample_matrix_to_reported_physical(results.samples, parameter_specs, evaluator)
+
+    def fit_vector(vector, index_key=None):
+        if index_key is not None:
+            index = init_diagnostics.get(index_key)
+            if index is not None and 0 <= int(index) < len(converted_samples):
+                return converted_samples[int(index)]
+        return (None if vector is None else
+                _convert_theta_to_reported_physical(vector, parameter_specs, evaluator))
+
     converted = replace(
         results,
-        samples=_convert_sample_matrix_to_reported_physical(results.samples, parameter_specs, evaluator),
+        samples=converted_samples,
         grouped_samples=grouped_samples,
         grouped_log_prob=None if results.sampler == "svi" else results.grouped_log_prob,
+        map_fit=fit_vector(results.map_fit, "map_sample_index"),
+        maximum_likelihood_fit=fit_vector(results.maximum_likelihood_fit, "maximum_likelihood_sample_index"),
+        median_fit=(_finite_columnwise_median(converted_samples) if results.median_fit is None
+                    else fit_vector(results.median_fit)),
         init_diagnostics=init_diagnostics,
         ns_diagnostics=ns_diagnostics,
     )
@@ -1261,8 +1273,6 @@ def _maybe_convert_loaded_posterior_arrays_to_physical(
     return converted, True
 
 
-
-
 TRUTH_GRID_MODE_MEDIAN = "median"
 TRUTH_GRID_MODE_POSTERIOR = "posterior"
 DEFAULT_TRUTH_GRID_SIZE = 256
@@ -1292,7 +1302,7 @@ def _explicit_source_position_parameterization_for_state(state: BuildState) -> s
     if not hasattr(state, "source_position_parameterization"):
         raise ValueError(
             "BuildState is missing explicit source_position_parameterization metadata; "
-            "rerun the solver to regenerate artifacts with explicit stage-4 source-position metadata."
+            "rerun the solver to regenerate artifacts with explicit source-position metadata."
         )
     mode = str(state.source_position_parameterization)
     if mode not in SOURCE_POSITION_PARAMETERIZATIONS:
@@ -1307,7 +1317,7 @@ def _explicit_source_position_parameterization_for_state(state: BuildState) -> s
         str(spec.transform_kind) == "affine" for spec in source_position_specs
     ):
         raise ValueError("prior-whitened source-position mode requires affine source-position parameter specs.")
-    if mode == SOURCE_POSITION_PARAMETERIZATION_CONDITIONAL_WHITENED and not all(
+    if mode in {SOURCE_POSITION_PARAMETERIZATION_CONDITIONAL_WHITENED, SOURCE_POSITION_PARAMETERIZATION_LIKELIHOOD_WHITENED} and not all(
         str(spec.transform_kind) == "identity"
         and spec.prior_kind == "normal"
         and abs(float(spec.mean or 0.0)) < 1.0e-12
@@ -1327,8 +1337,11 @@ def _local_jacobian_metric_mode_for_values(
 ) -> str:
     sample_mode = str(sample_likelihood_mode)
     engine = str(sampling_engine)
+    if sample_mode == SAMPLE_LIKELIHOOD_SMOOTHED:
+        return "current_tiered_members"
     if sample_mode == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT:
-        return LOCAL_JACOBIAN_METRIC_CURRENT_EXACT
+        return ("current_surrogate" if engine == SAMPLING_ENGINE_REFRESHING_SURROGATE_FLAT
+                else LOCAL_JACOBIAN_METRIC_CURRENT_EXACT)
     if sample_mode == SAMPLE_LIKELIHOOD_LOCAL_JACOBIAN:
         if engine in {SAMPLING_ENGINE_FULL_FLAT}:
             return LOCAL_JACOBIAN_METRIC_CURRENT_EXACT
@@ -1435,9 +1448,9 @@ def _log_runtime_summary(args: argparse.Namespace) -> None:
             f"likelihood_stabilizer_student_t_nu={getattr(args, 'likelihood_stabilizer_student_t_nu', DEFAULT_LIKELIHOOD_STABILIZER_STUDENT_T_NU)} "
             f"numpyro_print_summary={bool(getattr(args, 'numpyro_print_summary', DEFAULT_NUMPYRO_PRINT_SUMMARY))} "
             f"nuts_chain_method={getattr(args, 'nuts_chain_method', DEFAULT_NUTS_CHAIN_METHOD)} "
+            f"cpu_threads_per_chain={getattr(args, 'cpu_threads_per_chain', None)} "
+            f"cpu_runtime_plan={getattr(args, 'cpu_runtime_plan', None)} "
             f"jax_clear_caches_after_svi_refresh={bool(getattr(args, 'jax_clear_caches_after_svi_refresh', DEFAULT_JAX_CLEAR_CACHES_AFTER_SVI_REFRESH))} "
-            f"stage4_fresh_process={bool(getattr(args, 'stage4_fresh_process', True))} "
-            f"stage4_sampling_engine={getattr(args, 'stage4_sampling_engine', STAGE4_SAMPLING_ENGINE_INHERIT)} "
             f"skip_plots={args.skip_plots} quick_diagnostics={bool(getattr(args, 'quick_diagnostics', False))} "
             f"plots_only={args.plots_only}"
         ),
@@ -1655,6 +1668,7 @@ def _image_presence_curvature_warning_item(evaluator: Any, image_presence_weight
 
 def _solver_active_approximation_items(evaluator: Any) -> list[str]:
     state = evaluator.state
+    sample_likelihood_mode = str(getattr(evaluator, "sample_likelihood_mode", SAMPLE_LIKELIHOOD_SOURCE))
     items: list[str] = []
     family_count = _count_items(getattr(state, "family_data", []))
     bin_count = _count_items(getattr(state, "bin_data", []))
@@ -1665,7 +1679,10 @@ def _solver_active_approximation_items(evaluator: Any) -> list[str]:
             f"cached_scaling={_count_items(getattr(evaluator, 'cached_scaling_component_indices', getattr(evaluator, 'inactive_scaling_component_indices', [])))} "
             f"free_correction={_count_items(getattr(evaluator, 'free_correction_scaling_component_indices', []))}"
         )
-    if str(getattr(evaluator, "sampling_engine", SAMPLING_ENGINE_FULL_FLAT)) == SAMPLING_ENGINE_FULL_FLAT:
+    if getattr(evaluator, "sample_likelihood_mode", None) == SAMPLE_LIKELIHOOD_SMOOTHED:
+        items.append("sampling_engine=tiered_members current smoothed likelihood; exact and far-field member profiles")
+        items.extend(f"{name}={value}" for name, value, _ in _smoothed_member_summary_rows(evaluator))
+    elif str(getattr(evaluator, "sampling_engine", SAMPLING_ENGINE_FULL_FLAT)) == SAMPLING_ENGINE_FULL_FLAT:
         sample_likelihood_mode = str(getattr(evaluator, "sample_likelihood_mode", SAMPLE_LIKELIHOOD_SOURCE))
         if perturbation_stage0:
             items.append(
@@ -1729,7 +1746,7 @@ def _solver_active_approximation_items(evaluator: Any) -> list[str]:
             items.append(f"image_presence_penalty=active weight={image_presence_weight:.4g}")
             if (
                 str(getattr(evaluator, "source_position_parameterization", SOURCE_POSITION_PARAMETERIZATION_DIRECT))
-                == SOURCE_POSITION_PARAMETERIZATION_CONDITIONAL_WHITENED
+                in {SOURCE_POSITION_PARAMETERIZATION_CONDITIONAL_WHITENED, SOURCE_POSITION_PARAMETERIZATION_LIKELIHOOD_WHITENED}
             ):
                 items.append("image_presence_penalty=non-Gaussian conditional transport is approximate")
             curvature_warning = _image_presence_curvature_warning_item(evaluator, image_presence_weight)
@@ -1774,6 +1791,7 @@ def _solver_active_approximation_items(evaluator: Any) -> list[str]:
         _count_items(getattr(evaluator, "scaling_scatter_param_indices", [])) > 0
         and _count_items(getattr(evaluator, "_scaling_scatter_component_indices", lambda: [])()) > 0
         and not perturbation_stage0
+        and getattr(evaluator, "sample_likelihood_mode", None) != SAMPLE_LIKELIHOOD_SMOOTHED
     ):
         items.append("scaling_scatter=direct first-order Bergamini sigma/mass covariance"
                      if getattr(evaluator, "sampling_engine", None) == SAMPLING_ENGINE_FULL_FLAT
@@ -1971,6 +1989,23 @@ _APPROXIMATION_CATEGORY_STYLES: dict[str, str] = {
 }
 
 
+def _smoothed_member_summary_rows(evaluator: Any) -> list[ApproximationRow]:
+    metadata = evaluator.state.smoothed_model
+    tiers = metadata.get("tiers") if metadata['phase'] == 'fixed' else None
+    counts = {name: len(tiers[name]) if tiers else (len(metadata['member_ids']) if name == 'exact_absorbed' else 0)
+              for name in ('exact_sampled', 'exact_absorbed', 'approximate_sampled', 'approximate_absorbed')}
+    rows = [("member_tier_phase", metadata['phase'], "selection")]
+    rows.extend((name, str(count), "selection") for name, count in counts.items())
+    rows.extend((name, str(count), "selection") for name, count in (
+        ('exact_members', counts['exact_sampled'] + counts['exact_absorbed']),
+        ('approximate_members', counts['approximate_sampled'] + counts['approximate_absorbed']),
+        ('sampled_offsets', counts['exact_sampled'] + counts['approximate_sampled']),
+        ('absorbed_offsets', counts['exact_absorbed'] + counts['approximate_absorbed'])))
+    if metadata['phase'] == 'initializer':
+        rows.append(('initializer_members', 'exact_profiles_provisional_absorbed_scatter', 'selection'))
+    return rows
+
+
 def _active_approximation_rows(evaluator: Any) -> list[ApproximationRow]:
     state = getattr(evaluator, "state", None)
     exact_scaling = _count_items(
@@ -2044,13 +2079,20 @@ def _active_approximation_rows(evaluator: Any) -> list[ApproximationRow]:
     source_covariance_mode = str(
         getattr(evaluator, "source_plane_covariance_mode", SOURCE_PLANE_COVARIANCE_MODE_MAGNIFICATION)
     )
-    rows.append(("source_plane_covariance_mode", ("not_used" if getattr(evaluator, "sample_likelihood_mode", None) == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT
+    rows.append(("source_plane_covariance_mode", ("not_used" if getattr(evaluator, "sample_likelihood_mode", None) in {SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT, SAMPLE_LIKELIHOOD_SMOOTHED}
                                                 else _format_approximation_value(source_covariance_mode)), "likelihood"))
+    if getattr(evaluator, "sample_likelihood_mode", None) == SAMPLE_LIKELIHOOD_SMOOTHED:
+        rows = [("template_geometry_members" if name == "cached_scaling" else name, value, category)
+                for name, value, category, *rest in rows]
+        rows.extend(_smoothed_member_summary_rows(evaluator))
+        rows.extend([("covariance", "current_astrometry_source_absorbed_members", "likelihood"),
+                     ("determinant_factor", "conditional_smoothed_with_supplied_parity_only", "likelihood"),
+                     ("source_metric_cache", "current_proposal", "cache")])
     if getattr(evaluator, "sample_likelihood_mode", None) == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT:
         rows.extend([
             ("positional_factor", "local_source_residual_gaussian", "likelihood"),
             ("latent_displacement_sigma_beta_arcsec", str(evaluator.latent_displacement_sigma_beta_arcsec), "likelihood"),
-            ("member_covariance", "full_symmetric_direct", "likelihood"),
+            ("member_covariance", ("response_taylor_gram" if getattr(evaluator, "_uses_latent_surrogate", lambda: False)() else "full_symmetric_direct"), "likelihood"),
             ("positional_reliability_mixture", "disabled", "likelihood"),
             ("positional_caps_and_extra_floors", "disabled", "likelihood"),
         ])
@@ -2306,6 +2348,15 @@ def _source_metric_cache_status(evaluator: Any) -> str:
 
 
 def _stage_model_summary_rows(evaluator: Any) -> list[ApproximationRow]:
+    if getattr(evaluator, 'sample_likelihood_mode', None) == SAMPLE_LIKELIHOOD_SMOOTHED:
+        return [
+            ('sampling_engine', SAMPLING_ENGINE_TIERED_MEMBERS, 'engine'),
+            ('sample_likelihood', SAMPLE_LIKELIHOOD_SMOOTHED, 'likelihood'),
+            *_smoothed_member_summary_rows(evaluator),
+            ('covariance', 'current_astrometry_source_absorbed_members', 'likelihood'),
+            ('surrogate_cache', 'disabled', 'cache'),
+            ('source_metric_cache', 'current_proposal', 'cache'),
+        ]
     exact_scaling = _count_items(
         getattr(
             evaluator,
@@ -2567,6 +2618,10 @@ def _log_solver_active_approximation_warning(args: argparse.Namespace | None, ev
 
 def _log_evaluator_summary(args: argparse.Namespace, evaluator: Any) -> None:
     state = evaluator.state
+    if evaluator.sampling_engine == SAMPLING_ENGINE_TIERED_MEMBERS:
+        _log(args, "[tiered_members] standalone smoothed evaluator; " + "; ".join(
+            f"{key}={value}" for key,value,_ in _smoothed_member_summary_rows(evaluator)))
+        return
     _log(
         args,
         (
@@ -2831,11 +2886,9 @@ def _apply_nuts_quality_gate(
 
 
 NUTS_BASE_EXTRA_FIELDS: tuple[str, ...] = ("accept_prob", "diverging", "num_steps", "potential_energy")
-NUTS_DEBUG_EXTRA_FIELDS: tuple[str, ...] = (
-    "energy",
-    "adapt_state.step_size",
-    "adapt_state.inverse_mass_matrix",
-)
+# Adaptation is frozen after warmup. Keep its final state once per chain,
+# rather than copying the same metric and step size at every posterior draw.
+NUTS_DEBUG_EXTRA_FIELDS: tuple[str, ...] = ("energy",)
 
 
 def _sampler_debug_extra_field_names(args: argparse.Namespace) -> tuple[str, ...]:
@@ -2843,6 +2896,27 @@ def _sampler_debug_extra_field_names(args: argparse.Namespace) -> tuple[str, ...
     if bool(getattr(args, "debug_sampler_diagnostics", False)):
         fields.extend(field for field in NUTS_DEBUG_EXTRA_FIELDS if field not in fields)
     return tuple(fields)
+
+
+def _nuts_final_adaptation_extra_fields(adapt_state: Any, n_chains: int) -> dict[str, Any]:
+    """Snapshot final adaptation with (chain, singleton draw, ...) axes.
+
+    NumPyro leaves the chain axis out of last_state for single-chain runs.
+    The singleton draw axis preserves the existing diagnostic readers without
+    storing or broadcasting a metric for every posterior draw.
+    """
+    def snapshot(value: Any) -> np.ndarray:
+        array = np.asarray(value)
+        if n_chains == 1:
+            array = array[None, ...]
+        return array[:, None, ...]
+
+    return {
+        "adapt_state.step_size": snapshot(adapt_state.step_size),
+        "adapt_state.inverse_mass_matrix": jax.tree_util.tree_map(
+            snapshot, adapt_state.inverse_mass_matrix
+        ),
+    }
 
 
 def _filter_extra_field_by_chain_mask(value: Any, valid_chain_mask: np.ndarray) -> Any:
@@ -3787,57 +3861,10 @@ def _safe_signed_min_abs(values: jnp.ndarray, min_abs: float) -> jnp.ndarray:
     return jnp.where(jnp.abs(values) < min_abs_value, signs * min_abs_value, values)
 
 
-def _clip_value_to_safe_bounds(value: float, spec: ParameterSpec, boundary_frac: float = 0.0) -> float:
-    lower = float(spec.lower)
-    upper = float(spec.upper)
-    clipped = float(np.clip(float(value), lower, upper))
-    if spec.prior_kind == "uniform":
-        width = float(upper - lower)
-        margin = min(max(float(boundary_frac) * width, 0.0), 0.5 * width - 1.0e-12) if width > 0.0 else 0.0
-        if margin > 0.0:
-            clipped = float(np.clip(clipped, lower + margin, upper - margin))
-    elif spec.prior_kind == "truncated_normal" and np.isfinite(lower):
-        margin = max(float(boundary_frac) * max(abs(lower), 1.0e-12), 0.0)
-        if np.isfinite(upper):
-            width = float(upper - lower)
-            margin = min(margin, 0.5 * width - 1.0e-12) if width > 0.0 else 0.0
-        if margin > 0.0:
-            clipped = max(clipped, lower + margin)
-    if spec.field in {"vdslope", "slope"} and lower < SAFE_SCALING_EXPONENT_ABS_MIN and upper > -SAFE_SCALING_EXPONENT_ABS_MIN:
-        if abs(clipped) < SAFE_SCALING_EXPONENT_ABS_MIN:
-            pos_candidate = max(SAFE_SCALING_EXPONENT_ABS_MIN, lower)
-            neg_candidate = min(-SAFE_SCALING_EXPONENT_ABS_MIN, upper)
-            if clipped >= 0.0 and pos_candidate <= upper:
-                clipped = pos_candidate
-            elif clipped < 0.0 and neg_candidate >= lower:
-                clipped = neg_candidate
-            elif pos_candidate <= upper:
-                clipped = pos_candidate
-            elif neg_candidate >= lower:
-                clipped = neg_candidate
-    return float(np.clip(clipped, lower, upper))
 
 
-def _clip_theta_to_support(
-    theta: np.ndarray,
-    parameter_specs: list[ParameterSpec],
-    boundary_frac: float = 0.0,
-) -> np.ndarray:
-    clipped = np.asarray(theta, dtype=float).copy()
-    for idx, spec in enumerate(parameter_specs):
-        clipped[idx] = _clip_value_to_safe_bounds(clipped[idx], spec, boundary_frac=boundary_frac)
-    return clipped
 
 
-def _default_theta(parameter_specs: list[ParameterSpec]) -> np.ndarray:
-    default = np.asarray(
-        [
-            0.5 * (spec.lower + spec.upper) if spec.prior_kind == "uniform" else float(spec.mean)
-            for spec in parameter_specs
-        ],
-        dtype=float,
-    )
-    return _clip_theta_to_support(default, parameter_specs, boundary_frac=DEFAULT_NUTS_INIT_BOUNDARY_FRAC)
 
 
 def _jitter_theta_in_support(
@@ -5040,17 +5067,6 @@ def _fold_regularized_image_plane_bin_loglike(
     return jnp.where(finite, bin_loglike, jnp.asarray(BAD_LOG_LIKE, dtype=jnp.float64))
 
 
-def _smooth_residual_cap(
-    residual_x: jnp.ndarray,
-    residual_y: jnp.ndarray,
-    max_residual_arcsec: float = DEFAULT_LIKELIHOOD_STABILIZER_MAX_RESIDUAL_ARCSEC,
-) -> tuple[jnp.ndarray, jnp.ndarray]:
-    if float(max_residual_arcsec) <= 0.0:
-        return residual_x, residual_y
-    radius = jnp.sqrt(jnp.square(residual_x) + jnp.square(residual_y) + jnp.asarray(1.0e-30, dtype=jnp.float64))
-    scaled_radius = radius / jnp.asarray(float(max_residual_arcsec), dtype=jnp.float64)
-    scale = jnp.tanh(scaled_radius) / jnp.maximum(scaled_radius, jnp.asarray(1.0e-12, dtype=jnp.float64))
-    return residual_x * scale, residual_y * scale
 
 
 def _student_t_2d_loglike_from_quad_logdet(
@@ -5162,7 +5178,6 @@ def _linearized_source_plane_population_delta(
         & jnp.isfinite(delta)
     )
     return jnp.where(finite, delta, jnp.full_like(delta, jnp.nan))
-
 
 
 def _linearized_full_covariance_source_plane_population_delta(
@@ -5438,7 +5453,6 @@ def _source_plane_bin_loglike(
     return jnp.where(finite, bin_loglike, jnp.asarray(BAD_LOG_LIKE, dtype=jnp.float64))
 
 
-
 def _full_covariance_source_plane_bin_loglike(
     beta_x: jnp.ndarray,
     beta_y: jnp.ndarray,
@@ -5585,52 +5599,6 @@ def _linearized_image_plane_inverse_operator(
     return inv00, inv01, inv10, inv11, finite
 
 
-def _anchored_solved_image_plane_step_from_jacobian(
-    f_x: jnp.ndarray,
-    f_y: jnp.ndarray,
-    jac_a00: jnp.ndarray,
-    jac_a01: jnp.ndarray,
-    jac_a10: jnp.ndarray,
-    jac_a11: jnp.ndarray,
-    *,
-    trust_radius_arcsec: float = DEFAULT_ANCHORED_IMAGE_PLANE_TRUST_RADIUS_ARCSEC,
-    lm_damping_relative: float = DEFAULT_ANCHORED_IMAGE_PLANE_LM_DAMPING_RELATIVE,
-    lm_damping_absolute: float = DEFAULT_ANCHORED_IMAGE_PLANE_LM_DAMPING_ABSOLUTE,
-) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
-    finite_entries = (
-        jnp.isfinite(f_x)
-        & jnp.isfinite(f_y)
-        & jnp.isfinite(jac_a00)
-        & jnp.isfinite(jac_a01)
-        & jnp.isfinite(jac_a10)
-        & jnp.isfinite(jac_a11)
-    )
-    normal00 = jnp.square(jac_a00) + jnp.square(jac_a10)
-    normal01 = jac_a00 * jac_a01 + jac_a10 * jac_a11
-    normal11 = jnp.square(jac_a01) + jnp.square(jac_a11)
-    trace = jnp.maximum(normal00 + normal11, jnp.asarray(0.0, dtype=jnp.float64))
-    lam = (
-        jnp.asarray(float(lm_damping_absolute), dtype=jnp.float64)
-        + jnp.asarray(float(lm_damping_relative), dtype=jnp.float64) * trace
-    )
-    h00 = normal00 + lam
-    h11 = normal11 + lam
-    h01 = normal01
-    rhs0 = -(jac_a00 * f_x + jac_a10 * f_y)
-    rhs1 = -(jac_a01 * f_x + jac_a11 * f_y)
-    det_h = h00 * h11 - jnp.square(h01)
-    det_h_safe = jnp.maximum(det_h, jnp.asarray(MIN_JACOBIAN_NORMAL_DETERMINANT_GUARD, dtype=jnp.float64))
-    delta_x = (h11 * rhs0 - h01 * rhs1) / det_h_safe
-    delta_y = (-h01 * rhs0 + h00 * rhs1) / det_h_safe
-    delta_x, delta_y = _smooth_residual_cap(delta_x, delta_y, trust_radius_arcsec)
-    finite = (
-        finite_entries
-        & jnp.isfinite(lam)
-        & jnp.isfinite(det_h)
-        & jnp.isfinite(delta_x)
-        & jnp.isfinite(delta_y)
-    )
-    return delta_x, delta_y, finite
 
 
 def _critical_arc_normal_matrix_entries(
@@ -6181,7 +6149,7 @@ def _critical_arc_mixture_image_plane_terms(
     # singular_min = sqrt(lambda_min), d(singular_min)/d(param) ~ 1/singular_min blows up in the
     # transition zone (singular_min ~ 1e-6..1e-3), and the fold's (S0/singular_min)^2 compounds it
     # to ~1/singular_min^4 -- an O(1e6)-per-image gradient spike that overflows the SVI/NUTS init
-    # validity check when many images sit near critical curves (the stage4-from-stage3 regression).
+    # validity check when many images sit near critical curves (the sequential initialization regression).
     # The conditioning benefit flows through the covariance VALUE and the residual channel, not
     # through differentiating this geometric gating, so detaching it removes the spike while leaving
     # the fold (proxy 4255 -> 316) fully intact.
@@ -6403,13 +6371,6 @@ def _critical_arc_mixture_image_plane_responsibilities(
     )
 
 
-def _json_arcsec_array(values: Any) -> str:
-    try:
-        array = np.asarray(values, dtype=float).reshape(-1)
-    except (TypeError, ValueError):
-        array = np.asarray([], dtype=float)
-    finite_values = [float(value) for value in array if np.isfinite(value)]
-    return json.dumps(finite_values, separators=(",", ":"))
 
 
 def _critical_arc_frame_numpy_from_jacobian_entries(
@@ -10648,7 +10609,7 @@ def _svi_refresh_cache_snapshot(
 
 def _svi_refresh_evaluator_snapshot(evaluator: Any) -> dict[str, _SviRefreshCacheSnapshot]:
     perturbation_stage0 = bool(getattr(getattr(evaluator, "state", None), "perturbation_discovery_stage0", False))
-    direct_source_metric = getattr(evaluator, "sample_likelihood_mode", None) == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT
+    direct_source_metric = getattr(evaluator, "sample_likelihood_mode", None) in {SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT, SAMPLE_LIKELIHOOD_SMOOTHED}
     source_metric_enabled = not direct_source_metric and not (
         str(getattr(evaluator, "sample_likelihood_mode", SAMPLE_LIKELIHOOD_SOURCE)) == SAMPLE_LIKELIHOOD_SOURCE
         and str(getattr(evaluator, "source_plane_covariance_mode", SOURCE_PLANE_COVARIANCE_MODE_MAGNIFICATION))
@@ -10663,7 +10624,7 @@ def _svi_refresh_evaluator_snapshot(evaluator: Any) -> dict[str, _SviRefreshCach
         "scaling": _svi_refresh_cache_snapshot(
             getattr(evaluator, "scaling_scatter_cache_by_z", {}),
             getattr(evaluator, "scaling_scatter_reference_params", None),
-            enabled=not perturbation_stage0 and getattr(evaluator, "sampling_engine", None) != SAMPLING_ENGINE_FULL_FLAT,
+            enabled=not perturbation_stage0 and getattr(evaluator, "sampling_engine", None) not in {SAMPLING_ENGINE_FULL_FLAT, SAMPLING_ENGINE_TIERED_MEMBERS},
         ),
         "source_metric": _svi_refresh_cache_snapshot(
             getattr(evaluator, "source_metric_cache_by_z", {}),
@@ -10675,7 +10636,7 @@ def _svi_refresh_evaluator_snapshot(evaluator: Any) -> dict[str, _SviRefreshCach
     failures = getattr(evaluator, "_cache_refresh_failures", {})
     return {name: replace(snapshot, refresh_failed=bool(failures.get(name, False)),
                           direct=((name == "scaling" and not perturbation_stage0
-                                   and getattr(evaluator, "sampling_engine", None) == SAMPLING_ENGINE_FULL_FLAT)
+                                   and getattr(evaluator, "sampling_engine", None) in {SAMPLING_ENGINE_FULL_FLAT, SAMPLING_ENGINE_TIERED_MEMBERS})
                                   or (name == "source_metric" and direct_source_metric)))
             for name, snapshot in snapshots.items()}
 
@@ -11418,16 +11379,19 @@ def _source_loglike_matrix(
     if sample_array.ndim != 2 or sample_array.shape[0] == 0 or not hasattr(evaluator, "_source_loglike_fn"):
         return np.empty((0,), dtype=float)
 
-    def loglike_one(theta: jnp.ndarray) -> jnp.ndarray:
-        return evaluator._source_loglike_fn(theta)
-
+    if getattr(evaluator, "sample_likelihood_mode", None) == SAMPLE_LIKELIHOOD_SMOOTHED:
+        # Reuse one compiled function across chunks. Keep the physical
+        # likelihood, excluding source-coordinate prior corrections.
+        loglike_batch = evaluator._smoothed_physical_loglike_batch
+    else:
+        loglike_batch = jax.vmap(evaluator._source_loglike_fn)
     chunk_size = max(1, int(batch_size))
     if sample_array.shape[0] <= chunk_size:
-        return np.asarray(jax.vmap(loglike_one)(jnp.asarray(sample_array, dtype=jnp.float64)), dtype=float)
+        return np.asarray(loglike_batch(jnp.asarray(sample_array, dtype=jnp.float64)), dtype=float)
     chunks: list[np.ndarray] = []
     for start in range(0, sample_array.shape[0], chunk_size):
         chunk = sample_array[start : start + chunk_size]
-        chunks.append(np.asarray(jax.vmap(loglike_one)(jnp.asarray(chunk, dtype=jnp.float64)), dtype=float))
+        chunks.append(np.asarray(loglike_batch(jnp.asarray(chunk, dtype=jnp.float64)), dtype=float))
     return np.concatenate(chunks, axis=0)
 
 
@@ -11616,17 +11580,6 @@ def _select_best_fit_from_posterior(
     return np.asarray(selected_fit, dtype=float)
 
 
-def _reference_theta_from_init_values(
-    parameter_specs: list[ParameterSpec],
-    init_values: dict[str, float] | None,
-    fallback: np.ndarray,
-) -> np.ndarray:
-    reference = np.asarray(fallback, dtype=float).copy()
-    if init_values:
-        for idx, spec in enumerate(parameter_specs):
-            if spec.sample_name in init_values:
-                reference[idx] = float(init_values[spec.sample_name])
-    return _clip_theta_to_support(reference, parameter_specs, boundary_frac=DEFAULT_NUTS_INIT_BOUNDARY_FRAC)
 
 
 def _nuts_initialization_from_svi_center(
@@ -12305,6 +12258,35 @@ def _hessian_seeded_inverse_mass(
     return jnp.asarray(inverse_mass, dtype=jnp.float64), diagnostics
 
 
+def _freeze_latent_surrogate_during_sampling(function):
+    from functools import wraps
+    @wraps(function)
+    def wrapped(args, state, evaluator, *rest, **kwargs):
+        enabled = getattr(evaluator, "_uses_latent_surrogate", lambda: False)()
+        previous = getattr(evaluator, "_latent_surrogate_frozen", False)
+        if enabled:
+            evaluator._latent_surrogate_frozen = True
+        try:
+            return function(args, state, evaluator, *rest, **kwargs)
+        finally:
+            if enabled:
+                evaluator._latent_surrogate_frozen = previous
+    return wrapped
+
+
+def _run_mcmc_until_ready(mcmc: MCMC, rng_key: jnp.ndarray, *, extra_fields, init_params) -> None:
+    """Include asynchronous sampling in the caller's timer and error boundary.
+
+    Grouped accessors return the existing device arrays without flattening or
+    host copies. Wait once for every chain's state and collected outputs;
+    blocking on mcmc.run's return value (None) would not synchronize anything.
+    """
+    mcmc.run(rng_key, extra_fields=extra_fields, init_params=init_params)
+    jax.block_until_ready((mcmc.last_state, mcmc.get_samples(group_by_chain=True),
+                           mcmc.get_extra_fields(group_by_chain=True)))
+
+
+@_freeze_latent_surrogate_during_sampling
 def _run_numpyro_nuts_sampler(
     args: argparse.Namespace,
     state: BuildState,
@@ -12325,18 +12307,20 @@ def _run_numpyro_nuts_sampler(
     max_tree_depth = _max_tree_depth_for_args(args)
     # Full-flat NUTS always runs with a full dense inverse mass seeded from the local
     # Hessian of this run's potential; there is no un-seeded fallback.
-    dense_mass = True
-    seed_inverse_mass, mass_seed_diagnostics = _hessian_seeded_inverse_mass(
-        args,
-        sample_model,
-        state.parameter_specs,
-        nuts_init.reference_theta,
-    )
+    mass_policy = _resolved_nuts_dense_mass_structure(args, state)
+    if mass_policy == "lens-and-hyperparameters":
+        from .smoothed_sampling import prepare_block_mass
+        dense_mass, seed_inverse_mass, mass_seed_diagnostics = prepare_block_mass(
+            args, sample_model, state.parameter_specs, nuts_init.reference_theta)
+    else:
+        dense_mass = True
+        seed_inverse_mass, mass_seed_diagnostics = _hessian_seeded_inverse_mass(
+            args, sample_model, state.parameter_specs, nuts_init.reference_theta)
     nuts_init.diagnostics["nuts_mass_seed"] = mass_seed_diagnostics
     print_summary = bool(getattr(args, "numpyro_print_summary", DEFAULT_NUMPYRO_PRINT_SUMMARY))
     nuts_init.diagnostics["dense_mass"] = True
     nuts_init.diagnostics["nuts_dense_mass"] = True
-    nuts_init.diagnostics["nuts_dense_mass_structure"] = NUTS_DENSE_MASS_FULL
+    nuts_init.diagnostics["nuts_dense_mass_structure"] = mass_policy
     nuts_init.diagnostics["nuts_chain_method"] = chain_method
     nuts_init.diagnostics["nuts_chain_method_requested"] = requested_chain_method
     nuts_init.diagnostics["numpyro_print_summary"] = print_summary
@@ -12357,8 +12341,8 @@ def _run_numpyro_nuts_sampler(
             f"[nuts] preparing sampler chains={args.chains} chain_method={chain_method} "
             f"warmup={args.warmup} samples={args.samples} thin={args.thin} "
             f"target_accept={args.target_accept:.2f} max_tree_depth={max_tree_depth} "
-            f"dense_mass=full "
-            f"dense_mass_structure={NUTS_DENSE_MASS_FULL} print_summary={print_summary} "
+            f"dense_mass={mass_policy} "
+            f"dense_mass_structure={mass_policy} print_summary={print_summary} "
             f"image_sigma_int_sampled={bool(getattr(evaluator, 'image_sigma_int_sampled', False))} "
             f"fixed_image_sigma_int_arcsec={getattr(evaluator, 'fixed_image_sigma_int_arcsec', None)} "
             f"initial_step_size={float(args.initial_step_size):.3g} "
@@ -12386,18 +12370,22 @@ def _run_numpyro_nuts_sampler(
     )
     rng_key = jax.random.PRNGKey(0 if args.seed is None else args.seed)
     _log(args, "[nuts] warmup + sampling started")
-    nuts_start = time.time()
+    nuts_start = time.perf_counter()
     _run_logged_phase(
         args,
         "nuts.run",
-        lambda: mcmc.run(
+        lambda: _run_mcmc_until_ready(
+            mcmc,
             rng_key,
             extra_fields=_sampler_debug_extra_field_names(args),
             init_params=nuts_init.init_params,
         ),
     )
-    nuts_elapsed = time.time() - nuts_start
+    nuts_elapsed = time.perf_counter() - nuts_start
     evaluator.timing_totals["nuts_runtime"] += nuts_elapsed
+    nuts_init.diagnostics.update(nuts_runtime_seconds=float(nuts_elapsed),
+                                 nuts_runtime_synchronized=True,
+                                 nuts_runtime_scope="compilation_warmup_sampling")
 
     if print_summary:
         _run_logged_phase(
@@ -12419,6 +12407,8 @@ def _run_numpyro_nuts_sampler(
         "nuts.get_extra_fields",
         lambda: mcmc.get_extra_fields(group_by_chain=True),
     )
+    if bool(getattr(args, "debug_sampler_diagnostics", False)):
+        extra.update(_nuts_final_adaptation_extra_fields(mcmc.last_state.adapt_state, args.chains))
     samples_dict, extra, chain_quality_diag = _run_logged_phase(
         args,
         "posterior.sanitize_grouped",
@@ -12450,6 +12440,7 @@ def _run_numpyro_nuts_sampler(
     num_steps = np.asarray(extra["num_steps"], dtype=float).reshape(-1)[:: max(1, args.thin)]
     log_prob = -np.asarray(extra["potential_energy"], dtype=float).reshape(-1)[:: max(1, args.thin)]
     grouped_log_prob = -np.asarray(extra["potential_energy"], dtype=float)[:, :: max(1, args.thin)]
+    nuts_init.diagnostics["log_prob_coordinates"] = "numpyro_unconstrained_sample_sites"
     nuts_init.diagnostics.update(
         _run_logged_phase(
             args,
@@ -12958,6 +12949,7 @@ def _summarize_blocked_nuts_metrics(values: dict[str, list[float]]) -> dict[str,
     }
 
 
+@_freeze_latent_surrogate_during_sampling
 def _run_blocked_numpyro_nuts_sampler(
     args: argparse.Namespace,
     state: BuildState,
@@ -13181,6 +13173,7 @@ def _run_blocked_numpyro_nuts_sampler(
     return posterior
 
 
+@_freeze_latent_surrogate_during_sampling
 def _run_active_blocked_numpyro_nuts_sampler(
     args: argparse.Namespace,
     state: BuildState,
@@ -13738,7 +13731,7 @@ def _stage_arg_values(value: Any, *, flag_name: str) -> list[Any]:
     if not values:
         _fail(f"{flag_name} requires one to three values.")
     if len(values) > 3:
-        _fail(f"{flag_name} accepts at most three values: stage 2, stage 3, and stage 4.")
+        _fail(f"{flag_name} accepts at most three values for stages 0, 1, and 2.")
     return values
 
 
@@ -13757,53 +13750,10 @@ def _linearized_stage_enabled(args: argparse.Namespace) -> bool:
     }
 
 
-def _forward_metric_stage_enabled(args: argparse.Namespace) -> bool:
-    return str(getattr(args, "image_plane_mode", IMAGE_PLANE_MODE_NONE)) == IMAGE_PLANE_MODE_FORWARD_METRIC
-
-
-def _anchored_solved_stage_enabled(args: argparse.Namespace) -> bool:
-    return str(getattr(args, "image_plane_mode", IMAGE_PLANE_MODE_NONE)) == IMAGE_PLANE_MODE_ANCHORED_SOLVED_FORWARD_BETA
-
-
-def _critical_arc_mixture_stage_enabled(args: argparse.Namespace) -> bool:
-    return str(getattr(args, "image_plane_mode", IMAGE_PLANE_MODE_NONE)) in {
-        IMAGE_PLANE_MODE_CRITICAL_ARC_MIXTURE,
-        IMAGE_PLANE_MODE_CRITICAL_ARC_ANISOTROPIC,
-    }
-
-
-def _fold_regularized_stage_enabled(args: argparse.Namespace) -> bool:
-    return (
-        str(getattr(args, "image_plane_mode", IMAGE_PLANE_MODE_NONE))
-        == IMAGE_PLANE_MODE_FOLD_REGULARIZED_FORWARD_BETA
-    )
-
-
-def _catastrophe_normal_form_stage_enabled(args: argparse.Namespace) -> bool:
-    return (
-        str(getattr(args, "image_plane_mode", IMAGE_PLANE_MODE_NONE))
-        == IMAGE_PLANE_MODE_CATASTROPHE_NORMAL_FORM
-    )
-
-
-def _blocked_linearized_stage_enabled(args: argparse.Namespace) -> bool:
-    return False
-
-
-def _stage4_image_plane_enabled(args: argparse.Namespace) -> bool:
-    return (
-        _linearized_stage_enabled(args)
-        or _forward_metric_stage_enabled(args)
-        or _anchored_solved_stage_enabled(args)
-        or _critical_arc_mixture_stage_enabled(args)
-        or _fold_regularized_stage_enabled(args)
-        or _catastrophe_normal_form_stage_enabled(args)
-    )
-
-
 def _sample_likelihood_uses_explicit_beta(sample_likelihood_mode: str) -> bool:
     return sample_likelihood_mode in {
         SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT,
+        SAMPLE_LIKELIHOOD_SMOOTHED,
         SAMPLE_LIKELIHOOD_LINEARIZED_FORWARD_BETA_IMAGE_PLANE,
         SAMPLE_LIKELIHOOD_FORWARD_METRIC_IMAGE_PLANE,
         SAMPLE_LIKELIHOOD_ANCHORED_SOLVED_FORWARD_BETA_IMAGE_PLANE,
@@ -13815,7 +13765,7 @@ def _sample_likelihood_uses_explicit_beta(sample_likelihood_mode: str) -> bool:
 
 
 def _sample_likelihood_uses_image_scatter(sample_likelihood_mode: str) -> bool:
-    return (sample_likelihood_mode != SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT
+    return (sample_likelihood_mode not in {SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT, SAMPLE_LIKELIHOOD_SMOOTHED}
             and _sample_likelihood_uses_explicit_beta(sample_likelihood_mode))
 
 
@@ -13846,6 +13796,7 @@ def _critical_arc_uses_sampled_source_positions(source_position_policy: Any) -> 
 def _sample_likelihood_uses_image_plane_jacobian(sample_likelihood_mode: str) -> bool:
     return str(sample_likelihood_mode) in {
         SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT,
+        SAMPLE_LIKELIHOOD_SMOOTHED,
         SAMPLE_LIKELIHOOD_LINEARIZED_FORWARD_BETA_IMAGE_PLANE,
         SAMPLE_LIKELIHOOD_FORWARD_METRIC_IMAGE_PLANE,
         SAMPLE_LIKELIHOOD_ANCHORED_SOLVED_FORWARD_BETA_IMAGE_PLANE,
@@ -13857,7 +13808,8 @@ def _sample_likelihood_uses_image_plane_jacobian(sample_likelihood_mode: str) ->
 
 
 def _surrogate_refresh_needs_inactive_jacobian(sample_likelihood_mode: str) -> bool:
-    return _sample_likelihood_uses_image_plane_jacobian(sample_likelihood_mode)
+    return (sample_likelihood_mode == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT
+            or _sample_likelihood_uses_image_plane_jacobian(sample_likelihood_mode))
 
 
 def _flat_surrogate_refresh_needs_inactive_jacobian(
@@ -13876,7 +13828,7 @@ def _effective_image_presence_penalty_weight(
     fit_mode: str,
     image_plane_mode: str,
 ) -> float:
-    if sample_likelihood_mode == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT:
+    if sample_likelihood_mode in {SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT, SAMPLE_LIKELIHOOD_SMOOTHED}:
         return 0.0
     if requested_weight is not None:
         return float(requested_weight)
@@ -13906,7 +13858,7 @@ def _effective_image_presence_penalty_weight(
         IMAGE_PLANE_MODE_CATASTROPHE_NORMAL_FORM,
     }:
         return 0.0
-    return DEFAULT_IMAGE_PRESENCE_STAGE4_PENALTY_WEIGHT
+    return DEFAULT_IMAGE_PRESENCE_FORWARD_PENALTY_WEIGHT
 
 
 def _effective_cab_likelihood_weight(
@@ -13934,92 +13886,6 @@ def _validation_source_centroid_weights(
     return np.full(int(count), 1.0 / variance, dtype=float), float(np.sqrt(variance))
 
 
-def _stage4_sample_likelihood_mode(args: argparse.Namespace) -> str | None:
-    mode = str(getattr(args, "image_plane_mode", IMAGE_PLANE_MODE_NONE))
-    if mode in {IMAGE_PLANE_MODE_LINEARIZED_FORWARD_BETA, IMAGE_PLANE_MODE_LINEARIZED_FORWARD_BETA_BLOCKED}:
-        return SAMPLE_LIKELIHOOD_LINEARIZED_FORWARD_BETA_IMAGE_PLANE
-    if mode == IMAGE_PLANE_MODE_FORWARD_METRIC:
-        return SAMPLE_LIKELIHOOD_FORWARD_METRIC_IMAGE_PLANE
-    if mode == IMAGE_PLANE_MODE_ANCHORED_SOLVED_FORWARD_BETA:
-        return SAMPLE_LIKELIHOOD_ANCHORED_SOLVED_FORWARD_BETA_IMAGE_PLANE
-    if mode == IMAGE_PLANE_MODE_CRITICAL_ARC_MIXTURE:
-        return SAMPLE_LIKELIHOOD_CRITICAL_ARC_MIXTURE_IMAGE_PLANE
-    if mode == IMAGE_PLANE_MODE_CRITICAL_ARC_ANISOTROPIC:
-        return SAMPLE_LIKELIHOOD_CRITICAL_ARC_ANISOTROPIC_IMAGE_PLANE
-    if mode == IMAGE_PLANE_MODE_FOLD_REGULARIZED_FORWARD_BETA:
-        return SAMPLE_LIKELIHOOD_FOLD_REGULARIZED_FORWARD_BETA_IMAGE_PLANE
-    if mode == IMAGE_PLANE_MODE_CATASTROPHE_NORMAL_FORM:
-        return SAMPLE_LIKELIHOOD_CATASTROPHE_NORMAL_FORM_IMAGE_PLANE
-    return None
-
-
-def _stage4_run_directory_name(args: argparse.Namespace) -> str:
-    if _forward_metric_stage_enabled(args):
-        return "stage4_forward_metric_image_plane"
-    if _anchored_solved_stage_enabled(args):
-        return "stage4_anchored_solved_image_plane"
-    if str(getattr(args, "image_plane_mode", IMAGE_PLANE_MODE_NONE)) == IMAGE_PLANE_MODE_CRITICAL_ARC_MIXTURE:
-        return "stage4_critical_arc_mixture_image_plane"
-    if str(getattr(args, "image_plane_mode", IMAGE_PLANE_MODE_NONE)) == IMAGE_PLANE_MODE_CRITICAL_ARC_ANISOTROPIC:
-        return "stage4_critical_arc_anisotropic_image_plane"
-    if _fold_regularized_stage_enabled(args):
-        return "stage4_fold_regularized_image_plane"
-    if _catastrophe_normal_form_stage_enabled(args):
-        return "stage4_catastrophe_normal_form_image_plane"
-    return "stage4_linearized_image_plane"
-
-
-def _auto_local_jacobian_stage_enabled(args: argparse.Namespace) -> bool:
-    mode = str(getattr(args, "image_plane_mode", IMAGE_PLANE_MODE_NONE))
-    if mode == IMAGE_PLANE_MODE_LOCAL_JACOBIAN:
-        return True
-    if mode in {
-        IMAGE_PLANE_MODE_LINEARIZED_FORWARD_BETA,
-        IMAGE_PLANE_MODE_LINEARIZED_FORWARD_BETA_BLOCKED,
-        IMAGE_PLANE_MODE_FORWARD_METRIC,
-        IMAGE_PLANE_MODE_ANCHORED_SOLVED_FORWARD_BETA,
-        IMAGE_PLANE_MODE_CRITICAL_ARC_MIXTURE,
-        IMAGE_PLANE_MODE_CRITICAL_ARC_ANISOTROPIC,
-        IMAGE_PLANE_MODE_FOLD_REGULARIZED_FORWARD_BETA,
-        IMAGE_PLANE_MODE_CATASTROPHE_NORMAL_FORM,
-    }:
-        return not bool(getattr(args, "skip_stage3_image_plane_local_jacobian", False))
-    return False
-
-
-def _stage3_image_plane_mode(args: argparse.Namespace) -> str:
-    requested = str(getattr(args, "stage3_image_plane_mode", STAGE3_IMAGE_PLANE_MODE_AUTO))
-    if requested == STAGE3_IMAGE_PLANE_MODE_AUTO:
-        return STAGE3_IMAGE_PLANE_MODE_LOCAL_JACOBIAN if _auto_local_jacobian_stage_enabled(args) else STAGE3_IMAGE_PLANE_MODE_NONE
-    return requested
-
-
-def _local_jacobian_stage_enabled(args: argparse.Namespace) -> bool:
-    return _stage3_image_plane_mode(args) == STAGE3_IMAGE_PLANE_MODE_LOCAL_JACOBIAN
-
-
-def _critical_arc_centroid_stage_enabled(args: argparse.Namespace) -> bool:
-    return _stage3_image_plane_mode(args) in {
-        STAGE3_IMAGE_PLANE_MODE_CRITICAL_ARC_MIXTURE,
-        STAGE3_IMAGE_PLANE_MODE_CRITICAL_ARC_ANISOTROPIC,
-    }
-
-
-def _stage3_image_plane_enabled(args: argparse.Namespace) -> bool:
-    return _stage3_image_plane_mode(args) != STAGE3_IMAGE_PLANE_MODE_NONE
-
-
-def _stage3_sample_likelihood_mode(args: argparse.Namespace) -> str | None:
-    mode = _stage3_image_plane_mode(args)
-    if mode == STAGE3_IMAGE_PLANE_MODE_LOCAL_JACOBIAN:
-        return SAMPLE_LIKELIHOOD_LOCAL_JACOBIAN
-    if mode == STAGE3_IMAGE_PLANE_MODE_CRITICAL_ARC_MIXTURE:
-        return SAMPLE_LIKELIHOOD_CRITICAL_ARC_MIXTURE_IMAGE_PLANE
-    if mode == STAGE3_IMAGE_PLANE_MODE_CRITICAL_ARC_ANISOTROPIC:
-        return SAMPLE_LIKELIHOOD_CRITICAL_ARC_ANISOTROPIC_IMAGE_PLANE
-    return None
-
-
 SEQUENTIAL_STAGE_NAMES = {
     STAGE1_BACKPROJECTED_CENTROID_FIT_DIR,
     STAGE2_FREE_SOURCE_FORWARD_FIT_DIR,
@@ -14038,12 +13904,6 @@ def _is_sequential_stage_path(value: str | Path) -> bool:
     return _sequential_stage_name(value) in SEQUENTIAL_STAGE_NAMES
 
 
-def _final_sequential_exact_diagnostics_stage(args: argparse.Namespace, *, stage3_enabled: bool, stage4_enabled: bool) -> str:
-    if stage4_enabled or stage3_enabled or _stage2_forward_enabled(args):
-        return STAGE2_FREE_SOURCE_FORWARD_FIT_DIR
-    return STAGE1_BACKPROJECTED_CENTROID_FIT_DIR
-
-
 def _stage_allows_exact_image_diagnostics(value: str | Path, exact_diagnostics_stage: str | Path | None) -> bool:
     if not _is_sequential_stage_path(value):
         return True
@@ -14052,22 +13912,11 @@ def _stage_allows_exact_image_diagnostics(value: str | Path, exact_diagnostics_s
     return _sequential_stage_name(value) == _sequential_stage_name(exact_diagnostics_stage)
 
 
-def _stage3_exact_image_diagnostics_enabled(args: argparse.Namespace | None, value: str | Path) -> bool:
-    return (
-        bool(getattr(args, "exact_image_diagnostics_stage3", False))
-        and _sequential_stage_name(value) == STAGE2_FREE_SOURCE_FORWARD_FIT_DIR
-    )
-
-
-def _stage2_exact_image_diagnostics_enabled(args: argparse.Namespace | None, value: str | Path) -> bool:
+def _stage_exact_image_diagnostics_enabled(args: argparse.Namespace | None, value: str | Path) -> bool:
     return (
         bool(getattr(args, "exact_image_diagnostics_stage2", False))
-        and _sequential_stage_name(value) == STAGE1_BACKPROJECTED_CENTROID_FIT_DIR
+        and _sequential_stage_name(value) == STAGE2_FREE_SOURCE_FORWARD_FIT_DIR
     )
-
-
-def _stage_exact_image_diagnostics_enabled(args: argparse.Namespace | None, value: str | Path) -> bool:
-    return _stage2_exact_image_diagnostics_enabled(args, value) or _stage3_exact_image_diagnostics_enabled(args, value)
 
 
 def _force_quick_diagnostics_for_nonfinal_stage(
@@ -14109,48 +13958,15 @@ def _normalize_stage_fit_controls(args: argparse.Namespace) -> dict[str, StageFi
     fit_mode = str(getattr(args, "fit_mode", FIT_MODE_SEQUENTIAL))
     mode = str(getattr(args, "image_plane_mode", IMAGE_PLANE_MODE_NONE))
     start_at_stage2 = bool(getattr(args, "start_at_stage2", False))
-    start_at_stage3 = bool(getattr(args, "start_at_stage3", False))
-    requested_stage3_mode = str(getattr(args, "stage3_image_plane_mode", STAGE3_IMAGE_PLANE_MODE_AUTO))
-    if requested_stage3_mode not in STAGE3_IMAGE_PLANE_MODES:
-        _fail(
-            "--stage3-image-plane-mode must be one of "
-            f"{', '.join(STAGE3_IMAGE_PLANE_MODES)}."
-        )
-    if (
-        bool(getattr(args, "skip_stage3_image_plane_local_jacobian", False))
-        and requested_stage3_mode != STAGE3_IMAGE_PLANE_MODE_AUTO
-    ):
-        _fail("--skip-stage3-image-plane-local-jacobian can only be combined with --stage3-image-plane-mode auto.")
-    if requested_stage3_mode != STAGE3_IMAGE_PLANE_MODE_AUTO and fit_mode != FIT_MODE_SEQUENTIAL:
-        _fail("--stage3-image-plane-mode is only valid with --fit-mode sequential.")
-    stage4_sampling_engine = str(getattr(args, "stage4_sampling_engine", STAGE4_SAMPLING_ENGINE_INHERIT))
-    if stage4_sampling_engine not in STAGE4_SAMPLING_ENGINE_CHOICES:
-        _fail("--stage4-sampling-engine must be one of " f"{', '.join(STAGE4_SAMPLING_ENGINE_CHOICES)}.")
-    if stage4_sampling_engine != STAGE4_SAMPLING_ENGINE_INHERIT and fit_mode != FIT_MODE_SEQUENTIAL:
-        _fail("--stage4-sampling-engine is only valid with --fit-mode sequential.")
     _validate_jax_device_controls(args)
     if bool(getattr(args, "quick_diagnostics", False)):
         if bool(getattr(args, "exact_image_diagnostics_stage2", False)):
             _fail("--exact-image-diagnostics-stage2 cannot be combined with --quick-diagnostics.")
-        if bool(getattr(args, "exact_image_diagnostics_stage3", False)):
-            _fail("--exact-image-diagnostics-stage3 cannot be combined with --quick-diagnostics.")
     if _resume_mode_is_fast(args) and fit_mode != FIT_MODE_SEQUENTIAL:
         _fail("--resume fast is only valid with --fit-mode sequential.")
     if start_at_stage2:
         if fit_mode != FIT_MODE_SEQUENTIAL:
             _fail("--start-at-stage2 is only valid with --fit-mode sequential.")
-        if start_at_stage3:
-            _fail("--start-at-stage2 cannot be combined with --start-at-stage3.")
-    if start_at_stage3:
-        if fit_mode != FIT_MODE_SEQUENTIAL:
-            _fail("--start-at-stage3 is only valid with --fit-mode sequential.")
-        if bool(getattr(args, "skip_stage3_image_plane_local_jacobian", False)):
-            _fail("--start-at-stage3 requires stage 3 and is incompatible with --skip-stage3-image-plane-local-jacobian.")
-        if not _stage3_image_plane_enabled(args):
-            _fail(
-                "--start-at-stage3 requires a stage-3-capable --image-plane-mode "
-                "or an explicit --stage3-image-plane-mode."
-            )
     ns_num_live_points = getattr(args, "ns_num_live_points", None)
     if ns_num_live_points is not None and int(ns_num_live_points) <= 0:
         _fail("--ns-num-live-points must be positive when provided.")
@@ -14195,11 +14011,11 @@ def _normalize_stage_fit_controls(args: argparse.Namespace) -> dict[str, StageFi
             upper=float(getattr(args, "potfile_alpha_sigma_prior_upper", DEFAULT_SOLVER_POTFILE_ALPHA_SIGMA_UPPER)),
         )
         _validate_truncated_normal_prior_controls(
-            name="gamma_ml",
-            mean=float(getattr(args, "potfile_gamma_ml_prior_mean", DEFAULT_SOLVER_POTFILE_GAMMA_ML_MEAN)),
-            std=float(getattr(args, "potfile_gamma_ml_prior_std", DEFAULT_SOLVER_POTFILE_GAMMA_ML_STD)),
-            lower=float(getattr(args, "potfile_gamma_ml_prior_lower", DEFAULT_SOLVER_POTFILE_GAMMA_ML_LOWER)),
-            upper=float(getattr(args, "potfile_gamma_ml_prior_upper", DEFAULT_SOLVER_POTFILE_GAMMA_ML_UPPER)),
+            name="beta_radius",
+            mean=float(getattr(args, "potfile_beta_radius_prior_mean", DEFAULT_SOLVER_POTFILE_BETA_RADIUS_MEAN)),
+            std=float(getattr(args, "potfile_beta_radius_prior_std", DEFAULT_SOLVER_POTFILE_BETA_RADIUS_STD)),
+            lower=float(getattr(args, "potfile_beta_radius_prior_lower", DEFAULT_SOLVER_POTFILE_BETA_RADIUS_LOWER)),
+            upper=float(getattr(args, "potfile_beta_radius_prior_upper", DEFAULT_SOLVER_POTFILE_BETA_RADIUS_UPPER)),
         )
     except ValueError as exc:
         _fail(str(exc))
@@ -14694,8 +14510,6 @@ def _normalize_stage_fit_controls(args: argparse.Namespace) -> dict[str, StageFi
             _fail("--fit-mode evidence-ns requires --evidence-source-prior-sigma-arcsec.")
         if mode != IMAGE_PLANE_MODE_NONE:
             _fail("--fit-mode evidence-ns owns its likelihood and requires --image-plane-mode none.")
-        if bool(getattr(args, "skip_stage3_image_plane_local_jacobian", False)):
-            _fail("--skip-stage3-image-plane-local-jacobian is not valid with --fit-mode evidence-ns.")
         if (
             str(getattr(args, "sampling_engine", SAMPLING_ENGINE_FULL_FLAT)) == SAMPLING_ENGINE_REFRESHING_SURROGATE_FLAT
             and int(getattr(args, "image_plane_newton_steps", 0)) > 0
@@ -14727,24 +14541,6 @@ def _normalize_stage_fit_controls(args: argparse.Namespace) -> dict[str, StageFi
                 sampling_refresh_runs=DEFAULT_SAMPLING_REFRESH_RUNS,
                 max_tree_depth=int(max_tree_depths[0]),
             ),
-            "stage3": StageFitControls(
-                fit_method=FIT_METHOD_NS,
-                svi_steps=0,
-                refresh_every=DEFAULT_REFRESH_EVERY,
-                warmup=0,
-                samples=0,
-                sampling_refresh_runs=DEFAULT_SAMPLING_REFRESH_RUNS,
-                max_tree_depth=int(max_tree_depths[0]),
-            ),
-            "stage4": StageFitControls(
-                fit_method=FIT_METHOD_NS,
-                svi_steps=0,
-                refresh_every=DEFAULT_REFRESH_EVERY,
-                warmup=0,
-                samples=0,
-                sampling_refresh_runs=DEFAULT_SAMPLING_REFRESH_RUNS,
-                max_tree_depth=int(max_tree_depths[0]),
-            ),
         }
         return controls
     if evidence_likelihood_mode != DEFAULT_EVIDENCE_LIKELIHOOD_MODE:
@@ -14759,7 +14555,7 @@ def _normalize_stage_fit_controls(args: argparse.Namespace) -> dict[str, StageFi
             _fail(f"--image-plane-newton-steps must be 0 for --image-plane-mode {mode}.")
         if (
             str(getattr(args, "source_position_parameterization", SOURCE_POSITION_PARAMETERIZATION_PRIOR_WHITENED))
-            == SOURCE_POSITION_PARAMETERIZATION_CONDITIONAL_WHITENED
+            in {SOURCE_POSITION_PARAMETERIZATION_CONDITIONAL_WHITENED, SOURCE_POSITION_PARAMETERIZATION_LIKELIHOOD_WHITENED}
         ):
             _fail(
                 "--source-position-parameterization conditional-whitened is not supported with "
@@ -14852,6 +14648,20 @@ def _normalize_stage_fit_controls(args: argparse.Namespace) -> dict[str, StageFi
         len(sampling_refresh_runs),
         len(max_tree_depths),
     )
+    if (
+        _linearized_stage_enabled(args)
+        and str(getattr(args, "sampling_engine", SAMPLING_ENGINE_FULL_FLAT)) == SAMPLING_ENGINE_REFRESHING_SURROGATE_FLAT
+        and int(getattr(args, "image_plane_newton_steps", 0)) > 0
+    ):
+        _fail(
+            "--sampling-engine refreshing_surrogate_flat with linearized-forward-beta-image-plane "
+            "requires --image-plane-newton-steps 0."
+        )
+    for index in range(max(len(fit_methods), len(sampling_refresh_runs))):
+        method = fit_methods[min(index, len(fit_methods) - 1)]
+        refreshes = sampling_refresh_runs[min(index, len(sampling_refresh_runs) - 1)]
+        if refreshes > 1 and method not in {FIT_METHOD_NUTS, FIT_METHOD_SVI_NUTS, FIT_METHOD_ACTIVE_BLOCKED_NUTS}:
+            _fail("--sampling-refresh-runs > 1 is supported only for --fit-method nuts or svi+nuts, or active-blocked-nuts.")
     if fit_mode == FIT_MODE_SEQUENTIAL and hasattr(args, "stage2_forward_mode"):
         stage1_sampling_engine = str(
             getattr(args, "stage1_sampling_engine", SAMPLING_ENGINE_REFRESHING_SURROGATE_FLAT)
@@ -14921,136 +14731,16 @@ def _normalize_stage_fit_controls(args: argparse.Namespace) -> dict[str, StageFi
             "stage1": stage1_controls,
             "stage2": stage2_controls,
         }
-    has_stage_specific_values = max_value_count >= 2
-    has_three_stage_values = max_value_count == 3
-    is_sequential = fit_mode == FIT_MODE_SEQUENTIAL
-    has_stage4 = _stage4_image_plane_enabled(args)
-    has_stage3 = is_sequential and _stage3_image_plane_enabled(args)
-    has_stage3_or_stage4 = is_sequential and (has_stage3 or has_stage4)
-    if bool(getattr(args, "skip_stage3_image_plane_local_jacobian", False)) and not has_stage4:
-        _fail("--skip-stage3-image-plane-local-jacobian is only valid with a final stage-4 image-plane mode.")
-    if has_stage4 and not is_sequential:
-        _fail("Stage-4 image-plane modes require --fit-mode sequential.")
-    if (
-        _linearized_stage_enabled(args)
-        and str(getattr(args, "sampling_engine", SAMPLING_ENGINE_FULL_FLAT)) == SAMPLING_ENGINE_REFRESHING_SURROGATE_FLAT
-        and int(getattr(args, "image_plane_newton_steps", 0)) > 0
-    ):
-        _fail(
-            "--sampling-engine refreshing_surrogate_flat with linearized-forward-beta-image-plane "
-            "requires --image-plane-newton-steps 0."
-        )
-    if has_stage_specific_values and not has_stage3_or_stage4:
-        _fail(
-            "Two-value --fit-method, --svi-steps, --warmup, --samples, --sampling-refresh-runs, or --max-tree-depth is only valid with "
-            "--fit-mode sequential and an image-plane mode."
-        )
-    if has_three_stage_values and not (has_stage3 and has_stage4):
-        _fail(
-            "Three-value --fit-method, --svi-steps, --warmup, --samples, --sampling-refresh-runs, or --max-tree-depth is only valid with "
-            "both an enabled stage 3 and a final stage-4 image-plane mode."
-        )
-
-    def stage_value(values: list[Any], index: int) -> Any:
-        return values[index] if len(values) > index else values[0]
-
-    def stage4_value(values: list[Any]) -> Any:
-        if len(values) > 2:
-            return values[2]
-        if bool(getattr(args, "skip_stage3_image_plane_local_jacobian", False)) and len(values) > 1:
-            return values[1]
-        if len(values) > 1:
-            return values[1]
-        return values[0]
-
-    controls = {
-        "stage2": StageFitControls(
-            fit_method=str(stage_value(fit_methods, 0)),
-            svi_steps=int(stage_value(svi_steps, 0)),
-            refresh_every=stage_value(refresh_every_values, 0),
-            warmup=int(stage_value(warmups, 0)),
-            samples=int(stage_value(samples, 0)),
-            sampling_refresh_runs=int(stage_value(sampling_refresh_runs, 0)),
-            max_tree_depth=int(stage_value(max_tree_depths, 0)),
-        ),
-        "stage3": StageFitControls(
-            fit_method=str(stage_value(fit_methods, 1)),
-            svi_steps=int(stage_value(svi_steps, 1)),
-            refresh_every=stage_value(refresh_every_values, 1),
-            warmup=int(stage_value(warmups, 1)),
-            samples=int(stage_value(samples, 1)),
-            sampling_refresh_runs=int(stage_value(sampling_refresh_runs, 1)),
-            max_tree_depth=int(stage_value(max_tree_depths, 1)),
-        ),
-        "stage4": StageFitControls(
-            fit_method=str(stage4_value(fit_methods)),
-            svi_steps=int(stage4_value(svi_steps)),
-            refresh_every=stage4_value(refresh_every_values),
-            warmup=int(stage4_value(warmups)),
-            samples=int(stage4_value(samples)),
-            sampling_refresh_runs=int(stage4_value(sampling_refresh_runs)),
-            max_tree_depth=int(stage4_value(max_tree_depths)),
-        ),
-    }
-    if start_at_stage2 and controls["stage2"].fit_method not in {
-        FIT_METHOD_SVI,
-        FIT_METHOD_SVI_NUTS,
-        FIT_METHOD_ACTIVE_BLOCKED_NUTS,
-    }:
-        _fail("--start-at-stage2 requires stage-2 --fit-method svi or svi+nuts, or active-blocked-nuts, so SVI can initialize the stage.")
-    stage4_direct_sampler_modes = {
-        IMAGE_PLANE_MODE_LINEARIZED_FORWARD_BETA,
-        IMAGE_PLANE_MODE_FORWARD_METRIC,
-        IMAGE_PLANE_MODE_ANCHORED_SOLVED_FORWARD_BETA,
-        IMAGE_PLANE_MODE_CRITICAL_ARC_MIXTURE,
-        IMAGE_PLANE_MODE_FOLD_REGULARIZED_FORWARD_BETA,
-        IMAGE_PLANE_MODE_CATASTROPHE_NORMAL_FORM,
-    }
-    smc_stages: list[str] = []
-    if controls["stage2"].fit_method == FIT_METHOD_SMC:
-        smc_stages.append("stage2")
-    if has_stage3 and controls["stage3"].fit_method == FIT_METHOD_SMC:
-        smc_stages.append("stage3")
-    if has_stage4 and controls["stage4"].fit_method == FIT_METHOD_SMC:
-        smc_stages.append("stage4")
-    nuts_stages: list[str] = []
-    if controls["stage2"].fit_method == FIT_METHOD_NUTS:
-        nuts_stages.append("stage2")
-    if has_stage3 and controls["stage3"].fit_method == FIT_METHOD_NUTS:
-        nuts_stages.append("stage3")
-    if has_stage4 and controls["stage4"].fit_method == FIT_METHOD_NUTS:
-        nuts_stages.append("stage4")
-    microcanonical_stages: list[str] = []
-    if controls["stage2"].fit_method in MICROCANONICAL_FIT_METHODS:
-        microcanonical_stages.append("stage2")
-    if has_stage3 and controls["stage3"].fit_method in MICROCANONICAL_FIT_METHODS:
-        microcanonical_stages.append("stage3")
-    if has_stage4 and controls["stage4"].fit_method in MICROCANONICAL_FIT_METHODS:
-        microcanonical_stages.append("stage4")
-    active_sampling_stage_names = ["stage2"]
-    if has_stage3:
-        active_sampling_stage_names.append("stage3")
-    if has_stage4:
-        active_sampling_stage_names.append("stage4")
-    unsupported_sampling_refresh_stages = [
-        stage_name
-        for stage_name in active_sampling_stage_names
-        for controls_for_stage in (controls[stage_name],)
-        if int(controls_for_stage.sampling_refresh_runs) > 1
-        and str(controls_for_stage.fit_method) not in {FIT_METHOD_NUTS, FIT_METHOD_SVI_NUTS, FIT_METHOD_ACTIVE_BLOCKED_NUTS}
-    ]
-    if unsupported_sampling_refresh_stages:
-        _fail(
-            "--sampling-refresh-runs > 1 is currently supported only for --fit-method nuts or svi+nuts; "
-            f"unsupported stage(s): {', '.join(unsupported_sampling_refresh_stages)}."
-        )
-    if smc_stages:
-        if smc_stages != ["stage4"] or str(mode) not in stage4_direct_sampler_modes:
-            _fail("--fit-method smc is only valid for non-blocked sequential stage 4 image-plane modes.")
-    if nuts_stages:
-        if nuts_stages != ["stage4"] or str(mode) not in stage4_direct_sampler_modes:
-            _fail("--fit-method nuts is only valid for non-blocked sequential stage 4 image-plane modes.")
-    return controls
+    if fit_mode == FIT_MODE_SEQUENTIAL:
+        _fail("Sequential controls must be derived from a typed RunPlan.")
+    if max_value_count != 1:
+        _fail("Non-sequential runs require scalar fit controls.")
+    return {"stage2": StageFitControls(
+        fit_method=fit_methods[0], svi_steps=svi_steps[0],
+        refresh_every=refresh_every_values[0], warmup=warmups[0],
+        samples=samples[0], sampling_refresh_runs=sampling_refresh_runs[0],
+        max_tree_depth=max_tree_depths[0],
+    )}
 
 
 def _args_with_fit_controls(args: argparse.Namespace, controls: StageFitControls, **updates: Any) -> argparse.Namespace:
@@ -15088,23 +14778,6 @@ def _sequential_fiducial_cosmology_config() -> dict[str, float | str]:
     return dict(SEQUENTIAL_FIDUCIAL_COSMOLOGY_CONFIG)
 
 
-def _build_cosmology_from_config(cosmo_config: dict[str, Any]):
-    if not isinstance(cosmo_config, dict):
-        return FlatLambdaCDM(H0=70.0, Om0=0.3)
-    class_name = str(cosmo_config.get("class", "FlatLambdaCDM"))
-    h0 = _h0_from_config(cosmo_config)
-    om0 = _om0_from_config(cosmo_config)
-    ode0 = _ode0_from_config(cosmo_config)
-    w0 = _w0_from_config(cosmo_config)
-    if class_name == "FlatLambdaCDM":
-        return FlatLambdaCDM(H0=h0, Om0=om0)
-    if class_name == "FlatwCDM":
-        return FlatwCDM(H0=h0, Om0=om0, w0=w0)
-    if class_name == "LambdaCDM":
-        return LambdaCDM(H0=h0, Om0=om0, Ode0=ode0)
-    if class_name == "wCDM":
-        return wCDM(H0=h0, Om0=om0, Ode0=ode0, w0=w0)
-    return FlatLambdaCDM(H0=h0, Om0=om0)
 
 
 def _cosmology_w0_value(cosmo: Any) -> float:
@@ -15472,46 +15145,6 @@ def _bin_redshifts_by_lensing_efficiency(
     return mapping
 
 
-def _build_geometry_cache(
-    cosmo_config: dict[str, Any],
-    z_lens: float,
-    family_data: list[FamilyData],
-    bin_data: list[BinData],
-    *,
-    family_redshift_binning_sec: float = 0.0,
-) -> GeometryCache:
-    geometry_start = time.perf_counter()
-    effective_z_source_values = sorted({float(bin_item.effective_z_source) for bin_item in bin_data})
-    exact_z_source_values = sorted({float(family.z_source) for family in family_data})
-    family_z_source_map = {str(family.family_id): float(family.z_source) for family in family_data}
-    family_effective_z_source_map = {
-        str(family.family_id): float(family.effective_z_source) for family in family_data
-    }
-    dpie_sigma0_factor_by_effective_z = {
-        float(z_source): _dpie_sigma0_factor_from_config(z_lens, float(z_source), cosmo_config)
-        for z_source in effective_z_source_values
-    }
-    dpie_sigma0_factor_by_exact_z = {
-        float(z_source): _dpie_sigma0_factor_from_config(z_lens, float(z_source), cosmo_config)
-        for z_source in exact_z_source_values
-    }
-    return GeometryCache(
-        effective_z_source_values=[float(value) for value in effective_z_source_values],
-        exact_z_source_values=[float(value) for value in exact_z_source_values],
-        family_z_source_map=family_z_source_map,
-        family_effective_z_source_map=family_effective_z_source_map,
-        dpie_sigma0_factor_by_effective_z=dpie_sigma0_factor_by_effective_z,
-        dpie_sigma0_factor_by_exact_z=dpie_sigma0_factor_by_exact_z,
-        family_redshift_binning_sec=float(family_redshift_binning_sec),
-        geometry_cache_build_sec=float(time.perf_counter() - geometry_start),
-        flat_wcdm_quadrature_order=DEFAULT_JAX_COSMO_DISTANCE_STEPS,
-        lens_quadrature_z=None,
-        lens_quadrature_weights=None,
-        effective_z_quadrature_z=None,
-        effective_z_quadrature_weights=None,
-        exact_z_quadrature_z=None,
-        exact_z_quadrature_weights=None,
-    )
 
 
 def _safe_float(value: Any) -> float | None:
@@ -15612,8 +15245,6 @@ def _resolved_nuts_dense_mass_structure(args: argparse.Namespace, state: BuildSt
 
 def _blocked_nuts_dense_mass_argument(args: argparse.Namespace) -> bool:
     return _resolved_nuts_dense_mass_structure(args) != NUTS_DENSE_MASS_DIAGONAL
-
-
 
 
 def _site_value_from_theta(theta: np.ndarray | jnp.ndarray, site: _SampleSiteSpec) -> jnp.ndarray:
@@ -16327,11 +15958,15 @@ def _build_scaling_parameter_specs(
     alpha_sigma_prior_std: float = DEFAULT_SOLVER_POTFILE_ALPHA_SIGMA_STD,
     alpha_sigma_prior_lower: float = DEFAULT_SOLVER_POTFILE_ALPHA_SIGMA_LOWER,
     alpha_sigma_prior_upper: float = DEFAULT_SOLVER_POTFILE_ALPHA_SIGMA_UPPER,
-    gamma_ml_prior_mean: float = DEFAULT_SOLVER_POTFILE_GAMMA_ML_MEAN,
-    gamma_ml_prior_std: float = DEFAULT_SOLVER_POTFILE_GAMMA_ML_STD,
-    gamma_ml_prior_lower: float = DEFAULT_SOLVER_POTFILE_GAMMA_ML_LOWER,
-    gamma_ml_prior_upper: float = DEFAULT_SOLVER_POTFILE_GAMMA_ML_UPPER,
+    beta_radius_prior_mean: float = DEFAULT_SOLVER_POTFILE_BETA_RADIUS_MEAN,
+    beta_radius_prior_std: float = DEFAULT_SOLVER_POTFILE_BETA_RADIUS_STD,
+    beta_radius_prior_lower: float = DEFAULT_SOLVER_POTFILE_BETA_RADIUS_LOWER,
+    beta_radius_prior_upper: float = DEFAULT_SOLVER_POTFILE_BETA_RADIUS_UPPER,
 ) -> tuple[list[ParameterSpec], list[dict[str, int]], list[str]]:
+    _validate_truncated_normal_prior_controls(
+        name="beta_radius", mean=beta_radius_prior_mean, std=beta_radius_prior_std,
+        lower=beta_radius_prior_lower, upper=beta_radius_prior_upper,
+    )
     specs: list[ParameterSpec] = []
     param_index_by_potfile: list[dict[str, int]] = []
     lens_model_list: list[str] = []
@@ -16387,20 +16022,20 @@ def _build_scaling_parameter_specs(
                 "step": 0.02,
                 "transform_kind": "identity",
             },
-            "gamma_ml": {
+            "beta_radius": {
                 "prior_kind": "truncated_normal",
-                "lower": float(gamma_ml_prior_lower),
-                "upper": float(gamma_ml_prior_upper),
-                "mean": float(gamma_ml_prior_mean),
-                "std": float(gamma_ml_prior_std),
+                "lower": float(beta_radius_prior_lower),
+                "upper": float(beta_radius_prior_upper),
+                "mean": float(beta_radius_prior_mean),
+                "std": float(beta_radius_prior_std),
                 "step": 0.05,
                 "transform_kind": "identity",
             },
         }
-        if str(scaling_relation_mode) != SCALING_RELATION_MODE_DIRECT_EXPONENTS:
+        if str(scaling_relation_mode) != SCALING_RELATION_MODE_VELOCITY_RADIUS_EXPONENTS:
             raise ValueError(
                 f"Unsupported scaling_relation_mode={scaling_relation_mode!r}; "
-                f"expected {SCALING_RELATION_MODE_DIRECT_EXPONENTS!r}."
+                f"expected {SCALING_RELATION_MODE_VELOCITY_RADIUS_EXPONENTS!r}."
             )
         # Honor per-potfile sigma/cut prior limit entries (MemberPopulationConfig priors
         # or lenstool potfile limit lines). The baked solver_priors above apply only when
@@ -16421,7 +16056,7 @@ def _build_scaling_parameter_specs(
             if step is not None:
                 solver_priors[field_name]["step"] = step
             solver_priors[field_name].update(override)
-        scaling_fields = ("sigma", "cutkpc", "corekpc", "alpha_sigma", "gamma_ml")
+        scaling_fields = ("sigma", "cutkpc", "corekpc", "alpha_sigma", "beta_radius")
         for field_name in scaling_fields:
             prior = solver_priors[field_name]
             prior_kind = str(prior["prior_kind"])
@@ -16989,6 +16624,22 @@ def _build_stage2_large_parameter_specs(
     return stage2_specs
 
 
+def _build_latent_displacement_sigma_beta_spec(median_arcsec, log_sigma=0.7):
+    from .latent_displacement import validate_prior
+    validate_prior(log_sigma)
+    if median_arcsec is None or not np.isfinite(median_arcsec) or median_arcsec <= 0:
+        raise ValueError("sigma_beta prior median must be finite and positive.")
+    return ParameterSpec(
+        name="source.sigma_beta", sample_name="source_sigma_beta",
+        potential_id="source", profile_type=0, field="sigma_beta",
+        prior_kind="normal", lower=float("-inf"), upper=float("inf"),
+        mean=float(np.log(median_arcsec)), std=float(log_sigma), step=0.05,
+        component_family="latent_displacement", transform_kind="log_positive",
+        physical_lower=0.0, physical_upper=float("inf"),
+        physical_mean=float(median_arcsec),
+    )
+
+
 def _build_source_scatter_parameter_spec(start_index: int) -> ParameterSpec:
     del start_index
     return ParameterSpec(
@@ -17338,8 +16989,8 @@ def _build_source_position_parameter_specs(
     for family in family_data:
         if family.family_id not in source_position_prior_values:
             raise ValueError(
-                f"Missing stage-3 source centroid for family {family.family_id!r}; "
-                "stage 4 requires source-position initialization from stage 3."
+                f"Missing previous-stage source centroid for family {family.family_id!r}; "
+                "the forward fit requires source-position initialization from its predecessor."
             )
         center_x, center_y = source_position_prior_values[family.family_id]
         for axis, center in (("x", center_x), ("y", center_y)):
@@ -17409,12 +17060,12 @@ def _build_packed_lens_spec(
     cut_ref_base = np.zeros(n_components, dtype=float)
     core_ref_base = np.zeros(n_components, dtype=float)
     alpha_sigma_base = np.full(n_components, DEFAULT_SOLVER_POTFILE_ALPHA_SIGMA_MEAN, dtype=float)
-    gamma_ml_base = np.full(n_components, DEFAULT_SOLVER_POTFILE_GAMMA_ML_MEAN, dtype=float)
+    beta_radius_base = np.full(n_components, DEFAULT_SOLVER_POTFILE_BETA_RADIUS_MEAN, dtype=float)
     sigma_ref_param_index = np.full(n_components, -1, dtype=np.int32)
     cut_ref_param_index = np.full(n_components, -1, dtype=np.int32)
     core_ref_param_index = np.full(n_components, -1, dtype=np.int32)
     alpha_sigma_param_index = np.full(n_components, -1, dtype=np.int32)
-    gamma_ml_param_index = np.full(n_components, -1, dtype=np.int32)
+    beta_radius_param_index = np.full(n_components, -1, dtype=np.int32)
     sigma_log_scatter_param_index = np.full(n_components, -1, dtype=np.int32)
     mass_log_scatter_param_index = np.full(n_components, -1, dtype=np.int32)
     independent_branch_role = np.full(n_components, INDEPENDENT_BRANCH_NONE, dtype=np.int32)
@@ -17463,12 +17114,12 @@ def _build_packed_lens_spec(
         cut_ref_base[idx] = float(item["cut_ref_base"])
         core_ref_base[idx] = float(item["core_ref_base"])
         alpha_sigma_base[idx] = float(item.get("alpha_sigma_base", DEFAULT_SOLVER_POTFILE_ALPHA_SIGMA_MEAN))
-        gamma_ml_base[idx] = float(item.get("gamma_ml_base", DEFAULT_SOLVER_POTFILE_GAMMA_ML_MEAN))
+        beta_radius_base[idx] = float(item.get("beta_radius_base", DEFAULT_SOLVER_POTFILE_BETA_RADIUS_MEAN))
         sigma_ref_param_index[idx] = int(item.get("sigma_ref_param_index", -1))
         cut_ref_param_index[idx] = int(item.get("cut_ref_param_index", -1))
         core_ref_param_index[idx] = int(item.get("core_ref_param_index", -1))
         alpha_sigma_param_index[idx] = int(item.get("alpha_sigma_param_index", -1))
-        gamma_ml_param_index[idx] = int(item.get("gamma_ml_param_index", -1))
+        beta_radius_param_index[idx] = int(item.get("beta_radius_param_index", -1))
         sigma_log_scatter_param_index[idx] = int(item.get("sigma_log_scatter_param_index", -1))
         mass_log_scatter_param_index[idx] = int(item.get("mass_log_scatter_param_index", -1))
         independent_branch_role[idx] = int(item.get("independent_branch_role", INDEPENDENT_BRANCH_NONE))
@@ -17486,12 +17137,12 @@ def _build_packed_lens_spec(
         cut_ref_base[idx] = float(component.get("cut_ref_base", 0.0))
         core_ref_base[idx] = float(component.get("core_ref_base", 0.0))
         alpha_sigma_base[idx] = float(component.get("alpha_sigma_base", DEFAULT_SOLVER_POTFILE_ALPHA_SIGMA_MEAN))
-        gamma_ml_base[idx] = float(component.get("gamma_ml_base", DEFAULT_SOLVER_POTFILE_GAMMA_ML_MEAN))
+        beta_radius_base[idx] = float(component.get("beta_radius_base", DEFAULT_SOLVER_POTFILE_BETA_RADIUS_MEAN))
         sigma_ref_param_index[idx] = int(component.get("sigma_ref_param_index", -1))
         cut_ref_param_index[idx] = int(component.get("cut_ref_param_index", -1))
         core_ref_param_index[idx] = int(component.get("core_ref_param_index", -1))
         alpha_sigma_param_index[idx] = int(component.get("alpha_sigma_param_index", -1))
-        gamma_ml_param_index[idx] = int(component.get("gamma_ml_param_index", -1))
+        beta_radius_param_index[idx] = int(component.get("beta_radius_param_index", -1))
         independent_free_log_sigma_delta_unit_param_index[idx] = int(component.get("independent_free_log_sigma_delta_unit_param_index", -1))
         independent_free_log_mass_delta_unit_param_index[idx] = int(component.get("independent_free_log_mass_delta_unit_param_index", -1))
 
@@ -17527,12 +17178,12 @@ def _build_packed_lens_spec(
         cut_ref_base=cut_ref_base,
         core_ref_base=core_ref_base,
         alpha_sigma_base=alpha_sigma_base,
-        gamma_ml_base=gamma_ml_base,
+        beta_radius_base=beta_radius_base,
         sigma_ref_param_index=sigma_ref_param_index,
         cut_ref_param_index=cut_ref_param_index,
         core_ref_param_index=core_ref_param_index,
         alpha_sigma_param_index=alpha_sigma_param_index,
-        gamma_ml_param_index=gamma_ml_param_index,
+        beta_radius_param_index=beta_radius_param_index,
         sigma_log_scatter_param_index=sigma_log_scatter_param_index,
         mass_log_scatter_param_index=mass_log_scatter_param_index,
         cut_radius_excess_above_effective_core=cut_radius_excess_above_effective_core,
@@ -17620,7 +17271,7 @@ def _build_scaling_components(
             magnitude_feature = np.nan_to_num(magnitude_feature, nan=0.0, posinf=0.0, neginf=0.0)
         luminosity_ratio = np.power(10.0, -0.4 * (magnitudes - float(potfile["mag0"])))
         alpha_sigma_base_value = DEFAULT_SOLVER_POTFILE_ALPHA_SIGMA_MEAN
-        gamma_ml_base_value = DEFAULT_SOLVER_POTFILE_GAMMA_ML_MEAN
+        beta_radius_base_value = DEFAULT_SOLVER_POTFILE_BETA_RADIUS_MEAN
         for row_index, row in enumerate(catalog_df.itertuples(index=False)):
             if member_shapes_circular:
                 ellipticite, angle_pos = 0.0, 0.0
@@ -17686,12 +17337,12 @@ def _build_scaling_components(
                     "cut_ref_base": cut_radius_kpc,
                     "core_ref_base": core_radius_kpc,
                     "alpha_sigma_base": alpha_sigma_base_value,
-                    "gamma_ml_base": gamma_ml_base_value,
+                    "beta_radius_base": beta_radius_base_value,
                     "sigma_ref_param_index": int(param_index_lookup.get("sigma", -1)),
                     "cut_ref_param_index": int(param_index_lookup.get("cutkpc", -1)),
                     "core_ref_param_index": int(param_index_lookup.get("corekpc", -1)),
                     "alpha_sigma_param_index": int(param_index_lookup.get("alpha_sigma", -1)),
-                    "gamma_ml_param_index": int(param_index_lookup.get("gamma_ml", -1)),
+                    "beta_radius_param_index": int(param_index_lookup.get("beta_radius", -1)),
                     "sigma_log_scatter_param_index": int(scatter_index_lookup.get("sigma", -1)),
                     "mass_log_scatter_param_index": int(scatter_index_lookup.get("mass", -1)),
                     "independent_branch_role": int(branch_role),
@@ -17720,12 +17371,12 @@ def _build_scaling_components(
                         "cut_ref_base": cut_radius_kpc,
                         "core_ref_base": core_radius_kpc,
                         "alpha_sigma_base": alpha_sigma_base_value,
-                        "gamma_ml_base": gamma_ml_base_value,
+                        "beta_radius_base": beta_radius_base_value,
                         "sigma_ref_param_index": int(param_index_lookup.get("sigma", -1)),
                         "cut_ref_param_index": int(param_index_lookup.get("cutkpc", -1)),
                         "core_ref_param_index": int(param_index_lookup.get("corekpc", -1)),
                         "alpha_sigma_param_index": int(param_index_lookup.get("alpha_sigma", -1)),
-                        "gamma_ml_param_index": int(param_index_lookup.get("gamma_ml", -1)),
+                        "beta_radius_param_index": int(param_index_lookup.get("beta_radius", -1)),
                         "independent_free_log_sigma_delta_unit_param_index": int(independent_lookup.get("independent_free_log_sigma_delta_unit", -1)),
                         "independent_free_log_mass_delta_unit_param_index": int(independent_lookup.get("independent_free_log_mass_delta_unit", -1)),
                         **direct_shape_payload,
@@ -17864,8 +17515,13 @@ def _validate_truncated_normal_prior_controls(
     std = float(std)
     lower = float(lower)
     upper = float(upper)
-    if not all(np.isfinite(value) for value in (mean, std, lower, upper)):
+    beta_prior = name == "beta_radius"
+    if not all(np.isfinite(value) for value in (mean, std, lower)) or not (
+        np.isfinite(upper) or (beta_prior and upper == np.inf)
+    ):
         raise ValueError(f"{name} prior controls must be finite.")
+    if beta_prior and lower < 0.0:
+        raise ValueError("beta_radius prior lower bound must be nonnegative.")
     if std <= 0.0:
         raise ValueError(f"{name} prior std must be positive.")
     if not lower < upper:
@@ -18063,7 +17719,6 @@ def _prepare_arc_constraint_data(
         sigma_curvature_arcsec_inv=np.asarray(sigma_curvature, dtype=float),
         reliability=np.asarray(np.clip(numeric["arc_reliability"], 0.0, 1.0), dtype=float),
     )
-
 
 
 def _prepare_family_data(
@@ -18317,7 +17972,22 @@ def _dpie_sigma0_factor(z_lens: float, z_source: float, cosmo: Any) -> float:
     return _dpie_sigma0_factor_from_config(z_lens, z_source, _cosmology_config_from_any(cosmo))
 
 
-class ClusterJAXEvaluator:
+
+
+
+class ClusterJAXEvaluator(LensPhysicsMixin, ExactImageReportingMixin):
+    def __new__(cls, state=None, *args, **kwargs):
+        # Compatibility entry point. The factory below dispatches before the
+        # legacy constructor or its options are evaluated.
+        if kwargs.get("sample_likelihood_mode") == SAMPLE_LIKELIHOOD_SMOOTHED:
+            from .tiered_evaluator import TieredMembersEvaluator
+            return TieredMembersEvaluator(state, *args, **kwargs)
+        return super().__new__(cls)
+
+    def _smoothed_member_vdisp(self, v_disp, physical):
+        # Shared packed-profile hook: legacy models have no hierarchical offsets.
+        return v_disp
+
     def __init__(
         self,
         state: BuildState,
@@ -18437,7 +18107,9 @@ class ClusterJAXEvaluator:
             raise ValueError("exact_image_lm_trust_radius_arcsec must be finite and positive.")
         if self.exact_image_adaptive_max_levels <= 0:
             raise ValueError("exact_image_adaptive_max_levels must be positive.")
-        self.sampling_engine = str(sampling_engine)
+        if getattr(state, "smoothed_model", None) is not None and str(sample_likelihood_mode) != SAMPLE_LIKELIHOOD_SMOOTHED:
+            raise ValueError("Saved smoothed model cannot be evaluated with a legacy likelihood.")
+        self.sampling_engine = canonical_sampling_engine(sampling_engine, str(sample_likelihood_mode))
         if self.sampling_engine not in SAMPLING_ENGINES:
             raise ValueError(
                 f"Unsupported sampling_engine={self.sampling_engine!r}; "
@@ -18476,7 +18148,14 @@ class ClusterJAXEvaluator:
             )
         self.source_plane_outlier_sigma_arcsec = max(float(source_plane_outlier_sigma_arcsec), 1.0e-6)
         self.sample_likelihood_mode = str(sample_likelihood_mode)
+        if getattr(state, "smoothed_model", None) is not None and self.sample_likelihood_mode != SAMPLE_LIKELIHOOD_SMOOTHED:
+            raise ValueError("Saved smoothed model cannot be evaluated with a legacy likelihood.")
         self.latent_displacement_sigma_beta_arcsec = latent_displacement_sigma_beta_arcsec
+        beta_indices = [i for i, spec in enumerate(state.parameter_specs)
+                        if spec.sample_name == "source_sigma_beta"]
+        if len(beta_indices) > 1:
+            raise ValueError("Expected at most one global sigma_beta parameter")
+        self.latent_displacement_sigma_beta_param_index = beta_indices[0] if beta_indices else -1
         if self.sample_likelihood_mode == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT:
             from .latent_displacement import validate_settings
             validate_settings(latent_displacement_sigma_beta_arcsec, self.sampling_engine,
@@ -18505,6 +18184,7 @@ class ClusterJAXEvaluator:
                 f"{', '.join(ACTIVE_SCALING_INFERENCE_LIKELIHOODS)}."
             )
         if self.sample_likelihood_mode not in {
+            SAMPLE_LIKELIHOOD_SMOOTHED,
             SAMPLE_LIKELIHOOD_SOURCE,
             SAMPLE_LIKELIHOOD_LOCAL_JACOBIAN,
             SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT,
@@ -18518,6 +18198,7 @@ class ClusterJAXEvaluator:
         }:
             raise ValueError(f"Unsupported sample_likelihood_mode={self.sample_likelihood_mode!r}.")
         if self.sampling_engine in {SAMPLING_ENGINE_FULL_FLAT} and self.sample_likelihood_mode not in {
+            SAMPLE_LIKELIHOOD_SMOOTHED,
             SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT,
             SAMPLE_LIKELIHOOD_SOURCE,
             SAMPLE_LIKELIHOOD_LOCAL_JACOBIAN,
@@ -18530,6 +18211,7 @@ class ClusterJAXEvaluator:
                 "critical-arc-anisotropic-image-plane."
             )
         if self.sampling_engine == SAMPLING_ENGINE_REFRESHING_SURROGATE_FLAT and self.sample_likelihood_mode not in {
+            SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT,
             SAMPLE_LIKELIHOOD_SOURCE,
             SAMPLE_LIKELIHOOD_LOCAL_JACOBIAN,
             SAMPLE_LIKELIHOOD_CRITICAL_ARC_MIXTURE_IMAGE_PLANE,
@@ -19039,7 +18721,7 @@ class ClusterJAXEvaluator:
         }
         self.source_position_parameterization = _explicit_source_position_parameterization_for_state(self.state)
         self.source_position_conditional = (
-            self.source_position_parameterization == SOURCE_POSITION_PARAMETERIZATION_CONDITIONAL_WHITENED
+            self.source_position_parameterization in {SOURCE_POSITION_PARAMETERIZATION_CONDITIONAL_WHITENED, SOURCE_POSITION_PARAMETERIZATION_LIKELIHOOD_WHITENED}
         )
         if (
             self.sample_likelihood_mode
@@ -19099,11 +18781,19 @@ class ClusterJAXEvaluator:
                 raise ValueError("Latent-displacement observational errors must be positive.")
             if np.any(np.asarray(data.global_family_source_x_param_index) < 0) or np.any(np.asarray(data.global_family_source_y_param_index) < 0):
                 raise ValueError("Latent-displacement requires explicit source positions for every family.")
-        self.scaling_rank_df = self._build_scaling_rank_diagnostics()
+            self.flat_critical_arc_data = replace(
+                data, x_obs=jnp.where(data.image_has_constraint, data.x_obs, 0.123),
+                y_obs=jnp.where(data.image_has_constraint, data.y_obs, 0.456),
+                sigma_per_image=jnp.where(data.image_has_constraint, data.sigma_per_image, 1.0))
+        if self.sample_likelihood_mode == SAMPLE_LIKELIHOOD_SMOOTHED:
+            self._initialize_smoothed_model()
+        self.scaling_rank_df = (self._smoothed_scaling_diagnostics()
+                               if self.sample_likelihood_mode == SAMPLE_LIKELIHOOD_SMOOTHED
+                               else self._build_scaling_rank_diagnostics())
         selected_active_scaling = np.asarray([], dtype=np.int32)
         self.using_frozen_active_scaling = False
         self.active_scaling_inference_svi = False
-        if not self.scaling_rank_df.empty:
+        if not self.scaling_rank_df.empty and self.sample_likelihood_mode != SAMPLE_LIKELIHOOD_SMOOTHED:
             self.scaling_rank_df = self.scaling_rank_df.copy()
             self.scaling_rank_df["selected_active"] = False
             if bool(getattr(self.state, "perturbation_discovery_stage0", False)):
@@ -19141,6 +18831,10 @@ class ClusterJAXEvaluator:
             ),
             dtype=np.int32,
         )
+        if self.sample_likelihood_mode == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT:
+            selected_active_scaling = self.free_correction_scaling_component_indices.copy()
+        if self.sample_likelihood_mode == SAMPLE_LIKELIHOOD_SMOOTHED:
+            selected_active_scaling = np.intersect1d(self.scaling_component_indices, self.smoothed_exact_components)
         if bool(getattr(self.state, "perturbation_discovery_stage0", False)):
             selected_active_scaling = np.asarray(self.scaling_component_indices, dtype=np.int32)
         self.exact_scaling_component_indices = np.asarray(
@@ -19168,6 +18862,8 @@ class ClusterJAXEvaluator:
             active_mask = self.scaling_rank_df["component_index"].astype(int).isin(active_set)
             self.scaling_rank_df.loc[:, "selected_active"] = active_mask.to_numpy(dtype=bool)
             self.scaling_rank_df.loc[active_mask, "selection_mode"] = (
+                "smoothed_exact"
+                if self.sample_likelihood_mode == SAMPLE_LIKELIHOOD_SMOOTHED else
                 "perturbation_discovery_exact_svi"
                 if bool(getattr(self.state, "perturbation_discovery_stage0", False))
                 else "perturbation_discovery_exact_free"
@@ -19231,7 +18927,7 @@ class ClusterJAXEvaluator:
         )
         if not free_correction_free_set.issubset(set(self.active_component_indices.tolist())):
             raise ValueError("Independent free-correction free branches must be exact active components.")
-        stage4_refreshing_surrogate_supported = (
+        forward_refreshing_surrogate_supported = (
             _sample_likelihood_uses_image_plane_jacobian(self.sample_likelihood_mode)
             and self.image_plane_newton_steps == 0
             and (
@@ -19269,7 +18965,7 @@ class ClusterJAXEvaluator:
             and len(self.scaling_component_indices) > 0
             and len(self.inactive_scaling_component_indices) > 0
             and len(self.surrogate_param_indices) > 0
-            and (source_plane_refreshing_surrogate_supported or stage4_refreshing_surrogate_supported)
+            and (source_plane_refreshing_surrogate_supported or forward_refreshing_surrogate_supported)
         )
         self.surrogate_reference_params: np.ndarray | None = None
         self.surrogate_reference_param_values = np.zeros(len(self.surrogate_param_indices), dtype=float)
@@ -19281,7 +18977,84 @@ class ClusterJAXEvaluator:
         self.scaling_scatter_cache_by_z: dict[float, dict[str, np.ndarray]] = {}
         self.source_metric_reference_params: np.ndarray | None = None
         self.source_metric_cache_by_z: dict[float, dict[str, np.ndarray]] = {}
-        self.flat_source_metric_cache = self._flat_source_metric_arrays_from_cache()
+        self.flat_source_metric_cache = (None if self.sample_likelihood_mode == SAMPLE_LIKELIHOOD_SMOOTHED
+                                         else self._flat_source_metric_arrays_from_cache())
+        self._source_loglike_fn = jax.jit(self._source_loglike_impl)
+        saved_cache = getattr(state, "production_latent_surrogate_cache", None)
+        if self._uses_latent_surrogate() and saved_cache is not None:
+            self.restore_latent_surrogate_cache(saved_cache)
+
+    def _uses_latent_surrogate(self):
+        return (self.sample_likelihood_mode == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT
+                and self.sampling_engine == SAMPLING_ENGINE_REFRESHING_SURROGATE_FLAT)
+
+    def _latent_surrogate_identity(self):
+        import hashlib
+        digest = hashlib.sha256()
+        for value in (self.flat_critical_arc_data.x_obs, self.flat_critical_arc_data.y_obs,
+                      self.flat_critical_arc_data.sigma_per_image):
+            digest.update(np.asarray(value).tobytes())
+        for name in self.state.packed_lens_spec.__dataclass_fields__:
+            digest.update(name.encode())
+            array = np.asarray(getattr(self.state.packed_lens_spec, name))
+            digest.update(json.dumps(array.tolist(), sort_keys=True).encode()
+                          if array.dtype.kind in "OU" else array.tobytes())
+        digest.update(json.dumps([dict(vars(spec)) for spec in self.state.parameter_specs], sort_keys=True).encode())
+        digest.update(json.dumps(self.state.cosmo_config, sort_keys=True).encode())
+        return dict(version=1, parameter_names=[s.sample_name for s in self.state.parameter_specs],
+                    surrogate_indices=self.surrogate_param_indices.tolist(),
+                    exact_indices=self.active_component_indices.tolist(),
+                    cached_indices=self.cached_scaling_component_indices.tolist(),
+                    source_redshifts=[float(f.z_source) for f in self.state.family_data],
+                    sigma_beta_sampled=self.latent_displacement_sigma_beta_param_index >= 0,
+                    sigma_beta_reference=self.latent_displacement_sigma_beta_arcsec,
+                    input_digest=digest.hexdigest())
+
+    def export_latent_surrogate_cache(self):
+        if not self._uses_latent_surrogate():
+            return None
+        arrays = {}
+        if self.surrogate_enabled:
+            if self.flat_surrogate_cache is None:
+                raise ValueError("Cannot save latent surrogate without its production cache")
+            arrays = {name: np.asarray(value) for name in FlatSurrogateCache.__dataclass_fields__
+                      if (value := getattr(self.flat_surrogate_cache, name)) is not None}
+            arrays["reference"] = np.asarray(self.surrogate_reference_params)
+        metadata = self._latent_surrogate_identity()
+        metadata.update(refresh_count=int(self.full_refresh_count),
+                        refresh_failed=bool(getattr(self, "_cache_refresh_failures", {}).get("surrogate", False)),
+                        cache_nbytes=sum(a.nbytes for a in arrays.values()))
+        return {"metadata": metadata, "arrays": arrays}
+
+    def restore_latent_surrogate_cache(self, saved):
+        if getattr(self, "_latent_surrogate_frozen", False):
+            raise RuntimeError("Cannot restore latent surrogate during a NUTS run")
+        metadata, arrays = saved["metadata"], saved["arrays"]
+        for key, value in self._latent_surrogate_identity().items():
+            if metadata.get(key) != value:
+                raise ValueError(f"Incompatible latent surrogate cache: {key}")
+        if not self.surrogate_enabled:
+            if arrays:
+                raise ValueError("Unexpected cache for empty latent surrogate population")
+            return
+        required = set(FlatSurrogateCache.__dataclass_fields__) | {"reference"}
+        if not required.issubset(arrays) or not all(np.isfinite(a).all() for a in arrays.values()):
+            raise ValueError("Incomplete or nonfinite latent surrogate cache")
+        n, m, k = len(self.flat_critical_arc_data.x_obs), len(self.cached_scaling_component_indices), len(self.surrogate_param_indices)
+        expected = {"reference": (len(self.state.parameter_specs),),
+                    "member_responses": (m,n,2,2), "member_response_derivatives": (m,n,2,2,k)}
+        for name in FlatSurrogateCache.__dataclass_fields__:
+            if name not in expected:
+                expected[name] = (k,n) if "dparams" in name else (n,)
+        if any(np.shape(arrays[name]) != shape for name,shape in expected.items()):
+            raise ValueError("Invalid latent surrogate cache array shape")
+        cache = FlatSurrogateCache(**{name:jnp.asarray(arrays[name]) for name in FlatSurrogateCache.__dataclass_fields__})
+        self.flat_surrogate_cache = cache
+        self.surrogate_cache_by_z = self._surrogate_cache_by_z_from_flat_cache(cache)
+        self.surrogate_reference_params = np.asarray(arrays["reference"]).copy()
+        self.surrogate_reference_param_values = self.surrogate_reference_params[self.surrogate_param_indices].copy()
+        self.full_refresh_count = int(metadata.get("refresh_count", 0))
+        self._set_cache_refresh_failure("surrogate", bool(metadata.get("refresh_failed", False)))
         self._source_loglike_fn = jax.jit(self._source_loglike_impl)
 
     def _fit_subset_effective(self) -> bool:
@@ -19742,8 +19515,8 @@ class ClusterJAXEvaluator:
             "core_ref_param_index": jnp.asarray(spec.core_ref_param_index, dtype=jnp.int32),
             "alpha_sigma_base": float_component_array("alpha_sigma_base", fill_value=DEFAULT_SOLVER_POTFILE_ALPHA_SIGMA_MEAN),
             "alpha_sigma_param_index": int_component_array("alpha_sigma_param_index"),
-            "gamma_ml_base": float_component_array("gamma_ml_base", fill_value=DEFAULT_SOLVER_POTFILE_GAMMA_ML_MEAN),
-            "gamma_ml_param_index": int_component_array("gamma_ml_param_index"),
+            "beta_radius_base": float_component_array("beta_radius_base", fill_value=DEFAULT_SOLVER_POTFILE_BETA_RADIUS_MEAN),
+            "beta_radius_param_index": int_component_array("beta_radius_param_index"),
             "sigma_log_scatter_param_index": jnp.asarray(spec.sigma_log_scatter_param_index, dtype=jnp.int32),
             "mass_log_scatter_param_index": jnp.asarray(spec.mass_log_scatter_param_index, dtype=jnp.int32),
             "independent_branch_role": int_component_array("independent_branch_role", fill_value=INDEPENDENT_BRANCH_NONE),
@@ -19756,15 +19529,6 @@ class ClusterJAXEvaluator:
             "active_magnitude_feature": float_component_array("active_magnitude_feature"),
         }
 
-    def _physical_parameter_vector(self, params: jnp.ndarray) -> jnp.ndarray:
-        return _apply_parameter_transforms_jax(
-            params,
-            self.transform_kind_log_positive_mask,
-            self.transform_kind_log_offset_positive_mask,
-            self.transform_offset_array,
-            self.transform_kind_affine_mask,
-            self.transform_scale_array,
-        )
 
     def _source_sigma_int_jax(self, params: jnp.ndarray) -> jnp.ndarray:
         physical_params = self._physical_parameter_vector(jnp.asarray(params, dtype=jnp.float64))
@@ -20268,6 +20032,8 @@ class ClusterJAXEvaluator:
 
     def _reported_physical_parameter_vector(self, params: jnp.ndarray) -> jnp.ndarray:
         params_jax = jnp.asarray(params, dtype=jnp.float64)
+        if self.sample_likelihood_mode == SAMPLE_LIKELIHOOD_SMOOTHED:
+            return self._smoothed_reported_physical(params_jax)
         physical_params = self._physical_parameter_vector(params_jax)
         if not self.source_position_conditional:
             return physical_params
@@ -20371,6 +20137,18 @@ class ClusterJAXEvaluator:
     def reported_physical_to_latent_parameter_vector(self, physical_params: np.ndarray | jnp.ndarray) -> np.ndarray:
         physical_array = np.asarray(physical_params, dtype=float)
         latent = _convert_theta_to_latent(physical_array, self.state.parameter_specs)
+        if self.sample_likelihood_mode == SAMPLE_LIKELIHOOD_SMOOTHED and self.source_position_parameterization == "likelihood-whitened":
+            from .smoothed_likelihood import inverse_source_transport
+            data = self.flat_critical_arc_data
+            indices_x = np.asarray(data.global_family_source_x_param_index)
+            indices_y = np.asarray(data.global_family_source_y_param_index)
+            latent[indices_x] = 0.
+            latent[indices_y] = 0.
+            whitening = self._smoothed_statistics(jnp.asarray(latent))["whitening"]
+            source = np.stack((physical_array[indices_x], physical_array[indices_y]), axis=-1)
+            offsets = np.asarray(inverse_source_transport(source, whitening))
+            latent[indices_x], latent[indices_y] = offsets[:, 0], offsets[:, 1]
+            return latent
         if not self.source_position_conditional:
             return latent
         source_indices = sorted(
@@ -20619,6 +20397,10 @@ class ClusterJAXEvaluator:
         return cov00, cov01, cov11, finite
 
     def refresh_scaling_scatter_cache(self, reference_params: np.ndarray, reason: str = "manual") -> None:
+        if self.sampling_engine == SAMPLING_ENGINE_TIERED_MEMBERS:
+            return
+        if self._uses_latent_surrogate():
+            return  # member responses refresh atomically with the surrogate
         if self.sampling_engine == SAMPLING_ENGINE_FULL_FLAT:
             return
         if self.sampling_engine in {
@@ -20894,7 +20676,7 @@ class ClusterJAXEvaluator:
         self._source_loglike_fn = jax.jit(self._source_loglike_impl)
 
     def refresh_source_metric_cache(self, reference_params: np.ndarray, reason: str = "manual") -> None:
-        if self.sample_likelihood_mode == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT:
+        if self.sample_likelihood_mode in {SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT, SAMPLE_LIKELIHOOD_SMOOTHED}:
             return
         if self._source_plane_unit_covariance_enabled():
             del reason
@@ -21067,18 +20849,12 @@ class ClusterJAXEvaluator:
                 raise ValueError(f"Unsupported profile type {profile}.")
         return kwargs_lens
 
-    def _direct_scaling_scatter_covariance(
-        self, physical_params: jnp.ndarray, flat_data: FlatCriticalArcData,
-    ) -> dict[str, jnp.ndarray]:
-        """Current-model independent-member covariance, differentiated inside JIT.
-
-        Offsets are shared only to batch the calculation: member deflections stay
-        separate until their outer products are summed. No coherent cross terms.
-        """
+    def _direct_scaling_scatter_responses(self, physical_params, flat_data):
+        """Per-member (member, image, xy, scatter-type) responses, before summing."""
         indices = self._scaling_scatter_component_indices()
-        zeros = jnp.zeros_like(flat_data.x_obs)
+        shape = (len(indices), len(flat_data.x_obs), 2, 2)
         if len(indices) == 0 or len(self.scaling_scatter_param_indices) == 0:
-            return {key: zeros for key in SCALING_SCATTER_CACHE_KEYS}
+            return jnp.zeros(shape, dtype=jnp.float64)
         base, validity = self._build_flat_packed_lens_state_with_validity_from_physical(
             physical_params, flat_data, stop_gradient=False
         )
@@ -21105,17 +20881,31 @@ class ClusterJAXEvaluator:
             alpha, mass_response = jax.jvp(member_alpha, (jnp.asarray(0., dtype=jnp.float64),),
                                            (jnp.asarray(1., dtype=jnp.float64),))
             derivative = jnp.stack((2.0 * (alpha - mass_response), mass_response), axis=-1)
-            result = {}
-            for field_index, field in enumerate(("sigma", "mass")):
-                dx, dy = derivative[:, :, 0, field_index], derivative[:, :, 1, field_index]
-                result[f"{field}_cov00"] = jnp.sum(dx * dx, axis=0)
-                result[f"{field}_cov01"] = jnp.sum(dx * dy, axis=0)
-                result[f"{field}_cov11"] = jnp.sum(dy * dy, axis=0)
-            return result
-
+            return derivative
         return jax.lax.cond(validity.is_valid, evaluate,
-                            lambda _: {key: jnp.full_like(zeros, jnp.nan) for key in SCALING_SCATTER_CACHE_KEYS},
-                            operand=None)
+                            lambda _: jnp.full(shape, jnp.nan), operand=None)
+
+    @staticmethod
+    def _scatter_covariance_from_responses(derivative):
+        result = {}
+        for field_index, field in enumerate(("sigma", "mass")):
+            dx, dy = derivative[:, :, 0, field_index], derivative[:, :, 1, field_index]
+            result[f"{field}_cov00"] = jnp.sum(dx * dx, axis=0)
+            result[f"{field}_cov01"] = jnp.sum(dx * dy, axis=0)
+            result[f"{field}_cov11"] = jnp.sum(dy * dy, axis=0)
+        return result
+
+    def _direct_scaling_scatter_covariance(self, physical_params, flat_data):
+        return self._scatter_covariance_from_responses(
+            self._direct_scaling_scatter_responses(physical_params, flat_data))
+
+    def _latent_cached_member_covariance(self, params):
+        cache = self.flat_surrogate_cache
+        if cache is None or cache.member_responses is None:
+            raise RuntimeError("Latent-displacement member response cache is unavailable")
+        response = cache.member_responses + jnp.tensordot(
+            cache.member_response_derivatives, self._surrogate_parameter_delta(params), axes=([-1], [0]))
+        return self._scatter_covariance_from_responses(response)
 
     def _scaling_scatter_covariance_for_bin(self, physical_params, z_source):
         if self.sampling_engine != SAMPLING_ENGINE_FULL_FLAT:
@@ -21731,6 +21521,12 @@ class ClusterJAXEvaluator:
             jnp.nan_to_num(flat_loglike, nan=BAD_LOG_LIKE, posinf=BAD_LOG_LIKE, neginf=BAD_LOG_LIKE),
         )
 
+    def _latent_displacement_sigma_beta_from_physical(self, physical):
+        index = self.latent_displacement_sigma_beta_param_index
+        if index >= 0:
+            return physical[index]
+        return self.latent_displacement_sigma_beta_arcsec
+
     def _latent_displacement_statistics(self, params):
         from .latent_displacement import statistics
         physical = self._physical_parameter_vector(params)
@@ -21745,18 +21541,33 @@ class ClusterJAXEvaluator:
             geometry = dict(kpc_per_arcsec=scale, dpie_sigma0_factors=factors)
         packed, _ = self._build_flat_packed_lens_state_with_validity_from_physical(
             physical, data, stop_gradient=False, **geometry)
-        bx, by, a00, a01, a10, a11 = self._flat_ray_shooting_and_lensing_jacobian_for_components(
-            data.x_obs, data.y_obs, packed)
+        if self._uses_latent_surrogate() and self.surrogate_enabled:
+            bx, by, a00, a01, a10, a11 = self._flat_ray_shooting_and_lensing_jacobian_for_components(
+                data.x_obs, data.y_obs, packed, self.active_component_indices)
+            ax, ay = self._flat_surrogate_inactive_alpha(params)
+            bx, by = bx - ax, by - ay
+            cache = self.flat_surrogate_cache
+            delta = self._surrogate_parameter_delta(params)
+            corrections = [self._flat_cached_surrogate_vector(
+                getattr(cache, "inactive_jacobian_delta_a"+ij),
+                getattr(cache, "inactive_jacobian_delta_da"+ij+"_dparams"), delta,
+                field_name="inactive_jacobian_delta_a"+ij) for ij in ("00", "01", "10", "11")]
+            a00, a01, a10, a11 = [a+b for a,b in zip((a00,a01,a10,a11), corrections)]
+        else:
+            bx, by, a00, a01, a10, a11 = self._flat_ray_shooting_and_lensing_jacobian_for_components(
+                data.x_obs, data.y_obs, packed)
         sx, sy, _, _ = self._flat_source_position_vectors(
             params, physical, data, bx, by, jnp.asarray(0.0), (a00, a01, a10, a11))
-        member = self._direct_scaling_scatter_covariance(physical, data)
+        member = (self._latent_cached_member_covariance(params)
+                  if self._uses_latent_surrogate() and self.surrogate_enabled
+                  else self._direct_scaling_scatter_covariance(physical, data))
         sigma, mass = self._scaling_scatter_field_scales_from_physical(physical)
         v00, v01, v11 = (sigma**2 * member[f"sigma_cov{k}"] + mass**2 * member[f"mass_cov{k}"]
                          for k in ("00", "01", "11"))
         member_cov = jnp.stack((jnp.stack((v00, v01), -1), jnp.stack((v01, v11), -1)), -2)
         jac = jnp.stack((jnp.stack((a00, a01), -1), jnp.stack((a10, a11), -1)), -2)
         return statistics(jnp.stack((bx, by), -1), jnp.stack((sx, sy), -1), jac,
-                          data.sigma_per_image, self.latent_displacement_sigma_beta_arcsec,
+                          data.sigma_per_image, self._latent_displacement_sigma_beta_from_physical(physical),
                           member_cov, mask)
 
     def _flat_latent_displacement_loglike_impl(self, params):
@@ -21764,7 +21575,9 @@ class ClusterJAXEvaluator:
         physical = self._physical_parameter_vector(params)
         a = stats["jacobian"]
         magnitude = self._magnitude_loglike_for_flat_data(
-            physical, self.flat_critical_arc_data, (a[:, 0, 0], a[:, 0, 1], a[:, 1, 0], a[:, 1, 1]))
+            flat_data=self.flat_critical_arc_data,
+            physical_params=physical,
+            jacobian_entries=(a[:, 0, 0], a[:, 0, 1], a[:, 1, 0], a[:, 1, 1]))
         return jnp.sum(stats["loglike"]) + magnitude
 
     def latent_displacement_diagnostics(self, params):
@@ -21776,7 +21589,8 @@ class ClusterJAXEvaluator:
                 "x_obs_arcsec": np.asarray(data.x_obs), "y_obs_arcsec": np.asarray(data.y_obs),
                 "sigma_obs_arcsec": np.asarray(data.sigma_per_image),
                 "constrained": stats["constrained"],
-                "sigma_beta_arcsec": np.full(len(data.x_obs), self.latent_displacement_sigma_beta_arcsec)}
+                "sigma_beta_arcsec": np.full(len(data.x_obs), float(self._latent_displacement_sigma_beta_from_physical(
+                    self._physical_parameter_vector(jnp.asarray(params)))))}
         for key in ("backprojected", "source", "residual"):
             for i, axis in enumerate(("x", "y")):
                 rows[f"{key}_{axis}_arcsec"] = stats[key][:, i]
@@ -21801,7 +21615,8 @@ class ClusterJAXEvaluator:
             summaries[str(family_id)] = dict(
                 source_x=float(source[0]), source_y=float(source[1]),
                 source_beta_x=beta[:, 0], source_beta_y=beta[:, 1],
-                source_sigma_int_arcsec=self.latent_displacement_sigma_beta_arcsec,
+                source_sigma_int_arcsec=float(self._latent_displacement_sigma_beta_from_physical(
+                    self._physical_parameter_vector(jnp.asarray(params)))),
                 source_sigma_eff_arcsec=float(np.sqrt(np.mean(np.trace(stats["covariance"][mask], axis1=-2, axis2=-1))/2)),
                 source_covariance_arcsec2=stats["covariance"][mask], image_sigma_int_arcsec=0.0,
                 source_plane_rms=float(np.sqrt(np.mean(radius**2))), residual_max=float(np.max(radius)),
@@ -22423,51 +22238,9 @@ class ClusterJAXEvaluator:
             return pd.DataFrame()
         return pd.DataFrame(rows).sort_values(["potfile_order", "rank"]).reset_index(drop=True)
 
-    def _apply_param_updates(
-        self,
-        base: jnp.ndarray,
-        param_index: np.ndarray,
-        params: jnp.ndarray,
-    ) -> jnp.ndarray:
-        if params.shape[0] == 0:
-            return base
-        param_index_jax = jnp.asarray(param_index, dtype=jnp.int32)
-        safe_index = jnp.where(param_index_jax >= 0, param_index_jax, 0)
-        updated = jnp.take(params, safe_index)
-        return jnp.where(param_index_jax >= 0, updated, base)
 
-    def _effective_scaling_exponents_from_physical(
-        self,
-        spec_jax: dict[str, Any],
-        physical_params: jnp.ndarray,
-    ) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
-        alpha_sigma = self._apply_param_updates(
-            spec_jax["alpha_sigma_base"], spec_jax["alpha_sigma_param_index"], physical_params
-        )
-        gamma_ml = self._apply_param_updates(
-            spec_jax["gamma_ml_base"], spec_jax["gamma_ml_param_index"], physical_params
-        )
-        beta_radius = 1.0 + gamma_ml - 2.0 * alpha_sigma
-        return alpha_sigma, beta_radius, gamma_ml
 
-    def _dpie_sigma0_factor_for_z_source(self, z_source: float) -> float:
-        factor = self.dpie_sigma0_factors.get(float(z_source))
-        if factor is not None:
-            return float(factor)
-        factor = self.exact_dpie_sigma0_factors.get(float(z_source))
-        if factor is not None:
-            return float(factor)
-        return _dpie_sigma0_factor_from_config(self.state.z_lens, float(z_source), self.cosmo_config)
 
-    def _cosmology_parameters_from_physical(self, physical_params: jnp.ndarray) -> tuple[jnp.ndarray, jnp.ndarray]:
-        if not self.fit_cosmology_flat_wcdm:
-            return (
-                jnp.asarray(self.cosmology_fiducial_om0, dtype=jnp.float64),
-                jnp.asarray(self.cosmology_fiducial_w0, dtype=jnp.float64),
-            )
-        om0 = jnp.take(physical_params, jnp.asarray(self.cosmology_om0_param_index, dtype=jnp.int32))
-        w0 = jnp.take(physical_params, jnp.asarray(self.cosmology_w0_param_index, dtype=jnp.int32))
-        return om0, w0
 
     def _cosmology_lens_chi_mpc(self, physical_params: jnp.ndarray) -> jnp.ndarray:
         om0, w0 = self._cosmology_parameters_from_physical(physical_params)
@@ -22478,52 +22251,9 @@ class ClusterJAXEvaluator:
             w0,
         )
 
-    def _kpc_per_arcsec_for_physical(self, physical_params: jnp.ndarray) -> jnp.ndarray:
-        if not self.fit_cosmology_flat_wcdm:
-            return jnp.asarray(self.kpc_per_arcsec, dtype=jnp.float64)
-        om0, w0 = self._cosmology_parameters_from_physical(physical_params)
-        return _jax_flat_wcdm_kpc_per_arcsec(
-            self.state.z_lens,
-            self.cosmology_h0,
-            om0,
-            w0,
-        )
 
-    def _softening_length_kpc_from_physical(self, physical_params: jnp.ndarray) -> jnp.ndarray:
-        index = int(getattr(self, "log_softening_length_param_index", -1))
-        if index < 0:
-            return jnp.asarray(0.0, dtype=jnp.float64)
-        log_softening = jnp.take(jnp.asarray(physical_params, dtype=jnp.float64), jnp.asarray(index, dtype=jnp.int32))
-        return jnp.exp(log_softening)
 
-    def _effective_core_radius_kpc_from_physical(
-        self,
-        core_radius_kpc: jnp.ndarray,
-        physical_params: jnp.ndarray,
-    ) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
-        if int(getattr(self, "log_softening_length_param_index", -1)) < 0:
-            return (
-                core_radius_kpc,
-                jnp.asarray(0.0, dtype=jnp.float64),
-                jnp.asarray(jnp.nan, dtype=jnp.float64),
-            )
-        softening_length_kpc = self._softening_length_kpc_from_physical(physical_params)
-        core_radius_effective_kpc = jnp.sqrt(jnp.square(core_radius_kpc) + jnp.square(softening_length_kpc))
-        return core_radius_effective_kpc, softening_length_kpc, jnp.log(softening_length_kpc)
 
-    def _sampled_cosmology_geometry_for_physical(
-        self,
-        physical_params: jnp.ndarray,
-    ) -> tuple[jnp.ndarray, jnp.ndarray]:
-        om0, w0 = self._cosmology_parameters_from_physical(physical_params)
-        kpc_per_arcsec, _efficiency, dpie_sigma0_factors = _jax_flat_wcdm_lens_geometry_factors(
-            self.state.z_lens,
-            self.cosmology_effective_z_values_jax,
-            self.cosmology_h0,
-            om0,
-            w0,
-        )
-        return kpc_per_arcsec, dpie_sigma0_factors
 
     def _dpie_sigma0_factor_for_physical_z_source(
         self,
@@ -22581,18 +22311,6 @@ class ClusterJAXEvaluator:
         )
         return self._build_packed_lens_state_details_from_physical(physical_params, z_source)
 
-    def _total_cut_radius_kpc_from_excess_modes(
-        self,
-        cut_radius_value_kpc: jnp.ndarray,
-        core_radius_effective_kpc: jnp.ndarray,
-        spec_arrays: dict[str, jnp.ndarray],
-    ) -> jnp.ndarray:
-        excess_mode = jnp.asarray(spec_arrays["cut_radius_excess_above_effective_core"], dtype=bool)
-        return jnp.where(
-            excess_mode,
-            core_radius_effective_kpc + jnp.maximum(cut_radius_value_kpc, SAFE_RADIUS_MARGIN_KPC),
-            cut_radius_value_kpc,
-        )
 
     def _build_packed_lens_state_details_from_physical(
         self,
@@ -22670,6 +22388,7 @@ class ClusterJAXEvaluator:
             cut_radius_kpc,
         )
         v_disp = jnp.where(is_scaling, scaled_vdisp, v_disp)
+        v_disp = self._smoothed_member_vdisp(v_disp, physical_params)
         core_radius_kpc = jnp.where(is_scaling, scaled_core, core_radius_kpc)
         cut_radius_kpc = jnp.where(is_scaling, scaled_cut, cut_radius_kpc)
 
@@ -22962,6 +22681,7 @@ class ClusterJAXEvaluator:
             spec_jax,
         )
         v_disp = jnp.where(is_scaling, scaled_vdisp, v_disp)
+        v_disp = self._smoothed_member_vdisp(v_disp, physical_params)
         core_radius_kpc = jnp.where(is_scaling, scaled_core, core_radius_kpc)
         cut_radius_kpc = jnp.where(is_scaling, scaled_cut, cut_radius_kpc)
 
@@ -22998,357 +22718,17 @@ class ClusterJAXEvaluator:
         self.timing_totals["packed_parameter_update"] += time.perf_counter() - pack_start
         return packed_state
 
-    def _build_flat_packed_lens_state_with_validity_from_physical(
-        self,
-        physical_params: jnp.ndarray,
-        flat_data: FlatCriticalArcData,
-        *,
-        stop_gradient: bool,
-        kpc_per_arcsec: jnp.ndarray | None = None,
-        dpie_sigma0_factors: jnp.ndarray | None = None,
-        sigma_log_offset: float | jnp.ndarray = 0.0,
-        core_log_offset: float | jnp.ndarray = 0.0,
-        cut_log_offset: float | jnp.ndarray = 0.0,
-    ) -> tuple[PackedLensState, PackedLensValidity]:
-        spec_jax = self.packed_spec_jax
-        x_center = self._apply_param_updates(spec_jax["x_center_base"], spec_jax["x_center_param_index"], physical_params)
-        y_center = self._apply_param_updates(spec_jax["y_center_base"], spec_jax["y_center_param_index"], physical_params)
-        e1 = self._apply_param_updates(spec_jax["e1_base"], spec_jax["e1_param_index"], physical_params)
-        e2 = self._apply_param_updates(spec_jax["e2_base"], spec_jax["e2_param_index"], physical_params)
-        core_radius_kpc = self._apply_param_updates(
-            spec_jax["core_radius_kpc_base"], spec_jax["core_radius_param_index"], physical_params
-        )
-        cut_radius_kpc = self._apply_param_updates(
-            spec_jax["cut_radius_kpc_base"], spec_jax["cut_radius_param_index"], physical_params
-        )
-        v_disp = self._apply_param_updates(spec_jax["v_disp_base"], spec_jax["v_disp_param_index"], physical_params)
-        gamma1 = self._apply_param_updates(spec_jax["gamma1_base"], spec_jax["gamma1_param_index"], physical_params)
-        gamma2 = self._apply_param_updates(spec_jax["gamma2_base"], spec_jax["gamma2_param_index"], physical_params)
 
-        profile_type = spec_jax["profile_type"]
-        component_family = spec_jax["component_family"]
-        is_dpie = profile_type == DP_IE_PROFILE
-        is_shear = profile_type == SHEAR_PROFILE
-        is_scaling = component_family == 1
 
-        luminosity_ratio = spec_jax["luminosity_ratio"]
-        sigma_ref = self._apply_param_updates(
-            spec_jax["sigma_ref_base"], spec_jax["sigma_ref_param_index"], physical_params
-        )
-        cut_ref = self._apply_param_updates(
-            spec_jax["cut_ref_base"], spec_jax["cut_ref_param_index"], physical_params
-        )
-        core_ref = self._apply_param_updates(
-            spec_jax["core_ref_base"], spec_jax["core_ref_param_index"], physical_params
-        )
-        alpha_sigma, beta_radius, _gamma_ml = self._effective_scaling_exponents_from_physical(spec_jax, physical_params)
-        scaled_vdisp = sigma_ref * jnp.power(luminosity_ratio, alpha_sigma)
-        size_luminosity_scale = jnp.power(luminosity_ratio, beta_radius)
-        scaled_core = core_ref * size_luminosity_scale
-        scaled_cut = cut_ref * size_luminosity_scale
-        scaled_vdisp = scaled_vdisp * jnp.exp(jnp.asarray(sigma_log_offset, dtype=jnp.float64))
-        scaled_core = scaled_core * jnp.exp(jnp.asarray(core_log_offset, dtype=jnp.float64))
-        scaled_cut = scaled_cut * jnp.exp(jnp.asarray(cut_log_offset, dtype=jnp.float64))
-        v_disp, core_radius_kpc, cut_radius_kpc = self._apply_independent_free_log_displacements(
-            physical_params,
-            scaled_vdisp,
-            scaled_core,
-            scaled_cut,
-            v_disp,
-            core_radius_kpc,
-            cut_radius_kpc,
-            spec_jax,
-        )
-        v_disp = jnp.where(is_scaling, scaled_vdisp, v_disp)
-        core_radius_kpc = jnp.where(is_scaling, scaled_core, core_radius_kpc)
-        cut_radius_kpc = jnp.where(is_scaling, scaled_cut, cut_radius_kpc)
 
-        if kpc_per_arcsec is None:
-            kpc_per_arcsec = self._kpc_per_arcsec_for_physical(physical_params)
-        kpc_per_arcsec = jnp.asarray(kpc_per_arcsec, dtype=jnp.float64)
-        core_radius_effective_kpc, _softening_length_kpc, _log_softening_length_kpc = (
-            self._effective_core_radius_kpc_from_physical(core_radius_kpc, physical_params)
-        )
-        cut_radius_kpc = self._total_cut_radius_kpc_from_excess_modes(
-            cut_radius_kpc,
-            core_radius_effective_kpc,
-            spec_jax,
-        )
-        ra_raw = core_radius_effective_kpc / kpc_per_arcsec
-        rs_raw = cut_radius_kpc / kpc_per_arcsec
-        ra = jnp.maximum(ra_raw, SAFE_RADIUS_MARGIN_ARCSEC)
-        rs = jnp.maximum(rs_raw, ra + SAFE_RADIUS_MARGIN_ARCSEC)
-        if dpie_sigma0_factors is None:
-            if bool(getattr(self, "fit_cosmology_flat_wcdm", False)):
-                _kpc_per_arcsec, dpie_sigma0_factors = self._sampled_cosmology_geometry_for_physical(physical_params)
-            else:
-                dpie_sigma0_factors = jnp.asarray(
-                    [self._dpie_sigma0_factor_for_z_source(float(z_source)) for z_source in self.cosmology_effective_z_values],
-                    dtype=jnp.float64,
-                )
-        factor_per_image = jnp.take(
-            jnp.asarray(dpie_sigma0_factors, dtype=jnp.float64),
-            flat_data.effective_z_index_per_image,
-        )
-        safe_factor = jnp.where(jnp.isfinite(factor_per_image), factor_per_image, 0.0)
-        branch_weight = self._independent_branch_weight_from_physical(
-            physical_params,
-        )
-        sigma0 = branch_weight[:, None] * (v_disp[:, None] ** 2) * safe_factor[None, :] / ra[:, None]
 
-        packed_state = PackedLensState(
-            profile_type=profile_type,
-            sigma0=jnp.where(is_dpie[:, None], sigma0, 0.0),
-            Ra=jnp.where(is_dpie, ra, 0.0),
-            Rs=jnp.where(is_dpie, rs, 0.0),
-            e1=jnp.where(is_dpie, e1, 0.0),
-            e2=jnp.where(is_dpie, e2, 0.0),
-            center_x=x_center,
-            center_y=y_center,
-            gamma1=jnp.where(is_shear, gamma1, 0.0),
-            gamma2=jnp.where(is_shear, gamma2, 0.0),
-        )
-        reason_flags = jnp.stack(
-            [
-                jnp.any(is_dpie[:, None] & ~jnp.isfinite(sigma0)),
-                jnp.any(is_dpie & (ra_raw <= 0.0)),
-                jnp.any(is_dpie & (rs_raw <= ra_raw)),
-                jnp.any(is_dpie & ~jnp.isfinite(rs_raw)),
-                jnp.any(is_dpie & ~jnp.isfinite(v_disp)),
-                jnp.any(
-                    is_scaling
-                    & (
-                        ~jnp.isfinite(alpha_sigma)
-                        | ~jnp.isfinite(beta_radius)
-                    )
-                ),
-                jnp.any(~jnp.isfinite(x_center) | ~jnp.isfinite(y_center)),
-                jnp.any(is_shear & (~jnp.isfinite(gamma1) | ~jnp.isfinite(gamma2))),
-                jnp.any(
-                    is_dpie
-                    & (
-                        ~jnp.isfinite(e1)
-                        | ~jnp.isfinite(e2)
-                        | ((jnp.square(e1) + jnp.square(e2)) >= 1.0)
-                    )
-                ),
-                jnp.any(~jnp.isfinite(factor_per_image)),
-            ],
-            axis=0,
-        )
-        if stop_gradient:
-            reason_flags = jax.lax.stop_gradient(reason_flags)
-        return packed_state, PackedLensValidity(is_valid=~jnp.any(reason_flags), reason_flags=reason_flags)
 
-    def _component_indices_np(self, component_indices: np.ndarray | None = None) -> np.ndarray:
-        if component_indices is None:
-            return np.arange(len(self.state.lens_model_list), dtype=np.int32)
-        return np.asarray(component_indices, dtype=np.int32).reshape(-1)
 
-    def _split_grouped_component_indices(self, component_indices: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]:
-        indices = self._component_indices_np(component_indices)
-        if indices.size == 0:
-            return indices, indices
-        profile_type = np.asarray(self.state.packed_lens_spec.profile_type, dtype=np.int32)
-        selected_profiles = profile_type[indices]
-        unsupported = sorted(set(int(value) for value in selected_profiles.tolist()) - {DP_IE_PROFILE, SHEAR_PROFILE})
-        if unsupported:
-            raise RuntimeError(
-                "Mandatory grouped lensing backend supports only DPIE_NIE_E and SHEAR profiles; "
-                f"unsupported profile codes={unsupported}."
-            )
-        dpie_indices = indices[selected_profiles == DP_IE_PROFILE].astype(np.int32)
-        shear_indices = indices[selected_profiles == SHEAR_PROFILE].astype(np.int32)
-        return dpie_indices, shear_indices
 
-    def _take_packed_components(
-        self,
-        value: jnp.ndarray,
-        component_indices: np.ndarray,
-    ) -> jnp.ndarray:
-        return jnp.take(
-            jnp.asarray(value, dtype=jnp.float64),
-            jnp.asarray(component_indices, dtype=jnp.int32),
-            axis=0,
-        )
 
-    def _grouped_dpie_params(
-        self,
-        packed_state: PackedLensState,
-        component_indices: np.ndarray,
-    ) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
-        return (
-            self._take_packed_components(packed_state.sigma0, component_indices),
-            self._take_packed_components(packed_state.Ra, component_indices),
-            self._take_packed_components(packed_state.Rs, component_indices),
-            self._take_packed_components(packed_state.e1, component_indices),
-            self._take_packed_components(packed_state.e2, component_indices),
-            self._take_packed_components(packed_state.center_x, component_indices),
-            self._take_packed_components(packed_state.center_y, component_indices),
-        )
 
-    def _grouped_shear_alpha_and_hessian(
-        self,
-        x: jnp.ndarray,
-        y: jnp.ndarray,
-        packed_state: PackedLensState,
-        component_indices: np.ndarray,
-    ) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
-        if component_indices.size == 0:
-            zeros = jnp.zeros_like(x, dtype=jnp.float64)
-            return zeros, zeros, zeros, zeros, zeros, zeros
-        gamma1 = self._take_packed_components(packed_state.gamma1, component_indices)
-        gamma2 = self._take_packed_components(packed_state.gamma2, component_indices)
-        gamma1_sum = jnp.sum(gamma1)
-        gamma2_sum = jnp.sum(gamma2)
-        alpha_x = gamma1_sum * x + gamma2_sum * y
-        alpha_y = gamma2_sum * x - gamma1_sum * y
-        ones = jnp.ones_like(x, dtype=jnp.float64)
-        h_xx = gamma1_sum * ones
-        h_xy = gamma2_sum * ones
-        h_yx = gamma2_sum * ones
-        h_yy = -gamma1_sum * ones
-        return alpha_x, alpha_y, h_xx, h_xy, h_yx, h_yy
 
-    def _grouped_alpha_and_hessian_for_components(
-        self,
-        x: jnp.ndarray,
-        y: jnp.ndarray,
-        packed_state: PackedLensState,
-        component_indices: np.ndarray | None = None,
-    ) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
-        dpie_indices, shear_indices = self._split_grouped_component_indices(component_indices)
-        zeros = jnp.zeros_like(x, dtype=jnp.float64)
-        alpha_x = zeros
-        alpha_y = zeros
-        h_xx = zeros
-        h_xy = zeros
-        h_yx = zeros
-        h_yy = zeros
-        if dpie_indices.size:
-            dpie_values = jax_lensing.grouped_dpie_derivatives_and_hessian(
-                x,
-                y,
-                *self._grouped_dpie_params(packed_state, dpie_indices),
-            )
-            alpha_x = alpha_x + dpie_values[0]
-            alpha_y = alpha_y + dpie_values[1]
-            h_xx = h_xx + dpie_values[2]
-            h_xy = h_xy + dpie_values[3]
-            h_yx = h_yx + dpie_values[4]
-            h_yy = h_yy + dpie_values[5]
-        if shear_indices.size:
-            shear_values = self._grouped_shear_alpha_and_hessian(x, y, packed_state, shear_indices)
-            alpha_x = alpha_x + shear_values[0]
-            alpha_y = alpha_y + shear_values[1]
-            h_xx = h_xx + shear_values[2]
-            h_xy = h_xy + shear_values[3]
-            h_yx = h_yx + shear_values[4]
-            h_yy = h_yy + shear_values[5]
-        return alpha_x, alpha_y, h_xx, h_xy, h_yx, h_yy
 
-    def _grouped_component_rows_for_components(
-        self,
-        x: jnp.ndarray,
-        y: jnp.ndarray,
-        packed_state: PackedLensState,
-        component_indices: np.ndarray | None = None,
-    ) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
-        indices = self._component_indices_np(component_indices)
-        if indices.size == 0:
-            empty = jnp.zeros((0, x.shape[0]), dtype=jnp.float64)
-            return empty, empty, empty, empty, empty, empty
-        profile_type = np.asarray(self.state.packed_lens_spec.profile_type, dtype=np.int32)
-        selected_profiles = profile_type[indices]
-        unsupported = sorted(set(int(value) for value in selected_profiles.tolist()) - {DP_IE_PROFILE, SHEAR_PROFILE})
-        if unsupported:
-            raise RuntimeError(
-                "Mandatory grouped lensing backend supports only DPIE_NIE_E and SHEAR profiles; "
-                f"unsupported profile codes={unsupported}."
-            )
-        rows = [jnp.zeros((indices.size, x.shape[0]), dtype=jnp.float64) for _ in range(6)]
-        dpie_mask_np = selected_profiles == DP_IE_PROFILE
-        if np.any(dpie_mask_np):
-            dpie_rows = jax_lensing.grouped_dpie_rows_derivatives_and_hessian(
-                x,
-                y,
-                *self._grouped_dpie_params(packed_state, indices[dpie_mask_np].astype(np.int32)),
-            )
-            dpie_positions = jnp.asarray(np.where(dpie_mask_np)[0], dtype=jnp.int32)
-            rows = [row.at[dpie_positions].set(value) for row, value in zip(rows, dpie_rows)]
-        shear_mask_np = selected_profiles == SHEAR_PROFILE
-        if np.any(shear_mask_np):
-            shear_indices = indices[shear_mask_np].astype(np.int32)
-            gamma1 = self._take_packed_components(packed_state.gamma1, shear_indices)[:, jnp.newaxis]
-            gamma2 = self._take_packed_components(packed_state.gamma2, shear_indices)[:, jnp.newaxis]
-            x_row = x[jnp.newaxis, :]
-            y_row = y[jnp.newaxis, :]
-            ones = jnp.ones_like(x_row, dtype=jnp.float64)
-            shear_rows = (
-                gamma1 * x_row + gamma2 * y_row,
-                gamma2 * x_row - gamma1 * y_row,
-                -gamma1 * ones,
-                -gamma2 * ones,
-                -gamma2 * ones,
-                gamma1 * ones,
-            )
-            shear_positions = jnp.asarray(np.where(shear_mask_np)[0], dtype=jnp.int32)
-            rows = [row.at[shear_positions].set(value) for row, value in zip(rows, shear_rows)]
-        return tuple(rows)  # type: ignore[return-value]
-
-    def _ray_shooting_for_components(
-        self,
-        z_source: float,
-        x: jnp.ndarray,
-        y: jnp.ndarray,
-        packed_state: PackedLensState,
-        component_indices: np.ndarray | None = None,
-    ) -> tuple[jnp.ndarray, jnp.ndarray]:
-        del z_source
-        alpha_x, alpha_y, *_ = self._grouped_alpha_and_hessian_for_components(x, y, packed_state, component_indices)
-        return x - alpha_x, y - alpha_y
-
-    def _flat_ray_shooting_for_components(
-        self,
-        x: jnp.ndarray,
-        y: jnp.ndarray,
-        packed_state: PackedLensState,
-        component_indices: np.ndarray | None = None,
-    ) -> tuple[jnp.ndarray, jnp.ndarray]:
-        alpha_x, alpha_y, *_ = self._grouped_alpha_and_hessian_for_components(x, y, packed_state, component_indices)
-        return x - alpha_x, y - alpha_y
-
-    def _lensing_jacobian_for_components(
-        self,
-        z_source: float,
-        x: jnp.ndarray,
-        y: jnp.ndarray,
-        packed_state: PackedLensState,
-        component_indices: np.ndarray | None = None,
-    ) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
-        del z_source
-        _, _, h_xx, h_xy, h_yx, h_yy = self._grouped_alpha_and_hessian_for_components(
-            x,
-            y,
-            packed_state,
-            component_indices,
-        )
-        return 1.0 - h_xx, -h_xy, -h_yx, 1.0 - h_yy
-
-    def _flat_lensing_jacobian_for_components(
-        self,
-        x: jnp.ndarray,
-        y: jnp.ndarray,
-        packed_state: PackedLensState,
-        component_indices: np.ndarray | None = None,
-    ) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
-        _, _, h_xx, h_xy, h_yx, h_yy = self._grouped_alpha_and_hessian_for_components(
-            x,
-            y,
-            packed_state,
-            component_indices,
-        )
-        return 1.0 - h_xx, -h_xy, -h_yx, 1.0 - h_yy
 
     def _flat_component_alpha_and_jacobian_delta_for_pairs(
         self,
@@ -23408,39 +22788,8 @@ class ClusterJAXEvaluator:
             outputs = [out.at[shear_positions].set(value) for out, value in zip(outputs, shear_values)]
         return tuple(outputs)  # type: ignore[return-value]
 
-    def _flat_component_alpha_and_jacobian_delta_rows_for_components(
-        self,
-        x: jnp.ndarray,
-        y: jnp.ndarray,
-        packed_state: PackedLensState,
-        component_indices: np.ndarray | None = None,
-    ) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
-        return self._grouped_component_rows_for_components(x, y, packed_state, component_indices)
 
-    def _flat_component_alpha_rows_for_components(
-        self,
-        x: jnp.ndarray,
-        y: jnp.ndarray,
-        packed_state: PackedLensState,
-        component_indices: np.ndarray | None = None,
-    ) -> tuple[jnp.ndarray, jnp.ndarray]:
-        alpha_x, alpha_y, *_ = self._grouped_component_rows_for_components(x, y, packed_state, component_indices)
-        return alpha_x, alpha_y
 
-    def _flat_ray_shooting_and_lensing_jacobian_for_components(
-        self,
-        x: jnp.ndarray,
-        y: jnp.ndarray,
-        packed_state: PackedLensState,
-        component_indices: np.ndarray | None = None,
-    ) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
-        alpha_x, alpha_y, h_xx, h_xy, h_yx, h_yy = self._grouped_alpha_and_hessian_for_components(
-            x,
-            y,
-            packed_state,
-            component_indices,
-        )
-        return x - alpha_x, y - alpha_y, 1.0 - h_xx, -h_xy, -h_yx, 1.0 - h_yy
 
     def _cab_morphology_predictions_for_anchors(
         self,
@@ -24187,6 +23536,17 @@ class ClusterJAXEvaluator:
                 else None
             ),
         )
+        if self._uses_latent_surrogate():
+            selected = reference_jax[self.surrogate_param_indices]
+            def response_fn(values):
+                physical = self._physical_parameter_vector(self._replace_surrogate_params(reference_jax, values))
+                response = self._direct_scaling_scatter_responses(physical, self.flat_critical_arc_data)
+                return response, response
+            derivatives, responses = jax.jacfwd(response_fn, has_aux=True)(selected)
+            if not (np.isfinite(np.asarray(responses)).all() and np.isfinite(np.asarray(derivatives)).all()):
+                self._report_surrogate_refresh_failure(reason)
+                return
+            candidate = replace(candidate, member_responses=responses, member_response_derivatives=derivatives)
         candidate_by_z = self._surrogate_cache_by_z_from_flat_cache(candidate)
         self.flat_surrogate_cache = candidate
         self.surrogate_cache_by_z = candidate_by_z
@@ -24194,9 +23554,17 @@ class ClusterJAXEvaluator:
         self.surrogate_reference_param_values = reference[self.surrogate_param_indices].copy()
         self._set_cache_refresh_failure("surrogate", False)
         self.full_refresh_count += 1
+        if self._uses_latent_surrogate():
+            nbytes = sum(value.nbytes for name in FlatSurrogateCache.__dataclass_fields__
+                         if (value := getattr(candidate, name)) is not None)
+            _log(None, f"[latent-surrogate] response_taylor_v1 reason={reason} "
+                 f"exact_members={len(self.exact_scaling_component_indices)} "
+                 f"cached_members={len(self.cached_scaling_component_indices)} cache_bytes={nbytes}")
         self._source_loglike_fn = jax.jit(self._source_loglike_impl)
 
     def refresh_surrogate(self, reference_params: np.ndarray, reason: str = "manual") -> None:
+        if self._uses_latent_surrogate() and getattr(self, "_latent_surrogate_frozen", False):
+            raise RuntimeError("Cannot refresh latent surrogate during a NUTS run")
         if self.sampling_engine == SAMPLING_ENGINE_REFRESHING_SURROGATE_FLAT:
             self._refresh_flat_surrogate_from_reference(reference_params, reason=reason)
             return
@@ -24549,37 +23917,15 @@ class ClusterJAXEvaluator:
         beta_y = y_obs - active_alpha_y - inactive_alpha_y
         return beta_x, beta_y, invalid, packed_state
 
-    def _packed_to_kwargs_lens(self, packed_state: PackedLensState) -> list[dict[str, float]]:
-        convert_start = time.perf_counter()
-        kwargs_lens: list[dict[str, float]] = []
-        profile_type = np.asarray(packed_state.profile_type, dtype=int)
-        for idx, profile in enumerate(profile_type.tolist()):
-            if profile == DP_IE_PROFILE:
-                kwargs_lens.append(
-                    {
-                        "sigma0": float(np.asarray(packed_state.sigma0[idx])),
-                        "Ra": float(np.asarray(packed_state.Ra[idx])),
-                        "Rs": float(np.asarray(packed_state.Rs[idx])),
-                        "e1": float(np.asarray(packed_state.e1[idx])),
-                        "e2": float(np.asarray(packed_state.e2[idx])),
-                        "center_x": float(np.asarray(packed_state.center_x[idx])),
-                        "center_y": float(np.asarray(packed_state.center_y[idx])),
-                    }
-                )
-            elif profile == SHEAR_PROFILE:
-                kwargs_lens.append(
-                    {
-                        "gamma1": float(np.asarray(packed_state.gamma1[idx])),
-                        "gamma2": float(np.asarray(packed_state.gamma2[idx])),
-                    }
-                )
-            else:  # pragma: no cover
-                raise ValueError(f"Unsupported profile type {profile}.")
-        self.timing_totals["validation_conversion"] += time.perf_counter() - convert_start
-        return kwargs_lens
 
     def _source_loglike_impl(self, params: jnp.ndarray) -> jnp.ndarray:
+        if self.sample_likelihood_mode == SAMPLE_LIKELIHOOD_SMOOTHED:
+            if self.sampling_engine != SAMPLING_ENGINE_TIERED_MEMBERS:
+                raise ValueError("smoothed-local-image-plane requires tiered_members; legacy engines are disabled.")
+            return self._flat_smoothed_loglike_impl(params)
         engine = str(getattr(self, "sampling_engine", SAMPLING_ENGINE_FULL_FLAT))
+        if self._uses_latent_surrogate():
+            engine = SAMPLING_ENGINE_FULL_FLAT  # shared validity guard; statistics selects the cache
         if engine == SAMPLING_ENGINE_REFRESHING_SURROGATE_FLAT:
             if self.sample_likelihood_mode == SAMPLE_LIKELIHOOD_SOURCE:
                 return self._flat_refreshing_surrogate_source_loglike_impl(params)
@@ -24679,6 +24025,8 @@ class ClusterJAXEvaluator:
         return summaries
 
     def _family_source_summary(self, params: np.ndarray | jnp.ndarray) -> dict[str, dict[str, Any]]:
+        if self.sample_likelihood_mode == SAMPLE_LIKELIHOOD_SMOOTHED:
+            return self._smoothed_source_summary(params)
         if self.sample_likelihood_mode == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT:
             return self._latent_displacement_source_summary(params)
         if self._full_source_covariance_enabled():
@@ -24778,504 +24126,16 @@ class ClusterJAXEvaluator:
                 }
         return summaries
 
-    def _get_exact_model_solver(self, z_source: float) -> tuple[NPLensModel, NPLensEquationSolver]:
-        model = self.exact_models_by_z.get(z_source)
-        if model is None:
-            exact_model_setup_start = time.perf_counter()
-            model = NPLensModel(
-                lens_model_list=self.state.lens_model_list,
-                z_lens=self.state.z_lens,
-                z_source=z_source,
-                cosmo=self.cosmo,
-            )
-            self.exact_models_by_z[z_source] = model
-            self.exact_solvers_by_z[z_source] = NPLensEquationSolver(model)
-            self.timing_totals["exact_model_cache_setup"] += time.perf_counter() - exact_model_setup_start
-        return model, self.exact_solvers_by_z[z_source]
 
-    def _exact_source_ray_shooting(
-        self,
-        family: FamilyData,
-        packed_state: PackedLensState,
-    ) -> tuple[np.ndarray, np.ndarray]:
-        model, _solver = self._get_exact_model_solver(family.z_source)
-        kwargs_lens = self._packed_to_kwargs_lens(packed_state)
-        beta_x, beta_y = model.ray_shooting(
-            jnp.asarray(family.x_obs, dtype=jnp.float64),
-            jnp.asarray(family.y_obs, dtype=jnp.float64),
-            kwargs_lens,
-        )
-        return np.asarray(beta_x, dtype=float), np.asarray(beta_y, dtype=float)
 
-    def _solve_exact_images_lenstronomy(
-        self,
-        family: FamilyData,
-        packed_state: PackedLensState,
-        source_x: float,
-        source_y: float,
-    ) -> tuple[np.ndarray, np.ndarray]:
-        model, solver = self._get_exact_model_solver(family.z_source)
-        kwargs_lens = self._packed_to_kwargs_lens(packed_state)
-        exact_start = time.perf_counter()
-        try:
-            x_pred, y_pred = solver.image_position_from_source(
-                source_x,
-                source_y,
-                kwargs_lens,
-                solver="lenstronomy",
-                min_distance=float(getattr(self, "exact_image_min_distance_arcsec", DEFAULT_EXACT_IMAGE_MIN_DISTANCE_ARCSEC)),
-                search_window=family.search_window,
-                x_center=family.x_center,
-                y_center=family.y_center,
-                num_iter_max=int(getattr(self, "exact_image_num_iter_max", DEFAULT_EXACT_IMAGE_NUM_ITER_MAX)),
-                precision_limit=float(getattr(self, "exact_image_precision_limit", DEFAULT_EXACT_IMAGE_PRECISION_LIMIT)),
-            )
-            self.exact_lenstronomy_count = int(getattr(self, "exact_lenstronomy_count", 0)) + 1
-            return np.asarray(x_pred, dtype=float), np.asarray(y_pred, dtype=float)
-        finally:
-            elapsed = time.perf_counter() - exact_start
-            self.timing_totals["exact_solver"] = self.timing_totals.get("exact_solver", 0.0) + elapsed
-            self.timing_totals["exact_solver_lenstronomy"] = self.timing_totals.get("exact_solver_lenstronomy", 0.0) + elapsed
 
-    def _exact_ray_shooting_and_jacobian_numpy(
-        self,
-        family: FamilyData,
-        packed_state: PackedLensState,
-        x: np.ndarray,
-        y: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        x_jax = jnp.asarray(x, dtype=jnp.float64)
-        y_jax = jnp.asarray(y, dtype=jnp.float64)
-        beta_x, beta_y = self._ray_shooting_for_components(family.z_source, x_jax, y_jax, packed_state)
-        jac_a00, jac_a01, jac_a10, jac_a11 = self._lensing_jacobian_for_components(
-            family.z_source,
-            x_jax,
-            y_jax,
-            packed_state,
-        )
-        return (
-            np.asarray(beta_x, dtype=float),
-            np.asarray(beta_y, dtype=float),
-            np.asarray(jac_a00, dtype=float),
-            np.asarray(jac_a01, dtype=float),
-            np.asarray(jac_a10, dtype=float),
-            np.asarray(jac_a11, dtype=float),
-        )
 
-    def _refine_exact_images_local_lm(
-        self,
-        family: FamilyData,
-        packed_state: PackedLensState,
-        source_x: float,
-        source_y: float,
-        start_x: np.ndarray,
-        start_y: np.ndarray,
-    ) -> dict[str, Any]:
-        current_x = np.asarray(start_x, dtype=float).reshape(-1).copy()
-        current_y = np.asarray(start_y, dtype=float).reshape(-1).copy()
-        n_images = int(current_x.size)
-        converged = np.zeros(n_images, dtype=bool)
-        finite = np.isfinite(current_x) & np.isfinite(current_y)
-        iterations = np.zeros(n_images, dtype=int)
-        final_step = np.full(n_images, np.inf, dtype=float)
-        final_source_residual = np.full(n_images, np.inf, dtype=float)
-        for step_index in range(int(self.exact_image_lm_max_iter)):
-            beta_x, beta_y, jac_a00, jac_a01, jac_a10, jac_a11 = self._exact_ray_shooting_and_jacobian_numpy(
-                family,
-                packed_state,
-                current_x,
-                current_y,
-            )
-            residual_x = beta_x - float(source_x)
-            residual_y = beta_y - float(source_y)
-            delta_x, delta_y, step_finite = _anchored_solved_image_plane_step_from_jacobian(
-                jnp.asarray(residual_x, dtype=jnp.float64),
-                jnp.asarray(residual_y, dtype=jnp.float64),
-                jnp.asarray(jac_a00, dtype=jnp.float64),
-                jnp.asarray(jac_a01, dtype=jnp.float64),
-                jnp.asarray(jac_a10, dtype=jnp.float64),
-                jnp.asarray(jac_a11, dtype=jnp.float64),
-                trust_radius_arcsec=float(self.exact_image_lm_trust_radius_arcsec),
-                lm_damping_relative=float(self.anchored_image_plane_lm_damping_relative),
-                lm_damping_absolute=float(self.anchored_image_plane_lm_damping_absolute),
-            )
-            delta_x_np = np.asarray(delta_x, dtype=float)
-            delta_y_np = np.asarray(delta_y, dtype=float)
-            step_norm = np.sqrt(np.square(delta_x_np) + np.square(delta_y_np))
-            source_norm = np.sqrt(np.square(residual_x) + np.square(residual_y))
-            step_finite_np = np.asarray(step_finite, dtype=bool)
-            active = finite & step_finite_np & ~converged
-            current_x = np.where(active, current_x + delta_x_np, current_x)
-            current_y = np.where(active, current_y + delta_y_np, current_y)
-            final_step = np.where(active | converged, step_norm, final_step)
-            final_source_residual = np.where(active | converged, source_norm, final_source_residual)
-            iterations = np.where(active, step_index + 1, iterations)
-            newly_converged = (
-                active
-                & np.isfinite(step_norm)
-                & np.isfinite(source_norm)
-                & (step_norm <= float(self.exact_image_displacement_tol_arcsec))
-                & (source_norm <= max(float(self.exact_image_identification_tol_arcsec), float(self.exact_image_precision_limit)))
-            )
-            converged = converged | newly_converged
-            finite = finite & step_finite_np & np.isfinite(current_x) & np.isfinite(current_y)
-            if bool(np.all(converged | ~finite)):
-                break
-        beta_x, beta_y, jac_a00, jac_a01, jac_a10, jac_a11 = self._exact_ray_shooting_and_jacobian_numpy(
-            family,
-            packed_state,
-            current_x,
-            current_y,
-        )
-        residual_x = beta_x - float(source_x)
-        residual_y = beta_y - float(source_y)
-        check_dx, check_dy, check_finite = _anchored_solved_image_plane_step_from_jacobian(
-            jnp.asarray(residual_x, dtype=jnp.float64),
-            jnp.asarray(residual_y, dtype=jnp.float64),
-            jnp.asarray(jac_a00, dtype=jnp.float64),
-            jnp.asarray(jac_a01, dtype=jnp.float64),
-            jnp.asarray(jac_a10, dtype=jnp.float64),
-            jnp.asarray(jac_a11, dtype=jnp.float64),
-            trust_radius_arcsec=float(self.exact_image_lm_trust_radius_arcsec),
-            lm_damping_relative=float(self.anchored_image_plane_lm_damping_relative),
-            lm_damping_absolute=float(self.anchored_image_plane_lm_damping_absolute),
-        )
-        root_error = np.sqrt(np.square(np.asarray(check_dx, dtype=float)) + np.square(np.asarray(check_dy, dtype=float)))
-        source_norm = np.sqrt(np.square(residual_x) + np.square(residual_y))
-        finite_final = (
-            finite
-            & np.asarray(check_finite, dtype=bool)
-            & np.isfinite(root_error)
-            & np.isfinite(source_norm)
-            & np.isfinite(current_x)
-            & np.isfinite(current_y)
-        )
-        identification_pass = finite_final & (root_error <= float(self.exact_image_identification_tol_arcsec))
-        converged = converged | (identification_pass & (root_error <= float(self.exact_image_displacement_tol_arcsec)))
-        return {
-            "x": current_x,
-            "y": current_y,
-            "converged": converged,
-            "finite": finite_final,
-            "identification_pass": identification_pass,
-            "iterations": iterations,
-            "final_step_arcsec": root_error,
-            "final_source_residual_arcsec": source_norm,
-        }
 
-    def _solve_exact_images_local_lm(
-        self,
-        family: FamilyData,
-        packed_state: PackedLensState,
-        source_x: float,
-        source_y: float,
-        *,
-        adaptive: bool,
-    ) -> tuple[np.ndarray, np.ndarray]:
-        exact_start = time.perf_counter()
-        try:
-            start_x = np.asarray(family.x_obs, dtype=float)
-            start_y = np.asarray(family.y_obs, dtype=float)
-            result = self._refine_exact_images_local_lm(family, packed_state, source_x, source_y, start_x, start_y)
-            adaptive_used = np.zeros(int(start_x.size), dtype=bool)
-            ok = np.asarray(result["identification_pass"], dtype=bool)
-            if adaptive and not bool(np.all(ok)):
-                failed = np.flatnonzero(~ok)
-                radius = min(float(self.exact_image_lm_trust_radius_arcsec), max(float(self.exact_image_min_distance_arcsec), 1.0e-3))
-                for idx in failed:
-                    best_result: dict[str, Any] | None = None
-                    best_score = np.inf
-                    for level in range(int(self.exact_image_adaptive_max_levels)):
-                        offsets = np.asarray([-radius, 0.0, radius], dtype=float)
-                        grid_x, grid_y = np.meshgrid(offsets, offsets)
-                        candidate_x = float(start_x[idx]) + grid_x.reshape(-1)
-                        candidate_y = float(start_y[idx]) + grid_y.reshape(-1)
-                        refined = self._refine_exact_images_local_lm(
-                            family,
-                            packed_state,
-                            source_x,
-                            source_y,
-                            candidate_x,
-                            candidate_y,
-                        )
-                        scores = np.asarray(refined["final_step_arcsec"], dtype=float)
-                        source_scores = np.asarray(refined["final_source_residual_arcsec"], dtype=float)
-                        combined = np.where(
-                            np.asarray(refined["finite"], dtype=bool),
-                            scores + 0.01 * source_scores,
-                            np.inf,
-                        )
-                        best_idx = int(np.argmin(combined))
-                        if np.isfinite(combined[best_idx]) and combined[best_idx] < best_score:
-                            best_score = float(combined[best_idx])
-                            best_result = {key: np.asarray(value)[best_idx] for key, value in refined.items()}
-                        if best_result is not None and bool(best_result["identification_pass"]):
-                            break
-                        radius *= 0.5
-                    if best_result is not None and bool(best_result["identification_pass"]):
-                        for key in ("x", "y", "converged", "finite", "identification_pass", "iterations", "final_step_arcsec", "final_source_residual_arcsec"):
-                            result[key][idx] = best_result[key]
-                        adaptive_used[idx] = True
-                ok = np.asarray(result["identification_pass"], dtype=bool)
-            diagnostics = {
-                "exact_image_finder": EXACT_IMAGE_FINDER_LOCAL_LM_ADAPTIVE if adaptive else EXACT_IMAGE_FINDER_LOCAL_LM,
-                "exact_image_lm_converged": np.asarray(result["converged"], dtype=bool),
-                "exact_image_lm_iterations": np.asarray(result["iterations"], dtype=int),
-                "exact_image_adaptive_used": adaptive_used,
-                "exact_image_final_step_arcsec": np.asarray(result["final_step_arcsec"], dtype=float),
-                "exact_image_final_source_residual_arcsec": np.asarray(result["final_source_residual_arcsec"], dtype=float),
-                "exact_image_identification_pass": np.asarray(result["identification_pass"], dtype=bool),
-                "exact_image_displacement_from_observed_arcsec": np.sqrt(
-                    np.square(np.asarray(result["x"], dtype=float) - start_x)
-                    + np.square(np.asarray(result["y"], dtype=float) - start_y)
-                ),
-            }
-            self._last_exact_image_solver_diagnostics = diagnostics
-            if not bool(np.all(ok)):
-                raise RuntimeError("local exact image solver failed identification tolerance")
-            return np.asarray(result["x"], dtype=float), np.asarray(result["y"], dtype=float)
-        finally:
-            elapsed = time.perf_counter() - exact_start
-            self.timing_totals["exact_solver"] = self.timing_totals.get("exact_solver", 0.0) + elapsed
-            key = "exact_solver_local_lm_adaptive" if adaptive else "exact_solver_local_lm"
-            self.timing_totals[key] = self.timing_totals.get(key, 0.0) + elapsed
 
-    def _solve_exact_images(
-        self,
-        family: FamilyData,
-        packed_state: PackedLensState,
-        source_x: float,
-        source_y: float,
-    ) -> tuple[np.ndarray, np.ndarray]:
-        finder = str(getattr(self, "exact_image_finder", DEFAULT_EXACT_IMAGE_FINDER))
-        self._last_exact_image_solver_diagnostics = {
-            "exact_image_finder": finder,
-            "exact_image_lm_converged": np.full(int(getattr(family, "n_images", 0)), np.nan),
-            "exact_image_lm_iterations": np.full(int(getattr(family, "n_images", 0)), np.nan),
-            "exact_image_adaptive_used": np.zeros(int(getattr(family, "n_images", 0)), dtype=bool),
-            "exact_image_final_step_arcsec": np.full(int(getattr(family, "n_images", 0)), np.nan),
-            "exact_image_final_source_residual_arcsec": np.full(int(getattr(family, "n_images", 0)), np.nan),
-            "exact_image_identification_pass": np.full(int(getattr(family, "n_images", 0)), False, dtype=bool),
-            "exact_image_displacement_from_observed_arcsec": np.full(int(getattr(family, "n_images", 0)), np.nan),
-        }
-        if finder == EXACT_IMAGE_FINDER_LENSTRONOMY:
-            x_pred, y_pred = self._solve_exact_images_lenstronomy(family, packed_state, source_x, source_y)
-            self._last_exact_image_solver_diagnostics.update(
-                {
-                    "exact_image_identification_pass": np.ones(min(len(x_pred), int(getattr(family, "n_images", 0))), dtype=bool),
-                }
-            )
-            return x_pred, y_pred
-        if finder == EXACT_IMAGE_FINDER_LOCAL_LM:
-            return self._solve_exact_images_local_lm(family, packed_state, source_x, source_y, adaptive=False)
-        if finder == EXACT_IMAGE_FINDER_LOCAL_LM_ADAPTIVE:
-            return self._solve_exact_images_local_lm(family, packed_state, source_x, source_y, adaptive=True)
-        raise RuntimeError(f"Unsupported exact image finder: {finder}")
 
-    def _match_images(self, x_pred: np.ndarray, y_pred: np.ndarray, family: FamilyData) -> tuple[np.ndarray, np.ndarray] | None:
-        match_details = self._image_match_diagnostics(x_pred, y_pred, family)
-        if (
-            int(match_details["produced_image_count"]) != family.n_images
-            or int(match_details["recovered_image_count"]) != family.n_images
-        ):
-            return None
-        ordered_x = np.asarray(match_details["_matched_x"], dtype=float)
-        ordered_y = np.asarray(match_details["_matched_y"], dtype=float)
-        if ordered_x.shape != (family.n_images,) or ordered_y.shape != (family.n_images,):
-            return None
-        if not np.all(np.isfinite(ordered_x) & np.isfinite(ordered_y)):
-            return None
-        return ordered_x, ordered_y
 
-    def _image_match_diagnostics(self, x_pred: np.ndarray, y_pred: np.ndarray, family: FamilyData) -> dict[str, Any]:
-        x_array = np.asarray(x_pred, dtype=float).reshape(-1)
-        y_array = np.asarray(y_pred, dtype=float).reshape(-1)
-        n_observed = int(family.n_images)
-        n_produced = int(min(x_array.size, y_array.size))
-        matched_x = np.full(n_observed, np.nan, dtype=float)
-        matched_y = np.full(n_observed, np.nan, dtype=float)
-        recovered_mask = np.zeros(n_observed, dtype=bool)
-        diagnostics: dict[str, Any] = {
-            "produced_image_count": n_produced,
-            "recovered_image_count": 0,
-            "missing_image_count": n_observed,
-            "extra_image_count": n_produced,
-            "multiplicity_failed": True,
-            "multiplicity_failure_reason": "no_model_images" if n_produced == 0 else "no_matches",
-            "matched_model_x_arcsec": matched_x,
-            "matched_model_y_arcsec": matched_y,
-            "recovered_image_mask": recovered_mask,
-            "extra_model_x_arcsec": np.asarray([], dtype=float),
-            "extra_model_y_arcsec": np.asarray([], dtype=float),
-            "_matched_x": matched_x,
-            "_matched_y": matched_y,
-        }
-        if x_array.size != y_array.size:
-            n_extra = int(max(x_array.size, y_array.size))
-            extra_x = np.full(n_extra, np.nan, dtype=float)
-            extra_y = np.full(n_extra, np.nan, dtype=float)
-            extra_x[: x_array.size] = x_array
-            extra_y[: y_array.size] = y_array
-            diagnostics.update(
-                {
-                    "produced_image_count": n_extra,
-                    "extra_image_count": n_extra,
-                    "multiplicity_failure_reason": "prediction_shape_mismatch",
-                    "extra_model_x_arcsec": extra_x,
-                    "extra_model_y_arcsec": extra_y,
-                }
-            )
-            return diagnostics
-        if n_observed == 0:
-            diagnostics.update(
-                {
-                    "recovered_image_count": 0,
-                    "missing_image_count": 0,
-                    "extra_image_count": n_produced,
-                    "multiplicity_failed": bool(n_produced != 0),
-                    "multiplicity_failure_reason": "extra_model_images" if n_produced else "",
-                    "extra_model_x_arcsec": x_array.copy(),
-                    "extra_model_y_arcsec": y_array.copy(),
-                }
-            )
-            return diagnostics
-        if n_produced == 0:
-            return diagnostics
-        pred = np.column_stack([x_array, y_array])
-        obs = np.column_stack([np.asarray(family.x_obs, dtype=float), np.asarray(family.y_obs, dtype=float)])
-        if pred.shape[0] != n_produced or obs.shape[0] != n_observed:
-            diagnostics.update(
-                {
-                    "multiplicity_failure_reason": "prediction_shape_mismatch",
-                    "extra_model_x_arcsec": x_array.copy(),
-                    "extra_model_y_arcsec": y_array.copy(),
-                }
-            )
-            return diagnostics
-        finite_pred = np.isfinite(pred).all(axis=1)
-        finite_obs = np.isfinite(obs).all(axis=1)
-        cost = np.linalg.norm(pred[:, None, :] - obs[None, :, :], axis=2)
-        cost = np.where(finite_pred[:, None] & finite_obs[None, :], cost, np.inf)
-        finite_cost = np.isfinite(cost)
-        if not np.any(finite_cost):
-            diagnostics.update(
-                {
-                    "multiplicity_failure_reason": "nonfinite_prediction",
-                    "extra_model_x_arcsec": x_array.copy(),
-                    "extra_model_y_arcsec": y_array.copy(),
-                }
-            )
-            return diagnostics
-        finite_max = float(np.max(cost[finite_cost]))
-        match_tolerance = float(getattr(self, "match_tolerance_arcsec", DEFAULT_MATCH_TOLERANCE))
-        assignment_cost = np.where(finite_cost, cost, finite_max + match_tolerance + 1.0)
-        row_ind, col_ind = linear_sum_assignment(assignment_cost)
-        accepted = np.isfinite(cost[row_ind, col_ind]) & (cost[row_ind, col_ind] <= match_tolerance)
-        recovered_count = int(np.sum(accepted))
-        accepted_pred_indices = np.asarray(row_ind[accepted], dtype=int)
-        for pred_idx, obs_idx in zip(row_ind[accepted], col_ind[accepted]):
-            matched_x[int(obs_idx)] = x_array[int(pred_idx)]
-            matched_y[int(obs_idx)] = y_array[int(pred_idx)]
-            recovered_mask[int(obs_idx)] = True
-        extra_mask = np.ones(n_produced, dtype=bool)
-        extra_mask[accepted_pred_indices] = False
-        missing_count = int(max(0, n_observed - recovered_count))
-        extra_count = int(max(0, n_produced - recovered_count))
-        if missing_count == 0 and extra_count == 0:
-            reason = ""
-        elif missing_count > 0 and extra_count > 0:
-            reason = "missing_and_extra_model_images" if n_produced != n_observed else "match_tolerance_exceeded"
-        elif missing_count > 0:
-            reason = "missing_model_images"
-        else:
-            reason = "extra_model_images"
-        diagnostics.update(
-            {
-                "recovered_image_count": recovered_count,
-                "missing_image_count": missing_count,
-                "extra_image_count": extra_count,
-                "multiplicity_failed": bool(missing_count > 0 or extra_count > 0),
-                "multiplicity_failure_reason": reason,
-                "matched_model_x_arcsec": matched_x,
-                "matched_model_y_arcsec": matched_y,
-                "recovered_image_mask": recovered_mask,
-                "extra_model_x_arcsec": x_array[extra_mask],
-                "extra_model_y_arcsec": y_array[extra_mask],
-                "_matched_x": matched_x,
-                "_matched_y": matched_y,
-            }
-        )
-        return diagnostics
 
-    def _record_exact_prediction_details(self, family_id: str, details: dict[str, Any]) -> None:
-        if not hasattr(self, "_last_exact_prediction_details"):
-            self._last_exact_prediction_details = {}
-        self._last_exact_prediction_details[str(family_id)] = details
 
-    def _empty_arc_aware_image_support_details(
-        self,
-        family: FamilyData,
-        match_details: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        n_images = int(getattr(family, "n_images", 0))
-        point_recovered = np.zeros(n_images, dtype=bool)
-        point_residual = np.full(n_images, np.nan, dtype=float)
-        if isinstance(match_details, dict):
-            recovered = np.asarray(match_details.get("recovered_image_mask", point_recovered), dtype=bool).reshape(-1)
-            matched_x = np.asarray(match_details.get("matched_model_x_arcsec", point_residual), dtype=float).reshape(-1)
-            matched_y = np.asarray(match_details.get("matched_model_y_arcsec", point_residual), dtype=float).reshape(-1)
-            if recovered.shape == (n_images,) and matched_x.shape == (n_images,) and matched_y.shape == (n_images,):
-                point_recovered = recovered
-                point_residual = np.sqrt(
-                    np.square(matched_x - np.asarray(family.x_obs, dtype=float))
-                    + np.square(matched_y - np.asarray(family.y_obs, dtype=float))
-                )
-                point_residual = np.where(point_recovered, point_residual, np.nan)
-        point_valid = point_recovered & np.isfinite(point_residual)
-        point_residual = np.where(point_valid, point_residual, np.nan)
-        supported_or_recovered = np.isfinite(point_residual)
-        arc_aware_rms = (
-            float(np.sqrt(np.mean(np.square(point_residual[supported_or_recovered]))))
-            if np.any(supported_or_recovered)
-            else np.nan
-        )
-        status = np.where(point_valid, "point_recovered", "not_recovered").astype(object)
-        return {
-            "point_image_residual_arcsec": point_residual,
-            "arc_candidate_supported": np.zeros(n_images, dtype=bool),
-            "arc_candidate_image_residual_arcsec": np.full(n_images, np.nan, dtype=float),
-            "preferred_recovery_status": status,
-            "preferred_image_residual_arcsec": point_residual,
-            "arc_recovery_status": status,
-            "arc_aware_image_residual_arcsec": point_residual,
-            "arc_noncritical_direction_residual_arcsec": np.full(n_images, np.nan, dtype=float),
-            "arc_critical_direction_residual_arcsec": np.full(n_images, np.nan, dtype=float),
-            "arc_critical_direction_x": np.full(n_images, np.nan, dtype=float),
-            "arc_critical_direction_y": np.full(n_images, np.nan, dtype=float),
-            "arc_noncritical_direction_x": np.full(n_images, np.nan, dtype=float),
-            "arc_noncritical_direction_y": np.full(n_images, np.nan, dtype=float),
-            "arc_s_min": np.full(n_images, np.nan, dtype=float),
-            "arc_s_max": np.full(n_images, np.nan, dtype=float),
-            "arc_detA": np.full(n_images, np.nan, dtype=float),
-            "arc_prior_probability": np.full(n_images, np.nan, dtype=float),
-            "p_arc": np.full(n_images, np.nan, dtype=float),
-            "arc_log_odds": np.full(n_images, np.nan, dtype=float),
-            "arc_curve_distance_arcsec": np.full(n_images, np.nan, dtype=float),
-            "arc_curve_arclength_arcsec": np.full(n_images, np.nan, dtype=float),
-            "arc_curve_finite": np.zeros(n_images, dtype=bool),
-            "arc_support_anchor_x_arcsec": np.full(n_images, np.nan, dtype=float),
-            "arc_support_anchor_y_arcsec": np.full(n_images, np.nan, dtype=float),
-            "arc_support_curve_x_arcsec": np.asarray([_json_arcsec_array([]) for _ in range(n_images)], dtype=object),
-            "arc_support_curve_y_arcsec": np.asarray([_json_arcsec_array([]) for _ in range(n_images)], dtype=object),
-            "arc_supported_mask": np.zeros(n_images, dtype=bool),
-            "arc_supported": np.zeros(n_images, dtype=bool),
-            "arc_support_finite_mask": np.zeros(n_images, dtype=bool),
-            "arc_aware_image_rms_arcsec": arc_aware_rms,
-            "arc_aware_recovered_image_count": int(np.sum(supported_or_recovered)),
-            "arc_aware_missing_image_count": int(max(0, n_images - int(np.sum(supported_or_recovered)))),
-            "arc_supported_image_count": 0,
-            "arc_candidate_supported_image_count": 0,
-        }
 
     def _cab_morphology_details_for_arcs(self, params: np.ndarray) -> pd.DataFrame:
         arc_data = getattr(self.state, "arc_data", None)
@@ -25640,25 +24500,25 @@ class ClusterJAXEvaluator:
             details = {**base_details, "multiplicity_failure_reason": "source_ray_shooting_failed"}
             self._record_exact_prediction_details(family.family_id, details)
             return details
-        source_sigma_int = self._source_sigma_int_numpy(params)
-        weights, _sigma_eff = _validation_source_centroid_weights(
-            family.n_images,
-            family.sigma_arcsec,
-            source_sigma_int,
-            self.source_plane_covariance_floor,
-        )
         sampled_source = self._source_position_for_family_numpy(params, family.family_id)
         uses_sampled_source = _sample_likelihood_uses_explicit_beta(self.sample_likelihood_mode)
         if _sample_likelihood_uses_critical_arc_terms(self.sample_likelihood_mode):
             uses_sampled_source = _critical_arc_uses_sampled_source_positions(
                 self.critical_arc_source_position_policy
             )
-        if self._full_source_covariance_enabled():
+        if self.sample_likelihood_mode == SAMPLE_LIKELIHOOD_SMOOTHED:
+            if sampled_source is None:
+                raise ValueError("Smoothed image diagnostics require the sampled physical source position.")
+            source_x, source_y = sampled_source
+        elif self._full_source_covariance_enabled():
             summary = self._full_covariance_source_summary(params)[str(family.family_id)]
             source_x, source_y = summary["source_x"], summary["source_y"]
         elif uses_sampled_source and sampled_source is not None:
             source_x, source_y = sampled_source
         else:
+            weights, _sigma_eff = _validation_source_centroid_weights(
+                family.n_images, family.sigma_arcsec, self._source_sigma_int_numpy(params),
+                self.source_plane_covariance_floor)
             source_x = float(np.average(np.asarray(beta_x, dtype=float), weights=weights))
             source_y = float(np.average(np.asarray(beta_y, dtype=float), weights=weights))
         source_residuals = np.sqrt((np.asarray(beta_x, dtype=float) - source_x) ** 2 + (np.asarray(beta_y, dtype=float) - source_y) ** 2)
@@ -25729,16 +24589,18 @@ class ClusterJAXEvaluator:
 
     def evaluate(self, params: np.ndarray, validate_all_families: bool = False) -> EvaluationResult:
         del validate_all_families
-        if self.surrogate_enabled and self._surrogate_needs_refresh(np.asarray(params, dtype=float)):
+        if self.surrogate_enabled and not self._uses_latent_surrogate() and self._surrogate_needs_refresh(np.asarray(params, dtype=float)):
             self.refresh_surrogate(np.asarray(params, dtype=float), reason="validation_drift")
             self.refresh_scaling_scatter_cache(np.asarray(params, dtype=float), reason="validation_drift")
             self.refresh_source_metric_cache(np.asarray(params, dtype=float), reason="validation_drift")
         source_loglike = self.source_loglike(params)
+        if self.sample_likelihood_mode == SAMPLE_LIKELIHOOD_SMOOTHED:
+            source_loglike = float(jnp.sum(self._smoothed_statistics(jnp.asarray(params))['loglike']))
         family_predictions = self._family_source_summary(params)
         _ensure_family_prediction_image_arrays(self.state, family_predictions)
         refresh_reason = "quick_diagnostics" if bool(getattr(self, "quick_diagnostics", False)) else "source_summary"
         for prediction in family_predictions.values():
-            prediction["approx_image_rms_arcsec"] = (np.nan if self.sample_likelihood_mode == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT
+            prediction["approx_image_rms_arcsec"] = (np.nan if self.sample_likelihood_mode in {SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT, SAMPLE_LIKELIHOOD_SMOOTHED}
                                                      else prediction.get("source_plane_rms"))
             prediction["used_exact_refresh"] = False
             prediction["refresh_reason"] = refresh_reason
@@ -25790,6 +24652,38 @@ def _save_artifacts(
         raise
 
 
+def _save_svi_checkpoint(
+    args: argparse.Namespace,
+    state: BuildState,
+    evaluator: ClusterJAXEvaluator,
+    run_dir: Path,
+    center: np.ndarray,
+    posterior: PosteriorResults,
+) -> None:
+    """Retain the actual SVI guide before model rebuilding or MCMC replaces it.
+
+    This is a standalone, reloadable bundle with its own parameter definitions.
+    Samples and center use reported physical units, just like the final bundle.
+    """
+    if getattr(evaluator, "_uses_latent_surrogate", lambda: False)():
+        state.production_latent_surrogate_cache = evaluator.export_latent_surrogate_cache()
+    physical_center = _convert_theta_to_reported_physical(center, state.parameter_specs, evaluator)
+    physical_posterior = _posterior_results_to_reported_physical(posterior, state.parameter_specs, evaluator)
+    physical_posterior = replace(
+        physical_posterior,
+        init_diagnostics={
+            **(physical_posterior.init_diagnostics or {}),
+            "posterior_role": "svi_guide_before_sampling",
+            "best_value_selected": "svi_guide_center",
+            "best_value_requested": "svi_guide_center",
+            "log_prob_coordinates": "sampling_parameters_before_numpyro_unconstraining",
+        },
+    )
+    artifacts_dir = run_dir / "artifacts" / "svi"
+    _save_artifacts(artifacts_dir, state, args, physical_center, physical_posterior)
+    _log(args, f"[output] retained SVI posterior at {artifacts_dir / 'plot_bundle.h5'}")
+
+
 def _save_inference_checkpoint(
     args: argparse.Namespace,
     state: BuildState,
@@ -25799,6 +24693,8 @@ def _save_inference_checkpoint(
     posterior: PosteriorResults,
 ) -> tuple[Path, np.ndarray, PosteriorResults]:
     artifacts_dir = run_dir / "artifacts"
+    if getattr(evaluator, "_uses_latent_surrogate", lambda: False)():
+        state.production_latent_surrogate_cache = evaluator.export_latent_surrogate_cache()
     _log(args, f"[output] saving artifacts to {artifacts_dir}")
     best_fit_physical = _run_logged_phase(
         args,
@@ -25865,7 +24761,7 @@ def _approximate_evaluation(evaluator: ClusterJAXEvaluator, params: np.ndarray) 
     family_predictions = evaluator._family_source_summary(params)
     _ensure_family_prediction_image_arrays(evaluator.state, family_predictions)
     for prediction in family_predictions.values():
-        prediction["approx_image_rms_arcsec"] = (np.nan if evaluator.sample_likelihood_mode == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT
+        prediction["approx_image_rms_arcsec"] = (np.nan if evaluator.sample_likelihood_mode in {SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT, SAMPLE_LIKELIHOOD_SMOOTHED}
                                                  else prediction.get("source_plane_rms"))
         prediction["used_exact_refresh"] = False
         prediction["refresh_reason"] = "quick_diagnostics" if bool(getattr(evaluator, "quick_diagnostics", False)) else "validation_skipped"
@@ -25961,7 +24857,7 @@ def _read_h5_json(group: h5py.Group, name: str, default: Any = None) -> Any:
 def _args_payload(args: Any) -> dict[str, Any]:
     values = getattr(args, "values", None)
     if isinstance(values, dict):
-        return dict(values)
+        return canonical_runtime_engines(values)
     raise TypeError("Solver runtime must be a config-native SolverRuntime with a flat values payload.")
 
 
@@ -25979,14 +24875,30 @@ def _require_config_native_artifact(handle: h5py.File, path: Path) -> dict[str, 
             f"{path} contains nested legacy runtime metadata. "
             "Rerun with the config-native runner to regenerate artifacts."
         )
+    if (runtime_args.get("scaling_relation_mode") != DEFAULT_SCALING_RELATION_MODE
+            or any(key.startswith("potfile_gamma_ml_prior") for key in runtime_args)):
+        raise ValueError(f"{path} uses an unsupported scaling parameterization. Start a fresh run with sampled beta_radius and a different --run-label; alpha/gamma artifacts cannot be loaded or resumed.")
     model_config = _read_h5_json(handle, "model_config_json", default=None)
     if model_config is None:
         raise ValueError(f"{path} is missing model_config_json metadata.")
+    runtime_args = canonical_runtime_engines(runtime_args)
     if runtime_args.get("sample_likelihood_mode") == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT:
         from .latent_displacement import validate_settings
         validate_settings(runtime_args.get("latent_displacement_sigma_beta_arcsec"),
                           runtime_args.get("sampling_engine"),
                           runtime_args.get("source_position_parameterization", "prior-whitened"))
+    if runtime_args.get("sample_likelihood_mode") == SAMPLE_LIKELIHOOD_SMOOTHED:
+        if runtime_args.get("smoothed_likelihood_revision") != "smoothed-local-image-plane-v1":
+            raise ValueError(f"{path} has a missing or incompatible smoothed likelihood revision.")
+        required = ("source_position_parameterization", "member_tier_phase",
+                    "source_scatter_prior_median_arcsec", "source_scatter_prior_log_sigma",
+                    "member_velocity_scatter_prior_median", "member_velocity_scatter_prior_log_sigma",
+                    "source_position_prior_mean_x_arcsec", "source_position_prior_mean_y_arcsec",
+                    "source_position_prior_sigma_arcsec")
+        if any(key not in runtime_args for key in required):
+            raise ValueError(f"{path} is missing smoothed likelihood prior/transport metadata.")
+        if runtime_args.get("sampling_engine") != SAMPLING_ENGINE_TIERED_MEMBERS or runtime_args.get("use_magnitude_likelihood", False):
+            raise ValueError(f"{path} contains incompatible smoothed likelihood engine or flux settings.")
     return runtime_args
 
 
@@ -26020,6 +24932,15 @@ def _save_plot_bundle_h5(
         raise ValueError("Cannot save config-native artifacts without model_config in the solver runtime.")
     with h5py.File(path, "w") as handle:
         handle.attrs["schema_version"] = 2
+        production_cache = getattr(state, "production_latent_surrogate_cache", None)
+        if (runtime_args.get("sample_likelihood_mode") == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT
+                and runtime_args.get("sampling_engine") == SAMPLING_ENGINE_REFRESHING_SURROGATE_FLAT):
+            if production_cache is None:
+                raise ValueError("Missing production latent surrogate cache")
+            group = handle.create_group("latent_surrogate_cache")
+            group.attrs["metadata_json"] = json.dumps(production_cache["metadata"])
+            for key, value in production_cache["arrays"].items():
+                group.create_dataset(key, data=value)
 
         posterior_group = handle.create_group("posterior")
         posterior_group.create_dataset("samples", data=np.asarray(results.samples, dtype=float))
@@ -26103,6 +25024,7 @@ def _save_plot_bundle_h5(
                 "scaling_component_records": state.scaling_component_records,
                 "fit_cosmology_flat_wcdm": bool(getattr(state, "fit_cosmology_flat_wcdm", False)),
                 "source_position_parameterization": str(state.source_position_parameterization),
+                "smoothed_model": state.smoothed_model,
                 "infer_active_scaling": bool(getattr(state, "infer_active_scaling", False)),
                 "active_scaling_inference_likelihood": str(
                     getattr(
@@ -26148,17 +25070,17 @@ def _save_plot_bundle_h5(
                 "potfile_alpha_sigma_prior_upper": float(
                     getattr(state, "potfile_alpha_sigma_prior_upper", DEFAULT_SOLVER_POTFILE_ALPHA_SIGMA_UPPER)
                 ),
-                "potfile_gamma_ml_prior_mean": float(
-                    getattr(state, "potfile_gamma_ml_prior_mean", DEFAULT_SOLVER_POTFILE_GAMMA_ML_MEAN)
+                "potfile_beta_radius_prior_mean": float(
+                    getattr(state, "potfile_beta_radius_prior_mean", DEFAULT_SOLVER_POTFILE_BETA_RADIUS_MEAN)
                 ),
-                "potfile_gamma_ml_prior_std": float(
-                    getattr(state, "potfile_gamma_ml_prior_std", DEFAULT_SOLVER_POTFILE_GAMMA_ML_STD)
+                "potfile_beta_radius_prior_std": float(
+                    getattr(state, "potfile_beta_radius_prior_std", DEFAULT_SOLVER_POTFILE_BETA_RADIUS_STD)
                 ),
-                "potfile_gamma_ml_prior_lower": float(
-                    getattr(state, "potfile_gamma_ml_prior_lower", DEFAULT_SOLVER_POTFILE_GAMMA_ML_LOWER)
+                "potfile_beta_radius_prior_lower": float(
+                    getattr(state, "potfile_beta_radius_prior_lower", DEFAULT_SOLVER_POTFILE_BETA_RADIUS_LOWER)
                 ),
-                "potfile_gamma_ml_prior_upper": float(
-                    getattr(state, "potfile_gamma_ml_prior_upper", DEFAULT_SOLVER_POTFILE_GAMMA_ML_UPPER)
+                "potfile_beta_radius_prior_upper": float(
+                    getattr(state, "potfile_beta_radius_prior_upper", DEFAULT_SOLVER_POTFILE_BETA_RADIUS_UPPER)
                 ),
                 "softening_length_kpc": float(getattr(state, "softening_length_kpc", DEFAULT_SOFTENING_LENGTH_KPC)),
                 "softening_length_prior_log_sigma": float(
@@ -26263,6 +25185,9 @@ def _rebuild_state_from_h5(path: Path) -> tuple[BuildState, dict[str, Any], dict
     with h5py.File(path, "r") as handle:
         runtime_args = _require_config_native_artifact(handle, path)
         meta = _read_h5_json(handle["state"], "build_state_meta_json", default={})
+        if (meta.get("scaling_relation_mode") != DEFAULT_SCALING_RELATION_MODE
+                or any(spec.get("field") == "gamma_ml" for spec in meta.get("parameter_specs", []))):
+            raise ValueError(f"{path} has incompatible alpha/gamma state. Start a fresh run with sampled beta_radius; historical runs cannot be loaded or resumed.")
         if "source_position_parameterization" not in meta:
             raise ValueError(
                 f"{path} is missing explicit source_position_parameterization metadata; "
@@ -26384,6 +25309,7 @@ def _rebuild_state_from_h5(path: Path) -> tuple[BuildState, dict[str, Any], dict
             ),
             fit_cosmology_flat_wcdm=bool(meta.get("fit_cosmology_flat_wcdm", False)),
             source_position_parameterization=str(meta["source_position_parameterization"]),
+            smoothed_model=meta.get("smoothed_model"),
             infer_active_scaling=bool(meta.get("infer_active_scaling", False)),
             active_scaling_inference_likelihood=str(
                 meta.get("active_scaling_inference_likelihood", ACTIVE_SCALING_INFERENCE_LIKELIHOOD_POPULATION)
@@ -26417,15 +25343,15 @@ def _rebuild_state_from_h5(path: Path) -> tuple[BuildState, dict[str, Any], dict
             potfile_alpha_sigma_prior_upper=float(
                 meta.get("potfile_alpha_sigma_prior_upper", DEFAULT_SOLVER_POTFILE_ALPHA_SIGMA_UPPER)
             ),
-            potfile_gamma_ml_prior_mean=float(
-                meta.get("potfile_gamma_ml_prior_mean", DEFAULT_SOLVER_POTFILE_GAMMA_ML_MEAN)
+            potfile_beta_radius_prior_mean=float(
+                meta.get("potfile_beta_radius_prior_mean", DEFAULT_SOLVER_POTFILE_BETA_RADIUS_MEAN)
             ),
-            potfile_gamma_ml_prior_std=float(meta.get("potfile_gamma_ml_prior_std", DEFAULT_SOLVER_POTFILE_GAMMA_ML_STD)),
-            potfile_gamma_ml_prior_lower=float(
-                meta.get("potfile_gamma_ml_prior_lower", DEFAULT_SOLVER_POTFILE_GAMMA_ML_LOWER)
+            potfile_beta_radius_prior_std=float(meta.get("potfile_beta_radius_prior_std", DEFAULT_SOLVER_POTFILE_BETA_RADIUS_STD)),
+            potfile_beta_radius_prior_lower=float(
+                meta.get("potfile_beta_radius_prior_lower", DEFAULT_SOLVER_POTFILE_BETA_RADIUS_LOWER)
             ),
-            potfile_gamma_ml_prior_upper=float(
-                meta.get("potfile_gamma_ml_prior_upper", DEFAULT_SOLVER_POTFILE_GAMMA_ML_UPPER)
+            potfile_beta_radius_prior_upper=float(
+                meta.get("potfile_beta_radius_prior_upper", DEFAULT_SOLVER_POTFILE_BETA_RADIUS_UPPER)
             ),
             softening_length_kpc=float(meta.get("softening_length_kpc", DEFAULT_SOFTENING_LENGTH_KPC)),
             softening_length_prior_log_sigma=float(
@@ -26451,6 +25377,14 @@ def _rebuild_state_from_h5(path: Path) -> tuple[BuildState, dict[str, Any], dict
                 else str(meta.get("active_scaling_frozen_source_path"))
             ),
         )
+        if (runtime_args.get("sample_likelihood_mode") == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT
+                and runtime_args.get("sampling_engine") == SAMPLING_ENGINE_REFRESHING_SURROGATE_FLAT):
+            if "latent_surrogate_cache" not in handle:
+                raise ValueError("Missing saved production latent surrogate cache; cannot replay this target")
+            group = handle["latent_surrogate_cache"]
+            state.production_latent_surrogate_cache = dict(
+                metadata=json.loads(group.attrs["metadata_json"]),
+                arrays={name:np.asarray(group[name]) for name in group})
         init_diagnostics = _read_h5_json(handle, "init_diagnostics_json", default={})
         posterior_group = handle["posterior"]
         arrays = {name: np.asarray(posterior_group[name]) for name in posterior_group.keys()}
@@ -26506,6 +25440,9 @@ def _load_stage1_summary(artifacts_dir: Path) -> Stage1PriorSummary:
     summary_path = artifacts_dir / "stage1_prior_summary.json"
     if summary_path.exists():
         payload = json.loads(summary_path.read_text())
+        if any("gamma_ml" in name for section in ("map_values", "means", "stds")
+               for name in payload.get(section, {})):
+            raise ValueError("Historical alpha/gamma stage summaries cannot be loaded. Start a fresh run with sampled beta_radius.")
         return Stage1PriorSummary(
             map_values={str(key): float(value) for key, value in payload.get("map_values", {}).items()},
             means={str(key): float(value) for key, value in payload.get("means", {}).items()},
@@ -26878,7 +25815,7 @@ def _empty_critical_det_diagnostic_table() -> pd.DataFrame:
     return pd.DataFrame(columns=list(CRITICAL_DET_DIAGNOSTIC_COLUMNS))
 
 
-def _stage3_critical_det_metadata_for_bin(state: BuildState, bin_data: TracedBinData) -> list[dict[str, Any]]:
+def _critical_det_metadata_for_bin(state: BuildState, bin_data: TracedBinData) -> list[dict[str, Any]]:
     family_by_id = {str(family.family_id): family for family in state.family_data}
     family_ids = tuple(str(family_id) for family_id in bin_data.family_ids)
     family_index_per_image = np.asarray(bin_data.family_index_per_image, dtype=int)
@@ -26910,7 +25847,7 @@ def _stage3_critical_det_metadata_for_bin(state: BuildState, bin_data: TracedBin
     return metadata
 
 
-def _stage3_critical_det_diagnostic_from_evaluator(
+def _critical_det_diagnostic_from_evaluator(
     state: BuildState,
     evaluator: ClusterJAXEvaluator,
     best_fit_physical: np.ndarray,
@@ -26939,7 +25876,7 @@ def _stage3_critical_det_diagnostic_from_evaluator(
     total_images = 0
     finite_abs_det_values: list[np.ndarray] = []
     for bin_data in evaluator.traced_bin_data:
-        metadata = _stage3_critical_det_metadata_for_bin(state, bin_data)
+        metadata = _critical_det_metadata_for_bin(state, bin_data)
         total_images += len(metadata)
         packed_kwargs: dict[str, Any] = {}
         if sampled_dpie_sigma0_factors is not None and int(getattr(bin_data, "effective_z_index", -1)) >= 0:
@@ -27006,93 +25943,11 @@ def _stage3_critical_det_diagnostic_from_evaluator(
     return CriticalDetDiagnosticResult(flagged=flagged, min_abs_detA=min_abs_det, total_images=total_images)
 
 
-def _log_stage3_critical_det_diagnostic(
-    args: argparse.Namespace,
-    *,
-    result: CriticalDetDiagnosticResult,
-    threshold: float,
-    stage3_run_dir: Path,
-    table_path: Path,
-) -> None:
-    min_abs = result.min_abs_detA
-    min_abs_text = f"{min_abs:.6e}" if np.isfinite(min_abs) else "nan"
-    _log(
-        args,
-        (
-            f"[critical-det] flagged={len(result.flagged)} threshold={float(threshold):.6g} "
-            f"min_abs_detA={min_abs_text} stage={stage3_run_dir}"
-        ),
-    )
-    if result.flagged.empty:
-        _log(args, f"[critical-det] no images with abs(detA) < {float(threshold):.6g}")
-    else:
-        for row in result.flagged.itertuples(index=False):
-            _log(
-                args,
-                (
-                    f"[critical-det] family_id={row.family_id} image_label={row.image_label} "
-                    f"x_obs={float(row.x_obs):.6g} y_obs={float(row.y_obs):.6g} "
-                    f"z_source={float(row.z_source):.6g} effective_z_source={float(row.effective_z_source):.6g} "
-                    f"detA={float(row.detA):.6e} abs_detA={float(row.abs_detA):.6e}"
-                ),
-            )
-    _log(args, f"[critical-det] table written to {table_path}")
-
-
 def _write_critical_det_diagnostic_table(result: CriticalDetDiagnosticResult, table_path: Path) -> Path:
     table_path = Path(table_path)
     table_path.parent.mkdir(parents=True, exist_ok=True)
     result.flagged.to_csv(table_path, index=False)
     return table_path
-
-
-def _run_stage3_critical_det_diagnostic(
-    args: argparse.Namespace,
-    stage3_run_dir: Path,
-) -> CriticalDetDiagnosticResult:
-    threshold = float(getattr(args, "critical_det_diagnostic_threshold", DEFAULT_CRITICAL_DET_DIAGNOSTIC_THRESHOLD))
-    artifacts_dir = Path(stage3_run_dir) / "artifacts"
-    h5_path = artifacts_dir / "plot_bundle.h5"
-    if not h5_path.exists():
-        _log(args, f"[critical-det] skipped; missing stage3 plot bundle at {h5_path}")
-        return CriticalDetDiagnosticResult(
-            flagged=_empty_critical_det_diagnostic_table(),
-            min_abs_detA=float("nan"),
-            total_images=0,
-        )
-    state, _saved_args, arrays, init_diagnostics = _load_artifacts(artifacts_dir)
-    arrays, _converted = _maybe_convert_loaded_posterior_arrays_to_physical(arrays, state.parameter_specs, init_diagnostics)
-    best_fit_physical = np.asarray(arrays["best_fit"], dtype=float)
-    diagnostic_args = _clone_args(args, quick_diagnostics=False)
-    evaluator = _build_cluster_evaluator_from_args(
-        diagnostic_args,
-        state,
-        sampling_engine=SAMPLING_ENGINE_FULL_FLAT,
-        quick_diagnostics=False,
-    )
-    try:
-        result = _stage3_critical_det_diagnostic_from_evaluator(
-            state,
-            evaluator,
-            best_fit_physical,
-            threshold=threshold,
-        )
-    finally:
-        release = getattr(evaluator, "release_runtime_caches", None)
-        if callable(release):
-            release()
-    table_path = _write_critical_det_diagnostic_table(
-        result,
-        output_paths(stage3_run_dir).tables / "critical_det_images.csv",
-    )
-    _log_stage3_critical_det_diagnostic(
-        args,
-        result=result,
-        threshold=threshold,
-        stage3_run_dir=Path(stage3_run_dir),
-        table_path=table_path,
-    )
-    return result
 
 
 def _finite_float_values(values: dict[str, float] | None) -> dict[str, float] | None:
@@ -27396,7 +26251,10 @@ def _declared_model_inputs(
     if model_config.image_constraints is not None:
         parsed["image"]["sigposArcsec"] = float(model_config.image_constraints.sigma_arcsec)
         parsed["image"]["multfile"] = str(model_config.image_constraints.catalog_path)
-        images_df = _load_declared_multiple_images_catalog(model_config.image_constraints.catalog_path, reference)
+        constraints = model_config.image_constraints
+        images_df = _load_declared_multiple_images_catalog(
+            constraints.catalog_path, reference, metadata_path=constraints.metadata_path,
+            sigma_arcsec=constraints.sigma_arcsec, sigma_floor_arcsec=constraints.sigma_floor_arcsec)
     else:
         images_df = pd.DataFrame()
     arc_frames: list[pd.DataFrame] = []
@@ -27505,6 +26363,9 @@ def _build_state_from_inputs(
     perturbation_discovery_independent_override_by_potfile: list[set[int]] | None = None,
     member_shape_values_by_potfile: list[dict[int, tuple[float, float]]] | None = None,
 ) -> BuildState:
+    if (getattr(args, "scaling_relation_mode", DEFAULT_SCALING_RELATION_MODE) != DEFAULT_SCALING_RELATION_MODE
+            or any(hasattr(args, "potfile_gamma_ml_prior_" + suffix) for suffix in ("mean", "std", "lower", "upper"))):
+        raise ValueError("Unsupported alpha/gamma configuration. Start a fresh run with sampled beta_radius and a different --run-label.")
     fit_mode = fit_mode_override or args.fit_mode
     model_fit_mode = FIT_MODE_JOINT if fit_mode == FIT_MODE_EVIDENCE_NS else fit_mode
     fit_cosmology_flat_wcdm = bool(getattr(args, "fit_cosmology_flat_wcdm", False))
@@ -27661,17 +26522,17 @@ def _build_state_from_inputs(
             alpha_sigma_prior_upper=float(
                 getattr(args, "potfile_alpha_sigma_prior_upper", DEFAULT_SOLVER_POTFILE_ALPHA_SIGMA_UPPER)
             ),
-            gamma_ml_prior_mean=float(getattr(args, "potfile_gamma_ml_prior_mean", DEFAULT_SOLVER_POTFILE_GAMMA_ML_MEAN)),
-            gamma_ml_prior_std=float(getattr(args, "potfile_gamma_ml_prior_std", DEFAULT_SOLVER_POTFILE_GAMMA_ML_STD)),
-            gamma_ml_prior_lower=float(
-                getattr(args, "potfile_gamma_ml_prior_lower", DEFAULT_SOLVER_POTFILE_GAMMA_ML_LOWER)
+            beta_radius_prior_mean=float(getattr(args, "potfile_beta_radius_prior_mean", DEFAULT_SOLVER_POTFILE_BETA_RADIUS_MEAN)),
+            beta_radius_prior_std=float(getattr(args, "potfile_beta_radius_prior_std", DEFAULT_SOLVER_POTFILE_BETA_RADIUS_STD)),
+            beta_radius_prior_lower=float(
+                getattr(args, "potfile_beta_radius_prior_lower", DEFAULT_SOLVER_POTFILE_BETA_RADIUS_LOWER)
             ),
-            gamma_ml_prior_upper=float(
-                getattr(args, "potfile_gamma_ml_prior_upper", DEFAULT_SOLVER_POTFILE_GAMMA_ML_UPPER)
+            beta_radius_prior_upper=float(
+                getattr(args, "potfile_beta_radius_prior_upper", DEFAULT_SOLVER_POTFILE_BETA_RADIUS_UPPER)
             ),
         )
         parameter_specs.extend(scaling_parameter_specs)
-        build_scaling_scatter = bool(getattr(args, "scaling_scatter", False)) and not bool(
+        build_scaling_scatter = (str(getattr(args, "sample_likelihood_mode", "")) != SAMPLE_LIKELIHOOD_SMOOTHED) and bool(getattr(args, "scaling_scatter", False)) and not bool(
             getattr(args, "perturbation_discovery_stage0", False)
         )
         if build_scaling_scatter:
@@ -27723,6 +26584,10 @@ def _build_state_from_inputs(
         lens_model_list.extend([ORIGINAL_DPIE_PROFILE_NAME for _ in scaling_components])
         base_components.extend(scaling_components)
     packed_lens_spec = _build_packed_lens_spec(base_components, component_param_assignments, scaling_component_assignments)
+    smoothed_model = None
+    if str(getattr(args, "sample_likelihood_mode", "")) == SAMPLE_LIKELIHOOD_SMOOTHED:
+        from .smoothed_integration import add_model_parameters
+        smoothed_model = add_model_parameters(args, parameter_specs, scaling_component_records, len(base_components), images_df)
     family_data: list[FamilyData] = []
     family_redshift_binning_sec = 0.0
     if not images_df.empty:
@@ -27770,7 +26635,7 @@ def _build_state_from_inputs(
                     cosmo_config=cosmo_config,
                     z_bin_efficiency_tol=float(getattr(args, "z_bin_efficiency_tol", DEFAULT_Z_BIN_EFFICIENCY_TOL)),
                 )
-    if str(getattr(args, "sample_likelihood_mode", "")) == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT:
+    if str(getattr(args, "sample_likelihood_mode", "")) in {SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT, SAMPLE_LIKELIHOOD_SMOOTHED}:
         family_data = [replace(family, effective_z_source=family.z_source) for family in family_data]
     bin_data = _build_bin_data(family_data)
     arc_data = _prepare_arc_constraint_data(arcs_df, reference)
@@ -27800,6 +26665,10 @@ def _build_state_from_inputs(
                 DEFAULT_LINEARIZED_BETA_PRIOR_SIGMA_ARCSEC,
             )
         )
+        if sample_likelihood_mode == SAMPLE_LIKELIHOOD_SMOOTHED:
+            beta_prior_sigma_arcsec = float(smoothed_model["source_prior_sigma"])
+            explicit_source_position_prior_values = _shared_source_position_prior_values(
+                family_data, *smoothed_model["source_prior_mean"])
         if fit_mode == FIT_MODE_EVIDENCE_NS:
             evidence_prior_sigma = getattr(args, "evidence_source_prior_sigma_arcsec", None)
             if evidence_prior_sigma is None:
@@ -27854,6 +26723,12 @@ def _build_state_from_inputs(
             )
     elif family_data:
         parameter_specs.append(_build_source_scatter_parameter_spec(start_index=len(parameter_specs)))
+    if (family_data and sample_likelihood_mode == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT
+            and bool(getattr(args, "sample_latent_displacement_sigma_beta", False))):
+        parameter_specs.append(_build_latent_displacement_sigma_beta_spec(
+            getattr(args, "latent_displacement_sigma_beta_arcsec", None),
+            getattr(args, "latent_displacement_sigma_beta_prior_log_sigma", 0.7),
+        ))
     if bool(getattr(args, "use_magnitude_likelihood", DEFAULT_USE_MAGNITUDE_LIKELIHOOD)) and family_data:
         parameter_specs.append(
             _build_magnitude_scatter_parameter_spec(
@@ -28023,7 +26898,7 @@ def _build_state_from_inputs(
             if (
                 spec.component_family == "source_position"
                 and str(getattr(args, "source_position_parameterization", SOURCE_POSITION_PARAMETERIZATION_PRIOR_WHITENED))
-                == SOURCE_POSITION_PARAMETERIZATION_CONDITIONAL_WHITENED
+                in {SOURCE_POSITION_PARAMETERIZATION_CONDITIONAL_WHITENED, SOURCE_POSITION_PARAMETERIZATION_LIKELIHOOD_WHITENED}
             ):
                 svi_init_values[spec.sample_name] = 0.0
             else:
@@ -28114,6 +26989,7 @@ def _build_state_from_inputs(
         previous_stage_best_values=_finite_float_values(previous_stage_best_values),
         fit_cosmology_flat_wcdm=fit_cosmology_flat_wcdm,
         source_position_parameterization=source_position_parameterization,
+        smoothed_model=smoothed_model,
         infer_active_scaling=bool(infer_active_scaling_requested and any(active_scaling_specs)),
         active_scaling_inference_likelihood=str(
             getattr(
@@ -28153,13 +27029,13 @@ def _build_state_from_inputs(
         potfile_alpha_sigma_prior_upper=float(
             getattr(args, "potfile_alpha_sigma_prior_upper", DEFAULT_SOLVER_POTFILE_ALPHA_SIGMA_UPPER)
         ),
-        potfile_gamma_ml_prior_mean=float(getattr(args, "potfile_gamma_ml_prior_mean", DEFAULT_SOLVER_POTFILE_GAMMA_ML_MEAN)),
-        potfile_gamma_ml_prior_std=float(getattr(args, "potfile_gamma_ml_prior_std", DEFAULT_SOLVER_POTFILE_GAMMA_ML_STD)),
-        potfile_gamma_ml_prior_lower=float(
-            getattr(args, "potfile_gamma_ml_prior_lower", DEFAULT_SOLVER_POTFILE_GAMMA_ML_LOWER)
+        potfile_beta_radius_prior_mean=float(getattr(args, "potfile_beta_radius_prior_mean", DEFAULT_SOLVER_POTFILE_BETA_RADIUS_MEAN)),
+        potfile_beta_radius_prior_std=float(getattr(args, "potfile_beta_radius_prior_std", DEFAULT_SOLVER_POTFILE_BETA_RADIUS_STD)),
+        potfile_beta_radius_prior_lower=float(
+            getattr(args, "potfile_beta_radius_prior_lower", DEFAULT_SOLVER_POTFILE_BETA_RADIUS_LOWER)
         ),
-        potfile_gamma_ml_prior_upper=float(
-            getattr(args, "potfile_gamma_ml_prior_upper", DEFAULT_SOLVER_POTFILE_GAMMA_ML_UPPER)
+        potfile_beta_radius_prior_upper=float(
+            getattr(args, "potfile_beta_radius_prior_upper", DEFAULT_SOLVER_POTFILE_BETA_RADIUS_UPPER)
         ),
         softening_length_kpc=float(getattr(args, "softening_length_kpc", DEFAULT_SOFTENING_LENGTH_KPC)),
         softening_length_prior_log_sigma=float(
@@ -28178,6 +27054,14 @@ def _build_state_from_inputs(
     )
 
 
+class _LowerInclusiveTruncatedNormal(dist.LeftTruncatedDistribution):
+    """Include beta_radius=0 without changing the normalized interior density."""
+
+    @dist.constraints.dependent_property(is_discrete=False, event_dim=0)
+    def support(self):
+        return dist.constraints.greater_than_eq(self.low)
+
+
 def _distribution_for_spec(spec: ParameterSpec):
     if spec.prior_kind == "hierarchical_normal":
         raise ValueError(f"Hierarchical parameter {spec.name} requires a parent distribution.")
@@ -28185,6 +27069,10 @@ def _distribution_for_spec(spec: ParameterSpec):
         return dist.Normal(float(spec.mean), float(spec.std))
     if spec.prior_kind == "truncated_normal":
         high = None if not np.isfinite(float(spec.upper)) else float(spec.upper)
+        if spec.field == "beta_radius" and high is None:
+            return _LowerInclusiveTruncatedNormal(
+                dist.Normal(float(spec.mean), float(spec.std)), low=float(spec.lower), validate_args=True,
+            )
         return dist.TruncatedNormal(
             float(spec.mean),
             float(spec.std),
@@ -28396,6 +27284,20 @@ def _build_cluster_evaluator_from_args(
     quick_diagnostics: bool | None = None,
 ) -> ClusterJAXEvaluator:
     sample_likelihood_mode = str(getattr(args, "sample_likelihood_mode", SAMPLE_LIKELIHOOD_SOURCE))
+    if getattr(state,"smoothed_model",None) is not None and sample_likelihood_mode != SAMPLE_LIKELIHOOD_SMOOTHED:
+        raise ValueError("Saved smoothed model cannot be evaluated with a legacy likelihood.")
+    engine = canonical_sampling_engine(sampling_engine if sampling_engine is not None else getattr(args, "sampling_engine", SAMPLING_ENGINE_FULL_FLAT), sample_likelihood_mode)
+    if engine == SAMPLING_ENGINE_TIERED_MEMBERS:
+        from .tiered_evaluator import TieredMembersEvaluator
+        options = {key:getattr(args,key) for key in (
+            "exact_image_min_distance_arcsec", "exact_image_precision_limit", "exact_image_num_iter_max",
+            "exact_image_finder", "exact_image_displacement_tol_arcsec", "exact_image_identification_tol_arcsec",
+            "exact_image_lm_max_iter", "exact_image_lm_trust_radius_arcsec", "exact_image_adaptive_max_levels",
+        ) if hasattr(args,key)}
+        return TieredMembersEvaluator(state, args.match_tolerance_arcsec,
+            source_plane_covariance_floor=getattr(args,"source_plane_covariance_floor",0.),
+            use_magnitude_likelihood=getattr(args,"use_magnitude_likelihood",False),
+            quick_diagnostics=(quick_diagnostics if quick_diagnostics is not None else getattr(args,"quick_diagnostics",False)), **options)
     image_presence_penalty_weight = _effective_image_presence_penalty_weight(
         getattr(args, "image_presence_penalty_weight", None),
         sample_likelihood_mode=sample_likelihood_mode,
@@ -28617,6 +27519,13 @@ def _prepare_direct_evaluator(
         getattr(state, "svi_init_values", None),
         _default_theta(state.parameter_specs),
     )
+    if state.smoothed_model is not None and state.previous_stage_best_values:
+        reported = np.array(evaluator.reported_physical_parameter_vector(reference), dtype=float, copy=True)
+        for i, spec in enumerate(state.parameter_specs):
+            if spec.component_family == "source_position" and spec.sample_name in state.previous_stage_best_values:
+                reported[i] = state.previous_stage_best_values[spec.sample_name]
+        reference = evaluator.reported_physical_to_latent_parameter_vector(reported)
+        state.svi_init_values = dict(zip((spec.sample_name for spec in state.parameter_specs), reference))
     if getattr(evaluator, "active_inference_enabled", False):
         _log(
             args,
@@ -28650,6 +27559,8 @@ def _prepare_direct_evaluator(
             args,
             "[perturbation-discovery] stage0 full_flat cache refresh disabled reason=svi_nuts_initial",
         )
+    elif evaluator.sample_likelihood_mode == SAMPLE_LIKELIHOOD_SMOOTHED:
+        _log(args, "[smoothed] exclusive likelihood path; legacy ranking, surrogate and source-metric caches disabled")
     else:
         evaluator.refresh_scaling_scatter_cache(reference, reason="svi_nuts_initial")
         evaluator.refresh_source_metric_cache(reference, reason="svi_nuts_initial")
@@ -28672,6 +27583,14 @@ def _output_evaluator_for_validation(
     best_fit_latent: np.ndarray,
 ) -> ClusterJAXEvaluator:
     del args, state, best_fit_latent
+    if getattr(fit_evaluator, "_uses_latent_surrogate", lambda: False)():
+        import copy
+        exact = copy.copy(fit_evaluator)
+        exact.sampling_engine = SAMPLING_ENGINE_FULL_FLAT
+        exact.local_jacobian_metric_mode = "current_exact"
+        exact.surrogate_enabled = False
+        exact._source_loglike_fn = jax.jit(exact._source_loglike_impl)
+        return exact
     return fit_evaluator
 
 
@@ -29225,9 +28144,9 @@ def _apply_previous_stage_frozen_active_scaling(
     if previous_stage_run_dir is None:
         if require_frozen_active_scaling:
             raise ValueError(
-                "--infer-active-scaling cannot be used directly by stage 4. "
-                "Stage 4 must reuse a frozen active-scaling split from a completed stage 3 run. "
-                "Rerun stage 3 with --infer-active-scaling, or remove --infer-active-scaling and use fixed/adaptive active selection."
+                "--infer-active-scaling cannot be used directly with this forward likelihood. "
+                "The forward fit requires a frozen active-scaling split from its predecessor. "
+                "Rerun the preceding stage with --infer-active-scaling, or remove --infer-active-scaling and use fixed/adaptive active selection."
             )
         return state
     frozen_indices, diagnostics = _load_frozen_active_scaling_from_previous_stage(previous_stage_run_dir, state)
@@ -29237,10 +28156,10 @@ def _apply_previous_stage_frozen_active_scaling(
         if require_frozen_active_scaling:
             reason = str(diagnostics.get("reason", "no frozen active-scaling split was found"))
             raise ValueError(
-                "--infer-active-scaling cannot be used directly by stage 4. "
-                "Stage 4 must reuse a frozen active-scaling split from a completed stage 3 run. "
+                "--infer-active-scaling cannot be used directly with this forward likelihood. "
+                "The forward fit requires a frozen active-scaling split from its predecessor. "
                 f"No frozen active-scaling split was available from {previous_stage_run_dir}: {reason}. "
-                "Rerun stage 3 with --infer-active-scaling, or remove --infer-active-scaling and use fixed/adaptive active selection."
+                "Rerun the preceding stage with --infer-active-scaling, or remove --infer-active-scaling and use fixed/adaptive active selection."
             )
         return state
     total_candidates = diagnostics.get("total_candidates")
@@ -29616,6 +28535,11 @@ def _run_inference(args: argparse.Namespace, state: BuildState, run_dir: Path) -
         evaluator = svi_fit_result.evaluator
         sample_model = svi_fit_result.sample_model
         svi_posterior = posterior
+        _run_logged_phase(
+            args,
+            "output.save_svi_checkpoint",
+            lambda: _save_svi_checkpoint(args, state, evaluator, run_dir, best_fit, svi_posterior),
+        )
         if str(args.fit_method) == FIT_METHOD_SVI_NUTS and bool(getattr(state, "infer_active_scaling", False)):
             _active_df, frozen_active_indices, active_freeze_diagnostics = _write_active_scaling_freeze_diagnostics(
                 args,
@@ -29840,7 +28764,7 @@ def _run_inference(args: argparse.Namespace, state: BuildState, run_dir: Path) -
             "[perturbation-discovery] stage0 full_flat cache refresh disabled reason=post_best_value",
         )
     else:
-        if evaluator.surrogate_enabled:
+        if evaluator.surrogate_enabled and not evaluator._uses_latent_surrogate():
             evaluator.refresh_surrogate(best_fit, reason="post_best_value")
         evaluator.refresh_scaling_scatter_cache(best_fit, reason="post_best_value")
         evaluator.refresh_source_metric_cache(best_fit, reason="post_best_value")
@@ -29922,33 +28846,14 @@ def _run_inference(args: argparse.Namespace, state: BuildState, run_dir: Path) -
 
 def _previous_stage_artifacts_dir_for_run_dir(run_dir: Path) -> Path | None:
     paths = output_paths(run_dir)
-    if paths.modern:
-        previous = {
-            STAGE1_BACKPROJECTED_CENTROID_FIT_DIR: STAGE0_FAST_INITIALIZER_DIR,
-            STAGE2_FREE_SOURCE_FORWARD_FIT_DIR: STAGE1_BACKPROJECTED_CENTROID_FIT_DIR,
-        }.get(_sequential_stage_name(run_dir))
-        return stage_directory(paths.root, previous) / "artifacts" if previous else None
-    if not _is_sequential_stage_path(run_dir):
+    previous = {
+        STAGE1_BACKPROJECTED_CENTROID_FIT_DIR: STAGE0_FAST_INITIALIZER_DIR,
+        STAGE2_FREE_SOURCE_FORWARD_FIT_DIR: STAGE1_BACKPROJECTED_CENTROID_FIT_DIR,
+    }.get(_sequential_stage_name(run_dir))
+    if previous is None:
         return None
-    stage_name = _sequential_stage_name(run_dir)
-    if stage_name == "stage2_joint":
-        return run_dir.parent / "stage1_large_only" / "artifacts"
-    if stage_name == "stage3_image_plane":
-        return run_dir.parent / "stage2_joint" / "artifacts"
-    if stage_name in {
-        "stage4_linearized_image_plane",
-        "stage4_blocked_linearized_image_plane",
-        "stage4_forward_metric_image_plane",
-        "stage4_anchored_solved_image_plane",
-        "stage4_critical_arc_mixture_image_plane",
-        "stage4_fold_regularized_image_plane",
-        "stage4_catastrophe_normal_form_image_plane",
-    }:
-        stage3_artifacts = run_dir.parent / "stage3_image_plane" / "artifacts"
-        if _has_plot_artifacts(stage3_artifacts):
-            return stage3_artifacts
-        return run_dir.parent / "stage2_joint" / "artifacts"
-    return None
+    root = paths.root if paths.modern else run_dir.parent
+    return stage_directory(root, previous) / "artifacts"
 
 
 def _infer_previous_stage_best_values_for_plots(args: argparse.Namespace, run_dir: Path) -> dict[str, float] | None:
@@ -30041,11 +28946,13 @@ def _rerender_plots(
         or force_quick_diagnostics
     )
     if force_quick_diagnostics:
-        _log(args, "[plots-only] quick diagnostics forced for pre-stage4 sequential stage")
+        _log(args, "[plots-only] quick diagnostics forced for nonfinal sequential stage")
     plot_saved_args = dict(saved_args)
+    plot_saved_args["match_tolerance_arcsec"] = float(
+        getattr(args, "match_tolerance_arcsec", saved_args.get("match_tolerance_arcsec", DEFAULT_MATCH_TOLERANCE))
+    )
     plot_saved_args["quick_diagnostics"] = quick_diagnostics
     plot_saved_args["exact_image_diagnostics_stage2"] = bool(getattr(args, "exact_image_diagnostics_stage2", False))
-    plot_saved_args["exact_image_diagnostics_stage3"] = bool(getattr(args, "exact_image_diagnostics_stage3", False))
     plot_saved_args["skip_grid_diagnostics"] = bool(getattr(args, "skip_grid_diagnostics", False))
     plot_saved_args["caustic_source_redshift"] = float(getattr(args, "caustic_source_redshift", 9.0))
     exact_image_override_specs = (
@@ -30308,6 +29215,7 @@ def _rerender_plots(
         evidence_source_prior_mean_y_arcsec=float(plot_saved_args.get("evidence_source_prior_mean_y_arcsec", 0.0)),
         quick_diagnostics=quick_diagnostics,
     )
+    evaluator = _output_evaluator_for_validation(args, state, evaluator, None)
     _log_active_approximation_table(args, evaluator)
     best_fit = np.asarray(arrays["best_fit"], dtype=float)
     saved_best_value = str(init_diagnostics.get("best_value_selected", plot_saved_args.get("best_value", "saved_best_fit")))
@@ -30608,14 +29516,6 @@ def _stage_banner_title_from_run_name(run_name: str) -> str:
         STAGE2_FREE_SOURCE_FORWARD_FIT_DIR: "STAGE 2: stage2_free_source_forward_fit",
         "stage1_large_only": "STAGE 1: stage1_large_only",
         "stage2_joint": "STAGE 2: stage2_joint",
-        "stage3_image_plane": "STAGE 3: stage3_image_plane",
-        "stage4_linearized_image_plane": "STAGE 4: stage4_linearized_image_plane",
-        "stage4_blocked_linearized_image_plane": "STAGE 4: stage4_blocked_linearized_image_plane",
-        "stage4_forward_metric_image_plane": "STAGE 4: stage4_forward_metric_image_plane",
-        "stage4_anchored_solved_image_plane": "STAGE 4: stage4_anchored_solved_image_plane",
-        "stage4_critical_arc_mixture_image_plane": "STAGE 4: stage4_critical_arc_mixture_image_plane",
-        "stage4_fold_regularized_image_plane": "STAGE 4: stage4_fold_regularized_image_plane",
-        "stage4_catastrophe_normal_form_image_plane": "STAGE 4: stage4_catastrophe_normal_form_image_plane",
     }
     return labels.get(stage_name, stage_name or str(run_name))
 
@@ -30634,6 +29534,7 @@ def _run_single_stage(
     frozen_active_scaling_source_run_dir: str | Path | None = None,
     require_frozen_active_scaling: bool = False,
 ) -> Path:
+    _require_scaling_resume_compatibility(args, Path(args.output_dir) / run_name)
     _configure_debug_log(args, run_name, None)
     stage_args = _clone_args(args, fit_mode=fit_mode, run_name=run_name, sample_likelihood_mode=sample_likelihood_mode,
                              stage_semantic_name=_sequential_stage_name(run_name))
@@ -30834,25 +29735,6 @@ def _write_sequential_run_summary_txt(
     return path, text
 
 
-def _final_enabled_sequential_stage_name(*, stage3_enabled: bool, stage4_enabled: bool) -> str:
-    if stage4_enabled:
-        return "stage4"
-    if stage3_enabled:
-        return "stage3"
-    return "stage2"
-
-
-def _require_fast_resume_stage1_artifacts(stage1_run_dir: Path) -> None:
-    artifacts_dir = stage1_run_dir / "artifacts"
-    if (artifacts_dir / "stage1_prior_summary.json").exists() or _has_plot_artifacts(artifacts_dir):
-        return
-    _fail(
-        "--resume fast requires existing stage1 artifacts at "
-        f"{artifacts_dir}. Run the sequential workflow without --resume fast first, "
-        "or provide a completed stage1_large_only run."
-    )
-
-
 def _require_fast_resume_plot_artifacts(stage_run_dir: Path, stage_name: str) -> None:
     artifacts_dir = stage_run_dir / "artifacts"
     if _has_plot_artifacts(artifacts_dir):
@@ -30911,16 +29793,60 @@ def _cosmology_configs_close(actual: dict[str, Any], expected: dict[str, Any]) -
     return True
 
 
+def _require_scaling_resume_compatibility(stage_args: argparse.Namespace, run_dir: str | Path) -> None:
+    """Reject old scaling runs before any inference, reuse, or output mutation."""
+    bundle = Path(run_dir) / "artifacts" / "plot_bundle.h5"
+    if bundle.exists():
+        with h5py.File(bundle, "r") as handle:
+            saved = _read_h5_json(handle, "runtime_args_json", default={})
+        requested_scaling = getattr(stage_args, "scaling_relation_mode", DEFAULT_SCALING_RELATION_MODE)
+        if saved.get("scaling_relation_mode") != requested_scaling or requested_scaling != DEFAULT_SCALING_RELATION_MODE:
+            raise ValueError("Unsupported scaling parameterization. Start a fresh run with sampled beta_radius and a different --run-label; historical alpha/gamma results cannot be reused.")
+        for exponent in ("alpha_sigma", "beta_radius"):
+            for suffix in ("mean", "std", "lower", "upper"):
+                key = f"potfile_{exponent}_prior_{suffix}"
+                if getattr(stage_args, key, None) != saved.get(key):
+                    raise ValueError(f"Scaling prior {key} differs; use a different --run-label to preserve the saved results.")
+
+
 def _stage_run_cosmology_compatible(stage_args: argparse.Namespace, run_dir: str | Path) -> tuple[bool, str]:
+    _require_scaling_resume_compatibility(stage_args, run_dir)
     bundle = Path(run_dir) / "artifacts" / "plot_bundle.h5"
     if bundle.exists():
         with h5py.File(bundle, "r") as handle:
             saved = _read_h5_json(handle, "runtime_args_json", default={})
         mode = getattr(stage_args, "sample_likelihood_mode", "source")
         saved_mode = saved.get("sample_likelihood_mode", "source")
+        if SAMPLE_LIKELIHOOD_SMOOTHED in (mode, saved_mode):
+            if mode != saved_mode:
+                return False, "smoothed likelihood mode differs"
+            requested_engine = canonical_sampling_engine(getattr(stage_args, "sampling_engine", SAMPLING_ENGINE_FULL_FLAT), mode)
+            saved_engine = canonical_sampling_engine(saved.get("sampling_engine", SAMPLING_ENGINE_FULL_FLAT), saved_mode)
+            if requested_engine != saved_engine or saved_engine != SAMPLING_ENGINE_TIERED_MEMBERS:
+                return False, "smoothed likelihood engine differs"
+            keys = ("smoothed_likelihood_revision", "source_position_parameterization", "member_tier_phase",
+                    "member_tiers_payload", "member_tier_top_sampled", "member_tier_top_exact",
+                    "source_scatter_prior_median_arcsec", "source_scatter_prior_log_sigma",
+                    "member_velocity_scatter_prior_median", "member_velocity_scatter_prior_log_sigma",
+                    "source_position_prior_mean_x_arcsec", "source_position_prior_mean_y_arcsec",
+                    "source_position_prior_sigma_arcsec")
+            for key in keys:
+                if _to_jsonable(getattr(stage_args, key, None)) != _to_jsonable(saved.get(key)):
+                    return False, f"smoothed likelihood {key} differs"
         if SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT in (mode, saved_mode):
             if mode != saved_mode:
                 return False, "stored positional likelihood differs from requested mode"
+            if getattr(stage_args, "sampling_engine", SAMPLING_ENGINE_FULL_FLAT) != saved.get("sampling_engine", SAMPLING_ENGINE_FULL_FLAT):
+                return False, "stored latent-displacement engine differs from requested engine"
+            if saved.get("sampling_engine") == SAMPLING_ENGINE_REFRESHING_SURROGATE_FLAT:
+                with h5py.File(bundle, "r") as handle:
+                    if "latent_surrogate_cache" not in handle:
+                        return False, "stored production latent surrogate cache is missing"
+            sampled = bool(getattr(stage_args, "sample_latent_displacement_sigma_beta", False))
+            if sampled != bool(saved.get("sample_latent_displacement_sigma_beta", False)):
+                return False, "stored sigma_beta sampling mode differs from requested mode"
+            if sampled and getattr(stage_args, "latent_displacement_sigma_beta_prior_log_sigma", 0.7) != saved.get("latent_displacement_sigma_beta_prior_log_sigma", 0.7):
+                return False, "stored sigma_beta prior width differs from requested prior"
             sigma = getattr(stage_args, "latent_displacement_sigma_beta_arcsec", None)
             if sigma != saved.get("latent_displacement_sigma_beta_arcsec"):
                 return False, "stored latent-displacement sigma_beta differs from requested value"
@@ -30958,6 +29884,8 @@ def _require_fast_resume_cosmology_compatibility(stage_args: argparse.Namespace,
 
 def _stage_likelihood_sample_mode(requested: Any, *, field_name: str) -> str:
     requested = str(requested)
+    if requested == SAMPLE_LIKELIHOOD_SMOOTHED:
+        return requested
     if requested == STAGE1_LIKELIHOOD_SOURCE:
         return SAMPLE_LIKELIHOOD_SOURCE
     if requested == STAGE1_LIKELIHOOD_LOCAL_JACOBIAN:
@@ -31010,8 +29938,8 @@ def _stage2_forward_enabled(args: argparse.Namespace) -> bool:
 
 def _stage2_sample_likelihood_mode(args: argparse.Namespace) -> str | None:
     requested = str(getattr(args, "stage2_forward_mode", STAGE2_FORWARD_MODE_NONE))
-    if requested == SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT:
-        return SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT
+    if requested in {SAMPLE_LIKELIHOOD_LATENT_DISPLACEMENT, SAMPLE_LIKELIHOOD_SMOOTHED}:
+        return requested
     if requested == STAGE2_FORWARD_MODE_NONE:
         return None
     if requested == STAGE2_FORWARD_MODE_LINEARIZED:
@@ -31044,6 +29972,7 @@ def _run_sequential_v2(args: argparse.Namespace, stage_fit_controls: dict[str, S
     stage0_likelihood = _stage0_sample_likelihood_mode(args)
     stage1_likelihood = _stage1_sample_likelihood_mode(args)
     stage2_likelihood = _stage2_sample_likelihood_mode(args)
+    smoothed_workflow = stage0_likelihood == SAMPLE_LIKELIHOOD_SMOOTHED
     stage0_source_position_policy = _stage0_source_position_policy(args)
     stage1_source_position_policy = _stage1_source_position_policy(args)
     stage2_source_position_policy = _stage2_source_position_policy(args)
@@ -31081,13 +30010,20 @@ def _run_sequential_v2(args: argparse.Namespace, stage_fit_controls: dict[str, S
                         _rerender_plots(stage_args, run_dir)
                     return run_dir
                 _log(args, f"[resume] not reusing completed stage run_name={run_name} run_dir={run_dir}: {reason}")
+                if smoothed_workflow:
+                    raise ValueError(f"Incompatible smoothed resume: {reason}. Use a new run label.")
             if _stage_run_checkpointed(run_dir):
                 compatible, reason = _stage_run_cosmology_compatible(stage_args, run_dir)
                 if compatible:
+                    if smoothed_workflow and bool(getattr(stage_args, "skip_plots", False)):
+                        _log(args, f"[resume] reusing saved posterior run_name={run_name} skip_plots=True")
+                        return run_dir
                     _log(args, f"[resume] finalizing checkpointed stage run_name={run_name} run_dir={run_dir}")
                     _rerender_plots(stage_args, run_dir)
                     return run_dir
                 _log(args, f"[resume] not finalizing checkpointed stage run_name={run_name} run_dir={run_dir}: {reason}")
+                if smoothed_workflow:
+                    raise ValueError(f"Incompatible smoothed resume: {reason}. Use a new run label.")
         if fresh_process:
             return _run_single_stage_in_fresh_process(stage_args, fit_mode, run_name, **kwargs)
         return _run_single_stage(stage_args, fit_mode, run_name, **kwargs)
@@ -31108,9 +30044,11 @@ def _run_sequential_v2(args: argparse.Namespace, stage_fit_controls: dict[str, S
         args,
         stage0_controls,
         fit_method=FIT_METHOD_SVI,
-        sampling_engine=SAMPLING_ENGINE_FULL_FLAT,
+        sampling_engine=SAMPLING_ENGINE_TIERED_MEMBERS if smoothed_workflow else SAMPLING_ENGINE_FULL_FLAT,
         critical_arc_source_position_policy=stage0_source_position_policy,
-        perturbation_discovery_stage0=True,
+        perturbation_discovery_stage0=not smoothed_workflow,
+        sample_likelihood_mode=stage0_likelihood,
+        member_tier_phase="initializer" if smoothed_workflow else None,
         use_magnitude_likelihood=False,
     )
     stage0_args = _force_quick_diagnostics_for_nonfinal_stage(
@@ -31132,14 +30070,19 @@ def _run_sequential_v2(args: argparse.Namespace, stage_fit_controls: dict[str, S
         )
     stage0_artifacts_dir = stage0_run_dir / "artifacts"
     stage0_init_values = _physical_best_fit_values_from_artifacts(stage0_artifacts_dir)
-    stage0_selected_by_potfile = _selected_independent_by_potfile_from_artifacts(stage0_artifacts_dir)
+    smoothed_tiers = None
+    if smoothed_workflow:
+        from .smoothed_workflow import classify_from_artifacts
+        smoothed_tiers = classify_from_artifacts(stage0_args, stage0_artifacts_dir)
+    stage0_selected_by_potfile = ([] if smoothed_workflow else
+                                 _selected_independent_by_potfile_from_artifacts(stage0_artifacts_dir))
     stage0_selected_count = int(sum(len(values) for values in stage0_selected_by_potfile))
     _log(
         args,
         (
             "[stage0] handoff "
             f"selected_free_scaling={stage0_selected_count} "
-            f"stage0_engine={SAMPLING_ENGINE_FULL_FLAT} "
+            f"stage0_engine={stage0_args.sampling_engine} "
             f"stage1_engine={stage1_sampling_engine}"
         ),
     )
@@ -31147,6 +30090,9 @@ def _run_sequential_v2(args: argparse.Namespace, stage_fit_controls: dict[str, S
         args,
         stage1_controls,
         sampling_engine=stage1_sampling_engine,
+        member_tier_phase="fixed" if smoothed_workflow else None,
+        member_tiers_payload=smoothed_tiers,
+        sample_likelihood_mode=stage1_likelihood,
         critical_arc_source_position_policy=stage1_source_position_policy,
         use_magnitude_likelihood=False,
     )
@@ -31169,7 +30115,7 @@ def _run_sequential_v2(args: argparse.Namespace, stage_fit_controls: dict[str, S
             sample_likelihood_mode=stage1_likelihood,
             svi_init_physical_values=stage0_init_values,
             previous_stage_best_values=stage0_init_values,
-            perturbation_discovery_independent_override_by_potfile=stage0_selected_by_potfile,
+            perturbation_discovery_independent_override_by_potfile=None if smoothed_workflow else stage0_selected_by_potfile,
         )
 
     summary_payload: dict[str, Any] = {
@@ -31178,7 +30124,7 @@ def _run_sequential_v2(args: argparse.Namespace, stage_fit_controls: dict[str, S
             getattr(args, "use_magnitude_likelihood", DEFAULT_USE_MAGNITUDE_LIKELIHOOD)
         ),
         "stage0_fast_initializer": True,
-        "stage0_engine": SAMPLING_ENGINE_FULL_FLAT,
+        "stage0_engine": stage0_args.sampling_engine,
         "stage0_run_dir": str(stage0_run_dir),
         "stage0_selected_free_scaling": int(stage0_selected_count),
         "stage0_use_magnitude_likelihood": bool(
@@ -31203,6 +30149,14 @@ def _run_sequential_v2(args: argparse.Namespace, stage_fit_controls: dict[str, S
         },
         "resume_mode": str(resume_mode or "none"),
     }
+    if smoothed_workflow:
+        from .smoothed_workflow import report_stage1_membership
+        comparison = report_stage1_membership(stage1_args, stage1_run_dir / "artifacts", smoothed_tiers)
+        summary_payload["stage1_member_classification_diagnostic"] = {
+            "changed_members": comparison["changed_members"],
+            "classification_unchanged": True,
+            "report": str(stage1_run_dir / "artifacts" / "member_tier_comparison.json"),
+        }
     _log(
         args,
         (
@@ -31226,13 +30180,23 @@ def _run_sequential_v2(args: argparse.Namespace, stage_fit_controls: dict[str, S
             else requested_stage2_engine
         )
         stage2_updates["sampling_engine"] = effective_stage2_engine
+        stage2_updates["sample_likelihood_mode"] = stage2_likelihood
+        if smoothed_workflow:
+            stage2_updates.update(member_tier_phase="fixed", member_tiers_payload=smoothed_tiers)
         stage2_updates["critical_arc_source_position_policy"] = stage2_source_position_policy
         stage2_args = _args_with_fit_controls(args, stage2_controls, **stage2_updates)
         stage2_init_artifacts = stage1_run_dir / "artifacts"
         stage2_init_values = _physical_best_fit_values_from_artifacts(stage2_init_artifacts)
-        stage2_selected_by_potfile = _selected_independent_by_potfile_from_artifacts(stage2_init_artifacts)
-        _audit_frozen_independent_selection(args, stage1_run_dir, stage2_selected_by_potfile)
-        stage2_member_shape_values = _member_shape_values_from_artifacts(stage2_init_artifacts)
+        if smoothed_workflow:
+            stage2_selected_by_potfile, stage2_member_shape_values = None, None
+            from .smoothed_workflow import audit_from_artifacts
+            stage1_audit = audit_from_artifacts(stage1_args, stage2_init_artifacts)
+            summary_payload["stage1_approximation_validation"] = stage1_audit["approximation_validation"]
+            _log(args, f"[member-tier audit] stage1={stage1_audit['approximation_validation']} report={stage2_init_artifacts / 'member_tier_audit.json'}")
+        else:
+            stage2_selected_by_potfile = _selected_independent_by_potfile_from_artifacts(stage2_init_artifacts)
+            _audit_frozen_independent_selection(args, stage1_run_dir, stage2_selected_by_potfile)
+            stage2_member_shape_values = _member_shape_values_from_artifacts(stage2_init_artifacts)
         source_position_priors = _source_position_prior_values_from_artifacts(stage2_init_artifacts)
         stage2_runs_fresh = bool(getattr(args, "stage2_fresh_process", True)) and not fast_resume
         stage2_run_dir = maybe_run_stage(
@@ -31247,6 +30211,10 @@ def _run_sequential_v2(args: argparse.Namespace, stage_fit_controls: dict[str, S
             perturbation_discovery_independent_override_by_potfile=stage2_selected_by_potfile,
             member_shape_values_by_potfile=stage2_member_shape_values,
         )
+        if smoothed_workflow:
+            stage2_audit = audit_from_artifacts(stage2_args, stage2_run_dir / "artifacts")
+            summary_payload["stage2_approximation_validation"] = stage2_audit["approximation_validation"]
+            _log(args, f"[member-tier audit] stage2={stage2_audit['approximation_validation']} report={stage2_run_dir / 'artifacts' / 'member_tier_audit.json'}")
         summary_payload["stage2_run_dir"] = str(stage2_run_dir)
         summary_payload["stage2_use_magnitude_likelihood"] = bool(
             getattr(stage2_args, "use_magnitude_likelihood", DEFAULT_USE_MAGNITUDE_LIKELIHOOD)
@@ -31259,8 +30227,6 @@ def _run_sequential_v2(args: argparse.Namespace, stage_fit_controls: dict[str, S
         _log(args, f"[magnitude-likelihood] stage2={summary_payload['stage2_use_magnitude_likelihood']}")
         aggregate_stage_dirs.append(stage2_run_dir)
 
-    if getattr(args, "output_layout", "legacy") == RESULTS_LAYOUT:
-        _configure_debug_log(args, root_run_name, None)
     summary_root = Path(args.output_dir) / root_run_name
     summary_path = (summary_root / "tables" if getattr(args, "output_layout", "legacy") == RESULTS_LAYOUT else summary_root) / "sequential_summary.json"
     summary_path.parent.mkdir(parents=True, exist_ok=True)
@@ -31283,567 +30249,12 @@ def _run_sequential_v2(args: argparse.Namespace, stage_fit_controls: dict[str, S
     _log(args, f"[stage] sequential end run_name={root_run_name}")
 
 
-def _run_sequential(args: argparse.Namespace) -> None:
-    stage_fit_controls = _normalize_stage_fit_controls(args)
-    stage2_controls = stage_fit_controls["stage2"]
-    stage3_controls = stage_fit_controls["stage3"]
-    stage4_controls = stage_fit_controls["stage4"]
-    stage4_enabled = _stage4_image_plane_enabled(args)
-    stage3_enabled = _stage3_image_plane_enabled(args)
-    exact_diagnostics_stage = _final_sequential_exact_diagnostics_stage(
-        args,
-        stage3_enabled=stage3_enabled,
-        stage4_enabled=stage4_enabled,
-    )
-    stage3_sample_likelihood_mode = _stage3_sample_likelihood_mode(args)
-    stage4_sample_likelihood_mode = _stage4_sample_likelihood_mode(args)
-    final_sample_likelihood_mode = (
-        str(stage4_sample_likelihood_mode)
-        if stage4_enabled and stage4_sample_likelihood_mode is not None
-        else str(stage3_sample_likelihood_mode or SAMPLE_LIKELIHOOD_SOURCE)
-    )
-    fit_cosmology_requested = bool(getattr(args, "fit_cosmology_flat_wcdm", False))
-    sequential_cosmology_config_override = (
-        _sequential_fiducial_cosmology_config() if fit_cosmology_requested else None
-    )
-
-    def stage_cosmology_updates(*, fit_stage_cosmology: bool) -> dict[str, Any]:
-        updates: dict[str, Any] = {"fit_cosmology_flat_wcdm": bool(fit_stage_cosmology)}
-        if sequential_cosmology_config_override is not None:
-            updates["cosmology_config_override"] = _sequential_fiducial_cosmology_config()
-        return updates
-
-    root_run_name = args.run_name or "cluster_solver"
-    resume_mode = _resume_mode(args)
-    fast_resume = resume_mode == RESUME_MODE_FAST
-    _log_stage_banner(
-        args,
-        "SEQUENTIAL WORKFLOW",
-        (
-            f"run_name={root_run_name} image_plane_mode={getattr(args, 'image_plane_mode', IMAGE_PLANE_MODE_NONE)} "
-            f"stage3_image_plane_mode={_stage3_image_plane_mode(args)} "
-            f"stage3={'enabled' if stage3_enabled else 'disabled'} "
-            f"stage4={'enabled' if stage4_enabled else 'disabled'} "
-            f"start_at_stage2={bool(getattr(args, 'start_at_stage2', False))} "
-            f"start_at_stage3={bool(getattr(args, 'start_at_stage3', False))} "
-            f"resume_mode={resume_mode or 'none'}"
-        ),
-    )
-    _log(
-        args,
-        (
-            f"[stage] sequential start run_name={args.run_name or '<auto>'} "
-            f"stage2_fit_method={stage2_controls.fit_method} "
-            f"stage2_max_tree_depth={stage2_controls.max_tree_depth} "
-            f"stage3_fit_method={stage3_controls.fit_method if stage3_enabled else '<disabled>'} "
-            f"stage3_max_tree_depth={stage3_controls.max_tree_depth if stage3_enabled else '<disabled>'} "
-            f"stage4_fit_method={stage4_controls.fit_method if stage4_enabled else '<disabled>'}"
-            f" stage4_max_tree_depth={stage4_controls.max_tree_depth if stage4_enabled else '<disabled>'}"
-        ),
-    )
-    resume = resume_mode is not None
-    start_at_stage2 = bool(getattr(args, "start_at_stage2", False))
-    start_at_stage3 = bool(getattr(args, "start_at_stage3", False))
-    final_stage_name = _final_enabled_sequential_stage_name(
-        stage3_enabled=stage3_enabled,
-        stage4_enabled=stage4_enabled,
-    )
-
-    def maybe_run_stage(
-        stage_args: argparse.Namespace,
-        fit_mode: str,
-        run_name: str,
-        *,
-        fresh_process: bool = False,
-        **kwargs: Any,
-    ) -> Path:
-        run_dir = Path(stage_args.output_dir) / run_name
-        if resume:
-            if _stage_run_complete(run_dir):
-                compatible, reason = _stage_run_cosmology_compatible(stage_args, run_dir)
-                if not compatible:
-                    _log(args, f"[resume] not reusing completed stage run_name={run_name} run_dir={run_dir}: {reason}")
-                elif bool(getattr(stage_args, "skip_plots", False)):
-                    _log(args, f"[resume] reusing completed stage run_name={run_name} run_dir={run_dir} skip_plots=True")
-                    return run_dir
-                else:
-                    _log(args, f"[resume] refreshing completed stage outputs run_name={run_name} run_dir={run_dir}")
-                    _rerender_plots(stage_args, run_dir)
-                    return run_dir
-            if _stage_run_checkpointed(run_dir):
-                compatible, reason = _stage_run_cosmology_compatible(stage_args, run_dir)
-                if not compatible:
-                    _log(args, f"[resume] not finalizing checkpointed stage run_name={run_name} run_dir={run_dir}: {reason}")
-                else:
-                    _log(args, f"[resume] finalizing checkpointed stage run_name={run_name} run_dir={run_dir}")
-                    _rerender_plots(stage_args, run_dir)
-                    return run_dir
-        if fresh_process:
-            return _run_single_stage_in_fresh_process(stage_args, fit_mode, run_name, **kwargs)
-        return _run_single_stage(stage_args, fit_mode, run_name, **kwargs)
-
-    stage1_run_dir: Path | None = None
-    stage2_run_dir: Path | None = None
-    stage1_summary: Stage1PriorSummary | None = None
-    if start_at_stage3:
-        _log(
-            args,
-            (
-                "[stage] start_at_stage3=True; sequential workflow starts at stage3_image_plane; "
-                "skipping stage1_large_only and stage2_joint"
-            ),
-        )
-    else:
-        if start_at_stage2:
-            _log(
-                args,
-                (
-                    "[stage] start_at_stage2=True; sequential workflow starts at stage2_joint; "
-                    "skipping stage1_large_only and using base large-halo priors"
-                ),
-            )
-        else:
-            stage1_run_name = str(Path(root_run_name) / "stage1_large_only")
-            stage1_args = _args_with_fit_controls(
-                args,
-                stage2_controls,
-                fit_method=FIT_METHOD_SVI,
-                sampling_refresh_runs=DEFAULT_SAMPLING_REFRESH_RUNS,
-                **stage_cosmology_updates(fit_stage_cosmology=False),
-            )
-            stage1_args = _force_quick_diagnostics_for_nonfinal_stage(stage1_args, stage1_run_name, exact_diagnostics_stage)
-            if fast_resume:
-                stage1_run_dir = Path(args.output_dir) / stage1_run_name
-                _require_fast_resume_stage1_artifacts(stage1_run_dir)
-                _require_fast_resume_cosmology_compatibility(stage1_args, stage1_run_dir, "stage1_large_only")
-                _log(args, f"[resume fast] skipping stage1 run_name={stage1_run_name} run_dir={stage1_run_dir}")
-            else:
-                stage1_run_dir = maybe_run_stage(
-                    stage1_args,
-                    "large-only",
-                    stage1_run_name,
-                    sample_likelihood_mode=SAMPLE_LIKELIHOOD_SOURCE,
-                )
-            stage1_summary = _load_stage1_summary(stage1_run_dir / "artifacts")
-        stage2_run_name = str(Path(root_run_name) / "stage2_joint")
-        stage2_args = _args_with_fit_controls(
-            args,
-            stage2_controls,
-            **stage_cosmology_updates(fit_stage_cosmology=False),
-        )
-        stage2_args = _force_quick_diagnostics_for_nonfinal_stage(stage2_args, stage2_run_name, exact_diagnostics_stage)
-        if fast_resume and final_stage_name != "stage2":
-            stage2_run_dir = Path(args.output_dir) / stage2_run_name
-            _require_fast_resume_plot_artifacts(stage2_run_dir, "stage2_joint")
-            _require_fast_resume_cosmology_compatibility(stage2_args, stage2_run_dir, "stage2_joint")
-            _log(args, f"[resume fast] skipping stage2 run_name={stage2_run_name} run_dir={stage2_run_dir}")
-        else:
-            stage2_run_dir = maybe_run_stage(
-                stage2_args,
-                "joint",
-                stage2_run_name,
-                stage1_prior_summary=stage1_summary,
-                sample_likelihood_mode=SAMPLE_LIKELIHOOD_SOURCE,
-                previous_stage_best_values=None if stage1_summary is None else stage1_summary.map_values,
-            )
-    stage_fit_controls_payload = {
-        "stage2": stage2_controls.to_json(),
-        "stage3": stage3_controls.to_json(),
-        "stage4": stage4_controls.to_json(),
-    }
-
-    summary_payload = {
-        "fit_mode": "sequential",
-        "fit_method": stage2_controls.fit_method,
-        "image_plane_mode": str(args.image_plane_mode),
-        "resume_mode": str(resume_mode or "none"),
-        "start_at_stage2": bool(start_at_stage2),
-        "start_at_stage3": bool(start_at_stage3),
-        "stage_fit_controls": stage_fit_controls_payload,
-        "stage3_image_plane_mode": _stage3_image_plane_mode(args),
-        "stage3_sample_likelihood_mode": stage3_sample_likelihood_mode,
-        "skip_stage3_image_plane_local_jacobian": bool(getattr(args, "skip_stage3_image_plane_local_jacobian", False)),
-        "image_plane_newton_steps": int(getattr(args, "image_plane_newton_steps", 0)),
-        "exact_image_min_distance_arcsec": float(
-            getattr(args, "exact_image_min_distance_arcsec", DEFAULT_EXACT_IMAGE_MIN_DISTANCE_ARCSEC)
-        ),
-        "exact_image_precision_limit": float(
-            getattr(args, "exact_image_precision_limit", DEFAULT_EXACT_IMAGE_PRECISION_LIMIT)
-        ),
-        "exact_image_num_iter_max": int(
-            getattr(args, "exact_image_num_iter_max", DEFAULT_EXACT_IMAGE_NUM_ITER_MAX)
-        ),
-        "exact_image_finder": str(getattr(args, "exact_image_finder", DEFAULT_EXACT_IMAGE_FINDER)),
-        "exact_image_displacement_tol_arcsec": float(
-            getattr(args, "exact_image_displacement_tol_arcsec", DEFAULT_EXACT_IMAGE_DISPLACEMENT_TOL_ARCSEC)
-        ),
-        "exact_image_identification_tol_arcsec": float(
-            getattr(args, "exact_image_identification_tol_arcsec", DEFAULT_EXACT_IMAGE_IDENTIFICATION_TOL_ARCSEC)
-        ),
-        "exact_image_lm_max_iter": int(getattr(args, "exact_image_lm_max_iter", DEFAULT_EXACT_IMAGE_LM_MAX_ITER)),
-        "exact_image_lm_trust_radius_arcsec": float(
-            getattr(args, "exact_image_lm_trust_radius_arcsec", DEFAULT_EXACT_IMAGE_LM_TRUST_RADIUS_ARCSEC)
-        ),
-        "exact_image_adaptive_max_levels": int(
-            getattr(args, "exact_image_adaptive_max_levels", DEFAULT_EXACT_IMAGE_ADAPTIVE_MAX_LEVELS)
-        ),
-        "anchored_image_plane_solve_steps": int(
-            getattr(args, "anchored_image_plane_solve_steps", DEFAULT_ANCHORED_IMAGE_PLANE_SOLVE_STEPS)
-        ),
-        "anchored_image_plane_trust_radius_arcsec": float(
-            getattr(
-                args,
-                "anchored_image_plane_trust_radius_arcsec",
-                DEFAULT_ANCHORED_IMAGE_PLANE_TRUST_RADIUS_ARCSEC,
-            )
-        ),
-        "anchored_image_plane_lm_damping_relative": float(
-            getattr(
-                args,
-                "anchored_image_plane_lm_damping_relative",
-                DEFAULT_ANCHORED_IMAGE_PLANE_LM_DAMPING_RELATIVE,
-            )
-        ),
-        "anchored_image_plane_lm_damping_absolute": float(
-            getattr(
-                args,
-                "anchored_image_plane_lm_damping_absolute",
-                DEFAULT_ANCHORED_IMAGE_PLANE_LM_DAMPING_ABSOLUTE,
-            )
-        ),
-        "critical_arc_critical_direction_sigma_arcsec": float(
-            getattr(args, "critical_arc_critical_direction_sigma_arcsec", DEFAULT_CRITICAL_ARC_CRITICAL_DIRECTION_SIGMA_ARCSEC)
-        ),
-        "critical_arc_anisotropic_covariance": bool(
-            getattr(args, "critical_arc_anisotropic_covariance", True)
-        ),
-        "critical_arc_base_prob": float(getattr(args, "critical_arc_base_prob", DEFAULT_CRITICAL_ARC_BASE_PROB)),
-        "critical_arc_max_prob": float(getattr(args, "critical_arc_max_prob", DEFAULT_CRITICAL_ARC_MAX_PROB)),
-        "critical_arc_singular_threshold": float(
-            getattr(args, "critical_arc_singular_threshold", DEFAULT_CRITICAL_ARC_SINGULAR_THRESHOLD)
-        ),
-        "sample_critical_arc_singular_threshold": bool(
-            getattr(args, "sample_critical_arc_singular_threshold", False)
-        ),
-        "critical_arc_singular_threshold_prior_median": float(
-            getattr(
-                args,
-                "critical_arc_singular_threshold_prior_median",
-                DEFAULT_CRITICAL_ARC_SINGULAR_THRESHOLD_PRIOR_MEDIAN,
-            )
-        ),
-        "critical_arc_singular_threshold_prior_log_sigma": float(
-            getattr(
-                args,
-                "critical_arc_singular_threshold_prior_log_sigma",
-                DEFAULT_CRITICAL_ARC_SINGULAR_THRESHOLD_PRIOR_LOG_SIGMA,
-            )
-        ),
-        "critical_arc_singular_threshold_lower": float(
-            getattr(
-                args,
-                "critical_arc_singular_threshold_lower",
-                DEFAULT_CRITICAL_ARC_SINGULAR_THRESHOLD_LOWER,
-            )
-        ),
-        "critical_arc_singular_threshold_upper": float(
-            getattr(
-                args,
-                "critical_arc_singular_threshold_upper",
-                DEFAULT_CRITICAL_ARC_SINGULAR_THRESHOLD_UPPER,
-            )
-        ),
-        "critical_arc_singular_softness": float(
-            getattr(args, "critical_arc_singular_softness", DEFAULT_CRITICAL_ARC_SINGULAR_SOFTNESS)
-        ),
-        "sample_critical_arc_singular_softness": bool(
-            getattr(args, "sample_critical_arc_singular_softness", False)
-        ),
-        "critical_arc_singular_softness_prior_median": float(
-            getattr(
-                args,
-                "critical_arc_singular_softness_prior_median",
-                DEFAULT_CRITICAL_ARC_SINGULAR_SOFTNESS_PRIOR_MEDIAN,
-            )
-        ),
-        "critical_arc_singular_softness_prior_log_sigma": float(
-            getattr(
-                args,
-                "critical_arc_singular_softness_prior_log_sigma",
-                DEFAULT_CRITICAL_ARC_SINGULAR_SOFTNESS_PRIOR_LOG_SIGMA,
-            )
-        ),
-        "critical_arc_singular_softness_lower": float(
-            getattr(
-                args,
-                "critical_arc_singular_softness_lower",
-                DEFAULT_CRITICAL_ARC_SINGULAR_SOFTNESS_LOWER,
-            )
-        ),
-        "critical_arc_singular_softness_upper": float(
-            getattr(
-                args,
-                "critical_arc_singular_softness_upper",
-                DEFAULT_CRITICAL_ARC_SINGULAR_SOFTNESS_UPPER,
-            )
-        ),
-        "critical_arc_lm_damping_relative": float(
-            getattr(args, "critical_arc_lm_damping_relative", DEFAULT_CRITICAL_ARC_LM_DAMPING_RELATIVE)
-        ),
-        "critical_arc_lm_damping_absolute": float(
-            getattr(args, "critical_arc_lm_damping_absolute", DEFAULT_CRITICAL_ARC_LM_DAMPING_ABSOLUTE)
-        ),
-        "critical_arc_lm_trust_radius_arcsec": float(
-            getattr(args, "critical_arc_lm_trust_radius_arcsec", DEFAULT_CRITICAL_ARC_LM_TRUST_RADIUS_ARCSEC)
-        ),
-        "arc_recovery_p_arc_threshold": float(
-            getattr(args, "arc_recovery_p_arc_threshold", DEFAULT_ARC_RECOVERY_P_ARC_THRESHOLD)
-        ),
-        "arc_aware_max_arclength_arcsec": float(
-            getattr(args, "arc_aware_max_arclength_arcsec", DEFAULT_ARC_AWARE_MAX_ARCLENGTH_ARCSEC)
-        ),
-        "arc_aware_curve_step_arcsec": float(
-            getattr(args, "arc_aware_curve_step_arcsec", DEFAULT_ARC_AWARE_CURVE_STEP_ARCSEC)
-        ),
-        "use_magnitude_likelihood": bool(
-            getattr(args, "use_magnitude_likelihood", DEFAULT_USE_MAGNITUDE_LIKELIHOOD)
-        ),
-        "magnitude_sigma_floor": float(
-            getattr(args, "magnitude_sigma_floor", getattr(args, "magnitude_sigma", DEFAULT_MAGNITUDE_SIGMA_FLOOR))
-        ),
-        "magnitude_mu_floor": float(getattr(args, "magnitude_mu_floor", DEFAULT_MAGNITUDE_MU_FLOOR)),
-        "magnitude_min_reliability": float(
-            getattr(args, "magnitude_min_reliability", DEFAULT_MAGNITUDE_MIN_RELIABILITY)
-        ),
-        "fold_curvature_arcsec_inv": float(
-            getattr(args, "fold_curvature_arcsec_inv", DEFAULT_FOLD_CURVATURE_ARCSEC_INV)
-        ),
-        "catastrophe_likelihood": str(getattr(args, "catastrophe_likelihood", DEFAULT_CATASTROPHE_LIKELIHOOD)),
-        "catastrophe_lambda_on": float(getattr(args, "catastrophe_lambda_on", DEFAULT_CATASTROPHE_LAMBDA_ON)),
-        "catastrophe_lambda_off": float(getattr(args, "catastrophe_lambda_off", DEFAULT_CATASTROPHE_LAMBDA_OFF)),
-        "catastrophe_gap_on": float(getattr(args, "catastrophe_gap_on", DEFAULT_CATASTROPHE_GAP_ON)),
-        "catastrophe_gap_off": float(getattr(args, "catastrophe_gap_off", DEFAULT_CATASTROPHE_GAP_OFF)),
-        "catastrophe_tangential_variance_min": float(
-            getattr(
-                args,
-                "catastrophe_tangential_variance_min",
-                DEFAULT_CATASTROPHE_TANGENTIAL_VARIANCE_MIN,
-            )
-        ),
-        "cab_likelihood_weight": getattr(args, "cab_likelihood_weight", None),
-        "cab_finite_difference_step_arcsec": float(
-            getattr(args, "cab_finite_difference_step_arcsec", DEFAULT_CAB_FINITE_DIFFERENCE_STEP_ARCSEC)
-        ),
-        "cab_tangent_sigma_floor_rad": float(
-            getattr(args, "cab_tangent_sigma_floor_rad", DEFAULT_CAB_TANGENT_SIGMA_FLOOR_RAD)
-        ),
-        "cab_curvature_sigma_floor_arcsec_inv": float(
-            getattr(args, "cab_curvature_sigma_floor_arcsec_inv", DEFAULT_CAB_CURVATURE_SIGMA_FLOOR_ARCSEC_INV)
-        ),
-        "image_plane_scatter_floor_arcsec": float(
-            getattr(args, "image_plane_scatter_floor_arcsec", DEFAULT_IMAGE_PLANE_SCATTER_FLOOR_ARCSEC)
-        ),
-        "image_plane_scatter_prior": str(getattr(args, "image_plane_scatter_prior", DEFAULT_IMAGE_PLANE_SCATTER_PRIOR)),
-        "image_plane_scatter_prior_median_arcsec": float(
-            getattr(args, "image_plane_scatter_prior_median_arcsec", DEFAULT_IMAGE_PLANE_SCATTER_PRIOR_MEDIAN_ARCSEC)
-        ),
-        "image_plane_scatter_prior_log_sigma": float(
-            getattr(args, "image_plane_scatter_prior_log_sigma", DEFAULT_IMAGE_PLANE_SCATTER_PRIOR_LOG_SIGMA)
-        ),
-        "fix_image_sigma_int_arcsec": (
-            None
-            if getattr(args, "fix_image_sigma_int_arcsec", None) is None
-            else float(getattr(args, "fix_image_sigma_int_arcsec"))
-        ),
-        "image_sigma_int_sampled": getattr(args, "fix_image_sigma_int_arcsec", None) is None
-        and _sample_likelihood_uses_image_scatter(final_sample_likelihood_mode),
-        "image_presence_penalty_weight": getattr(args, "image_presence_penalty_weight", None),
-        "image_presence_effective_stage4_penalty_weight": _effective_image_presence_penalty_weight(
-            getattr(args, "image_presence_penalty_weight", None),
-            sample_likelihood_mode=str(stage4_sample_likelihood_mode or SAMPLE_LIKELIHOOD_SOURCE),
-            fit_mode=FIT_MODE_JOINT,
-            image_plane_mode=str(args.image_plane_mode),
-        ),
-        "image_presence_match_radius_arcsec": float(
-            getattr(args, "image_presence_match_radius_arcsec", DEFAULT_IMAGE_PRESENCE_MATCH_RADIUS_ARCSEC)
-        ),
-        "image_presence_temperature_arcsec": float(
-            getattr(args, "image_presence_temperature_arcsec", DEFAULT_IMAGE_PRESENCE_TEMPERATURE_ARCSEC)
-        ),
-        "image_presence_count_softness": float(
-            getattr(args, "image_presence_count_softness", DEFAULT_IMAGE_PRESENCE_COUNT_SOFTNESS)
-        ),
-        "image_presence_count_margin": float(
-            getattr(args, "image_presence_count_margin", DEFAULT_IMAGE_PRESENCE_COUNT_MARGIN)
-        ),
-        "likelihood_stabilizer_max_gain": float(
-            getattr(args, "likelihood_stabilizer_max_gain", DEFAULT_LIKELIHOOD_STABILIZER_MAX_GAIN)
-        ),
-        "likelihood_stabilizer_max_residual_arcsec": float(
-            getattr(args, "likelihood_stabilizer_max_residual_arcsec", DEFAULT_LIKELIHOOD_STABILIZER_MAX_RESIDUAL_ARCSEC)
-        ),
-        "likelihood_stabilizer_residual_loss": str(
-            getattr(args, "likelihood_stabilizer_residual_loss", DEFAULT_LIKELIHOOD_STABILIZER_RESIDUAL_LOSS)
-        ),
-        "likelihood_stabilizer_student_t_nu": float(
-            getattr(args, "likelihood_stabilizer_student_t_nu", DEFAULT_LIKELIHOOD_STABILIZER_STUDENT_T_NU)
-        ),
-        "source_position_parameterization": str(
-            getattr(args, "source_position_parameterization", SOURCE_POSITION_PARAMETERIZATION_PRIOR_WHITENED)
-        ),
-        "fit_cosmology_flat_wcdm": fit_cosmology_requested,
-        "stage_cosmology_fit": {
-            "stage1": False,
-            "stage2": False,
-            "stage3": bool(stage3_enabled and fit_cosmology_requested),
-            "stage4": bool(stage4_enabled and fit_cosmology_requested),
-        },
-        "cosmology_redshift_binning": "fiducial_fixed",
-    }
-    if sequential_cosmology_config_override is not None:
-        summary_payload["sequential_fiducial_cosmology_config"] = dict(sequential_cosmology_config_override)
-    if stage1_run_dir is not None:
-        summary_payload["stage1_run_dir"] = str(stage1_run_dir)
-    if stage2_run_dir is not None:
-        summary_payload["stage2_run_dir"] = str(stage2_run_dir)
-    stage3_run_dir: Path | None = None
-    if stage3_enabled:
-        stage3_run_name = str(Path(root_run_name) / "stage3_image_plane")
-        stage3_args = _args_with_fit_controls(
-            args,
-            stage3_controls,
-            **stage_cosmology_updates(fit_stage_cosmology=fit_cosmology_requested),
-        )
-        stage3_args = _force_quick_diagnostics_for_nonfinal_stage(stage3_args, stage3_run_name, exact_diagnostics_stage)
-        if stage4_enabled and not _stage3_exact_image_diagnostics_enabled(args, stage3_run_name):
-            stage3_args = _clone_args(stage3_args, skip_grid_diagnostics=True)
-            _log(
-                args,
-                (
-                    "[memory] non-final stage3 grid diagnostics will be skipped before stage4; "
-                    "pass --exact-image-diagnostics-stage3 to request full stage3 diagnostics."
-                ),
-            )
-        if fast_resume and final_stage_name != "stage3":
-            stage3_run_dir = Path(args.output_dir) / stage3_run_name
-            _require_fast_resume_plot_artifacts(stage3_run_dir, "stage3_image_plane")
-            _require_fast_resume_cosmology_compatibility(stage3_args, stage3_run_dir, "stage3_image_plane")
-            _log(args, f"[resume fast] skipping stage3 run_name={stage3_run_name} run_dir={stage3_run_dir}")
-        else:
-            stage3_init_values = None if start_at_stage3 else _physical_best_fit_values_from_artifacts(stage2_run_dir / "artifacts")
-            stage3_run_dir = maybe_run_stage(
-                stage3_args,
-                "joint",
-                stage3_run_name,
-                stage1_prior_summary=None if start_at_stage3 else stage1_summary,
-                sample_likelihood_mode=str(stage3_sample_likelihood_mode),
-                svi_init_physical_values=stage3_init_values,
-                previous_stage_best_values=stage3_init_values,
-            )
-        summary_payload["stage3_run_dir"] = str(stage3_run_dir)
-        if not bool(getattr(args, "skip_critical_det_diagnostic", True)):
-            _run_logged_phase(
-                args,
-                "diagnostics.stage3_critical_det",
-                lambda: _run_stage3_critical_det_diagnostic(args, stage3_run_dir),
-                detail=f"stage={stage3_run_dir}",
-            )
-    if stage4_enabled:
-        stage4_init_stage_dir = stage3_run_dir or stage2_run_dir
-        if stage4_init_stage_dir is None:
-            raise RuntimeError("Stage 4 initialization requires a completed stage 3 or stage 2 run.")
-        stage4_init_artifacts_dir = stage4_init_stage_dir / "artifacts"
-        if fast_resume:
-            _require_fast_resume_plot_artifacts(stage4_init_artifacts_dir.parent, stage4_init_artifacts_dir.parent.name)
-        stage4_run_name = str(Path(root_run_name) / _stage4_run_directory_name(args))
-        stage4_init_values = _physical_best_fit_values_from_artifacts(stage4_init_artifacts_dir)
-        source_position_priors = _source_position_prior_values_from_artifacts(stage4_init_artifacts_dir)
-        stage4_updates = stage_cosmology_updates(fit_stage_cosmology=fit_cosmology_requested)
-        requested_stage4_sampling_engine = str(
-            getattr(args, "stage4_sampling_engine", STAGE4_SAMPLING_ENGINE_INHERIT)
-        )
-        if requested_stage4_sampling_engine != STAGE4_SAMPLING_ENGINE_INHERIT:
-            stage4_updates["sampling_engine"] = requested_stage4_sampling_engine
-        stage4_requires_previous_active_split = bool(getattr(args, "infer_active_scaling", False))
-        if stage4_requires_previous_active_split:
-            stage4_updates["infer_active_scaling"] = False
-        stage4_args = _args_with_fit_controls(
-            args,
-            stage4_controls,
-            **stage4_updates,
-        )
-        stage4_runs_fresh = bool(getattr(args, "stage4_fresh_process", False)) and not fast_resume
-        if stage4_runs_fresh:
-            _log(
-                args,
-                (
-                    "[memory] stage4 will run in a fresh spawned Python/JAX process; "
-                    "stage3 XLA memory will not be inherited."
-                ),
-            )
-        else:
-            _log(
-                args,
-                (
-                    "[memory] stage4 will run in the current Python/JAX process; "
-                    "use --stage4-fresh-process outside --resume fast to isolate stage4 memory."
-                ),
-            )
-        stage4_run_dir = maybe_run_stage(
-            stage4_args,
-            "joint",
-            stage4_run_name,
-            fresh_process=stage4_runs_fresh,
-            stage1_prior_summary=stage1_summary,
-            sample_likelihood_mode=str(stage4_sample_likelihood_mode),
-            svi_init_physical_values=stage4_init_values,
-            source_position_prior_values=source_position_priors,
-            previous_stage_best_values=stage4_init_values,
-            frozen_active_scaling_source_run_dir=stage4_init_stage_dir if stage4_requires_previous_active_split else None,
-            require_frozen_active_scaling=stage4_requires_previous_active_split,
-        )
-        summary_payload["stage4_run_dir"] = str(stage4_run_dir)
-        summary_payload["stage4_sampling_engine_requested"] = requested_stage4_sampling_engine
-        summary_payload["stage4_sampling_engine_effective"] = str(
-            getattr(
-                stage4_args,
-                "sampling_engine",
-                getattr(args, "sampling_engine", SAMPLING_ENGINE_FULL_FLAT),
-            )
-        )
-        summary_payload["stage4_fresh_process"] = bool(stage4_runs_fresh)
-        summary_payload["stage4_active_scaling_requires_previous_split"] = bool(stage4_requires_previous_active_split)
-        if stage4_requires_previous_active_split:
-            summary_payload["stage4_active_scaling_source_run_dir"] = str(stage4_init_stage_dir)
-    summary_path = Path(args.output_dir) / root_run_name / "sequential_summary.json"
-    summary_path.parent.mkdir(parents=True, exist_ok=True)
-    with summary_path.open("w", encoding="utf-8") as handle:
-        json.dump(summary_payload, handle, indent=2)
-    _log(args, f"[done] sequential summary written to {summary_path}")
-    aggregate_stage_dirs: list[Path | None] = [stage1_run_dir, stage2_run_dir, stage3_run_dir]
-    if "stage4_run_dir" in summary_payload:
-        aggregate_stage_dirs.append(Path(str(summary_payload["stage4_run_dir"])))
-    summary_txt_path, summary_text = _run_logged_phase(
-        args,
-        "output.write_sequential_run_summary_txt",
-        lambda: _write_sequential_run_summary_txt(
-            Path(args.output_dir) / root_run_name,
-            root_run_name,
-            aggregate_stage_dirs,
-        ),
-    )
-    if summary_txt_path is not None:
-        _log(args, f"[done] sequential run summary written to {summary_txt_path}")
-        _log(args, "[done] sequential run summary\n" + summary_text.rstrip())
-    _log_stage_banner(args, "SEQUENTIAL WORKFLOW COMPLETE", f"run_name={root_run_name}")
-    _log(args, f"[stage] sequential end run_name={root_run_name}")
-
-
 def _run_evidence_ns(args: argparse.Namespace) -> None:
     stage_fit_controls = _normalize_stage_fit_controls(args)
     controls = stage_fit_controls["stage2"]
     run_name = args.run_name or "cluster_solver"
     run_dir = Path(args.output_dir) / run_name
+    _require_scaling_resume_compatibility(args, run_dir)
     evidence_likelihood_mode = str(
         getattr(args, "evidence_likelihood_mode", DEFAULT_EVIDENCE_LIKELIHOOD_MODE)
     )
@@ -31909,6 +30320,7 @@ def _run_typed_plan_dispatch(args: argparse.Namespace, stage_fit_controls: dict[
             exact_diagnostics_stage = _final_available_sequential_stage(stage_dirs)
             for stage_dir in stage_dirs:
                 if _has_plot_artifacts(stage_dir / "artifacts"):
+                    _require_scaling_resume_compatibility(args, stage_dir)
                     _configure_debug_log(args, stage_dir.name, stage_dir)
                     _rerender_plots(args, stage_dir, exact_diagnostics_stage=exact_diagnostics_stage)
             if getattr(args, "output_layout", "legacy") == RESULTS_LAYOUT:
@@ -31919,6 +30331,7 @@ def _run_typed_plan_dispatch(args: argparse.Namespace, stage_fit_controls: dict[
                 _configure_debug_log(args, root_run_name, None)
             return
         run_dir = Path(args.output_dir) / (args.run_name or "cluster_solver")
+        _require_scaling_resume_compatibility(args, run_dir)
         _configure_debug_log(args, run_dir.name, run_dir)
         if not _has_plot_artifacts(run_dir / "artifacts"):
             _fail(f"Missing saved artifacts for plots-only mode: {run_dir / 'artifacts'}")
@@ -31931,6 +30344,7 @@ def _run_typed_plan_dispatch(args: argparse.Namespace, stage_fit_controls: dict[
     else:
         run_name = args.run_name or "cluster_solver"
         run_dir = Path(args.output_dir) / run_name
+        _require_scaling_resume_compatibility(args, run_dir)
         if bool(getattr(args, "resume", False)):
             if _stage_run_complete(run_dir):
                 if bool(getattr(args, "skip_plots", False)):

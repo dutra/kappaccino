@@ -3,15 +3,15 @@ $XONSH_SHOW_TRACEBACK = True
 import os
 import sys
 import time
+import json
+from dataclasses import asdict
 from pathlib import Path
 
-cores = 6  # Fixed to match JAX CPU devices and NUTS chains.
+cores = 4  # Default chain count; CPU setup follows the resolved RuntimeConfig.
 seed = 12345
-pos_sigma_arcsec = 0.3
+pos_sigma_arcsec = 0.5
 
-$JAX_NUM_CPU_DEVICES = str(cores)
 $MPLCONFIGDIR = "/tmp/matplotlib-lenscluster"
-os.environ["JAX_NUM_CPU_DEVICES"] = str(cores)
 os.environ["MPLCONFIGDIR"] = "/tmp/matplotlib-lenscluster"
 sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
 
@@ -25,9 +25,9 @@ from lenscluster.config import (
     LensClusterSolverConfig,
     LensModelConfig,
     LikelihoodConfig,
+    LogNormalPriorConfig,
     MemberPopulationConfig,
-    MemberSelectionConfig,
-    PerturbationDiscoveryConfig,
+    MemberTierConfig,
     PriorConfig,
     RGBDisplayConfig,
     ReferenceFrameConfig,
@@ -42,16 +42,16 @@ from lenscluster.config import (
 from lenscluster.planning import compile_run_plan
 from lenscluster.runner import LensClusterRunner
 from lenscluster.output_paths import validate_run_label
+from lenscluster.jax_cosmology import kpc_per_arcsec_from_config
+from lenscluster.cpu_runtime import configure_cpu_runtime, resolve_cpu_plan
 
-OUTPUT_DIR_LABEL = "jun26a_anistropic_possigma01_nomaglikelihood_magcut24_externalshear"
+OUTPUT_DIR_LABEL = "oct21_smoothed_local"
 
-# Kept here for HFF display tuning reuse, but this runner intentionally has no
-# HFF/Bergamini model configurations.
+# HFF display settings for observed clusters.
 HFF_RGB_BANDS = ["F435W", "F606W", "F814W", "F105W", "F125W", "F140W", "F160W"]
 HFF_RGB_DISPLAY = {"q": 6.4, "stretch": 0.0145, "minimum": -5.5e-4, "red_gain": 0.47, "green_gain": 0.91, "blue_gain": 3.95}
 
-VALID_CLUSTERS = "ARES, HERA"
-VALID_COVARIANCE_MODES = ("anisotropic", "isotropic")
+VALID_CLUSTERS = "ARES, HERA, AS1063"
 VALID_MAGNITUDE_LIKELIHOOD_MODES = ("off", "on")
 FF_RGB_BANDS = ("F435W", "F606W", "F814W")
 FF_RGB_DISPLAY = RGBDisplayConfig(q=6.8, stretch=0.0158, minimum=0.00105, red_gain=0.62, green_gain=0.78, blue_gain=3.65)
@@ -60,13 +60,13 @@ FF_RGB_DISPLAY = RGBDisplayConfig(q=6.8, stretch=0.0158, minimum=0.00105, red_ga
 def _usage() -> str:
     return (
         "Usage: xonsh run.xsh <cluster> "
-        "[--campaign NAME] [--run-label NAME] [--covariance anisotropic|isotropic] "
-        "[--magnitude-likelihood on|off]\n"
+        "[--campaign NAME] [--run-label NAME] [--image-metadata PATH] "
+        "[--dry-run] [--magnitude-likelihood off]\n"
         f"Valid clusters: {VALID_CLUSTERS}"
     )
 
 
-def _parse_args(argv: list[str]) -> tuple[str, str, str, bool, str | None]:
+def _parse_args(argv: list[str]) -> dict:
     if len(argv) == 2 and argv[1] in {"--help", "-h"}:
         print(_usage())
         raise SystemExit(0)
@@ -78,18 +78,23 @@ def _parse_args(argv: list[str]) -> tuple[str, str, str, bool, str | None]:
     values = {
         "campaign": OUTPUT_DIR_LABEL,
         "run_label": None,
-        "covariance": "anisotropic",
         "magnitude_likelihood": "off",
+        "image_metadata": None,
+        "dry_run": False,
     }
     flag_to_key = {
         "--campaign": "campaign",
         "--run-label": "run_label",
-        "--covariance": "covariance",
         "--magnitude-likelihood": "magnitude_likelihood",
+        "--image-metadata": "image_metadata",
     }
     index = 2
     while index < len(argv):
         flag = argv[index]
+        if flag == "--dry-run":
+            values["dry_run"] = True
+            index += 1
+            continue
         if flag in {"--help", "-h"}:
             print(_usage())
             raise SystemExit(0)
@@ -102,10 +107,6 @@ def _parse_args(argv: list[str]) -> tuple[str, str, str, bool, str | None]:
         values[flag_to_key[flag]] = argv[index + 1]
         index += 2
 
-    covariance_mode = str(values["covariance"]).strip().lower()
-    if covariance_mode not in VALID_COVARIANCE_MODES:
-        print(f"Covariance mode must be 'anisotropic' or 'isotropic'; got {values['covariance']!r}.\n{_usage()}")
-        raise SystemExit(2)
     magnitude_likelihood_mode = str(values["magnitude_likelihood"]).strip().lower()
     if magnitude_likelihood_mode not in VALID_MAGNITUDE_LIKELIHOOD_MODES:
         print(
@@ -114,8 +115,8 @@ def _parse_args(argv: list[str]) -> tuple[str, str, str, bool, str | None]:
         )
         raise SystemExit(2)
     use_magnitude_likelihood = magnitude_likelihood_mode == "on"
-    if use_magnitude_likelihood and covariance_mode != "anisotropic":
-        print("--magnitude-likelihood on is only supported with --covariance anisotropic.")
+    if use_magnitude_likelihood:
+        print("smoothed-local-image-plane supports positions only; --magnitude-likelihood on is unsupported.")
         raise SystemExit(2)
     campaign_name = str(values["campaign"]).strip()
     if not campaign_name or campaign_name in {".", ".."} or "/" in campaign_name or "\\" in campaign_name:
@@ -128,7 +129,8 @@ def _parse_args(argv: list[str]) -> tuple[str, str, str, bool, str | None]:
         except ValueError as exc:
             print(f"--run-label: {exc}")
             raise SystemExit(2) from exc
-    return cluster, campaign_name, covariance_mode, use_magnitude_likelihood, run_label
+    return dict(cluster=cluster, campaign_name=campaign_name, run_label=run_label,
+                dry_run=values["dry_run"], image_metadata=values["image_metadata"])
 
 
 FF_SIMS_CLUSTERS = {
@@ -321,184 +323,294 @@ FF_SIMS_CLUSTERS = {
 }
 
 
+# Native configuration transcribed from
+# data/Bergamini/RXJ2248_Bergamini19/Bergamini_RXCJ2248_lenstool_Normal.par.
+# That model gives radii in arcseconds; native configurations require kpc.
+def _hff_clusters():
+    AS1063_KPC_PER_ARCSEC = kpc_per_arcsec_from_config(0.348, {"H0": 70.0, "Om0": 0.3})
+    AS1063_CATALOG_DIR = "data/Bergamini/RXJ2248_Bergamini19"
+    return {
+        "AS1063": {
+            "cluster_key": "as1063",
+            "reference": ReferenceFrameConfig(reference=3, ra0_deg=342.18321, dec0_deg=-44.530878),
+            "image_catalog": f"{AS1063_CATALOG_DIR}/obs_arcs.dat",
+            "cosmology": CosmologyConfig(H0=70.0, Om0=0.3, Ode0=0.7),
+            "halos": (
+                DPIEHaloConfig(
+                    id="1", x_centre=0.0, y_centre=0.0,
+                    ellipticite=0.5, angle_pos=-39.0,
+                    core_radius_kpc=13.5871 * AS1063_KPC_PER_ARCSEC,
+                    cut_radius_kpc=2000.0 * AS1063_KPC_PER_ARCSEC,
+                    v_disp=1500.0, z_lens=0.348,
+                    priors={
+                        "x_centre": PriorConfig("uniform", lower=-2.0, upper=4.0, step=0.1),
+                        "y_centre": PriorConfig("uniform", lower=-2.0, upper=2.0, step=0.1),
+                        "ellipticite": PriorConfig("uniform", lower=0.4, upper=0.8, step=0.05),
+                        # Use an initial angle inside the published prior bounds.
+                        "angle_pos": PriorConfig("uniform", lower=-42.0, upper=-36.0, step=0.1),
+                        "core_radius_kpc": PriorConfig(
+                            "uniform", lower=5.0 * AS1063_KPC_PER_ARCSEC,
+                            upper=35.0 * AS1063_KPC_PER_ARCSEC, step=0.1 * AS1063_KPC_PER_ARCSEC,
+                        ),
+                        "v_disp": PriorConfig("truncated_normal", mean=1200.0, std=200.0, lower=1000.0, upper=float("inf")),
+                    },
+                ),
+                DPIEHaloConfig(
+                    id="2", x_centre=-84.6455835, y_centre=45.01476,
+                    ellipticite=0.0, angle_pos=0.0,
+                    core_radius_kpc=0.05 * AS1063_KPC_PER_ARCSEC,
+                    cut_radius_kpc=2000.0 * AS1063_KPC_PER_ARCSEC,
+                    v_disp=300.0, z_lens=0.348,
+                    priors={
+                        "x_centre": PriorConfig("uniform", lower=-100.0, upper=50.0, step=0.1),
+                        "y_centre": PriorConfig("uniform", lower=-50.0, upper=70.0, step=0.1),
+                        "v_disp": PriorConfig("truncated_normal", mean=500.0, std=500.0, lower=0.0, upper=float("inf")),
+                    },
+                ),
+                # Fixed gas components from the same model.
+                DPIEHaloConfig(
+                    id="3", x_centre=18.898068688515124, y_centre=-73.3566238994408,
+                    ellipticite=0.804756331682532, angle_pos=-162.04793432346537,
+                    core_radius_kpc=188.39998560000458 * AS1063_KPC_PER_ARCSEC,
+                    cut_radius_kpc=189.2403216000046 * AS1063_KPC_PER_ARCSEC,
+                    v_disp=355.9263730614334, z_lens=0.348,
+                ),
+                DPIEHaloConfig(
+                    id="4", x_centre=-18.0530993114858, y_centre=13.469568100561368,
+                    ellipticite=0.13273356095824723, angle_pos=-27.795099374268442,
+                    core_radius_kpc=36.323966400000884 * AS1063_KPC_PER_ARCSEC,
+                    cut_radius_kpc=339.1572480000082 * AS1063_KPC_PER_ARCSEC,
+                    v_disp=442.5672747534171, z_lens=0.348,
+                ),
+                DPIEHaloConfig(
+                    id="5", x_centre=0.19813268851464938, y_centre=-1.2372958994389047,
+                    ellipticite=0.34435532608684766, angle_pos=-15.486418948811508,
+                    core_radius_kpc=14.434532160000352 * AS1063_KPC_PER_ARCSEC,
+                    cut_radius_kpc=356.49532800000867 * AS1063_KPC_PER_ARCSEC,
+                    v_disp=249.68220495795586, z_lens=0.348,
+                ),
+            ),
+            "member_population": MemberPopulationConfig(
+                id="potfile_1", catalog_path=f"{AS1063_CATALOG_DIR}/members.cat",
+                mag0=16.176001, corekpc=0.05 * AS1063_KPC_PER_ARCSEC,
+                sigma=310.0, cutkpc=10.0 * AS1063_KPC_PER_ARCSEC, z_lens=0.348,
+                # Member-scaling priors require finite bounds; cap the Gaussian tails at +10 sigma.
+                sigma_prior=PriorConfig("truncated_normal", mean=310.0, std=100.0, lower=0.0, upper=1310.0),
+                cutkpc_prior=PriorConfig(
+                    "truncated_normal", mean=10.0 * AS1063_KPC_PER_ARCSEC,
+                    std=10.0 * AS1063_KPC_PER_ARCSEC, lower=0.0, upper=110.0 * AS1063_KPC_PER_ARCSEC,
+                ),
+            ),
+            "independent_member_halos": (),
+            "softening_length_kpc": 0.0,
+            "softening_length_prior_log_sigma": 0.15,
+        },
+    }
+
+
+CLUSTERS = set(FF_SIMS_CLUSTERS) | {"AS1063"}
+
+
+def build_runtime(cores: int) -> RuntimeConfig:
+    return RuntimeConfig(
+        seed=seed,
+        chains=cores,
+        resume="all",
+        quick_diagnostics=False,
+        debug_sampler_diagnostics=True,
+        numpyro_print_summary=True,
+        nuts_chain_method="parallel",
+        cpu_threads_per_chain=2,  # Shared CPU budget = concurrent chains * this value; None disables tuning.
+        dense_mass="lens-and-hyperparameters",
+        jax_clear_caches_after_svi_refresh=False,
+    )
+
+
 def build_config(
     cluster: str,
     *,
     cores: int,
     campaign_name: str,
-    covariance_mode: str,
-    use_magnitude_likelihood: bool,
+    covariance_mode: str = "anisotropic",
+    use_magnitude_likelihood: bool = False,
     run_label: str | None = None,
+    image_metadata: str | None = None,
+    runtime: RuntimeConfig | None = None,
 ) -> LensClusterSolverConfig:
-    if cluster not in FF_SIMS_CLUSTERS:
-        raise ValueError(f"cluster must be one of {', '.join(sorted(FF_SIMS_CLUSTERS))}; got {cluster!r}.")
-    cluster_config = FF_SIMS_CLUSTERS[cluster]
+    if cluster not in CLUSTERS:
+        raise ValueError(f"cluster must be one of {', '.join(sorted(CLUSTERS))}; got {cluster!r}.")
+    if use_magnitude_likelihood:
+        raise ValueError("smoothed-local-image-plane supports positions only.")
+    if covariance_mode != "anisotropic":
+        raise ValueError("smoothed-local-image-plane uses the propagated covariance; an isotropic override is unsupported.")
+    is_hff = cluster not in FF_SIMS_CLUSTERS
+    cluster_config = _hff_clusters()[cluster] if is_hff else FF_SIMS_CLUSTERS[cluster]
 
-    perturbation_detection_multiplier = 1.0
-    perturbation_top_k = 10
-    warmup = 100, 500
-    samples = 50, 250
+    warmup = 200, 500
+    samples = 100, 500
     max_tree_depth = 8, 8
-    stage0_likelihood = "source"
-    stage1_likelihood = "source"
-    stage2_forward_mode = "isotropic-latent-displacement"
-    critical_arc_anisotropic_covariance = covariance_mode == "anisotropic"
+    stage0_likelihood = "smoothed-local-image-plane"
+    stage1_likelihood = "smoothed-local-image-plane"
+    stage2_forward_mode = "smoothed-local-image-plane"
     output_dir = f"results/{campaign_name}/{cluster_config['cluster_key']}"
     run_name = validate_run_label(
-        run_label if run_label is not None else f"{covariance_mode}-latent" + ("-mag" if use_magnitude_likelihood else "")
+        run_label if run_label is not None else "smoothed-local-image-plane"
     )
 
-    return LensClusterSolverConfig(
+    config = LensClusterSolverConfig(
         model=LensModelConfig(
-            reference=ReferenceFrameConfig(reference=3, ra0_deg=0.0, dec0_deg=0.0),
+            reference=cluster_config.get("reference", ReferenceFrameConfig(reference=3, ra0_deg=0.0, dec0_deg=0.0)),
             cosmology=cluster_config["cosmology"],
             large_halos=cluster_config["halos"],
             independent_member_halos=cluster_config["independent_member_halos"],
             member_populations=(cluster_config["member_population"],),
-            image_constraints=ImageConstraintsConfig(catalog_path=cluster_config["image_catalog"], sigma_arcsec=0.5),
+            image_constraints=ImageConstraintsConfig(
+                catalog_path=cluster_config["image_catalog"], sigma_arcsec=pos_sigma_arcsec,
+                sigma_floor_arcsec=0.5, metadata_path=image_metadata,
+            ),
         ),
         paths=RunPathsConfig(output_dir=output_dir, run_name=run_name, layout="results-v1", figure_prefix=cluster_config["cluster_key"]),
-        runtime=RuntimeConfig(
-            seed=seed,
-            chains=cores,
-            resume="all",
-            quick_diagnostics=False,
-            debug_sampler_diagnostics=True,
-            numpyro_print_summary=True,
-            nuts_chain_method="parallel",
-            dense_mass="full",
-            jax_clear_caches_after_svi_refresh=False,
-        ),
+        runtime=runtime if runtime is not None else build_runtime(cores),
         workflow=WorkflowConfig(
             fit_mode="sequential",
+            sampling_engine="tiered_members",
             stage0_likelihood=stage0_likelihood,
             stage1_likelihood=stage1_likelihood,
             stage2_forward_mode=stage2_forward_mode,
-            stage1_sampling_engine="full_flat",
-            stage2_sampling_engine="full_flat",
+            stage1_sampling_engine="tiered_members",
+            stage2_sampling_engine="tiered_members",
             stage2_fresh_process=True,
             exact_image_diagnostics_stage2=True,
             best_value="maximum-likelihood",
             image_plane_newton_steps=0,
-            linearized_beta_prior_sigma_arcsec=3.0,
-            source_position_parameterization="prior-whitened",
+            source_position_parameterization="likelihood-whitened",
         ),
         schedule=StageScheduleConfig(
-            fit_method=("svi", "svi+nuts"),# "svi+nuts"),
-            refresh_every=(None, None, None),# 2000),
-            svi_steps=(10_000, 20_000, 20_000),# 20_000),
+            fit_method=("svi+nuts", "svi+nuts"),
+            refresh_every=(None, None, None),
+            svi_steps=(10_000, 10_000, 10_000),
             warmup=warmup,
             samples=samples,
-            sampling_refresh_runs=(1, 1),# 1),
+            sampling_refresh_runs=(1, 1),
             max_tree_depth=max_tree_depth,
             target_accept=0.7,
             z_bin_efficiency_tol=0.0,
             svi_learning_rate=0.0005,
         ),
         scaling=ScalingModelConfig(
-            independent_scaling_free_log_sigma_offset_width=0.45,
-            independent_scaling_free_log_mass_offset_width=0.55,
+            member_velocity_scatter_prior=LogNormalPriorConfig(median=0.02, log_sigma=1.0),
             potfile_alpha_sigma_prior_mean=0.25,
             potfile_alpha_sigma_prior_std=0.3,
             potfile_alpha_sigma_prior_lower=0.05,
             potfile_alpha_sigma_prior_upper=0.50,
-            potfile_gamma_ml_prior_mean=0.20,
-            potfile_gamma_ml_prior_std=0.3,
-            potfile_gamma_ml_prior_lower=-0.80,
-            potfile_gamma_ml_prior_upper=0.80,
+            potfile_beta_radius_prior_mean=0.50,
+            potfile_beta_radius_prior_std=0.20,
+            potfile_beta_radius_prior_lower=0.0,
+            potfile_beta_radius_prior_upper=float("inf"),
             scaling_scatter=True,
             softening_length_kpc=float(cluster_config["softening_length_kpc"]),
             softening_length_prior_log_sigma=float(cluster_config["softening_length_prior_log_sigma"]),
         ),
         likelihood=LikelihoodConfig(
-            latent_displacement_sigma_beta_arcsec=0.03,
-            use_magnitude_likelihood=use_magnitude_likelihood,
-            critical_arc_anisotropic_covariance=critical_arc_anisotropic_covariance,
-            # magnitude_base_scatter_prior=PriorConfig(
-            #     kind="lognormal",
-            #     lower=0.01,
-            #     upper=0.50,
-            #     mean=0.3,
-            #     std=0.20,
-            # ),
-            # magnitude_arc_scatter_prior=PriorConfig(
-            #     kind="lognormal",
-            #     lower=0.01,
-            #     upper=0.50,
-            #     mean=0.3,
-            #     std=0.2,
-            # ),
+            source_scatter_prior=LogNormalPriorConfig(median=0.02, log_sigma=0.7),
+            source_position_prior_mean_arcsec=(0.0, 0.0),
+            source_position_prior_sigma_arcsec=100.0,
+            use_magnitude_likelihood=False,
             pos_sigma_arcsec=pos_sigma_arcsec,
-            source_plane_covariance_mode="unit",
-            image_presence_penalty_weight=2.0,
-            image_presence_match_radius_arcsec=1.0,
-            image_presence_temperature_arcsec=0.5,
-            image_plane_scatter_prior="log-uniform",
-            image_plane_scatter_floor_arcsec=0.01,
-            image_plane_scatter_upper_arcsec=1.0,
+            source_plane_covariance_mode="full-jacobian",
+            source_plane_covariance_floor=0.0,
+            image_presence_penalty_weight=0.0,
         ),
         image_diagnostics=ImageDiagnosticsConfig(
             critical_arc_singular_threshold=0.1,
             arc_recovery_p_arc_threshold=0.1,
-            posterior_image_diagnostic_draws=32,
+            posterior_image_diagnostic_draws=0,
             posterior_image_diagnostic_mode="exact",
             exact_image_min_distance_arcsec=0.5,
             exact_image_precision_limit=1.0e-2,
             exact_image_num_iter_max=100,
             exact_image_finder="local-lm-adaptive",
+            exact_image_lm_max_iter=100,
             exact_image_displacement_tol_arcsec=1.0e-4,
             exact_image_identification_tol_arcsec=1.0e-3,
-            match_tolerance_arcsec=2.0,
+            match_tolerance_arcsec=5.0,
         ),
         truth=TruthRecoveryConfig(
-            kappa_true_fits=cluster_config["kappa_true_fits"],
-            gammax_true_fits=cluster_config["gammax_true_fits"],
-            gammay_true_fits=cluster_config["gammay_true_fits"],
+            kappa_true_fits=cluster_config.get("kappa_true_fits"),
+            gammax_true_fits=cluster_config.get("gammax_true_fits"),
+            gammay_true_fits=cluster_config.get("gammay_true_fits"),
             truth_grid_mode="posterior",
-            posterior_truth_recovery_draws=32,
+            posterior_truth_recovery_draws=0,
             truth_grid_size=256,
             caustic_source_redshift=9.0,
         ),
-        perturbation=PerturbationDiscoveryConfig(
-            perturbation_discovery_detection_multiplier=perturbation_detection_multiplier,
-            perturbation_discovery_top_k=perturbation_top_k,
+        member_tiers=MemberTierConfig(
+            top_sampled=20,  # "all" samples an offset for every population member; None uses the classifier.
+            top_exact=50,  # "all" uses exact profiles for every member; None uses the classifier.
         ),
         image_catalog=ImageCatalogCutoutConfig(
-            image_dir="data/ff_sims",
+            image_dir="data/BUFFALO_Images" if is_hff else "data/ff_sims",
             image_scale="auto",
-            bands=FF_RGB_BANDS,
-            rgb=FF_RGB_DISPLAY,
+            bands=tuple(HFF_RGB_BANDS) if is_hff else FF_RGB_BANDS,
+            rgb=RGBDisplayConfig(**HFF_RGB_DISPLAY) if is_hff else FF_RGB_DISPLAY,
             mode="full",
             cutouts=False,
         ),
     )
 
+    return config
 
-requested_cluster, campaign_name, covariance_mode, use_magnitude_likelihood, run_label = _parse_args(sys.argv)
-if requested_cluster not in FF_SIMS_CLUSTERS:
-    print(f"Unknown cluster: {sys.argv[1]!r}\n{_usage()}")
-    raise SystemExit(2)
 
-config = build_config(
-    requested_cluster,
-    cores=cores,
-    campaign_name=campaign_name,
-    covariance_mode=covariance_mode,
-    use_magnitude_likelihood=use_magnitude_likelihood,
-    run_label=run_label,
-)
-plan = compile_run_plan(config)
-print(
-    f"[config] cluster={requested_cluster} run_name={plan.output.run_name} "
-    f"output_dir={plan.output.output_dir} chains={plan.runtime.chains} "
-    f"campaign={campaign_name} covariance={covariance_mode} "
-    f"use_magnitude_likelihood={config.likelihood.use_magnitude_likelihood} "
-    f"critical_arc_anisotropic_covariance={config.likelihood.critical_arc_anisotropic_covariance} "
-    f"pos_sigma_arcsec={config.likelihood.pos_sigma_arcsec}"
-)
+def main(argv=None):
+    options = _parse_args(sys.argv if argv is None else argv)
+    requested_cluster = options["cluster"]
+    if requested_cluster not in CLUSTERS:
+        print(f"Unknown cluster: {requested_cluster!r}\n{_usage()}")
+        return 2
+    runtime = build_runtime(cores)
+    cpu_plan = resolve_cpu_plan(runtime.chains, runtime.nuts_chain_method, runtime.cpu_threads_per_chain)
+    if not options["dry_run"]:
+        configure_cpu_runtime(runtime.chains, runtime.nuts_chain_method, runtime.cpu_threads_per_chain)
+    config = build_config(
+        requested_cluster, cores=cores, campaign_name=options["campaign_name"],
+        run_label=options["run_label"], image_metadata=options["image_metadata"], runtime=runtime,
+    )
+    plan = compile_run_plan(config)
+    if options["dry_run"]:
+        from lenscluster.lenstool_parser import _load_multiple_images_catalog
+        constraints = config.model.image_constraints
+        reference = config.model.reference
+        images = _load_multiple_images_catalog(
+            constraints.catalog_path,
+            (reference.reference, reference.ra0_deg, reference.dec0_deg),
+            metadata_path=constraints.metadata_path,
+            sigma_arcsec=constraints.sigma_arcsec,
+            sigma_floor_arcsec=constraints.sigma_floor_arcsec,
+        )
+        print(json.dumps({
+            "dry_run": True,
+            "cpu_plan": cpu_plan.to_dict(),
+            "config": config.to_json_dict(),
+            "stages": [asdict(stage) for stage in plan.stages],
+            "images": len(images),
+            "families": int(images["family_id"].nunique()),
+            "known_parities": int((images["parity"] != 0).sum()),
+            "sigma_obs_arcsec_range": [float(images["sigma_obs_arcsec"].min()), float(images["sigma_obs_arcsec"].max())],
+        }, indent=2, default=str))
+        return 0
+    print(
+        f"[config] cluster={requested_cluster} run_name={plan.output.run_name} "
+        f"output_dir={plan.output.output_dir} chains={plan.runtime.chains} "
+        f"likelihood=smoothed-local-image-plane source_positions=likelihood-whitened "
+        f"sigma_obs_floor_arcsec={config.model.image_constraints.sigma_floor_arcsec}"
+    )
+    start = time.monotonic()
+    try:
+        LensClusterRunner().run(plan)
+    finally:
+        print(f"[timing] elapsed={time.monotonic() - start:.2f}s")
+    return 0
 
-start = time.monotonic()
-try:
-    LensClusterRunner().run(plan)
-finally:
-    print(f"[timing] elapsed={time.monotonic() - start:.2f}s")
+
+if __name__ == "__main__":
+    raise SystemExit(main())

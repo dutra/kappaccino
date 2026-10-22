@@ -101,9 +101,9 @@ def validate_mock_validation_config(config: MockValidationConfig) -> None:
         )
     if (
         template.truth.posterior_truth_recovery_draws is not None
-        and int(template.truth.posterior_truth_recovery_draws) <= 0
+        and int(template.truth.posterior_truth_recovery_draws) < 0
     ):
-        raise ValueError("solver.template.truth.posterior_truth_recovery_draws must be positive or None.")
+        raise ValueError("solver.template.truth.posterior_truth_recovery_draws must be nonnegative or None.")
     if template.truth.caustic_plot_grid_scale_arcsec is not None and (
         not math.isfinite(float(template.truth.caustic_plot_grid_scale_arcsec))
         or float(template.truth.caustic_plot_grid_scale_arcsec) <= 0.0

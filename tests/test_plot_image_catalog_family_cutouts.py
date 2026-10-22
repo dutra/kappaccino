@@ -1062,7 +1062,7 @@ def test_stage_image_catalog_family_cutouts_fast_mode_skips_critical_lines(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _write_rgb_images(tmp_path / "images")
-    run_dir = tmp_path / "stage4_critical_arc_mixture_image_plane"
+    run_dir = tmp_path / "stage2_free_source_forward_fit"
     family = SimpleNamespace(
         family_id="1",
         z_source=2.3,
@@ -1117,7 +1117,7 @@ def test_stage_image_catalog_family_cutouts_include_solver_diagnostics(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _write_rgb_images(tmp_path / "images")
-    run_dir = tmp_path / "stage4_critical_arc_mixture_image_plane"
+    run_dir = tmp_path / "stage2_free_source_forward_fit"
     family = SimpleNamespace(
         family_id="1",
         z_source=2.3,
@@ -1284,3 +1284,109 @@ def test_stage_image_catalog_family_cutouts_include_solver_diagnostics(
     assert build_rgb_calls[0]["stretch"] == 0.0165
     assert build_rgb_calls[0]["minimum"] == 0.0012
     assert build_rgb_calls[0]["channel_gains"] == {"red": 0.68, "green": 0.75, "blue": 3.5}
+
+
+@pytest.mark.parametrize("cluster", ["hera", "ares", "as1063"])
+@pytest.mark.parametrize("serialized", [False, True])
+def test_cutout_cluster_uses_model_catalog_with_short_run_label(cluster, serialized):
+    # Include a conflicting label to ensure input metadata takes precedence.
+    state = SimpleNamespace(run_name="ares-comparison/stages/stage1", par_path="<config>", parsed={}, potfiles=[])
+    constraints = {"catalog_path": f"data/ff_sims/{cluster}/{cluster}_obs_arcs.cat"}
+    if cluster == "as1063":
+        constraints = {"catalog_path": "data/Bergamini/RXJ2248_Bergamini19/obs_arcs.dat"}
+    model = {"image_constraints": constraints, "member_populations": []}
+    if not serialized:
+        model = SimpleNamespace(image_constraints=SimpleNamespace(**constraints), member_populations=())
+    assert solver_plotting._infer_image_catalog_cutout_cluster(state, model_config=model) == cluster
+
+
+@pytest.mark.parametrize("source", ["parsed", "potfiles", "legacy"])
+def test_cutout_cluster_preserves_state_and_legacy_fallbacks(source):
+    state = SimpleNamespace(run_name="anisotropic-latent/stages/stage1", par_path="<config>", parsed={}, potfiles=[])
+    if source == "parsed":
+        state.parsed = {"image": {"multfile": "data/ff_sims/hera/hera_obs_arcs.cat"}}
+    elif source == "potfiles":
+        state.potfiles = [{"catalog_path": "data/ff_sims/hera/hera_cluster_members_potfile.cat"}]
+    else:
+        state.run_name = "hera_S1source_S2isotropic-latent-displacement/stage1_backprojected_centroid_fit"
+    assert solver_plotting._infer_image_catalog_cutout_cluster(state) == "hera"
+
+
+def test_short_run_label_resolves_rgb_files_from_model_metadata(tmp_path):
+    helpers = solver_plotting._load_image_catalog_cutout_helpers()
+    state = SimpleNamespace(run_name="anisotropic-latent/stages/stage1", par_path="<config>")
+    model = {"image_constraints": {"catalog_path": "data/ff_sims/hera/hera_obs_arcs.cat"}}
+    image_dir = tmp_path / "ff_sims"
+    (image_dir / "hera").mkdir(parents=True)
+    bands = ("F435W", "F606W", "F814W")
+    for band in bands:
+        fits.PrimaryHDU(np.zeros((2, 2))).writeto(image_dir / "hera" / f"{band}.fits")
+    cluster = solver_plotting._infer_image_catalog_cutout_cluster(state, model_config=model)
+    paths = helpers.find_rgb_band_paths(image_dir, cluster=cluster, bands=bands, image_scale="auto")
+    assert set(paths) == set(bands)
+    assert all(path.parent.name == "hera" for path in paths.values())
+
+
+def test_latent_overview_generates_mass_companion_without_cutouts(tmp_path, monkeypatch):
+    from lenscluster import image_catalog_mass
+    _write_rgb_images(tmp_path/'images')
+    run_dir=tmp_path/'overview'
+    state=SimpleNamespace(run_name='a370_test',par_path='<config>',reference=(3,10.,0.),
+                          parameter_specs=[],family_data=[])
+    catalog=pd.DataFrame(dict(image_label=['1.a'],x_obs_arcsec=[0.],y_obs_arcsec=[0.],
+                              x_model_arcsec=[.1],y_model_arcsec=[.1]))
+    monkeypatch.setattr(solver_plotting,'_image_catalog_cutout_rows',lambda *a:catalog.copy())
+    monkeypatch.setattr(solver_plotting,'_image_catalog_extra_cutout_rows',lambda *a:pd.DataFrame())
+    calls=[]
+    def companion(stage,evaluator,best_fit,args,*other):
+        assert not args.image_catalog_family_cutouts
+        calls.append(stage)
+        fig=plt.figure()
+        fig.savefig(stage/'image_catalog_family_cluster_mass.pdf')
+        plt.close(fig)
+    monkeypatch.setattr(image_catalog_mass,'render_mass_companion',companion)
+    solver_plotting._plot_image_catalog_family_cutouts(
+        run_dir,state,SimpleNamespace(),np.array([]),catalog,None,
+        SimpleNamespace(sample_likelihood_mode='isotropic-latent-displacement',
+            image_catalog_family_cutout_image_dir=tmp_path/'images',
+            image_catalog_family_cutout_image_scale='60mas',
+            image_catalog_family_cutout_mode='fast',image_catalog_family_cutouts=False))
+    assert calls==[run_dir]
+    assert (run_dir/'image_catalog_family_cluster.pdf').exists()
+    assert (run_dir/'image_catalog_family_cluster_mass.pdf').exists()
+    assert not (run_dir/'image_catalog_family_cutouts.pdf').exists()
+
+
+@pytest.mark.parametrize('arc_aware', [False, True])
+def test_mass_overview_optional_arc_overlays(monkeypatch, arc_aware):
+    catalog = pd.DataFrame(dict(image_label=['1.a'], x_obs_arcsec=[0.], y_obs_arcsec=[0.],
+                                x_model_arcsec=[0.1], y_model_arcsec=[0.1]))
+    if arc_aware:
+        catalog['arc_supported'] = True
+        catalog['arc_support_curve_x_arcsec'] = '[0, 1]'
+        catalog['arc_support_curve_y_arcsec'] = '[0, 1]'
+        catalog['arc_support_anchor_x_arcsec'] = 1.
+        catalog['arc_support_anchor_y_arcsec'] = 1.
+    monkeypatch.setattr(solver_plotting, '_image_catalog_draw_rgb_cutout',
+                        lambda *a, **kw: np.zeros((100, 100, 3)))
+    monkeypatch.setattr(solver_plotting, '_cutout_pixel_xy',
+                        lambda image, center, coord, **kw: (coord.ra.deg * 3600, coord.dec.deg * 3600))
+    fig = solver_plotting._image_catalog_point_overview_figure(
+        SimpleNamespace(), {}, (), None, SimpleNamespace(pixel_scale_arcsec=1.),
+        catalog, pd.DataFrame(), (3, 10., 0.), mass_panel=True)
+    try:
+        labels = [text.get_text() for text in fig.axes[0].get_legend().get_texts()]
+        assert ('Model image locus' in labels) == arc_aware
+        assert 'Arc-supported image' not in labels
+        assert 'Linearized arc anchor' not in labels
+        assert labels.count('Model image') == 1
+        if arc_aware:
+            assert len(fig.axes[0].collections[2].get_offsets()) == 1
+            np.testing.assert_allclose(fig.axes[0].collections[2].get_edgecolors(),
+                                       fig.axes[0].collections[1].get_edgecolors())
+        # The point prediction and its residual segment are hidden for arc-supported rows.
+        assert len(fig.axes[0].collections[1].get_offsets()) == (0 if arc_aware else 1)
+        residual_lines = [line for line in fig.axes[0].lines if line.get_zorder() == 4]
+        assert len(residual_lines) == (0 if arc_aware else 1)
+    finally:
+        plt.close(fig)

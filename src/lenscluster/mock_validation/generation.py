@@ -193,10 +193,10 @@ class SingleBCGMockConfig:
     subhalo_cut_radius_prior_fractional_half_width: float = MOCK_POTFILE_CUT_PRIOR_FRACTIONAL_SCALE
     subhalo_alpha_sigma: float = 0.25
     subhalo_alpha_sigma_half_width: float = 0.05
-    subhalo_gamma_ml: float = 0.0
-    subhalo_gamma_ml_half_width: float = 0.10
+    subhalo_beta_radius: float = 0.5
+    subhalo_beta_radius_half_width: float = 0.10
     sampled_subhalo_alpha_sigma: float | None = None
-    sampled_subhalo_gamma_ml: float | None = None
+    sampled_subhalo_beta_radius: float | None = None
     source_magnitude_min: float = 24.0
     source_magnitude_max: float = 27.0
     image_magnitude_sigma_mag: float = 0.10
@@ -446,23 +446,20 @@ def validate_single_bcg_mock_config(config: SingleBCGMockConfig) -> None:
         raise ValueError("subhalo_force_core_max_arcsec must exceed subhalo_force_core_min_arcsec.")
     if force_max > float(config.subhalo_field_radius_arcsec):
         raise ValueError("subhalo_force_core_max_arcsec must not exceed subhalo_field_radius_arcsec.")
-    for name in ("subhalo_alpha_sigma", "subhalo_gamma_ml"):
+    for name in ("subhalo_alpha_sigma", "subhalo_beta_radius"):
         if not math.isfinite(float(getattr(config, name))):
             raise ValueError(f"{name} must be finite.")
-    for name in ("subhalo_alpha_sigma_half_width", "subhalo_gamma_ml_half_width"):
+    for name in ("subhalo_alpha_sigma_half_width", "subhalo_beta_radius_half_width"):
         value = float(getattr(config, name))
         if not math.isfinite(value) or value < 0.0:
             raise ValueError(f"{name} must be finite and nonnegative.")
-    for name in ("sampled_subhalo_alpha_sigma", "sampled_subhalo_gamma_ml"):
+    for name in ("sampled_subhalo_alpha_sigma", "sampled_subhalo_beta_radius"):
         value = getattr(config, name)
         if value is not None and not math.isfinite(float(value)):
             raise ValueError(f"{name} must be finite when set.")
-    alpha_min = float(config.subhalo_alpha_sigma) - float(config.subhalo_alpha_sigma_half_width)
-    alpha_max = float(config.subhalo_alpha_sigma) + float(config.subhalo_alpha_sigma_half_width)
-    gamma_min = float(config.subhalo_gamma_ml) - float(config.subhalo_gamma_ml_half_width)
-    beta_min = 1.0 + gamma_min - 2.0 * alpha_max
-    if not np.isfinite(beta_min) or beta_min <= 0.0:
-        raise ValueError("Configured subhalo alpha/gamma windows can produce nonpositive beta_radius.")
+    beta_min = float(config.subhalo_beta_radius) - float(config.subhalo_beta_radius_half_width)
+    if not np.isfinite(beta_min) or beta_min < 0.0:
+        raise ValueError("Configured subhalo beta_radius window can produce negative beta_radius.")
     _subhalo_beta_radius_from_config(config)
     redshift_candidates = (
         float(config.source_redshift),
@@ -707,38 +704,36 @@ def _realize_potfile_scaling(config: SingleBCGMockConfig, rng: np.random.Generat
 
 def _realize_potfile_exponents(config: SingleBCGMockConfig, rng: np.random.Generator) -> SingleBCGMockConfig:
     alpha_width = float(config.subhalo_alpha_sigma_half_width)
-    gamma_width = float(config.subhalo_gamma_ml_half_width)
-    if alpha_width <= 0.0 and gamma_width <= 0.0:
+    beta_width = float(config.subhalo_beta_radius_half_width)
+    if alpha_width <= 0.0 and beta_width <= 0.0:
         return replace(
             config,
             sampled_subhalo_alpha_sigma=float(config.subhalo_alpha_sigma),
-            sampled_subhalo_gamma_ml=float(config.subhalo_gamma_ml),
+            sampled_subhalo_beta_radius=float(config.subhalo_beta_radius),
         )
     alpha_sigma = (
         float(config.subhalo_alpha_sigma)
         if alpha_width <= 0.0
         else float(rng.uniform(float(config.subhalo_alpha_sigma) - alpha_width, float(config.subhalo_alpha_sigma) + alpha_width))
     )
-    gamma_ml = (
-        float(config.subhalo_gamma_ml)
-        if gamma_width <= 0.0
-        else float(rng.uniform(float(config.subhalo_gamma_ml) - gamma_width, float(config.subhalo_gamma_ml) + gamma_width))
+    beta_radius = (
+        float(config.subhalo_beta_radius)
+        if beta_width <= 0.0
+        else float(rng.uniform(float(config.subhalo_beta_radius) - beta_width, float(config.subhalo_beta_radius) + beta_width))
     )
     return replace(
         config,
         subhalo_alpha_sigma=alpha_sigma,
-        subhalo_gamma_ml=gamma_ml,
+        subhalo_beta_radius=beta_radius,
         sampled_subhalo_alpha_sigma=alpha_sigma,
-        sampled_subhalo_gamma_ml=gamma_ml,
+        sampled_subhalo_beta_radius=beta_radius,
     )
 
 
 def _subhalo_beta_radius_from_config(config: SingleBCGMockConfig) -> float:
-    alpha_sigma = float(config.subhalo_alpha_sigma)
-    gamma_ml = float(config.subhalo_gamma_ml)
-    beta_radius = 1.0 + gamma_ml - 2.0 * alpha_sigma
-    if not np.isfinite(beta_radius) or beta_radius <= 0.0:
-        raise ValueError("Derived subhalo beta_radius = 1 + gamma_ml - 2 * alpha_sigma must be positive and finite.")
+    beta_radius = float(config.subhalo_beta_radius)
+    if not np.isfinite(beta_radius) or beta_radius < 0.0:
+        raise ValueError("Subhalo beta_radius must be nonnegative and finite.")
     return float(beta_radius)
 
 
@@ -1220,12 +1215,12 @@ def _truth_parameter_values(config: SingleBCGMockConfig, kpc_per_arcsec: float) 
         truth["potfile.corekpc"] = float(config.subhalo_core_radius_arcsec) * float(kpc_per_arcsec)
         truth["potfile.cutkpc"] = float(config.subhalo_cut_radius_arcsec) * float(kpc_per_arcsec)
         truth["potfile.alpha_sigma"] = float(config.subhalo_alpha_sigma)
-        truth["potfile.gamma_ml"] = float(config.subhalo_gamma_ml)
+        truth["potfile.gamma_ml"] = 2.0 * float(config.subhalo_alpha_sigma) + _subhalo_beta_radius_from_config(config) - 1.0
         truth["potfile.beta_radius"] = _subhalo_beta_radius_from_config(config)
         if config.sampled_subhalo_alpha_sigma is not None:
             truth["potfile.sampled_alpha_sigma"] = float(config.sampled_subhalo_alpha_sigma)
-        if config.sampled_subhalo_gamma_ml is not None:
-            truth["potfile.sampled_gamma_ml"] = float(config.sampled_subhalo_gamma_ml)
+        if config.sampled_subhalo_beta_radius is not None:
+            truth["potfile.sampled_beta_radius"] = float(config.sampled_subhalo_beta_radius)
         if config.sampled_subhalo_dpie_mass_ref_msun is not None:
             truth["potfile.dpie_mass_ref_msun"] = float(config.sampled_subhalo_dpie_mass_ref_msun)
         if config.subhalo_sigma_scatter_dex > 0.0:
@@ -2780,8 +2775,8 @@ def _dpie_truth_from_config(raw: Any, default: DPIETruth) -> DPIETruth:
 def _caustic_config_from_truth(truth: dict[str, Any]) -> SingleBCGMockConfig:
     raw = truth.get("config", {})
     config = raw if isinstance(raw, dict) else {}
-    if "subhalo_beta_radius" in config:
-        raise ValueError("Legacy mock config field subhalo_beta_radius is unsupported; regenerate the mock with subhalo_gamma_ml.")
+    if any("gamma_ml" in key for key in config):
+        raise ValueError("Alpha/gamma mock configurations are unsupported; regenerate the mock with subhalo_beta_radius.")
     defaults = SingleBCGMockConfig()
     legacy_source_redshifts_raw = config.get("source_redshifts", defaults.primary_source_redshifts)
     primary_source_redshifts = _source_redshift_tuple_from_config(
@@ -2993,19 +2988,19 @@ def _caustic_config_from_truth(truth: dict[str, Any]) -> SingleBCGMockConfig:
         subhalo_alpha_sigma_half_width=float(
             config.get("subhalo_alpha_sigma_half_width", defaults.subhalo_alpha_sigma_half_width)
         ),
-        subhalo_gamma_ml=float(config.get("subhalo_gamma_ml", defaults.subhalo_gamma_ml)),
-        subhalo_gamma_ml_half_width=float(
-            config.get("subhalo_gamma_ml_half_width", defaults.subhalo_gamma_ml_half_width)
+        subhalo_beta_radius=float(config.get("subhalo_beta_radius", defaults.subhalo_beta_radius)),
+        subhalo_beta_radius_half_width=float(
+            config.get("subhalo_beta_radius_half_width", defaults.subhalo_beta_radius_half_width)
         ),
         sampled_subhalo_alpha_sigma=(
             None
             if config.get("sampled_subhalo_alpha_sigma") is None
             else float(config["sampled_subhalo_alpha_sigma"])
         ),
-        sampled_subhalo_gamma_ml=(
+        sampled_subhalo_beta_radius=(
             None
-            if config.get("sampled_subhalo_gamma_ml") is None
-            else float(config["sampled_subhalo_gamma_ml"])
+            if config.get("sampled_subhalo_beta_radius") is None
+            else float(config["sampled_subhalo_beta_radius"])
         ),
         source_magnitude_min=float(config.get("source_magnitude_min", defaults.source_magnitude_min)),
         source_magnitude_max=float(config.get("source_magnitude_max", defaults.source_magnitude_max)),

@@ -338,7 +338,7 @@ def test_family_page_groups_do_not_split_oversized_family() -> None:
 
 
 def test_stage_dir_defaults_resolve_under_tables(tmp_path: Path) -> None:
-    stage_dir = tmp_path / "stage4_linearized_image_plane"
+    stage_dir = tmp_path / "stage2_free_source_forward_fit"
     (stage_dir / "tables").mkdir(parents=True)
     args = plotter.parse_args([str(stage_dir)])
 
@@ -354,7 +354,7 @@ def test_stage_dir_defaults_resolve_under_tables(tmp_path: Path) -> None:
 
 
 def test_stage_dir_must_be_existing_directory(tmp_path: Path) -> None:
-    csv_path = tmp_path / "stage4" / "tables" / "image_recovery_extra_images.csv"
+    csv_path = tmp_path / "stage2" / "tables" / "image_recovery_extra_images.csv"
     csv_path.parent.mkdir(parents=True)
     csv_path.write_text("family_id,extra_image_index,x_model_arcsec,y_model_arcsec\n", encoding="utf-8")
 
@@ -363,7 +363,7 @@ def test_stage_dir_must_be_existing_directory(tmp_path: Path) -> None:
 
 
 def test_run_fails_fast_when_image_fit_quality_csv_is_missing(tmp_path: Path) -> None:
-    stage_dir = tmp_path / "stage4"
+    stage_dir = tmp_path / "stage2"
     stage_dir.mkdir()
 
     with pytest.raises(FileNotFoundError, match="Missing image-fit quality CSV"):
@@ -371,7 +371,7 @@ def test_run_fails_fast_when_image_fit_quality_csv_is_missing(tmp_path: Path) ->
 
 
 def test_run_fails_fast_when_extra_images_csv_is_missing(tmp_path: Path) -> None:
-    stage_dir = tmp_path / "stage4"
+    stage_dir = tmp_path / "stage2"
     _write_image_fit_quality_csv(stage_dir / "tables" / "image_fit_quality.csv")
 
     with pytest.raises(FileNotFoundError, match="Missing extra-images CSV"):
@@ -379,7 +379,7 @@ def test_run_fails_fast_when_extra_images_csv_is_missing(tmp_path: Path) -> None
 
 
 def test_run_writes_synthetic_pdf_and_match_csv(tmp_path: Path) -> None:
-    stage_dir = tmp_path / "stage4"
+    stage_dir = tmp_path / "stage2"
     _write_image_fit_quality_csv(stage_dir / "tables" / "image_fit_quality.csv")
     _write_extra_images_csv(stage_dir / "tables" / "image_recovery_extra_images.csv")
     par_path = _write_par(tmp_path / "a370_niemiec" / "a_sl_normal.par")

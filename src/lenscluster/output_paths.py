@@ -1,7 +1,7 @@
 """Versioned output locations shared by writers and saved-run readers.
 
-Stage directories always own inputs and checkpoints. In results-v1 only the
-configured final stage writes scientific products at the run root.
+Stage directories always own inputs, checkpoints, and figures. In results-v1
+the configured final stage writes tables and FITS products at the run root.
 """
 from __future__ import annotations
 
@@ -74,7 +74,7 @@ class OutputPaths:
 
     @property
     def figures(self) -> Path:
-        return self.products / "figures" if self.modern else self.stage
+        return self.stage / "figures" if self.modern else self.stage
 
     @property
     def figure_prefix(self) -> str | None:
@@ -126,7 +126,7 @@ def _fingerprints(config: dict[str, Any]) -> dict[str, Any]:
         elif isinstance(value, list):
             for index, child in enumerate(value):
                 visit(child, key, f"{location}[{index}]")
-        elif value and (key == "catalog_path" or key.endswith("_fits") or key == "corner_overlay_bayes_dat"):
+        elif value and (key in {"catalog_path", "metadata_path", "corner_overlay_bayes_dat"} or key.endswith("_fits")):
             path = Path(value)
             if path.is_file():
                 with path.open("rb") as handle:
@@ -136,11 +136,44 @@ def _fingerprints(config: dict[str, Any]) -> dict[str, Any]:
                 fingerprints[location] = {"missing": True}
 
     visit(config)
+    workflow = config.get("workflow", {})
+    if "smoothed-local-image-plane" in (
+        workflow.get("stage0_likelihood"), workflow.get("stage1_likelihood"), workflow.get("stage2_forward_mode")
+    ):
+        image_config = config.get("model", {}).get("image_constraints") or {}
+        if image_config.get("catalog_path"):
+            catalog = Path(image_config["catalog_path"])
+            sidecar = catalog.with_name(f"{catalog.stem}_band_magnitudes.csv")
+            # Record absence as well, so adding a sidecar invalidates the saved inputs.
+            if sidecar.is_file():
+                with sidecar.open("rb") as handle:
+                    fingerprints["model.image_constraints.band_magnitudes"] = {"sha256": hashlib.file_digest(handle, "sha256").hexdigest()}
+            else:
+                fingerprints["model.image_constraints.band_magnitudes"] = {"missing": True}
     return fingerprints
 
 
 def _identity(config: dict[str, Any]) -> dict[str, Any]:
     result = json.loads(json.dumps(config))
+    workflow = result.get("workflow", {})
+    from .sampling_engines import canonical_workflow_engines
+    workflow.update(canonical_workflow_engines(workflow))
+    for name in ("top_sampled", "top_exact"):
+        if result.get("member_tiers", {}).get(name) is None:
+            result.get("member_tiers", {}).pop(name, None)
+    if "smoothed-local-image-plane" not in (
+        workflow.get("stage0_likelihood"), workflow.get("stage1_likelihood"), workflow.get("stage2_forward_mode")
+    ):
+        # New opt-in likelihood settings must not invalidate legacy run manifests.
+        result.pop("member_tiers", None)
+        result.get("scaling", {}).pop("member_velocity_scatter_prior", None)
+        for name in ("source_scatter_prior", "source_position_prior_mean_arcsec", "source_position_prior_sigma_arcsec", "smoothed_likelihood_revision"):
+            result.get("likelihood", {}).pop(name, None)
+    image_constraints = result.get("model", {}).get("image_constraints") or {}
+    if image_constraints.get("metadata_path") is None:
+        image_constraints.pop("metadata_path", None)
+    if image_constraints.get("sigma_floor_arcsec", 0.0) == 0.0:
+        image_constraints.pop("sigma_floor_arcsec", None)
     result["figure_prefix"] = result.pop("paths", {}).get("figure_prefix")
     # Rendering and execution policy may change without invalidating samples.
     for section in ("image_catalog", "truth"):
@@ -151,7 +184,6 @@ def _identity(config: dict[str, Any]) -> dict[str, Any]:
                          if key in {"seed", "chains", "dense_mass"}}
     result["workflow"].pop("stage2_fresh_process", None)
     result["workflow"].pop("exact_image_diagnostics_stage2", None)
-    result["workflow"].pop("exact_image_diagnostics_stage3", None)
     return result
 
 
@@ -183,6 +215,7 @@ def prepare_output(plan: Any) -> None:
     path = root / "config.json"
     if path.exists():
         saved = json.loads(path.read_text(encoding="utf-8"))
+        saved["identity"] = _identity(saved["config"])
         changes = _differences(
             {key: saved.get(key) for key in ("layout_version", "identity", "input_fingerprints", "stages", "final_stage")},
             {key: payload[key] for key in ("layout_version", "identity", "input_fingerprints", "stages", "final_stage")},
@@ -202,7 +235,7 @@ def prepare_output(plan: Any) -> None:
         os.link(temporary, path)
     finally:
         temporary.unlink()
-    for directory in ("figures", "tables", "fits", "logs", *payload["stages"].values()):
+    for directory in ("tables", "fits", "logs", *payload["stages"].values()):
         (root / directory).mkdir(parents=True, exist_ok=True)
 
 

@@ -164,8 +164,8 @@ def test_source_configuration_defaults_and_rejection():
     assert resolve_source_plane_covariance_floor(None, 'source', 'full-jacobian') == 0.
     assert resolve_source_plane_covariance_floor(None, 'source') == 1e-6
     assert resolve_source_plane_covariance_floor(None, 'local-jacobian') == 1e-6
-    from test_validation import _minimal_stage4_surrogate_state
-    state = _minimal_stage4_surrogate_state()
+    from test_validation import _minimal_forward_surrogate_state
+    state = _minimal_forward_surrogate_state()
     with pytest.raises(ValueError, match='positive source-scatter'):
         cs.ClusterJAXEvaluator(state, .1, sample_likelihood_mode='source', source_plane_covariance_mode='full-jacobian')
     state.parameter_specs.append(cs._build_source_scatter_parameter_spec(len(state.parameter_specs)))
@@ -346,9 +346,9 @@ def test_complete_evaluator_differentiates_lens_parameter(engine):
 
 @pytest.mark.parametrize("mode", ["magnification", "unit"])
 def test_legacy_modes_accept_original_configuration(mode):
-    from test_validation import _minimal_stage4_surrogate_state
+    from test_validation import _minimal_forward_surrogate_state
     evaluator = cs.ClusterJAXEvaluator(
-        _minimal_stage4_surrogate_state(), .1, sample_likelihood_mode="source",
+        _minimal_forward_surrogate_state(), .1, sample_likelihood_mode="source",
         source_plane_covariance_mode=mode, likelihood_stabilizer_max_gain=50.)
     assert evaluator.source_plane_covariance_floor == 1e-6
     assert not evaluator._full_source_covariance_enabled()

@@ -633,8 +633,19 @@ def parameter_recovery_table(
         raise ValueError("parameter_names length must match sample columns.")
     best_array = None if best_fit is None else np.asarray(best_fit, dtype=float)
     rows: list[dict[str, Any]] = []
-    for index, name in enumerate(parameter_names):
-        values = sample_array[:, index]
+    columns = [(name, sample_array[:, index], np.nan if best_array is None else float(best_array[index]))
+               for index, name in enumerate(parameter_names)]
+    indices = {name: index for index, name in enumerate(parameter_names)}
+    for name, beta_index in indices.items():
+        if not name.endswith(".beta_radius"):
+            continue
+        prefix = name.removesuffix(".beta_radius")
+        alpha_index = indices.get(prefix + ".alpha_sigma")
+        if alpha_index is not None:
+            gamma = 2.0 * sample_array[:, alpha_index] + sample_array[:, beta_index] - 1.0
+            gamma_best = np.nan if best_array is None else float(2.0 * best_array[alpha_index] + best_array[beta_index] - 1.0)
+            columns.append((prefix + ".gamma_ml", gamma, gamma_best))
+    for name, values, best_value in columns:
         finite = values[np.isfinite(values)]
         truth_value = truth.get(name)
         if finite.size:
@@ -654,7 +665,7 @@ def parameter_recovery_table(
             {
                 "parameter": name,
                 "truth": np.nan if truth_value is None else float(truth_value),
-                "best_fit": np.nan if best_array is None else float(best_array[index]),
+                "best_fit": best_value,
                 "q16": float(q16),
                 "median": float(median),
                 "q84": float(q84),
@@ -4723,12 +4734,11 @@ def _recovered_subhalo_mass_table(state: Any, best_fit: np.ndarray, truth: dict[
         getattr(packed, "alpha_sigma_param_index", np.full(component_family.size, -1, dtype=int)),
         best_fit_values,
     )
-    gamma_ml = _updated_component_values(
-        getattr(packed, "gamma_ml_base", np.full(component_family.size, 0.2, dtype=float)),
-        getattr(packed, "gamma_ml_param_index", np.full(component_family.size, -1, dtype=int)),
+    beta_radius = _updated_component_values(
+        getattr(packed, "beta_radius_base", np.full(component_family.size, 0.5, dtype=float)),
+        getattr(packed, "beta_radius_param_index", np.full(component_family.size, -1, dtype=int)),
         best_fit_values,
     )
-    beta_radius = 1.0 + gamma_ml - 2.0 * alpha_sigma
     rows: list[dict[str, Any]] = []
     for component_index in scaling_indices:
         if component_index >= luminosity_ratio.size:

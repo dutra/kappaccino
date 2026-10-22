@@ -10,11 +10,16 @@ import math
 MODE = "isotropic-latent-displacement"
 
 
+def validate_prior(log_sigma):
+    if not math.isfinite(float(log_sigma)) or float(log_sigma) <= 0:
+        raise ValueError("sigma_beta prior log sigma must be finite and positive.")
+
+
 def validate_settings(sigma_beta, engine, source_parameterization):
     if sigma_beta is None or not math.isfinite(float(sigma_beta)) or float(sigma_beta) <= 0:
         raise ValueError("latent_displacement_sigma_beta_arcsec must be explicitly set, finite and positive.")
-    if engine != "full_flat":
-        raise ValueError("isotropic-latent-displacement requires full_flat.")
+    if engine not in {"full_flat", "refreshing_surrogate_flat"}:
+        raise ValueError("isotropic-latent-displacement requires full_flat or refreshing_surrogate_flat.")
     if source_parameterization not in {"direct", "prior-whitened"}:
         raise ValueError("isotropic-latent-displacement supports direct or prior-whitened sources only.")
 

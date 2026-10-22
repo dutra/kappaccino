@@ -901,7 +901,7 @@ def _scaling_results_summary_table(
             row[f"{prefix}_map"] = float(map_value) if np.isfinite(float(map_value)) else float("nan")
 
     rows: list[dict[str, Any]] = []
-    mode = str(scaling_relation_mode or "direct-exponents")
+    mode = str(scaling_relation_mode or "velocity-radius-exponents")
     for potfile_id in sorted(specs_by_potfile):
         field_index = specs_by_potfile[potfile_id]
         sigma = _values(field_index.get("sigma"))
@@ -928,12 +928,12 @@ def _scaling_results_summary_table(
             _add_summary(row, "log10_m_star_msun", None, float("nan"))
 
         alpha_sigma = _values(field_index.get("alpha_sigma"))
-        gamma_ml = _values(field_index.get("gamma_ml"))
-        if alpha_sigma is not None and gamma_ml is not None:
+        beta_radius = _values(field_index.get("beta_radius"))
+        if alpha_sigma is not None and beta_radius is not None:
             alpha_map = _map(field_index.get("alpha_sigma"))
-            gamma_map = _map(field_index.get("gamma_ml"))
-            beta_radius = 1.0 + gamma_ml - 2.0 * alpha_sigma
-            beta_map = 1.0 + gamma_map - 2.0 * alpha_map
+            beta_map = _map(field_index.get("beta_radius"))
+            gamma_ml = 2.0 * alpha_sigma + beta_radius - 1.0
+            gamma_map = 2.0 * alpha_map + beta_map - 1.0
             _add_summary(row, "alpha_sigma", alpha_sigma, alpha_map)
             _add_summary(row, "beta_radius", beta_radius, beta_map)
             _add_summary(row, "gamma_ml", gamma_ml, gamma_map)
@@ -2238,8 +2238,8 @@ def _independent_scaling_diagnostics_table(
     alpha_sigma_base = _component_array_from_packed(
         packed_lens_spec, "alpha_sigma_base", n_components, dtype=float, fill_value=0.25
     )
-    gamma_ml_base = _component_array_from_packed(
-        packed_lens_spec, "gamma_ml_base", n_components, dtype=float, fill_value=0.2
+    beta_radius_base = _component_array_from_packed(
+        packed_lens_spec, "beta_radius_base", n_components, dtype=float, fill_value=0.5
     )
     sigma_ref_indices = _component_array_from_packed(
         packed_lens_spec, "sigma_ref_param_index", n_components, dtype=np.int32, fill_value=-1
@@ -2253,8 +2253,8 @@ def _independent_scaling_diagnostics_table(
     alpha_sigma_indices = _component_array_from_packed(
         packed_lens_spec, "alpha_sigma_param_index", n_components, dtype=np.int32, fill_value=-1
     )
-    gamma_ml_indices = _component_array_from_packed(
-        packed_lens_spec, "gamma_ml_param_index", n_components, dtype=np.int32, fill_value=-1
+    beta_radius_indices = _component_array_from_packed(
+        packed_lens_spec, "beta_radius_param_index", n_components, dtype=np.int32, fill_value=-1
     )
     v_disp_base = _component_array_from_packed(packed_lens_spec, "v_disp_base", n_components, dtype=float, fill_value=0.0)
     core_base = _component_array_from_packed(packed_lens_spec, "core_radius_kpc_base", n_components, dtype=float, fill_value=0.0)
@@ -2299,11 +2299,9 @@ def _independent_scaling_diagnostics_table(
 
     def _effective_exponents(component_index: int) -> tuple[np.ndarray, np.ndarray, float, float]:
         alpha_values = _values(alpha_sigma_base, alpha_sigma_indices, component_index)
-        gamma_values = _values(gamma_ml_base, gamma_ml_indices, component_index)
+        beta_values = _values(beta_radius_base, beta_radius_indices, component_index)
         alpha_map = _map_value(alpha_sigma_base, alpha_sigma_indices, component_index)
-        gamma_map = _map_value(gamma_ml_base, gamma_ml_indices, component_index)
-        beta_values = 1.0 + gamma_values - 2.0 * alpha_values
-        beta_map = 1.0 + gamma_map - 2.0 * alpha_map
+        beta_map = _map_value(beta_radius_base, beta_radius_indices, component_index)
         return alpha_values, beta_values, alpha_map, beta_map
 
     rows: list[dict[str, Any]] = []
@@ -2876,8 +2874,8 @@ def _scaling_relation_summary_table(
     alpha_sigma_base = _component_array_from_packed(
         packed_lens_spec, "alpha_sigma_base", n_components, dtype=float, fill_value=0.25
     )
-    gamma_ml_base = _component_array_from_packed(
-        packed_lens_spec, "gamma_ml_base", n_components, dtype=float, fill_value=0.2
+    beta_radius_base = _component_array_from_packed(
+        packed_lens_spec, "beta_radius_base", n_components, dtype=float, fill_value=0.5
     )
     sigma_ref_indices = _component_array_from_packed(
         packed_lens_spec, "sigma_ref_param_index", n_components, dtype=np.int32, fill_value=-1
@@ -2891,8 +2889,8 @@ def _scaling_relation_summary_table(
     alpha_sigma_indices = _component_array_from_packed(
         packed_lens_spec, "alpha_sigma_param_index", n_components, dtype=np.int32, fill_value=-1
     )
-    gamma_ml_indices = _component_array_from_packed(
-        packed_lens_spec, "gamma_ml_param_index", n_components, dtype=np.int32, fill_value=-1
+    beta_radius_indices = _component_array_from_packed(
+        packed_lens_spec, "beta_radius_param_index", n_components, dtype=np.int32, fill_value=-1
     )
     weights = _normalized_weights(sample_weights, sample_array.shape[0])
     log_softening_index = next(
@@ -2941,11 +2939,9 @@ def _scaling_relation_summary_table(
 
     def _effective_exponents(component_index: int) -> tuple[np.ndarray, np.ndarray, float, float]:
         alpha_values = _values(alpha_sigma_base, alpha_sigma_indices, component_index)
-        gamma_values = _values(gamma_ml_base, gamma_ml_indices, component_index)
+        beta_values = _values(beta_radius_base, beta_radius_indices, component_index)
         alpha_best = _best_value(alpha_sigma_base, alpha_sigma_indices, component_index)
-        gamma_best = _best_value(gamma_ml_base, gamma_ml_indices, component_index)
-        beta_values = 1.0 + gamma_values - 2.0 * alpha_values
-        beta_best = 1.0 + gamma_best - 2.0 * alpha_best
+        beta_best = _best_value(beta_radius_base, beta_radius_indices, component_index)
         return alpha_values, beta_values, alpha_best, beta_best
 
     rows: list[dict[str, Any]] = []
@@ -2960,8 +2956,8 @@ def _scaling_relation_summary_table(
         cut_ref = _values(cut_ref_base, cut_ref_indices, component_index)
         core_ref = _values(core_ref_base, core_ref_indices, component_index)
         alpha_sigma, beta_radius, alpha_sigma_best, beta_radius_best = _effective_exponents(component_index)
-        gamma_values = _values(gamma_ml_base, gamma_ml_indices, component_index)
-        gamma_best = _best_value(gamma_ml_base, gamma_ml_indices, component_index)
+        gamma_values = 2.0 * alpha_sigma + beta_radius - 1.0
+        gamma_best = 2.0 * alpha_sigma_best + beta_radius_best - 1.0
         lum = float(luminosity_ratio[component_index])
         size_luminosity_scale = np.power(lum, beta_radius)
         scaling_v_disp = sigma_ref * np.power(lum, alpha_sigma)
@@ -4043,6 +4039,10 @@ def _run_summary(
             sum(spec.component_family == "independent_scaling" for spec in state.parameter_specs)
         ),
         "n_source_scatter_parameters": int(sum(spec.component_family == "source_scatter" for spec in state.parameter_specs)),
+        "n_latent_displacement_parameters": int(sum(spec.component_family == "latent_displacement" for spec in state.parameter_specs)),
+        "sample_latent_displacement_sigma_beta": any(spec.sample_name == "source_sigma_beta" for spec in state.parameter_specs),
+        "latent_displacement_sigma_beta_prior_log_sigma": next(
+            (spec.std for spec in state.parameter_specs if spec.sample_name == "source_sigma_beta"), None),
         "n_source_position_parameters": int(sum(spec.component_family == "source_position" for spec in state.parameter_specs)),
         "n_image_scatter_parameters": int(sum(spec.component_family == "image_scatter" for spec in state.parameter_specs)),
         "n_cosmology_parameters": int(sum(spec.component_family == "cosmology" for spec in state.parameter_specs)),
@@ -4062,7 +4062,6 @@ def _run_summary(
             getattr(evaluator, "local_jacobian_metric_mode", init_diagnostics.get("local_jacobian_metric", "not_used"))
         ),
         "image_plane_mode": str(getattr(args, "image_plane_mode", "none")),
-        "skip_stage3_image_plane_local_jacobian": bool(getattr(args, "skip_stage3_image_plane_local_jacobian", False)),
         "quick_diagnostics": bool(getattr(args, "quick_diagnostics", False)),
         "image_plane_newton_steps": int(getattr(args, "image_plane_newton_steps", 0)),
         "image_plane_scatter_floor_arcsec": float(getattr(args, "image_plane_scatter_floor_arcsec", 0.0)),
@@ -4122,13 +4121,8 @@ def _run_summary(
         "active_scaling_components": int(len(evaluator.active_scaling_component_indices)),
         "inactive_scaling_components": int(len(evaluator.inactive_scaling_component_indices)),
         "independent_scaling_model": "log_displacement",
-        "scaling_relation_mode": str(getattr(state, "scaling_relation_mode", getattr(args, "scaling_relation_mode", "lenstool-denominator"))),
-        "core_radius_scaling": (
-            "shared_beta_radius"
-            if str(getattr(state, "scaling_relation_mode", getattr(args, "scaling_relation_mode", "lenstool-denominator")))
-            == "bergamini-ml"
-            else "shared_cut_slope"
-        ),
+        "scaling_relation_mode": str(getattr(state, "scaling_relation_mode", getattr(args, "scaling_relation_mode", "velocity-radius-exponents"))),
+        "core_radius_scaling": "shared_beta_radius",
         "infer_active_scaling": bool(init_diagnostics.get("infer_active_scaling", getattr(state, "infer_active_scaling", False))),
         "active_scaling_frozen_from_svi": bool(
             init_diagnostics.get("infer_active_scaling", False)
@@ -7893,105 +7887,64 @@ def _plot_image_residual_histogram(
         )
         return
 
-    fig, ax = plt.subplots(figsize=(7.4, 4.9))
+    from matplotlib.ticker import MaxNLocator
+
+    fig, ax = plt.subplots(figsize=(6.4, 4.8))
     bin_count = min(48, max(14, int(np.sqrt(max(1, finite_for_bins.size)) * 2.4)))
     max_residual = float(np.nanmax(finite_for_bins))
     bins = np.linspace(0.0, max(max_residual * 1.04, 1.0e-6), bin_count + 1)
-    point_color = "#4da3ff"
+    point_color = "#3976a8"
     arc_color = _image_catalog_status_color("ARC_RECOVERED")
-
-    def rms(values: np.ndarray) -> float:
-        return float(np.sqrt(np.mean(np.square(values)))) if values.size else np.nan
-
-    def median(values: np.ndarray) -> float:
-        return float(np.median(values)) if values.size else np.nan
-
-    point_rms = rms(point_residual)
-    point_median = median(point_residual)
-    arc_aware_rms = rms(arc_aware_residual)
-    arc_aware_median = median(arc_aware_residual)
-    total_count = int(len(image_df))
+    total_count = len(image_df)
 
     if point_residual.size:
         ax.hist(
-            point_residual,
-            bins=bins,
-            color=point_color,
-            alpha=0.5,
-            edgecolor="#1d4ed8",
-            linewidth=0.85,
-            label=(
-                f"point recovery  {point_residual.size}/{total_count}  "
-                f"RMS={point_rms:.3g}\"  median={point_median:.3g}\""
-            ),
+            point_residual, bins=bins, color=point_color, alpha=0.45,
+            edgecolor="white", linewidth=0.7,
+            label="Point recovery" if use_arc_aware_diagnostics else None,
             zorder=2,
         )
-        ax.axvline(point_rms, color=point_color, linestyle="-", linewidth=1.35, alpha=0.9)
+        point_rms = float(np.sqrt(np.mean(np.square(point_residual))))
+        point_median = float(np.median(point_residual))
+        prefix = "Point " if use_arc_aware_diagnostics else ""
+        ax.axvline(
+            point_rms, color="#ba5a2a", linestyle="--", linewidth=1.8,
+            label=f"{prefix}RMS = {point_rms:.3f}″", zorder=4,
+        )
+        ax.axvline(
+            point_median, color="#303030", linestyle=":", linewidth=1.8,
+            label=f"{prefix}median = {point_median:.3f}″", zorder=4,
+        )
     if use_arc_aware_diagnostics and arc_aware_residual.size:
         ax.hist(
-            arc_aware_residual,
-            bins=bins,
-            histtype="step",
-            color=arc_color,
-            linewidth=2.0,
-            label=(
-                f"arc-aware  {arc_aware_residual.size}/{total_count}  "
-                f"RMS={arc_aware_rms:.3g}\"  median={arc_aware_median:.3g}\""
-            ),
-            zorder=4,
+            arc_aware_residual, bins=bins, histtype="step", color=arc_color,
+            linewidth=1.8, label="Arc-aware recovery", zorder=3,
         )
-        ax.axvline(arc_aware_rms, color="#b7791f", linestyle="-", linewidth=1.45, alpha=0.95)
-    missed_count = int(np.sum(status == "MISSED"))
-    arc_supported_count = int(np.sum(arc_mask))
-    annotation_lines = [
-        "Image residuals",
-        f"point: RMS {point_rms:.3g}\"  median {point_median:.3g}\"  ({point_residual.size}/{total_count})"
-        if point_residual.size
-        else f"point: na  (0/{total_count})",
-    ]
+        arc_rms = float(np.sqrt(np.mean(np.square(arc_aware_residual))))
+        ax.axvline(
+            arc_rms, color=arc_color, linestyle="--", linewidth=1.8,
+            label=f"Arc-aware RMS = {arc_rms:.3f}″", zorder=4,
+        )
+
+    count_text = f"Recovered: {point_residual.size}/{total_count}"
     if use_arc_aware_diagnostics:
-        annotation_lines.extend(
-            [
-                (
-                    f"arc-aware: RMS {arc_aware_rms:.3g}\"  median {arc_aware_median:.3g}\"  "
-                    f"({arc_aware_residual.size}/{total_count})"
-                )
-                if arc_aware_residual.size
-                else f"arc-aware: na  (0/{total_count})",
-                f"arc-supported: {arc_supported_count}/{total_count}",
-            ]
-        )
-    annotation_lines.append(f"missed: {missed_count}/{total_count}")
-    rms_annotation = "\n".join(annotation_lines)
-    ax.text(
-        0.98,
-        0.95,
-        rms_annotation,
-        transform=ax.transAxes,
-        ha="right",
-        va="top",
-        fontsize=8,
-        bbox={
-            "boxstyle": "round,pad=0.3",
-            "facecolor": "white",
-            "edgecolor": "0.6",
-            "alpha": 0.88,
-        },
-    )
-    ax.set_xlabel("image residual (arcsec)")
-    ax.set_ylabel("N images")
-    ax.set_title(
-        "Image Residuals: Point and Arc-Aware Recovery"
-        if use_arc_aware_diagnostics
-        else "Image Residuals: Point Recovery"
-    )
-    ax.grid(axis="y", alpha=0.22, linewidth=0.8)
-    ax.grid(axis="x", alpha=0.10, linewidth=0.7)
-    for spine in ("top", "right"):
-        ax.spines[spine].set_visible(False)
-    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.15), ncol=1, fontsize=8.5, frameon=False)
+        count_text = (f"Point: {point_residual.size}/{total_count}\n"
+                      f"Arc-aware: {arc_aware_residual.size}/{total_count}")
+    missed_count = int(np.sum(status == "MISSED"))
+    if missed_count:
+        count_text += f"\nMissed: {missed_count}"
+    ax.text(0.97, 0.97, count_text, transform=ax.transAxes,
+            ha="right", va="top", fontsize=14)
+    ax.legend(loc="upper right", bbox_to_anchor=(0.99, 0.85 if not use_arc_aware_diagnostics else 0.77),
+              fontsize=14 if not use_arc_aware_diagnostics else 12, frameon=False)
+    ax.set_xlabel("Image-position residual (arcsec)")
+    ax.set_ylabel("Number of images")
+    ax.set_xlim(0.0, bins[-1])
+    ax.set_ylim(bottom=0.0)
+    ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.grid(False, which="both")
     fig.tight_layout()
-    _finish_figure(fig, path, dpi=180, bbox_inches="tight")
+    _finish_figure(fig, path, dpi=300, bbox_inches="tight")
 
 
 def _finite_plot_values(values: np.ndarray) -> np.ndarray:
@@ -9664,12 +9617,24 @@ def _posterior_truth_grid_quantiles(
     progress: Any | None = None,
     truth_grid_metadata: dict[str, Any] | None = None,
     draw_seed: int | None = None,
+    best_fit: np.ndarray | None = None,
 ) -> tuple[dict[str, dict[str, np.ndarray]], np.ndarray, np.ndarray]:
     requested_quantities = tuple(dict.fromkeys(str(quantity) for quantity in quantities))
     truth_grid_mode = str(truth_grid_mode)
     if truth_grid_mode not in {TRUTH_GRID_MODE_MEDIAN, TRUTH_GRID_MODE_POSTERIOR}:
         raise ValueError(f"Unsupported truth-grid mode: {truth_grid_mode!r}")
-    effective_max_draws = max_draws if truth_grid_mode == TRUTH_GRID_MODE_POSTERIOR else 1
+    best_fit_only = max_draws is not None and int(max_draws) == 0
+    if max_draws is not None and int(max_draws) < 0:
+        raise ValueError("posterior_truth_recovery_draws must be nonnegative or None.")
+    if best_fit_only:
+        if best_fit is None:
+            raise ValueError("Zero truth-recovery draws require the selected best_fit vector.")
+        best_fit = np.asarray(best_fit, dtype=float)
+        if best_fit.ndim != 1 or best_fit.size == 0 or not np.isfinite(best_fit).all():
+            raise ValueError("Truth recovery requires a finite best_fit vector.")
+        truth_grid_mode = "best_fit"
+    posterior_spread = truth_grid_mode == TRUTH_GRID_MODE_POSTERIOR
+    effective_max_draws = 0 if best_fit_only else (max_draws if posterior_spread else 1)
     draw_seed_int = _truth_grid_draw_seed(draw_seed)
     cache_key = _truth_grid_cache_key(
         source_truth_fits,
@@ -9679,6 +9644,8 @@ def _posterior_truth_grid_quantiles(
         truth_grid_mode,
         draw_seed_int,
     )
+    if best_fit_only:
+        cache_key = (*cache_key, tuple(best_fit))
     if cache is not None and cache_key in cache:
         cached = cache[cache_key]
         cached_quantiles = cached.get("quantiles", {})
@@ -9706,7 +9673,10 @@ def _posterior_truth_grid_quantiles(
         )
     draw_indices = _empty_truth_grid_draw_indices()
     draw_selection_mode = "single_median_realization"
-    if truth_grid_mode == TRUTH_GRID_MODE_POSTERIOR:
+    if best_fit_only:
+        samples = best_fit[None, :]
+        draw_selection_mode = "single_best_fit_realization"
+    elif truth_grid_mode == TRUTH_GRID_MODE_POSTERIOR:
         samples, draw_indices, draw_selection_mode = _select_truth_grid_posterior_samples(
             results,
             max_draws=max_draws,
@@ -9759,7 +9729,7 @@ def _posterior_truth_grid_quantiles(
     quantiles: dict[str, dict[str, np.ndarray]] = {
         quantity: {
             suffix: np.full(total_pixels, np.nan, dtype=np.float64)
-            for suffix in (("median",) if truth_grid_mode == TRUTH_GRID_MODE_MEDIAN else TRUTH_GRID_QUANTILE_SUFFIXES)
+            for suffix in (("median",) if not posterior_spread else TRUTH_GRID_QUANTILE_SUFFIXES)
         }
         for quantity in requested_quantities
     }
@@ -9846,7 +9816,7 @@ def _posterior_truth_grid_quantiles(
                     aperture_profile_draw_sums[draw_index, radius_index] = float(np.nansum(draw_kappa[in_aperture]))
 
     for quantity, values in full_grid_values.items():
-        if truth_grid_mode == TRUTH_GRID_MODE_MEDIAN:
+        if not posterior_spread:
             quantiles[quantity]["median"] = np.asarray(values[0], dtype=np.float64)
         else:
             q16, q50, q84 = np.nanpercentile(
@@ -9865,7 +9835,7 @@ def _posterior_truth_grid_quantiles(
         }
         for quantity, quantity_quantiles in quantiles.items()
     }
-    output_suffixes = ("median",) if truth_grid_mode == TRUTH_GRID_MODE_MEDIAN else TRUTH_GRID_QUANTILE_SUFFIXES
+    output_suffixes = ("median",) if not posterior_spread else TRUTH_GRID_QUANTILE_SUFFIXES
     _write_truth_grid_quantile_fits(plot_dir, truth_wcs, shaped_quantiles, suffixes=output_suffixes)
     summary_rows: list[dict[str, Any]] = []
     for quantity, quantity_quantiles in shaped_quantiles.items():
@@ -10778,58 +10748,46 @@ def _plot_kappa_model_truth_fractional_residual_from_grid(
             np.asarray(model_kappa, dtype=float)[valid_residual] - np.asarray(kappa_true, dtype=float)[valid_residual]
         ) / np.asarray(kappa_true, dtype=float)[valid_residual]
 
-    panels = [
-        (
-            np.asarray(model_kappa, dtype=float),
-            r"$\kappa_{\rm model}$",
-            "magma",
-            {"vmin": 0.0, "vmax": 3.0},
-        ),
-        (
-            np.asarray(kappa_true, dtype=float),
-            r"$\kappa_{\rm true}$",
-            "magma",
-            {"vmin": 0.0, "vmax": 3.0},
-        ),
-        (
-            np.asarray(fractional_residual, dtype=float),
-            r"$(\kappa_{\rm model} - \kappa_{\rm true}) / \kappa_{\rm true}$",
-            _shifted_diverging_colormap("RdBu_r", 1.0 / 3.0),
-            {"norm": Normalize(vmin=-1.0, vmax=2.0, clip=True)},
-        ),
-    ]
-    fig, axes = plt.subplots(1, 3, figsize=(14.4, 4.8), sharey=True)
-    if hasattr(fig, "subplots_adjust"):
-        fig.subplots_adjust(top=0.82, wspace=0.08)
-    panel_images: list[tuple[Any, Any, str]] = []
-    for panel_index, (ax, (image_data, colorbar_label, cmap, kwargs)) in enumerate(
-        zip(np.ravel(axes), panels, strict=True)
-    ):
-        image = _plot_truth_recovery_spatial_map(
-            ax,
-            x_arcsec,
-            y_arcsec,
-            image_data,
-            cmap=cmap,
-            **kwargs,
-        )
-        panel_images.append((image, ax, colorbar_label))
+    # Keep the established physical ranges and the neutral colour at zero.
+    kappa_norm = Normalize(vmin=0.0, vmax=3.0)
+    residual_norm = Normalize(vmin=-1.0, vmax=2.0, clip=True)
+    residual_cmap = _shifted_diverging_colormap("RdBu_r", 1.0 / 3.0)
+    fig, axes = plt.subplots(1, 3, figsize=(13.2, 6.1), sharex=True, sharey=True)
+    fig.subplots_adjust(left=0.07, right=0.99, bottom=0.16, top=0.80, wspace=0.07)
+    panels = (
+        (model_kappa, "magma", kappa_norm),
+        (kappa_true, "magma", kappa_norm),
+        (fractional_residual, residual_cmap, residual_norm),
+    )
+    images = []
+    for index, (ax, (values, cmap, norm)) in enumerate(zip(axes, panels, strict=True)):
+        images.append(_plot_truth_recovery_spatial_map(
+            ax, x_arcsec, y_arcsec, np.asarray(values, dtype=float), cmap=cmap, norm=norm,
+        ))
         ax.set_xlabel("x (arcsec)")
-        if panel_index == 0:
+        if index == 0:
             ax.set_ylabel("y (arcsec)")
-    canvas = getattr(fig, "canvas", None)
-    if canvas is not None and hasattr(canvas, "draw"):
-        canvas.draw()
-    for image, ax, colorbar_label in panel_images:
-        bbox = ax.get_position()
-        cax = fig.add_axes([float(bbox.x0), float(bbox.y1) + 0.018, float(bbox.width), 0.026])
-        colorbar = fig.colorbar(image, cax=cax, orientation="horizontal")
-        colorbar.set_label(colorbar_label)
-        colorbar_axis = getattr(colorbar, "ax", None)
-        if colorbar_axis is not None:
-            colorbar_axis.xaxis.set_label_position("top")
-            colorbar_axis.xaxis.set_ticks_position("top")
-    _finish_figure(fig, _plot_path(plot_dir, output_name), dpi=180, bbox_inches="tight")
+        ax.grid(False, which="both")
+        ax.tick_params(which="both", direction="out", top=False, right=False)
+        if index < 2:
+            ax.text(0.045, 0.95, ("Model", "Truth")[index], transform=ax.transAxes,
+                    ha="left", va="top", color="white", fontsize=16)
+
+    fig.canvas.draw()
+    first, second, third = (ax.get_position() for ax in axes)
+    # One scale for the two convergence maps makes their comparison explicit.
+    kappa_cax = fig.add_axes([first.x0, first.y1 + 0.035, second.x1 - first.x0, 0.028])
+    residual_cax = fig.add_axes([third.x0, third.y1 + 0.035, third.width, 0.028])
+    kappa_cb = fig.colorbar(images[0], cax=kappa_cax, orientation="horizontal", ticks=[0, 1, 2, 3], extend="max")
+    residual_cb = fig.colorbar(images[2], cax=residual_cax, orientation="horizontal", ticks=[-1, 0, 1, 2], extend="both")
+    kappa_cb.set_label(r"$\kappa$", labelpad=6)
+    residual_cb.set_label(r"$\Delta\kappa/\kappa_{\rm true}$", labelpad=6)
+    for colorbar in (kappa_cb, residual_cb):
+        colorbar.ax.xaxis.set_label_position("top")
+        colorbar.ax.xaxis.set_ticks_position("top")
+        colorbar.ax.minorticks_off()
+        colorbar.ax.tick_params(which="major", direction="out", length=4, width=1.2)
+    _finish_figure(fig, _plot_path(plot_dir, output_name), dpi=300, bbox_inches="tight")
 
 
 def _finite_aware_gaussian_smooth(values: np.ndarray, sigma_pix: float) -> np.ndarray:
@@ -11008,21 +10966,25 @@ def _plot_truth_recovery_m2d_aperture_ratio(
     center: dict[str, Any],
     *,
     image_radii_arcsec: np.ndarray | Sequence[float] | None = None,
+    mass_per_kappa_pixel_msun: float | None = None,
 ) -> None:
     if profile_df.empty:
         return
+    mass_scale = 1.0 if mass_per_kappa_pixel_msun is None else float(mass_per_kappa_pixel_msun)
+    if not np.isfinite(mass_scale) or mass_scale <= 0:
+        raise ValueError("Mass conversion must be finite and positive")
     output_path = _plot_path(plot_dir, "truth_recovery_m2d_aperture_ratio.pdf")
     output_path.parent.mkdir(parents=True, exist_ok=True)
     fig, (ax, ax_resid) = plt.subplots(
         2,
         1,
-        figsize=(6.3, 5.4),
+        figsize=(3.5, 3.7),
         sharex=True,
-        gridspec_kw={"height_ratios": [3, 1], "hspace": 0.08},
+        gridspec_kw={"height_ratios": [2.2, 1], "hspace": 0.06},
     )
     radius = pd.to_numeric(profile_df["radius_arcsec"], errors="coerce").to_numpy(dtype=float)
-    truth_m2d = pd.to_numeric(profile_df["kappa_true_sum"], errors="coerce").to_numpy(dtype=float)
-    model_m2d = pd.to_numeric(profile_df["kappa_model_sum"], errors="coerce").to_numpy(dtype=float)
+    truth_m2d = pd.to_numeric(profile_df["kappa_true_sum"], errors="coerce").to_numpy(dtype=float) * mass_scale
+    model_m2d = pd.to_numeric(profile_df["kappa_model_sum"], errors="coerce").to_numpy(dtype=float) * mass_scale
     ratio_column = "m2d_ratio_median" if "m2d_ratio_median" in profile_df else "m2d_ratio"
     ratio = pd.to_numeric(profile_df[ratio_column], errors="coerce").to_numpy(dtype=float)
     positive_radius = np.isfinite(radius) & (radius > 0.0)
@@ -11032,8 +10994,8 @@ def _plot_truth_recovery_m2d_aperture_ratio(
     if np.any(finite_truth) or np.any(finite_model):
         if np.any(finite_model):
             if {"kappa_model_sum_q16", "kappa_model_sum_q84"}.issubset(profile_df.columns):
-                model_q16 = pd.to_numeric(profile_df["kappa_model_sum_q16"], errors="coerce").to_numpy(dtype=float)
-                model_q84 = pd.to_numeric(profile_df["kappa_model_sum_q84"], errors="coerce").to_numpy(dtype=float)
+                model_q16 = pd.to_numeric(profile_df["kappa_model_sum_q16"], errors="coerce").to_numpy(dtype=float) * mass_scale
+                model_q84 = pd.to_numeric(profile_df["kappa_model_sum_q84"], errors="coerce").to_numpy(dtype=float) * mass_scale
                 finite_model_band = finite_model & np.isfinite(model_q16) & (model_q16 > 0.0)
                 finite_model_band &= np.isfinite(model_q84) & (model_q84 > 0.0)
                 if np.any(finite_model_band):
@@ -11041,15 +11003,15 @@ def _plot_truth_recovery_m2d_aperture_ratio(
                         radius[finite_model_band],
                         model_q16[finite_model_band],
                         model_q84[finite_model_band],
-                        color="tab:blue",
-                        alpha=0.18,
+                        color="#2878A5",
+                        alpha=0.22,
                         linewidth=0.0,
-                        label="16-84% posterior",
+                        label="_nolegend_",
                     )
             ax.plot(
                 radius[finite_model],
                 model_m2d[finite_model],
-                color="tab:blue",
+                color="#2878A5",
                 linewidth=1.8,
                 label="model",
             )
@@ -11070,11 +11032,11 @@ def _plot_truth_recovery_m2d_aperture_ratio(
         ax.vlines(
             finite_image_radii,
             0.0,
-            0.06,
+            0.10,
             transform=ax.get_xaxis_transform(),
-            color="0.45",
-            linewidth=0.45,
-            alpha=0.65,
+            color="0.20",
+            linewidth=0.85,
+            alpha=0.90,
             zorder=5,
         )
     if np.any(finite_residual):
@@ -11085,60 +11047,50 @@ def _plot_truth_recovery_m2d_aperture_ratio(
             if np.any(finite_residual_band):
                 ax_resid.fill_between(
                     radius[finite_residual_band],
-                    ratio_q16[finite_residual_band] - 1.0,
-                    ratio_q84[finite_residual_band] - 1.0,
-                    color="tab:blue",
-                    alpha=0.18,
+                    ratio_q16[finite_residual_band],
+                    ratio_q84[finite_residual_band],
+                    color="#2878A5",
+                    alpha=0.22,
                     linewidth=0.0,
                 )
         ax_resid.plot(
             radius[finite_residual],
-            ratio[finite_residual] - 1.0,
-            color="tab:blue",
+            ratio[finite_residual],
+            color="#2878A5",
             linewidth=1.3,
         )
     else:
         ax_resid.text(0.5, 0.5, "No finite residuals.", ha="center", va="center", transform=ax_resid.transAxes)
-    ax_resid.axhline(0.0, color="0.2", linestyle="--", linewidth=1.0)
-    ax_resid.set_ylim(-0.1, 0.1)
+    ax_resid.axhline(1.0, color="0.2", linestyle="--", linewidth=1.0)
+    ax_resid.set_ylim(0.9, 1.1)
     ax.set_xscale("log")
     ax.set_yscale("log")
     ax_resid.set_xlim(left=5.0)
-    ax_resid.set_xlabel("R (arcsec)")
-    ax_resid.set_ylabel("residual")
-    ax.set_ylabel(r"enclosed $M_{\rm 2D}(<R)$")
-    ax.set_title("Projected aperture mass recovery")
-    ax.grid(True, alpha=0.25)
-    ax_resid.grid(True, alpha=0.25)
-    center_mode = str(center.get("center_mode", ""))
-    if center_mode == "smoothed_truth_kappa_peak":
-        center_label = "smoothed truth kappa peak"
-    else:
-        center_label = str(center.get("center_catalog_id", center_mode or "unknown"))
-    annotation_lines = [
-        f"center: {center_label}",
-        f"x={float(center['center_x_arcsec']):.3g}\"  y={float(center['center_y_arcsec']):.3g}\"",
-    ]
-    smoothing_sigma = _finite_float_or_nan(center.get("center_smoothing_sigma_pix"))
-    smoothed_peak = _finite_float_or_nan(center.get("center_smoothed_kappa_peak"))
-    catalog_mag = _finite_float_or_nan(center.get("center_catalog_mag"))
-    if np.isfinite(smoothing_sigma):
-        annotation_lines.append(f"smoothing sigma={smoothing_sigma:g} pix")
-    if np.isfinite(smoothed_peak):
-        annotation_lines.append(f"smoothed kappa peak={smoothed_peak:.3g}")
-    if center_mode != "smoothed_truth_kappa_peak" and np.isfinite(catalog_mag):
-        annotation_lines.append(f"mag={catalog_mag:.3g}")
-    ax.text(
-        0.02,
-        0.98,
-        "\n".join(annotation_lines),
-        transform=ax.transAxes,
-        ha="left",
-        va="top",
-        fontsize=8,
-        bbox={"boxstyle": "round,pad=0.25", "facecolor": "white", "edgecolor": "0.75", "alpha": 0.88},
-    )
-    ax.legend(loc="best", fontsize=8, frameon=True)
+    ax_resid.set_xlabel(r"$R$ (arcsec)", fontsize=10)
+    ax_resid.set_ylabel(r"$M_{\rm model}/M_{\rm true}$", fontsize=10)
+    mass_label = r"$M_{\rm 2D}(<R)$ ($M_\odot$)" if mass_per_kappa_pixel_msun is not None else r"$M_{\rm 2D}(<R)$ (arb. units)"
+    ax.set_ylabel(mass_label, fontsize=10)
+    # Exclude unresolved apertures outside the displayed radial range from autoscaling.
+    displayed = finite_truth & finite_model & (radius >= 4.9)
+    if np.any(displayed):
+        values = np.concatenate([truth_m2d[displayed], model_m2d[displayed]])
+        ax.set_ylim(float(values.min()) / 1.35, float(values.max()) * 1.35)
+        ax.set_xlim(5.0, float(radius[displayed].max()) * 1.03)
+    for panel in (ax, ax_resid):
+        panel.grid(False, which="both")
+        panel.tick_params(which="major", labelsize=9, length=4, width=0.8,
+                          direction="in", top=True, right=True)
+        panel.tick_params(which="minor", length=2, width=0.6,
+                          direction="in", top=True, right=True)
+        for spine in panel.spines.values():
+            spine.set_linewidth(0.8)
+    ax_resid.set_yticks([0.9, 0.95, 1.0, 1.05, 1.1])
+    ax_resid.set_yticklabels(["0.90", "0.95", "1.00", "1.05", "1.10"])
+    handles, labels = ax.get_legend_handles_labels()
+    order = sorted(range(len(labels)), key=lambda i: {"model": 0, "truth": 1}.get(labels[i], 2))
+    ax.legend([handles[i] for i in order],
+              [{"model": "Model", "truth": "Truth"}.get(labels[i], labels[i]) for i in order],
+              loc="upper left", fontsize=8, frameon=False, handlelength=2.3)
     _finish_figure(fig, output_path, dpi=220, bbox_inches="tight")
 
 
@@ -11229,6 +11181,7 @@ def _plot_kappa_truth_diagnostics(
     truth_grid_source_fits: dict[str, str | Path] | None = None,
     require_precomputed_truth_grid: bool = False,
     truth_grid_draw_seed: int | None = None,
+    best_fit: np.ndarray | None = None,
 ) -> None:
     z_source = float(caustic_source_redshift)
     z_lens = getattr(evaluator.state, "z_lens", None)
@@ -11264,6 +11217,7 @@ def _plot_kappa_truth_diagnostics(
         source_truth_fits=source_truth_fits,
         quantities=quantities,
         max_draws=posterior_truth_recovery_draws,
+        best_fit=best_fit,
         truth_grid_mode=truth_grid_mode,
         cache=truth_grid_cache,
         require_cache=require_precomputed_truth_grid,
@@ -11563,6 +11517,166 @@ def _plot_critical_line_recovery_from_grid(
     _finish_figure(fig, output_path, dpi=180, bbox_inches="tight")
 
 
+def _best_fit_truth_recovery_grids(evaluator, best_fit, truth_wcs, shape, z_source):
+    """Evaluate one physical best-fit realization, with bounded pixel batches."""
+    best_fit = np.asarray(best_fit, dtype=float)
+    if not np.isfinite(best_fit).all():
+        raise ValueError("Best-fit truth recovery requires finite parameters")
+    latent = _reported_physical_to_latent_vector(evaluator, best_fit)
+    x, y = _truth_grid_arcsec_coordinates(evaluator, truth_wcs, shape)
+    models = {key: np.empty(shape, dtype=float) for key in ("kappa", "abs_mu", "detA")}
+    for start in range(0, x.size, 65536):
+        stop = min(start + 65536, x.size)
+        values = _truth_grid_jax_bulk_quantities_for_draw(
+            evaluator, latent, float(z_source), x.ravel()[start:stop], y.ravel()[start:stop],
+        )
+        for key in models:
+            models[key].ravel()[start:stop] = values[key]
+    return models, x, y
+
+
+def _plot_best_fit_truth_recovery(plot_dir, evaluator, best_fit, kappa_path,
+                                  gamma1_path, gamma2_path, z_source, *, image_df=None):
+    """Generate the combined paper figure independently of posterior-grid settings."""
+    z_lens = getattr(evaluator.state, "z_lens", None)
+    if z_lens is not None and float(z_source) <= float(z_lens):
+        return
+    native = [_load_kappa_true_fits(path) for path in (kappa_path, gamma1_path, gamma2_path)]
+    kappa, native_wcs = native[0]
+    wcs, shape, _ = _truth_recovery_diagnostic_grid(native_wcs, kappa.shape, 1024)
+    truth = []
+    for label, (values, source_wcs) in zip(("kappa", "gamma1", "gamma2"), native, strict=True):
+        if values.shape != kappa.shape:
+            raise ValueError(f"Truth {label} shape differs from convergence grid")
+        _validate_matching_truth_wcs(native_wcs, source_wcs, kappa.shape, label=label)
+        truth.append(_truth_recovery_sample_truth_image(
+            values, source_wcs, wcs, shape, native_shape=kappa.shape,
+        ))
+    models, x, y = _best_fit_truth_recovery_grids(evaluator, best_fit, wcs, shape, z_source)
+    paths = output_paths(plot_dir)
+    paths.fits.mkdir(parents=True, exist_ok=True)
+    paths.tables.mkdir(parents=True, exist_ok=True)
+    header = wcs.to_header()
+    header["MODSTAT"] = "BEST_FIT"
+    header["ZSOURCE"] = float(z_source)
+    for quantity, values in models.items():
+        fits.writeto(paths.fits / f"truth_recovery_{quantity}_model_best_fit.fits", values, header, overwrite=True)
+    (paths.tables / "truth_recovery_best_fit_grid.json").write_text(json.dumps({
+        "model_summary": "saved_best_fit", "grid_shape": list(shape),
+        "z_source": float(z_source), "best_fit": np.asarray(best_fit).tolist(),
+    }, indent=2) + "\n")
+    _plot_combined_truth_recovery_from_grids(
+        plot_dir, truth[0], models["kappa"],
+        np.abs(_signed_magnification_from_kappa_gamma(*truth)), models["abs_mu"],
+        _critical_determinant_from_kappa_gamma(*truth), models["detA"], x, y, z_source,
+        image_df=image_df,
+    )
+
+
+def _plot_combined_truth_recovery_from_grids(
+    plot_dir: Path,
+    kappa_true: np.ndarray,
+    model_kappa: np.ndarray,
+    abs_mu_true: np.ndarray,
+    abs_mu_model: np.ndarray,
+    truth_determinant: np.ndarray,
+    model_determinant: np.ndarray,
+    x_arcsec: np.ndarray,
+    y_arcsec: np.ndarray,
+    z_source: float,
+    *,
+    image_df: pd.DataFrame | None = None,
+    output_name: str = "truth_recovery_residuals.pdf",
+) -> None:
+    """Paper comparison of saved-grid residuals and zero-determinant contours.
+
+    The magnification comparison uses absolute magnifications. Colours saturate
+    outside [-1, 2]; neither data nor contours are smoothed. Image markers locate
+    the constraints, which need not have the comparison maps' source redshift.
+    """
+    arrays = [np.asarray(value, dtype=float) for value in (
+        kappa_true, model_kappa, abs_mu_true, abs_mu_model,
+        truth_determinant, model_determinant, x_arcsec, y_arcsec,
+    )]
+    if arrays[0].ndim != 2 or any(value.shape != arrays[0].shape for value in arrays):
+        raise ValueError("Recovery maps and coordinates must share one two-dimensional grid.")
+    kappa_true, model_kappa, abs_mu_true, abs_mu_model, truth_determinant, model_determinant, x_arcsec, y_arcsec = arrays
+
+    def fractional(model: np.ndarray, truth: np.ndarray) -> np.ndarray:
+        valid = np.isfinite(model) & np.isfinite(truth) & (truth > 0.0)
+        residual = np.full(truth.shape, np.nan)
+        np.divide(model - truth, truth, out=residual, where=valid)
+        return residual
+
+    residuals = (fractional(model_kappa, kappa_true), fractional(abs_mu_model, abs_mu_true))
+    norm = Normalize(vmin=-1.0, vmax=2.0, clip=True)
+    cmap = _shifted_diverging_colormap("RdBu_r", 1.0 / 3.0)
+    cmap.set_bad("#e8e8e8")
+    paper_style = {
+        "font.size": 9, "axes.labelsize": 9, "xtick.labelsize": 8, "ytick.labelsize": 8,
+        "legend.fontsize": 8, "axes.linewidth": 0.8,
+        "xtick.major.size": 3, "ytick.major.size": 3,
+        "xtick.major.width": 0.8, "ytick.major.width": 0.8,
+        "xtick.minor.size": 1.5, "ytick.minor.size": 1.5,
+        "xtick.minor.width": 0.5, "ytick.minor.width": 0.5,
+        "pdf.fonttype": 42,
+    }
+    with plt.rc_context(paper_style):
+        fig, axes = plt.subplots(1, 3, figsize=(7.2, 3.4), sharex=True, sharey=True)
+        fig.subplots_adjust(left=0.075, right=0.99, bottom=0.17, top=0.79, wspace=0.07)
+        maps = [
+            _plot_truth_recovery_spatial_map(ax, x_arcsec, y_arcsec, residual, cmap=cmap, norm=norm)
+            for ax, residual in zip(axes[:2], residuals, strict=True)
+        ]
+        handles = []
+        for determinant, color, linestyle, linewidth, label in (
+            (truth_determinant, "#252525", "-", 0.85, "Truth"),
+            (model_determinant, "#d55e00", "-", 0.7, "Model"),
+        ):
+            if _has_zero_contour(determinant):
+                axes[2].contour(x_arcsec, y_arcsec, np.ma.masked_invalid(determinant),
+                                levels=[0.0], colors=[color], linestyles=[linestyle], linewidths=[linewidth])
+                handles.append(Line2D([], [], color=color, linestyle=linestyle, linewidth=linewidth, label=label))
+        if not handles:
+            axes[2].text(0.5, 0.5, "No critical curves in field", transform=axes[2].transAxes,
+                         ha="center", va="center", fontsize=8)
+        if image_df is not None and {"x_obs_arcsec", "y_obs_arcsec"}.issubset(image_df.columns):
+            positions = image_df[["x_obs_arcsec", "y_obs_arcsec"]].to_numpy(dtype=float)
+            positions = positions[np.isfinite(positions).all(axis=1)]
+            if len(positions):
+                for ax in axes:
+                    # A pale outer stroke keeps the small hollow markers visible on both maps.
+                    ax.scatter(*positions.T, s=4, facecolors="none", edgecolors="white", linewidths=0.9, zorder=5)
+                    ax.scatter(*positions.T, s=4, facecolors="none", edgecolors="#333333", linewidths=0.35, zorder=6)
+                handles.append(Line2D([], [], marker="o", markersize=3, markerfacecolor="none",
+                                      markeredgecolor="#333333", markeredgewidth=0.5, linestyle="none", label="Images"))
+        for ax in axes:
+            ax.set_aspect("equal", adjustable="box")
+            ax.set_xlabel("x (arcsec)")
+            ax.grid(False, which="both")
+            ax.tick_params(which="both", direction="out", top=False, right=False)
+        axes[0].set_ylabel("y (arcsec)")
+        if handles:
+            axes[2].legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 1.06),
+                           ncol=3, frameon=False, handlelength=1.3, handletextpad=0.3,
+                           columnspacing=0.7, borderaxespad=0.0)
+        fig.canvas.draw()
+        for ax, image, label in zip(
+            axes[:2], maps,
+            (r"$(\kappa_{\rm model}-\kappa_{\rm true})/\kappa_{\rm true}$",
+             r"$(|\mu_{\rm model}|-|\mu_{\rm true}|)/|\mu_{\rm true}|$"), strict=True,
+        ):
+            box = ax.get_position()
+            cax = fig.add_axes([box.x0, box.y1 + 0.045, box.width, 0.025])
+            cb = fig.colorbar(image, cax=cax, orientation="horizontal", ticks=[-1, 0, 1, 2], extend="both")
+            cb.set_label(label, fontsize=8, labelpad=5)
+            cb.ax.xaxis.set_label_position("top")
+            cb.ax.xaxis.set_ticks_position("top")
+            cb.ax.minorticks_off()
+            cb.ax.tick_params(direction="out", length=2.5, width=0.6, labelsize=8, pad=2)
+        _finish_figure(fig, _plot_path(plot_dir, output_name), dpi=600, bbox_inches="tight")
+
+
 def _plot_abs_mu_truth_diagnostics(
     plot_dir: Path,
     evaluator: ClusterJAXEvaluator,
@@ -11580,6 +11694,7 @@ def _plot_abs_mu_truth_diagnostics(
     truth_grid_cache: dict[tuple[Any, ...], dict[str, Any]] | None = None,
     require_precomputed_truth_grid: bool = False,
     truth_grid_draw_seed: int | None = None,
+    best_fit: np.ndarray | None = None,
 ) -> None:
     z_source = float(caustic_source_redshift)
     z_lens = getattr(evaluator.state, "z_lens", None)
@@ -11643,6 +11758,7 @@ def _plot_abs_mu_truth_diagnostics(
         },
         quantities=("kappa", "gamma1", "gamma2", "detA", "mu", "abs_mu"),
         max_draws=posterior_truth_recovery_draws,
+        best_fit=best_fit,
         truth_grid_mode=truth_grid_mode,
         cache=truth_grid_cache,
         require_cache=require_precomputed_truth_grid,
@@ -11688,6 +11804,7 @@ def _precompute_truth_recovery_grids(
     args: argparse.Namespace,
     truth_grid_cache: dict[tuple[Any, ...], dict[str, Any]],
     progress: Any | None = None,
+    best_fit: np.ndarray | None = None,
 ) -> bool:
     if bool(getattr(args, "skip_grid_diagnostics", False)):
         return False
@@ -11758,6 +11875,7 @@ def _precompute_truth_recovery_grids(
         source_truth_fits=source_truth_fits,
         quantities=quantities,
         max_draws=getattr(args, "posterior_truth_recovery_draws", None),
+        best_fit=best_fit,
         truth_grid_mode=str(getattr(args, "truth_grid_mode", TRUTH_GRID_MODE_MEDIAN)),
         cache=truth_grid_cache,
         aperture_center=None,
@@ -12048,34 +12166,54 @@ def _image_catalog_family_cutout_enabled(args: argparse.Namespace, run_dir: Path
     if not bool(getattr(args, "image_catalog_family_cutouts", True)):
         return False
     stage_name = output_stage_name(run_dir)
-    if stage_name == "stage2_free_source_forward_fit":
-        return True
     if stage_name == "stage1_backprojected_centroid_fit":
         return str(getattr(args, "stage2_forward_mode", "none")) == "none"
     return True
 
 
-def _infer_image_catalog_cutout_cluster(state: BuildState) -> str:
-    text = " ".join(
-        [
-            str(getattr(state, "run_name", "")),
-            str(getattr(state, "par_path", "")),
-        ]
-    ).lower()
+def _infer_image_catalog_cutout_cluster(
+    state: BuildState, *, model_config: Any = None,
+) -> str:
+    """Identify imaging from model inputs, independently of the output label.
+
+    Config-native runs use arbitrary run labels and ``<config>`` as par_path.
+    Saved states also have an empty parsed dictionary, so consult the serialized
+    model configuration and member catalog paths before legacy naming hints.
+    """
+    def field(value: Any, name: str, default: Any = None) -> Any:
+        return value.get(name, default) if isinstance(value, dict) else getattr(value, name, default)
+
+    catalog_paths = [field(field(model_config, "image_constraints"), "catalog_path", "")]
+    catalog_paths.extend(
+        field(population, "catalog_path", "")
+        for population in field(model_config, "member_populations", ()) or ()
+    )
+    parsed = getattr(state, "parsed", {}) or {}
+    for section in ("image", "runmode"):
+        block = parsed.get(section, {})
+        if isinstance(block, dict):
+            catalog_paths.append(block.get("multfile", block.get("image", "")))
+    for potfile in getattr(state, "potfiles", ()) or ():
+        catalog_paths.append(field(potfile, "catalog_path") or field(potfile, "filein", ""))
+    text_groups = [
+        " ".join(str(path) for path in catalog_paths if path).lower(),
+        " ".join((str(getattr(state, "run_name", "")), str(getattr(state, "par_path", "")))).lower(),
+    ]
     candidates = (
         ("a2744", ("a2744", "abell2744")),
         ("ares", ("ares",)),
         ("m0416", ("m0416", "macs0416")),
         ("m1206", ("m1206", "macsj1206")),
-        ("as1063", ("as1063", "abells1063", "rxcj2248", "a1063")),
+        ("as1063", ("as1063", "abells1063", "rxcj2248", "rxj2248", "a1063")),
         ("hera", ("hera",)),
         ("a370", ("a370", "abell370", "a307")),
         ("m0717", ("m0717", "macs0717")),
         ("m1149", ("m1149", "macs1149")),
     )
-    for cluster, tokens in candidates:
-        if any(token in text for token in tokens):
-            return cluster
+    for text in text_groups:
+        for cluster, tokens in candidates:
+            if any(token in text for token in tokens):
+                return cluster
     return str(getattr(state, "run_name", "cluster")).split("_", 1)[0].lower() or "cluster"
 
 
@@ -14066,6 +14204,153 @@ def _image_catalog_critical_line_model_pair(
     return cache[z_source]
 
 
+def _image_catalog_point_overview_figure(
+    helpers: Any, band_images: dict[str, Any], bands: Sequence[str],
+    rgb_display: Any, display_image: Any, catalog_df: pd.DataFrame,
+    extra_df: pd.DataFrame, reference: tuple[int, float, float],
+    *, render_config: Any | None = None, mass_panel: bool = False,
+    mass_geometry: Any | None = None,
+) -> plt.Figure:
+    """Publication overview with optional arc-support overlays on the mass panel."""
+    import matplotlib.patheffects as effects
+    from matplotlib.transforms import Bbox
+
+    center_x, center_y, size = _image_catalog_cluster_overview_geometry(catalog_df, extra_df)
+    center = _arcsec_to_skycoord(center_x, center_y, reference)
+    fig = plt.figure(figsize=(7.1, 7.1) if mass_panel else (7.1, 7.55), facecolor="white")
+    if mass_panel:
+        grid = fig.add_gridspec(2, 2, width_ratios=[3.2, 1], height_ratios=[3.2, 1],
+                               left=0.09, right=0.95, bottom=0.10, top=0.96,
+                               wspace=0.025, hspace=0.025)
+        ax = fig.add_subplot(grid[0, 0])
+    else:
+        ax = fig.add_axes([0.025, 0.085, 0.95, 0.895])
+    rgb = _image_catalog_draw_rgb_cutout(
+        ax, helpers, band_images, bands, rgb_display, center,
+        cutout_size_arcsec=size, render_config=render_config,
+    )
+    ax.set_axis_off()
+    if mass_geometry is not None:
+        from .image_catalog_mass import aligned_rgb, grid_pixels
+        rgb = aligned_rgb(rgb, display_image, mass_geometry)
+        for artist in list(ax.images):
+            artist.remove()
+        n = mass_geometry['resolution']
+        ax.imshow(rgb, origin='lower', extent=(-.5,n-.5,-.5,n-.5))
+        ax.set_xlim(-.5, n-.5)
+        ax.set_ylim(-.5, n-.5)
+    def pixel(x: float, y: float) -> tuple[float, float]:
+        if mass_geometry is not None:
+            return grid_pixels(mass_geometry, x, y)
+        return _cutout_pixel_xy(display_image, center, _arcsec_to_skycoord(x, y, reference),
+                                cutout_size_arcsec=size)
+    observed = np.array([pixel(row.x_obs_arcsec, row.y_obs_arcsec) for row in catalog_df.itertuples()])
+    model = np.array([pixel(row.x_model_arcsec, row.y_model_arcsec)
+                      if np.isfinite(row.x_model_arcsec) and np.isfinite(row.y_model_arcsec)
+                      else (np.nan, np.nan) for row in catalog_df.itertuples()])
+    valid = np.isfinite(model).all(axis=1)
+    arc_mask = np.array([mass_panel and _image_catalog_arc_recovered(row)
+                         for _, row in catalog_df.iterrows()], dtype=bool)
+    point_mask = valid & ~arc_mask
+    cyan, orange = "#66D9EF", "#FFB454"
+    for obs, pred in zip(observed[point_mask], model[point_mask]):
+        ax.plot([obs[0], pred[0]], [obs[1], pred[1]], color="white", lw=0.65, alpha=0.9, zorder=4)
+    ax.scatter(*observed.T, s=42, facecolors="none", edgecolors=cyan, linewidths=0.85, zorder=5)
+    ax.scatter(*model[point_mask].T, s=23, marker="+", color=orange, linewidths=0.85, zorder=6)
+    arc_color = "#FF80D5"
+    has_arc_curve = False
+    if arc_mask.any():
+        for _, row in catalog_df.loc[arc_mask].iterrows():
+            curve = _image_catalog_finite_polyline_points(
+                row.get("arc_support_curve_x_arcsec", "[]"),
+                row.get("arc_support_curve_y_arcsec", "[]"))
+            if len(curve) >= 2:
+                points = np.array([pixel(x, y) for x, y in curve])
+                ax.plot(*points.T, color=arc_color, ls="--", lw=1.0, zorder=6)
+                has_arc_curve = True
+            anchor = _image_catalog_finite_arcsec_pair(
+                row, "arc_support_anchor_x_arcsec", "arc_support_anchor_y_arcsec")
+            if anchor is not None:
+                ax.scatter(*pixel(*anchor), marker="+", color=orange, s=23,
+                           linewidths=0.85, zorder=8)
+    missed = ~valid & ~arc_mask
+    if np.any(missed):
+        ax.scatter(*observed[missed].T, s=45, marker="x", color="#FF6677", linewidths=1.0, zorder=7)
+    if not extra_df.empty:
+        extras = np.array([pixel(row.x_model_arcsec, row.y_model_arcsec) for row in extra_df.itertuples()])
+        ax.scatter(*extras.T, s=30, marker="x", color="#CC99FF", linewidths=0.9, zorder=6)
+
+    # Place labels in display coordinates, avoiding image markers and earlier labels.
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    marker_boxes = [Bbox.from_bounds(x - 4, y - 4, 8, 8) for x, y in ax.transData.transform(observed)]
+    dense_catalog = len(observed) > 100
+    label_size = (5.3 if mass_panel else 6.0) if dense_catalog else (6.0 if mass_panel else 6.8)
+    offsets = [(6, 5), (6, -8), (-6, 5), (-6, -8), (0, 10), (0, -13), (12, 0), (-12, 0)]
+    if dense_catalog:
+        marker_radius = 4 * fig.dpi / 72
+        marker_boxes = [Bbox.from_bounds(x - marker_radius, y - marker_radius,
+                                        2 * marker_radius, 2 * marker_radius)
+                        for x, y in ax.transData.transform(observed)]
+        offsets += [(radius * np.cos(angle), radius * np.sin(angle))
+                    for radius in (16, 24, 32, 44, 56)
+                    for angle in np.linspace(0, 2 * np.pi, 16, endpoint=False)]
+    occupied: list[Any] = []
+    for point, label in zip(observed, catalog_df["image_label"].astype(str)):
+        if mass_panel:
+            break
+        candidates = []
+        for dx, dy in offsets:
+            text = ax.annotate(label, point, xytext=(dx, dy), textcoords="offset points",
+                               ha="left" if dx > 0 else "right" if dx < 0 else "center",
+                               va="center", fontsize=label_size, color="white", zorder=8,
+                               path_effects=[effects.withStroke(linewidth=1.6, foreground="#10151b")])
+            box = text.get_window_extent(renderer).expanded(1.08, 1.15)
+            score = sum(box.overlaps(other) for other in marker_boxes + occupied)
+            candidates.append((score, dx, dy, box))
+            text.remove()
+            if dense_catalog and score == 0:
+                break
+        _, dx, dy, box = min(candidates, key=lambda item: item[0])
+        occupied.append(box)
+        ax.annotate(label, point, xytext=(dx, dy), textcoords="offset points",
+                    ha="left" if dx > 0 else "right" if dx < 0 else "center",
+                    va="center", fontsize=label_size, color="white", zorder=8,
+                    arrowprops=dict(arrowstyle="-", color="white", alpha=0.5, lw=0.35)
+                    if dense_catalog and np.hypot(dx, dy) > 15 else None,
+                    path_effects=[effects.withStroke(linewidth=1.6, foreground="#10151b")])
+
+    h, w = rgb.shape[:2]
+    bar = 10.0 / display_image.pixel_scale_arcsec
+    if mass_geometry is not None:
+        h = w = mass_geometry['resolution']
+        bar = 10.0 / abs(np.diff(mass_geometry['xlim'])[0]) * w
+    x0, y0 = 0.06 * w, 0.055 * h
+    ax.plot([x0, x0 + bar], [y0, y0], color="white", lw=2.0, solid_capstyle="butt")
+    ax.text(x0 + bar / 2, y0 + 0.015 * h, r'$10^{\prime\prime}$', color="white", fontsize=10, ha="center")
+    # Derive compass directions from the imaging WCS rather than assuming orientation.
+    origin = np.array(pixel(center_x, center_y))
+    compass = np.array([0.90 * w, 0.09 * h])
+    for label, coordinate in [("N", (center_x, center_y + 1)), ("E", (center_x - 1, center_y))]:
+        direction = np.array(pixel(*coordinate)) - origin
+        direction /= np.linalg.norm(direction)
+        end = compass + direction * 0.055 * w
+        ax.annotate("", end, compass, arrowprops=dict(arrowstyle="->", color="white", lw=1.0))
+        label_position = end + direction * 0.018 * w
+        ax.text(*label_position, label, color="white", fontsize=9, ha="center", va="center")
+
+    handles = [Line2D([], [], marker="o", ls="none", mfc="none", mec=cyan, ms=6, label="Observed image"),
+               Line2D([], [], marker="+", ls="none", color=orange, ms=6, label="Model image")]
+    if has_arc_curve:
+        handles.append(Line2D([], [], color=arc_color, ls="--", lw=1,
+                              label="Model image locus"))
+    ax.legend(handles=handles, loc="upper right", bbox_to_anchor=(0.985, 0.985),
+              fontsize=7 if mass_panel else 9, labelcolor="white", frameon=True, facecolor="black",
+              edgecolor="none", framealpha=0.65, borderpad=0.6,
+              handletextpad=0.5, handlelength=1.2)
+    return fig
+
+
 def _image_catalog_cluster_overview_figure(
     helpers: Any,
     band_images: dict[str, Any],
@@ -14121,7 +14406,7 @@ def _plot_image_catalog_family_cutouts(
     if len(bands) < 3:
         raise ValueError("--image-catalog-family-cutout-bands must contain at least three bands.")
     cutout_size_arcsec = float(getattr(helpers, "DEFAULT_CUTOUT_SIZE_ARCSEC", 10.0))
-    cluster = _infer_image_catalog_cutout_cluster(state)
+    cluster = _infer_image_catalog_cutout_cluster(state, model_config=getattr(args, "model_config", None))
     band_paths = helpers.find_rgb_band_paths(image_dir, cluster=cluster, bands=bands, image_scale=image_scale)
     band_images = helpers.load_rgb_metadata(band_paths, bands=bands)
     render_config = helpers.build_family_cutout_render_config(
@@ -14209,7 +14494,13 @@ def _plot_image_catalog_family_cutouts(
     else:
         best_fit_latent = None
     critical_model_pairs_by_z: dict[float, tuple[Any, list[dict[str, float]]]] = {}
-    fig = _image_catalog_cluster_overview_figure(
+    overview_renderer = (
+        _image_catalog_point_overview_figure
+        if str(getattr(args, "sample_likelihood_mode", "")) == "isotropic-latent-displacement"
+        else _image_catalog_cluster_overview_figure
+    )
+    overview_kwargs = {} if overview_renderer is _image_catalog_point_overview_figure else {"detail_cols": detail_cols}
+    fig = overview_renderer(
         helpers,
         band_images,
         bands,
@@ -14218,10 +14509,18 @@ def _plot_image_catalog_family_cutouts(
         catalog_df,
         extra_df,
         state.reference,
-        detail_cols=detail_cols,
+        **overview_kwargs,
         render_config=render_config,
     )
     fig.savefig(cluster_output, facecolor=fig.get_facecolor(), **savefig_kwargs)
+    if overview_renderer is _image_catalog_point_overview_figure or _uses_arc_aware_diagnostics(
+        str(getattr(args, "sample_likelihood_mode", ""))
+    ):
+        from .image_catalog_mass import render_mass_companion
+        render_mass_companion(
+            run_dir, evaluator, best_fit, args, helpers, band_images, bands,
+            rgb_display, display_image, catalog_df, extra_df, render_config,
+        )
     if not detail_cutouts_enabled:
         _maybe_show_figure(fig)
         plt.close(fig)
@@ -14328,8 +14627,9 @@ def _generate_plots_and_tables(
             )
         finally:
             _SHOW_PLOTS = previous_show_setting
+    best_fit_latent = _reported_physical_to_latent_vector(evaluator, np.asarray(best_fit, dtype=float))
     if evaluator.sample_likelihood_mode == "isotropic-latent-displacement":
-        evaluator.latent_displacement_diagnostics(best_fit).to_csv(
+        evaluator.latent_displacement_diagnostics(best_fit_latent).to_csv(
             tables_dir / "latent_displacement_diagnostics.csv", index=False)
     sample_likelihood_mode = _active_sample_likelihood_mode(evaluator, args)
     use_arc_aware_diagnostics = _uses_arc_aware_diagnostics(sample_likelihood_mode)
@@ -14348,7 +14648,6 @@ def _generate_plots_and_tables(
             results.samples,
             (results.init_diagnostics or {}).get("maximum_likelihood_sample_index"),
         )
-    best_fit_latent = _reported_physical_to_latent_vector(evaluator, np.asarray(best_fit, dtype=float))
     critical_arc_singular_threshold_best_fit = _fit_quality_critical_arc_singular_threshold(
         evaluator,
         best_fit_latent,
@@ -14563,7 +14862,7 @@ def _generate_plots_and_tables(
                     state.parameter_specs,
                     results.samples,
                     best_fit,
-                    str(getattr(state, "scaling_relation_mode", getattr(args, "scaling_relation_mode", "lenstool-denominator"))),
+                    str(getattr(state, "scaling_relation_mode", getattr(args, "scaling_relation_mode", "velocity-radius-exponents"))),
                     sample_weights=results.sample_weights,
                 ),
             ),
@@ -15158,6 +15457,15 @@ def _generate_plots_and_tables(
         )
         truth_grid_source_fits = {"kappa": str(kappa_true_fits)}
         if gamma_truth_available:
+            truth_recovery_tasks.append((
+                "best_fit_truth_recovery", "plots.truth_recovery.best_fit",
+                lambda: _plot_best_fit_truth_recovery(
+                    run_dir, evaluator, best_fit, str(kappa_true_fits),
+                    str(gammax_true_fits), str(gammay_true_fits),
+                    getattr(args, "caustic_source_redshift", 9.0),
+                    image_df=context["image_fit_quality_df"],
+                ),
+            ))
             truth_grid_source_fits = {
                 "kappa": str(kappa_true_fits),
                 "gamma1": str(gammax_true_fits),
@@ -15177,6 +15485,7 @@ def _generate_plots_and_tables(
                         args,
                         context["truth_grid_cache"],
                         progress=progress,
+                        best_fit=best_fit,
                     ),
                 )
             )
@@ -15194,6 +15503,7 @@ def _generate_plots_and_tables(
                         getattr(args, "caustic_source_redshift", 9.0),
                         image_df=context["image_fit_quality_df"],
                         posterior_truth_recovery_draws=posterior_truth_recovery_draws,
+                        best_fit=best_fit,
                         truth_grid_mode=truth_grid_mode,
                         truth_grid_size=truth_grid_size,
                         truth_grid_cache=context["truth_grid_cache"],
@@ -15214,6 +15524,7 @@ def _generate_plots_and_tables(
                         args,
                         context["truth_grid_cache"],
                         progress=progress,
+                        best_fit=best_fit,
                     ),
                 )
             )
@@ -15229,6 +15540,7 @@ def _generate_plots_and_tables(
                     getattr(args, "caustic_source_redshift", 9.0),
                     image_df=context["image_fit_quality_df"],
                     posterior_truth_recovery_draws=posterior_truth_recovery_draws,
+                    best_fit=best_fit,
                     truth_grid_mode=truth_grid_mode,
                     truth_grid_size=truth_grid_size,
                     truth_grid_cache=context["truth_grid_cache"],

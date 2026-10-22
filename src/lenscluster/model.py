@@ -75,9 +75,9 @@ class PackedLensSpec:
     mass_log_scatter_param_index: np.ndarray
     cut_radius_excess_above_effective_core: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=bool))
     alpha_sigma_base: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=float))
-    gamma_ml_base: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=float))
+    beta_radius_base: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=float))
     alpha_sigma_param_index: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=np.int32))
-    gamma_ml_param_index: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=np.int32))
+    beta_radius_param_index: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=np.int32))
     independent_branch_role: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=np.int32))
     independent_magnitude_feature: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=float))
     independent_free_log_sigma_delta_unit_param_index: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=np.int32))
@@ -344,17 +344,17 @@ class BuildState:
     active_scaling_inference_likelihood: str = "population"
     active_scaling_freeze_threshold: float = 0.5
     independent_scaling_model: str = "log_displacement"
-    scaling_relation_mode: str = "direct-exponents"
+    scaling_relation_mode: str = "velocity-radius-exponents"
     independent_scaling_free_log_sigma_offset_width: float = 0.10
     independent_scaling_free_log_mass_offset_width: float = 0.20
     potfile_alpha_sigma_prior_mean: float = 0.25
     potfile_alpha_sigma_prior_std: float = 0.04
     potfile_alpha_sigma_prior_lower: float = 0.10
     potfile_alpha_sigma_prior_upper: float = 0.40
-    potfile_gamma_ml_prior_mean: float = 0.00
-    potfile_gamma_ml_prior_std: float = 0.12
-    potfile_gamma_ml_prior_lower: float = -0.40
-    potfile_gamma_ml_prior_upper: float = 0.40
+    potfile_beta_radius_prior_mean: float = 0.50
+    potfile_beta_radius_prior_std: float = 0.20
+    potfile_beta_radius_prior_lower: float = 0.0
+    potfile_beta_radius_prior_upper: float = float("inf")
     softening_length_kpc: float = 0.0
     softening_length_prior_log_sigma: float = 0.15
     log_softening_length_param_index: int = -1
@@ -363,6 +363,13 @@ class BuildState:
     active_scaling_frozen_source_run_dir: str | None = None
     active_scaling_frozen_source_path: str | None = None
     perturbation_discovery_stage0: bool = False
+    # Versioned, mode-specific metadata. Legacy bundles have no such payload.
+    smoothed_model: dict[str, Any] | None = None
+
+    def __post_init__(self) -> None:
+        if (self.scaling_relation_mode != "velocity-radius-exponents"
+                or any(spec.field == "gamma_ml" for spec in self.parameter_specs)):
+            raise ValueError("Unsupported alpha/gamma state. Start a fresh run with sampled beta_radius; historical runs cannot be loaded or resumed.")
 
 
 def positive_lognormal_parameters(mean: float, std: float, *, floor: float = 1.0e-6) -> tuple[float, float]:

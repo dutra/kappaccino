@@ -173,6 +173,17 @@ def test_mock_validation_has_no_legacy_root_modules() -> None:
         __import__("lenscluster.mock_validation.cli")
 
 
+@pytest.mark.parametrize("draws", [0, -1])
+def test_truth_recovery_zero_draws_configuration(draws) -> None:
+    config = LensClusterSolverConfig(model=_minimal_model_config())
+    config = replace(config, truth=replace(config.truth, posterior_truth_recovery_draws=draws))
+    if draws < 0:
+        with pytest.raises(ValueError, match="posterior_truth_recovery_draws"):
+            config.validate()
+    else:
+        assert compile_run_plan(config).runtime_args.posterior_truth_recovery_draws == 0
+
+
 def test_config_defaults_validate_without_solver_namespace() -> None:
     config = LensClusterSolverConfig(model=_minimal_model_config())
 
@@ -400,7 +411,7 @@ def test_workflow_config_accepts_only_flat_sampling_engines() -> None:
 
 
 def test_cluster_solver_runtime_exposes_only_flat_sampling_engines() -> None:
-    assert cluster_solver.SAMPLING_ENGINES == ("full_flat", "refreshing_surrogate_flat")
+    assert cluster_solver.SAMPLING_ENGINES == ("full_flat", "refreshing_surrogate_flat", "tiered_members")
     assert hasattr(cluster_solver.ClusterJAXEvaluator, "_flat_refreshing_surrogate_source_loglike_impl")
     assert hasattr(cluster_solver.ClusterJAXEvaluator, "_flat_refreshing_surrogate_local_jacobian_source_loglike_impl")
     assert hasattr(cluster_solver.ClusterJAXEvaluator, "_flat_refreshing_surrogate_critical_arc_source_loglike_impl")
@@ -717,9 +728,9 @@ def test_config_validation_rejects_wrong_stage_counts_and_bad_priors() -> None:
         model=_minimal_model_config(),
         workflow=WorkflowConfig(fit_mode="sequential", stage0_likelihood="local-jacobian"),
         schedule=StageScheduleConfig(svi_steps=(10, 20), refresh_every=(None, 100), fit_method=("svi+nuts",)),
-        scaling=ScalingModelConfig(potfile_gamma_ml_prior_lower=0.5, potfile_gamma_ml_prior_upper=-0.5),
+        scaling=ScalingModelConfig(potfile_beta_radius_prior_lower=0.5, potfile_beta_radius_prior_upper=-0.5),
     )
-    with pytest.raises(ValueError, match="potfile_gamma_ml_prior_lower"):
+    with pytest.raises(ValueError, match="potfile_beta_radius_prior_lower"):
         bad_prior.validate()
 
 
@@ -862,7 +873,7 @@ def test_run_xsh_is_self_contained_ff_sims_runner() -> None:
     assert "exclude_catalog_ids=(\"2\", \"3\")" not in text
     assert "exclude_catalog_ids=(\"1\", \"2\")" not in text
     assert "2.3 / 0.72" in text
-    assert "cores = 6" in text
+    assert "cores =" in text  # The user may change the configured chain count.
     assert "seed = 12345" in text
     assert "pos_sigma_arcsec =" in text
     assert "seed=seed" in text
@@ -875,31 +886,31 @@ def test_run_xsh_is_self_contained_ff_sims_runner() -> None:
     assert "--campaign" in text
     assert "--run-label" in text
     assert 'layout="results-v1"' in text
-    assert "--covariance" in text
+    assert "--dry-run" in text
+    assert "--image-metadata" in text
     assert "--magnitude-likelihood" in text
-    assert "VALID_COVARIANCE_MODES" in text
     assert "VALID_MAGNITUDE_LIKELIHOOD_MODES" in text
-    assert 'stage0_likelihood = "source"' in text
-    assert 'stage1_likelihood = "source"' in text
+    assert 'stage0_likelihood = "smoothed-local-image-plane"' in text
+    assert 'stage1_likelihood = "smoothed-local-image-plane"' in text
     assert 'stage0_likelihood = "local-jacobian"' not in text
     assert 'stage1_likelihood = "local-jacobian"' not in text
     assert "stage0_likelihood=stage0_likelihood" in text
     assert "stage1_likelihood=stage1_likelihood" in text
-    assert 'stage1_sampling_engine="full_flat"' in text
-    assert 'stage2_sampling_engine="full_flat"' in text
-    assert "perturbation_discovery_top_k=perturbation_top_k" in text
-    assert 'stage2_forward_mode = "isotropic-latent-displacement"' in text
-    assert "latent_displacement_sigma_beta_arcsec=0.03" in text
+    assert 'stage1_sampling_engine="tiered_members"' in text
+    assert 'stage2_sampling_engine="tiered_members"' in text
+    assert "member_tiers=MemberTierConfig(" in text
+    assert 'stage2_forward_mode = "smoothed-local-image-plane"' in text
+    assert "source_scatter_prior=LogNormalPriorConfig(median=0.02, log_sigma=0.7)" in text
+    assert 'source_position_parameterization="likelihood-whitened"' in text
+    assert "source_position_prior_sigma_arcsec=100.0" in text
     assert "stage1_likelihood =" in text
     assert "target_accept=0.7" in text
     assert "pos_sigma_arcsec=pos_sigma_arcsec" in text
-    assert "posterior_image_diagnostic_draws=32" in text
+    assert "posterior_image_diagnostic_draws=0" in text
     assert 'posterior_image_diagnostic_mode="exact"' in text
-    assert "posterior_truth_recovery_draws=32" in text
-    assert "critical_arc_anisotropic_covariance=critical_arc_anisotropic_covariance" in text
-    assert "use_magnitude_likelihood=use_magnitude_likelihood" in text
-    assert "use_magnitude_likelihood={config.likelihood.use_magnitude_likelihood}" in text
-    assert "critical_arc_anisotropic_covariance={config.likelihood.critical_arc_anisotropic_covariance}" in text
+    assert "posterior_truth_recovery_draws=0" in text
+    assert "use_magnitude_likelihood=False" in text
+    assert 'if __name__ == "__main__":' in text
     assert "cczz" not in text
     assert "critical-arc-centroid" not in text
     assert "critical-arc-mixture" not in text
@@ -1198,15 +1209,57 @@ def test_dataset_specific_runs_are_composed_from_generic_config_groups() -> None
     assert plan.runtime_args.image_catalog_family_cutout_image_dir == "data/ff_sims"
 
 
-def test_run_xsh_is_ff_sims_only_but_keeps_hff_rgb_constants() -> None:
+def test_run_xsh_supports_as1063_and_ff_sims() -> None:
     text = Path("run.xsh").read_text(encoding="utf-8")
 
     assert "HFF_RGB_BANDS" in text
     assert "HFF_RGB_DISPLAY" in text
     assert "ARES" in text
     assert "HERA" in text
-    for removed_cluster in ("A2744", "M0416", "M1206", "AS1063", "A307"):
+    assert "AS1063" in text
+    for removed_cluster in ("A2744", "M0416", "M1206", "A307"):
         assert removed_cluster not in text
+
+
+def test_run_xsh_as1063_compiles_with_observed_catalogs() -> None:
+    from math import isfinite
+
+    launcher = Path("run.xsh").resolve()
+    definitions = launcher.read_text(encoding="utf-8")
+    # Load definitions only, without launching inference or xonsh environment assignments.
+    namespace = {"__file__": str(launcher), "__name__": "launcher_test"}
+    exec(compile("\n".join(line for line in definitions.splitlines() if not line.startswith("$")),
+                 str(launcher), "exec"), namespace)
+    config = namespace["build_config"](
+        "AS1063", cores=6, campaign_name="config-check",
+        covariance_mode="anisotropic", use_magnitude_likelihood=False,
+    )
+    plan = compile_run_plan(config)
+    assert plan.output.output_dir == Path("results/config-check/as1063")
+    assert plan.runtime_args.exact_image_lm_max_iter == 100
+    assert plan.runtime_args.match_tolerance_arcsec == 5.0
+    assert config.model.reference.ra0_deg == pytest.approx(342.18321)
+    assert config.model.reference.dec0_deg == pytest.approx(-44.530878)
+    assert len(config.model.large_halos) == 5
+    assert all(halo.z_lens == 0.348 for halo in config.model.large_halos)
+    from astropy.cosmology import FlatLambdaCDM
+    scale = FlatLambdaCDM(H0=70, Om0=0.3).kpc_proper_per_arcmin(0.348).value / 60
+    # The solver uses fixed-grid distance quadrature.
+    assert config.model.large_halos[0].core_radius_kpc == pytest.approx(13.5871 * scale, rel=1e-4)
+    assert config.model.member_populations[0].cutkpc == pytest.approx(10 * scale, rel=1e-4)
+    assert plan.runtime_args.kappa_true_fits is None
+    assert plan.runtime_args.image_catalog_family_cutout_image_dir == "data/BUFFALO_Images"
+    assert config.image_catalog.bands == tuple(namespace["HFF_RGB_BANDS"])
+    parsed, images, _, potentials = cluster_solver._declared_model_inputs(config.model)
+    assert len(images) > 0
+    assert len(potentials) == 5
+    specs, _, _ = cluster_solver._build_scaling_parameter_specs(parsed["potfiles"])
+    for field in ("sigma", "cutkpc"):
+        spec = next(spec for spec in specs if spec.field == field)
+        assert spec.prior_kind == "truncated_normal"
+        assert spec.physical_upper == pytest.approx(spec.physical_mean + 10 * spec.physical_std)
+        assert isfinite(spec.lower)
+        assert isfinite(spec.upper)
 
 
 def test_detection_multiplier_reaches_runtime_args() -> None:

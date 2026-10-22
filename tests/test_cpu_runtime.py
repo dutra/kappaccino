@@ -125,12 +125,13 @@ from jax._src import xla_bridge
 assert not xla_bridge.backends_are_initialized(), 'launcher initialized JAX before CPU setup'
 build = namespace['build_runtime']
 namespace['build_runtime'] = lambda cores: replace(build(cores), chains=2, cpu_threads_per_chain=2)
-def check_run(self, plan):
+def check_run(config):
     import jax
-    assert plan.runtime.chains == 2
+    assert config.runtime.chains == 2
     assert len(jax.devices('cpu')) == 2
     assert len(os.sched_getaffinity(0)) <= 4
-namespace['LensClusterRunner'].run = check_run
+import lenscluster.pipeline as pipeline
+pipeline.run = check_run
 assert namespace['main'](['run.xsh', sys.argv[1]]) == 0
 """
     subprocess.run([sys.executable, "-c", code, cluster], check=True, timeout=45,

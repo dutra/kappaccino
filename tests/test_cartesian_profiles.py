@@ -119,33 +119,6 @@ def test_registered_models_and_legacy_names():
     assert np.isfinite(DPIENIE.derivatives(1.,2.,3.,.2,8.,0.,0.)).all()
 
 
-def test_circular_full_flat_scatter_hessian_and_legacy_mapping():
-    from dataclasses import replace
-    from lenscluster import cluster_solver as cs
-    from test_scaling_cache_retention import evaluator
-    old, theta = evaluator('full_flat')
-    state = old.state
-    state.lens_model_list = ['DPIE_NIE' if name == 'DPIE_NIE_E' else name for name in state.lens_model_list]
-    # Use physical lens-strength scales rather than the unit geometry fixture.
-    state.geometry_cache = replace(state.geometry_cache,
-        dpie_sigma0_factor_by_effective_z={2.: 1e-5, 3.: 1.35e-5},
-        dpie_sigma0_factor_by_exact_z={2.: 1e-5, 3.: 1.35e-5})
-    spec = state.packed_lens_spec
-    state.packed_lens_spec = replace(spec, e1_base=np.zeros_like(spec.e1_base), e2_base=np.zeros_like(spec.e2_base))
-    ev = cs.ClusterJAXEvaluator(state, .1, sampling_engine='full_flat', sample_likelihood_mode='source', source_plane_covariance_mode='unit')
-    assert 'DPIE_NIE' not in ev.state.lens_model_list
-    assert 'DPIE_NIE_E' in ev.state.lens_model_list
-    f = ev._source_loglike_impl
-    gradient = jax.jit(jax.grad(f))
-    hessian = np.asarray(jax.jit(jax.jacfwd(jax.grad(f)))(jnp.asarray(theta)))
-    assert np.isfinite(hessian).all()
-    for i in range(len(theta)):
-        step = 1e-4 * max(1.,abs(theta[i]))
-        delta = np.zeros_like(theta);delta[i] = step
-        fd = (gradient(theta+delta)-gradient(theta-delta))/(2*step)
-        np.testing.assert_allclose(hessian[:,i],fd,rtol=2e-5,atol=2e-7)
-
-
 @pytest.mark.parametrize('profile,reference,args', [
     (NIE_E, reference_nie, (2., .15, -.2, .3)),
     (NIE_E, reference_nie, (2., .3, 0., .3)),

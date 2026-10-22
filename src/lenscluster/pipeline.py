@@ -21,6 +21,7 @@ from .config import LensClusterSolverConfig
 from .evaluator import Evaluator
 from .model import ModelState, PosteriorResults
 from .outputs import write_outputs
+from .report import audit_report, classification_report
 from .sampling import run_nuts
 from .search import chain_starts, multistart_map, prior_starts
 from .state import build_state, with_member_classes
@@ -110,6 +111,19 @@ def classify(state: ModelState, evaluator: Evaluator, theta: np.ndarray, config:
     return with_member_classes(state, exact, diagnostics)
 
 
+def reclassification_at_median(state: ModelState, evaluator: Evaluator, samples: np.ndarray, config: LensClusterSolverConfig) -> dict[str, Any]:
+    """Would classifying at the posterior median change the exact set? Reports the members that would move."""
+    theta = np.median(np.asarray(samples, dtype=float), axis=0)
+    physical = np.asarray(evaluator.physical(jnp.asarray(theta)))
+    trial = classify(state, evaluator, theta, config, reference_cut_kpc=_scaling_value(state, physical, "cutkpc"),
+                     beta_radius=_scaling_value(state, physical, "beta_radius"), log=lambda _: None)
+    ids = state.members.member_ids
+    current = {ids[i] for i in state.members.exact_positions.tolist()}
+    median = {ids[i] for i in trial.members.exact_positions.tolist()}
+    return {"exact_count": len(median), "current_exact_count": len(current), "would_add": sorted(median - current),
+            "would_remove": sorted(current - median), "changed": bool(median != current)}
+
+
 def run(config: LensClusterSolverConfig) -> RunResult:
     config = config.validate()
     paths = run_paths(config)
@@ -155,12 +169,13 @@ def run(config: LensClusterSolverConfig) -> RunResult:
         physical_map = np.asarray(evaluator.physical(jnp.asarray(theta_map)))
 
         # 3. Final classification at the best mode, rebuilding the evaluator if the exact set changed.
-        before = set(state.members.exact_positions.tolist())
+        provisional = state.members.classification
         state = classify(state, evaluator, theta_map, config, reference_cut_kpc=_scaling_value(state, physical_map, "cutkpc"),
                          beta_radius=_scaling_value(state, physical_map, "beta_radius"), log=log)
         state.initial_theta = theta_map
-        if set(state.members.exact_positions.tolist()) != before:
-            log("[classify] exact set changed after the search; rebuilding the evaluator")
+        report = classification_report(state, provisional=provisional)
+        log(report)
+        (paths.tables / "classification_report.txt").write_text(report + "\n")
         evaluator = Evaluator(state)
         value = float(evaluator.loglike(jnp.asarray(theta_map)))
         log(f"[search] log-likelihood at the best mode with final classes: {value:.3f}")
@@ -181,10 +196,16 @@ def run(config: LensClusterSolverConfig) -> RunResult:
         # 5. Audit of the far-field approximation over the posterior.
         audit = audit_posterior(state, evaluator, posterior.samples, tolerance=config.members.template_tolerance,
                                 guard_cut_radii=config.members.far_field_cut_radii)
+        audit["reclassification_at_median"] = reclassification_at_median(state, evaluator, posterior.samples, config)
         artifacts.write_json(paths.artifacts / artifacts.AUDIT_FILE, audit)
-        log(f"[audit] {audit['approximation_validation']} far={audit['far_member_count']} "
-            f"min_R_over_rcut={audit.get('min_separation_over_cut_radius', float('nan')):.2f} "
-            f"whitened_far_error_max={audit['whitened_far_field_error_median_model']['max']:.3f}")
+        diagnostics = posterior.diagnostics or {}
+        report = audit_report(state, audit, posterior_summary={
+            "divergences": int(posterior.diverging.sum()), "mean accept": f"{float(posterior.accept_prob.mean()):.3f}",
+            "mean steps": f"{float(posterior.num_steps.mean()):.1f}", "max R-hat": f"{diagnostics.get('max_r_hat', float('nan')):.3f}",
+            "min ESS": f"{diagnostics.get('min_n_eff', float('nan')):.0f}"})
+        log(report)
+        with (paths.tables / "classification_report.txt").open("a") as handle:
+            handle.write("\n" + report + "\n")
         summary = {"run_name": config.paths.run_name, "n_parameters": state.n_parameters, "images": state.images.n_images,
                    "families": state.images.n_families, "members": len(state.members.member_ids),
                    "exact_members": int(len(state.members.exact_positions)), "modes": len(search["modes"]),
@@ -206,6 +227,7 @@ def dry_run(config: LensClusterSolverConfig) -> dict[str, Any]:
     evaluator = Evaluator(state)
     state = classify(state, evaluator, state.initial_theta, config, reference_cut_kpc=None, beta_radius=None, log=lambda _: None)
     classification = state.members.classification
+    print(classification_report(state))
     return {
         "stage": "single-stage: classify -> multi-start MAP -> reclassify -> NUTS -> audit -> outputs",
         "output": str(run_paths(config).root),

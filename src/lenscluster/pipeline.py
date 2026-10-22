@@ -20,6 +20,7 @@ from .classification import classify_members, member_cut_radii_arcsec
 from .config import LensClusterSolverConfig
 from .evaluator import Evaluator
 from .model import ModelState, PosteriorResults
+from .outputs import write_outputs
 from .sampling import run_nuts
 from .search import chain_starts, multistart_map, prior_starts
 from .state import build_state, with_member_classes
@@ -131,6 +132,8 @@ def run(config: LensClusterSolverConfig) -> RunResult:
             state.initial_theta = np.asarray(posterior.samples[0], dtype=float)
             evaluator = Evaluator(state)
             audit = json.loads((paths.artifacts / artifacts.AUDIT_FILE).read_text())
+            if not runtime.skip_plots:
+                write_outputs(config, state, evaluator, posterior, audit, paths, log=log)
             return RunResult(paths, state, evaluator, posterior, None, audit, resumed=True)
 
         artifacts.save_config(paths.artifacts, config)
@@ -189,6 +192,8 @@ def run(config: LensClusterSolverConfig) -> RunResult:
                    "divergences": int(posterior.diverging.sum()), "mean_steps": float(posterior.num_steps.mean()),
                    "audit": audit["approximation_validation"]}
         artifacts.write_json(paths.artifacts / artifacts.SUMMARY_FILE, summary)
+        if not runtime.skip_plots:
+            write_outputs(config, state, evaluator, posterior, audit, paths, log=log)
         return RunResult(paths, state, evaluator, posterior, search, audit, resumed=False)
     finally:
         log.close()

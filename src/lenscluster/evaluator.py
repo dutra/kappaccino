@@ -128,7 +128,11 @@ class Evaluator:
         return packed, PackedLensValidity(is_valid=~jnp.any(flags), reason_flags=flags)
 
     def packed_state_for_z(self, physical: jnp.ndarray, z_source: float) -> PackedLensState:
-        factor = self.state.dpie_sigma0_factor_by_z[float(z_source)]
+        factor = self.state.dpie_sigma0_factor_by_z.get(float(z_source))
+        if factor is None:
+            from .jax_cosmology import dpie_sigma0_factor_from_config
+            factor = float(dpie_sigma0_factor_from_config(self.state.z_lens, float(z_source), self.state.cosmo_config))
+            self.state.dpie_sigma0_factor_by_z[float(z_source)] = factor
         return self.packed_state(physical, factor_per_image=jnp.asarray(factor, dtype=jnp.float64))[0]
 
     # ------------------------------------------------------------------ lens fields

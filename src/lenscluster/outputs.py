@@ -88,5 +88,14 @@ def write_outputs(config: LensClusterSolverConfig, state: ModelState, evaluator:
                                           plots.figure_path(figures, "truth_recovery_m2d_aperture_ratio.pdf", prefix))
             ratio = truth["profile"]
             summary["truth"] = {"m2d_ratio_at_max_radius": float(ratio["m2d_ratio_median"].iloc[-1]), "n_radii": int(len(ratio))}
+    if config.image_catalog.image_dir and not image_df.empty:
+        from .cutouts import load_cluster_imaging
+        from .mass_figure import render_cluster_mass_figure
+        imaging = load_cluster_imaging(config.image_catalog, config.model, config.paths.run_name)
+        render_cluster_mass_figure(evaluator, best, image_df, recovery["image_recovery_extra_images"], imaging,
+                                   z_source=z_crit, kappa_true_fits=config.truth.kappa_true_fits,
+                                   figure_path=plots.figure_path(figures, "image_catalog_family_cluster_mass.pdf", prefix),
+                                   tables_dir=tables, fits_dir=paths.fits)
+        log(f"[outputs] cluster mass figure rendered from {imaging[3]} imaging")
     (tables / "run_summary.json").write_text(json.dumps(summary, indent=2, default=float))
     return summary

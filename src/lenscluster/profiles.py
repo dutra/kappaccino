@@ -11,7 +11,8 @@ from typing import Any
 import jax.numpy as jnp
 import numpy as np
 
-from .model import DP_IE_PROFILE, DPIE_PROFILE_NAME, NFW_PROFILE, NFW_PROFILE_NAME, SHEAR_PROFILE, SHEAR_PROFILE_NAME
+from .model import (DP_IE_PROFILE, DPIE_PROFILE_NAME, MASS_SHEET_PROFILE, MASS_SHEET_PROFILE_NAME, NFW_PROFILE, NFW_PROFILE_NAME,
+                    SHEAR_PROFILE, SHEAR_PROFILE_NAME)
 
 G_KPC_KMS2_PER_MSUN = 4.30091e-6
 DELTA_200 = 200.0
@@ -44,6 +45,9 @@ PROFILES: dict[int, LensProfile] = {
         required_fields=("gamma", "angle_pos"),
         polar_shape=("gamma", "angle_pos"), cartesian_shape=("gamma1", "gamma2"),
         log_positive_fields=frozenset()),
+    MASS_SHEET_PROFILE: LensProfile(
+        code=MASS_SHEET_PROFILE, name=MASS_SHEET_PROFILE_NAME, label="external convergence",
+        required_fields=("kappa",), polar_shape=None, cartesian_shape=None, log_positive_fields=frozenset()),
 }
 SUPPORTED_PROFILES = frozenset(PROFILES)
 ELLIPTICAL_PROFILES = frozenset({DP_IE_PROFILE, NFW_PROFILE})
@@ -104,4 +108,6 @@ def lenstronomy_kwargs(packed, index: int) -> dict[str, float]:
         return {"Rs": f("nfw_rs"), "alpha_Rs": f("alpha_rs"), "e1": f("e1"), "e2": f("e2"), "center_x": f("center_x"), "center_y": f("center_y")}
     if code == SHEAR_PROFILE:
         return {"gamma1": f("gamma1"), "gamma2": f("gamma2")}
+    if code == MASS_SHEET_PROFILE:
+        return {"kappa": f("kappa"), "ra_0": 0.0, "dec_0": 0.0}
     raise ValueError(f"Unsupported profile type {code}.")

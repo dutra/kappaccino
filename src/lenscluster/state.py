@@ -246,7 +246,7 @@ def build_halo_parameter_specs(potentials: list[dict[str, Any]], *, softening_le
         assignments: list[tuple[str, int]] = []
         priors = {("ellipticite" if name == "ellipticity" else str(name)): prior
                   for name, prior in (potential.get("priors", {}) or {}).items()}
-        polar_fields = info.polar_shape
+        polar_fields = info.polar_shape or ()
         polar = {name: decode_parameter_prior(priors[name], f"{potential_id}.{name}") for name in polar_fields if name in priors}
         polar = {name: value for name, value in polar.items() if value is not None}
         if polar and set(polar) != set(polar_fields):
@@ -448,7 +448,8 @@ def build_packed_lens_spec(base_components, component_assignments, scaling_assig
         alpha_sigma_param_index=ints(), beta_radius_param_index=ints(),
         cut_radius_excess_above_effective_core=np.zeros(n, dtype=bool),
         velocity_offset_param_index=ints(), velocity_scatter_param_index=ints(),
-        scale_radius_kpc_base=floats(), log10_m200_base=floats(), scale_radius_param_index=ints(), log10_m200_param_index=ints())
+        scale_radius_kpc_base=floats(), log10_m200_base=floats(), scale_radius_param_index=ints(), log10_m200_param_index=ints(),
+        kappa_base=floats(), kappa_param_index=ints())
     for idx, (component, assignments) in enumerate(zip(base_components, component_assignments)):
         spec.profile_type[idx] = int(component["profil"])
         spec.component_family[idx] = int(component.get("component_family_code", COMPONENT_FAMILY_LARGE))
@@ -462,11 +463,13 @@ def build_packed_lens_spec(base_components, component_assignments, scaling_assig
         spec.v_disp_base[idx] = float(component.get("v_disp", 0.0))
         spec.scale_radius_kpc_base[idx] = float(component.get("scale_radius_kpc", 0.0))
         spec.log10_m200_base[idx] = float(component.get("log10_m200", 0.0))
+        spec.kappa_base[idx] = float(component.get("kappa", 0.0))
         for field_name, array in (("x_centre", spec.x_center_param_index), ("y_centre", spec.y_center_param_index),
                                   ("e1", spec.e1_param_index), ("e2", spec.e2_param_index),
                                   ("core_radius_kpc", spec.core_radius_param_index), ("cut_radius_kpc", spec.cut_radius_param_index),
                                   ("v_disp", spec.v_disp_param_index), ("gamma1", spec.gamma1_param_index), ("gamma2", spec.gamma2_param_index),
-                                  ("scale_radius_kpc", spec.scale_radius_param_index), ("log10_m200", spec.log10_m200_param_index)):
+                                  ("scale_radius_kpc", spec.scale_radius_param_index), ("log10_m200", spec.log10_m200_param_index),
+                                  ("kappa", spec.kappa_param_index)):
             array[idx] = _field_param_index(assignments, field_name)
     for item in scaling_assignments:
         idx = int(item["component_index"])

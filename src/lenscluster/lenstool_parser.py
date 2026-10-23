@@ -15,6 +15,7 @@ from .jax_cosmology import cosmology_config_from_parsed, kpc_per_arcsec_from_con
 DP_IE_PROFILE = 81
 SHEAR_PROFILE = 14
 NFW_PROFILE = 12
+MASS_SHEET_PROFILE = 101
 DEFAULT_POTFILE_SCALING_EXPONENT = 4.0
 STRICT_IMAGE_LABEL_RE = re.compile(r"^([A-Z0-9]+)\.([a-z]+)$")
 STRICT_IMAGE_LABEL_FORMAT = "FAMILY.image with FAMILY matching [A-Z0-9]+ and image matching [a-z]+"
@@ -245,6 +246,8 @@ def _normalize_potential_definition(
     elif profile_type == SHEAR_PROFILE:
         for field_name in ("gamma", "angle_pos"):
             _require_numeric_field(normalized, field_name, potential_id)
+    elif profile_type == MASS_SHEET_PROFILE:
+        _require_numeric_field(normalized, "kappa", potential_id)
 
     return normalized, normalized_priors
 

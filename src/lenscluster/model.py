@@ -10,9 +10,11 @@ import numpy as np
 DP_IE_PROFILE = 81          # Lenstool profile codes
 SHEAR_PROFILE = 14
 NFW_PROFILE = 12
+MASS_SHEET_PROFILE = 101    # not a Lenstool profile: uniform external convergence at the lens redshift
 DPIE_PROFILE_NAME = "DPIE_NIE_E"        # lenstronomy names (exact-image solver)
 SHEAR_PROFILE_NAME = "SHEAR"
 NFW_PROFILE_NAME = "NFW_ELLIPSE_CSE"
+MASS_SHEET_PROFILE_NAME = "CONVERGENCE"
 COMPONENT_FAMILY_LARGE = 0
 COMPONENT_FAMILY_SCALING = 1
 DEFAULT_SEARCH_PADDING = 8.0
@@ -104,6 +106,9 @@ class PackedLensSpec:
     log10_m200_base: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=float))
     scale_radius_param_index: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=np.int32))
     log10_m200_param_index: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=np.int32))
+    # External convergence: the sheet's kappa for a source at infinite redshift (D_ls / D_s = 1).
+    kappa_base: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=float))
+    kappa_param_index: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=np.int32))
 
 
 class PackedLensState(NamedTuple):
@@ -121,6 +126,7 @@ class PackedLensState(NamedTuple):
     gamma2: jnp.ndarray
     nfw_rs: jnp.ndarray          # NFW: scale radius (arcsec) and deflection at the scale radius (arcsec)
     alpha_rs: jnp.ndarray
+    kappa: jnp.ndarray           # mass sheet: convergence seen by each source (efficiency applied)
 
 
 class PackedLensValidity(NamedTuple):

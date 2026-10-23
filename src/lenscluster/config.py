@@ -80,6 +80,17 @@ class NFWHaloConfig:
 
 
 @dataclass(frozen=True)
+class MassSheetConfig:
+    """Uniform external convergence at the lens redshift.  ``kappa`` is the value for a source at infinite redshift;
+    each family sees kappa x D_ls / D_s.  Multiple source redshifts constrain it; a single one cannot (mass-sheet degeneracy)."""
+    id: str
+    kappa: float
+    z_lens: float
+    profile_type: int = 101
+    priors: dict[str, PriorConfig] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
 class ShearHaloConfig:
     id: str
     gamma: float
@@ -125,7 +136,7 @@ class ImageConstraintsConfig:
 class LensModelConfig:
     reference: ReferenceFrameConfig = field(default_factory=ReferenceFrameConfig)
     cosmology: CosmologyConfig = field(default_factory=CosmologyConfig)
-    large_halos: tuple[DPIEHaloConfig | NFWHaloConfig | ShearHaloConfig, ...] = ()
+    large_halos: tuple[DPIEHaloConfig | NFWHaloConfig | ShearHaloConfig | MassSheetConfig, ...] = ()
     member_populations: tuple[MemberPopulationConfig, ...] = ()
     independent_member_halos: tuple[IndependentMemberHaloConfig, ...] = ()
     image_constraints: ImageConstraintsConfig | None = None
@@ -443,6 +454,9 @@ def _validate_model_config(model: LensModelConfig | None) -> None:
         if isinstance(halo, ShearHaloConfig):
             if int(halo.profile_type) != 14 or not math.isfinite(float(halo.gamma)) or halo.gamma < 0.0 or not math.isfinite(float(halo.angle_pos)):
                 raise ValueError(f"shear halo {halo.id!r} must use profile_type=14 with finite non-negative gamma and finite angle_pos.")
+        elif isinstance(halo, MassSheetConfig):
+            if int(halo.profile_type) != 101 or not math.isfinite(float(halo.kappa)):
+                raise ValueError(f"mass sheet {halo.id!r} must use profile_type=101 with finite kappa.")
         elif isinstance(halo, NFWHaloConfig):
             if int(halo.profile_type) != 12 or halo.scale_radius_kpc <= 0.0 or not math.isfinite(float(halo.log10_m200)):
                 raise ValueError(f"NFW halo {halo.id!r} must use profile_type=12 with a positive scale radius and finite log10_m200.")

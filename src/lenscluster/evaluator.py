@@ -9,7 +9,8 @@ import numpy as np
 
 from . import jax_lensing, smoothed_likelihood as sl
 from .farfield import evaluate_farfield, member_farfield_geometry, slice_geometry
-from .model import (member_log_deviations, COMPONENT_FAMILY_SCALING, DP_IE_PROFILE, NFW_PROFILE, SAFE_RADIUS_MARGIN_ARCSEC,
+from .jax_cosmology import dpie_sigma0_factor_from_lensing_efficiency
+from .model import (member_log_deviations, COMPONENT_FAMILY_SCALING, DP_IE_PROFILE, MASS_SHEET_PROFILE, NFW_PROFILE, SAFE_RADIUS_MARGIN_ARCSEC,
                     SAFE_RADIUS_MARGIN_KPC, SHEAR_PROFILE, ModelState, PackedLensState, PackedLensValidity, apply_parameter_transforms_jax)
 from .profiles import critical_density_msun_kpc3, nfw_alpha_rs_arcsec, nfw_scale_density
 
@@ -38,6 +39,8 @@ class Evaluator:
         self.n_components = int(np.asarray(packed.profile_type).size)
         self.factor_by_z = jnp.asarray([state.dpie_sigma0_factor_by_z[z] for z in state.z_source_values], dtype=jnp.float64)
         self.nfw_rho_crit = float(critical_density_msun_kpc3(state.z_lens, state.cosmo_config))
+        # The dPIE sigma0 factor is proportional to the lensing efficiency D_ls / D_s; this constant recovers it.
+        self.efficiency_per_factor = 1.0 / float(dpie_sigma0_factor_from_lensing_efficiency(1.0))
         images = state.images
         self.xy = jnp.stack((images.x_obs, images.y_obs), -1)
         members = state.members
@@ -97,10 +100,12 @@ class Evaluator:
         gamma2 = self._apply(spec["gamma2_base"], spec["gamma2_param_index"], physical)
         scale_radius_kpc = self._apply(spec["scale_radius_kpc_base"], spec["scale_radius_param_index"], physical)
         log10_m200 = self._apply(spec["log10_m200_base"], spec["log10_m200_param_index"], physical)
+        kappa_inf = self._apply(spec["kappa_base"], spec["kappa_param_index"], physical)
         profile_type = spec["profile_type"]
         is_dpie = profile_type == DP_IE_PROFILE
         is_nfw = profile_type == NFW_PROFILE
         is_shear = profile_type == SHEAR_PROFILE
+        is_sheet = profile_type == MASS_SHEET_PROFILE
         is_scaling = spec["component_family"] == COMPONENT_FAMILY_SCALING
         luminosity_ratio = spec["luminosity_ratio"]
         sigma_ref = self._apply(spec["sigma_ref_base"], spec["sigma_ref_param_index"], physical)
@@ -139,15 +144,17 @@ class Evaluator:
             factor_per_image = jnp.take(self.factor_by_z, self.state.images.z_index_per_image)
             sigma0 = jnp.where(is_dpie[:, None], (v_disp[:, None] ** 2) * factor_per_image[None, :] / ra[:, None], 0.0)
             alpha_rs = jnp.where(is_nfw[:, None], nfw_alpha_rs_arcsec(rho_s[:, None], safe_rs_kpc[:, None], factor_per_image[None, :]), 0.0)
+            kappa = jnp.where(is_sheet[:, None], kappa_inf[:, None] * (self.efficiency_per_factor * factor_per_image)[None, :], 0.0)
         else:
             factor = jnp.asarray(factor_per_image, dtype=jnp.float64)
             sigma0 = jnp.where(is_dpie, (v_disp ** 2) * factor / ra, 0.0)
             alpha_rs = jnp.where(is_nfw, nfw_alpha_rs_arcsec(rho_s, safe_rs_kpc, factor), 0.0)
+            kappa = jnp.where(is_sheet, kappa_inf * (self.efficiency_per_factor * factor), 0.0)
         elliptical = is_dpie | is_nfw
         packed = PackedLensState(
             profile_type=profile_type, sigma0=sigma0, Ra=jnp.where(is_dpie, ra, 0.0), Rs=jnp.where(is_dpie, rs, 0.0),
             e1=jnp.where(elliptical, e1, 0.0), e2=jnp.where(elliptical, e2, 0.0), center_x=x_center, center_y=y_center,
-            gamma1=jnp.where(is_shear, gamma1, 0.0), gamma2=jnp.where(is_shear, gamma2, 0.0), nfw_rs=nfw_rs, alpha_rs=alpha_rs)
+            gamma1=jnp.where(is_shear, gamma1, 0.0), gamma2=jnp.where(is_shear, gamma2, 0.0), nfw_rs=nfw_rs, alpha_rs=alpha_rs, kappa=kappa)
         flags = jnp.stack([
             jnp.any(~jnp.isfinite(sigma0)) | jnp.any(~jnp.isfinite(alpha_rs)),
             jnp.any(is_dpie & (ra_raw <= 0.0)),
@@ -159,6 +166,7 @@ class Evaluator:
             jnp.any(is_shear & (~jnp.isfinite(gamma1) | ~jnp.isfinite(gamma2))),
             jnp.any(elliptical & (~jnp.isfinite(e1) | ~jnp.isfinite(e2) | ((jnp.square(e1) + jnp.square(e2)) >= 1.0))),
             jnp.any(is_nfw & ((scale_radius_kpc <= 0.0) | ~jnp.isfinite(scale_radius_kpc) | ~jnp.isfinite(log10_m200))),
+            jnp.any(is_sheet & ~jnp.isfinite(kappa_inf)),
         ])
         return packed, PackedLensValidity(is_valid=~jnp.any(flags), reason_flags=flags)
 
@@ -224,6 +232,16 @@ class Evaluator:
             shear_u = jnp.stack((jnp.stack((gamma1 * ones, gamma2 * ones), -1), jnp.stack((gamma2 * ones, -gamma1 * ones), -1)), -2)
             pos = jnp.asarray(np.flatnonzero(shear_mask), dtype=jnp.int32)
             alpha, u = alpha.at[pos].set(shear_alpha), u.at[pos].set(shear_u)
+        sheet_mask = profile == MASS_SHEET_PROFILE
+        if np.any(sheet_mask):
+            idx = components[sheet_mask]
+            kappa = jnp.take(jnp.asarray(packed.kappa, dtype=jnp.float64), jnp.asarray(idx), axis=0)   # (c,) or (c, N)
+            kappa = jnp.broadcast_to(kappa if kappa.ndim == 2 else kappa[:, None], (idx.size, n))
+            # A uniform sheet about the reference origin: alpha = kappa theta, U = kappa I, dU = 0.
+            sheet_alpha = kappa[..., None] * xy[None, :, :]
+            sheet_u = kappa[..., None, None] * jnp.eye(2)[None, None]
+            pos = jnp.asarray(np.flatnonzero(sheet_mask), dtype=jnp.int32)
+            alpha, u = alpha.at[pos].set(sheet_alpha), u.at[pos].set(sheet_u)
         return (alpha, u, du) if derivative else (alpha, u)
 
     def total_fields_at(self, xy, packed: PackedLensState, components: np.ndarray | None = None, *, chunk: int = 16384):

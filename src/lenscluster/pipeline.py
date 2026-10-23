@@ -13,7 +13,8 @@ import numpy as np
 
 from . import artifacts
 from .audit import audit_posterior
-from .classification import classify_members, conservative_cut_radii_arcsec, member_cut_radii_arcsec, prior_quantile_beta, prior_quantile_cut_kpc
+from .classification import (classify_members, conservative_cut_radii_arcsec, member_cut_radii_arcsec, member_max_deflection_arcsec,
+                             prior_quantile_beta, prior_quantile_cut_kpc)
 from .config import LensClusterSolverConfig
 from .evaluator import Evaluator
 from .init_plots import write_init_plots
@@ -217,8 +218,8 @@ def run_init(config: LensClusterSolverConfig) -> InitResult:
             if saved != artifacts._jsonable(signature):
                 raise ValueError("The saved init stage was made with a different model, likelihood, member or search configuration; use a new run name.")
             log("[init] complete init stage found; loading the saved start")
-            state = build_state(config)
             saved_classes = json.loads((paths.artifacts / artifacts.CLASSIFICATION_FILE).read_text())
+            state = build_state(config, drop_member_ids=saved_classes.get("dropped_members", ()))
             centered = np.asarray([m in set(saved_classes.get("centered_members", [])) for m in state.members.member_ids], dtype=bool)
             state = with_member_classes(state, artifacts.load_exact_positions(paths.artifacts), saved_classes, centered=centered)
             theta = artifacts.load_start(paths.artifacts)
@@ -236,6 +237,19 @@ def run_init(config: LensClusterSolverConfig) -> InitResult:
         log(f"[init] parameters={state.n_parameters} images={state.images.n_images} families={state.images.n_families} "
             f"members={len(state.members.member_ids)} components={len(state.base_components)}")
         evaluator = Evaluator(state, config.likelihood.likelihood_mode)
+
+        # 0. Optional impact cut: members that deflect every image by less than the threshold leave the model.
+        floor = config.members.min_deflection_arcsec
+        if floor:
+            deflection = member_max_deflection_arcsec(state, evaluator, state.initial_theta)
+            dropped = tuple(mid for mid, value in zip(state.members.member_ids, deflection) if value < float(floor))
+            if dropped:
+                log(f"[classify] impact cut: dropping {len(dropped)} of {len(deflection)} members whose deflection at every image is "
+                    f"below {floor:g}\" at the initial model (summed maxima {float(np.sum(deflection[deflection < floor])):.3f}\"); "
+                    f"faintest kept member {max(float(r['catalog_mag']) for r, d in zip(state.scaling_component_records, deflection) if d >= floor):.1f} mag")
+                state = build_state(config, drop_member_ids=dropped)
+                evaluator = Evaluator(state, config.likelihood.likelihood_mode)
+                log(f"[init] parameters={state.n_parameters} members={len(state.members.member_ids)} after the impact cut")
 
         # 1. Provisional classification from the prior-inflated cut radii at the initial model.
         state = classify(state, evaluator, state.initial_theta, config, reference_cut_kpc=None, beta_radius=None, log=log)
@@ -268,6 +282,8 @@ def run_init(config: LensClusterSolverConfig) -> InitResult:
         state.initial_theta = theta
         state = choose_centering(state, Evaluator(state, config.likelihood.likelihood_mode), config, log=log)
         theta = np.asarray(state.initial_theta, dtype=float)
+        state.members.classification["dropped_members"] = list(state.dropped_member_ids)
+        state.members.classification["min_deflection_arcsec"] = config.members.min_deflection_arcsec
         report = classification_report(state, provisional=provisional)
         log(report)
         (paths.tables / "classification_report.txt").write_text(report + "\n")
@@ -376,8 +392,17 @@ def dry_run(config: LensClusterSolverConfig) -> dict[str, Any]:
     config = config.validate()
     state = build_state(config)
     evaluator = Evaluator(state, config.likelihood.likelihood_mode)
+    floor = config.members.min_deflection_arcsec
+    if floor:
+        deflection = member_max_deflection_arcsec(state, evaluator, state.initial_theta)
+        dropped = tuple(mid for mid, value in zip(state.members.member_ids, deflection) if value < float(floor))
+        if dropped:
+            state = build_state(config, drop_member_ids=dropped)
+            evaluator = Evaluator(state, config.likelihood.likelihood_mode)
     state = classify(state, evaluator, state.initial_theta, config, reference_cut_kpc=None, beta_radius=None, log=lambda _: None)
     classification = state.members.classification
+    classification["dropped_members"] = list(state.dropped_member_ids)
+    classification["min_deflection_arcsec"] = floor
     print(classification_report(state))
     return {
         "stages": {"init": f"classify -> {config.search.strategy} search from {config.search.n_starts} prior starts -> reclassify at the MAP -> start.json",

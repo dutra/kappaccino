@@ -210,6 +210,7 @@ class MemberConfig:
     cut_radius_inflation: float = 1.0
     template_tolerance: float = 0.1
     top_exact: int | None = None
+    min_deflection_arcsec: float | None = None   # drop members whose deflection at every image, at the initial model, is below this
 
 
 @dataclass(frozen=True)
@@ -395,6 +396,8 @@ def validate_config(config: LensClusterSolverConfig) -> None:
         raise ValueError("members.template_tolerance must lie between zero and one.")
     if members.top_exact is not None and (isinstance(members.top_exact, bool) or not isinstance(members.top_exact, Integral) or members.top_exact < 0):
         raise ValueError("members.top_exact must be a nonnegative integer or None.")
+    if members.min_deflection_arcsec is not None:
+        _positive("members.min_deflection_arcsec", members.min_deflection_arcsec)
     scaling = config.scaling
     if config.members.centering not in {"auto", "exact", "none"}:
         raise ValueError("members.centering must be 'auto', 'exact' or 'none'.")

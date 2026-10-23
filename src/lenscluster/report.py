@@ -40,6 +40,9 @@ def classification_report(state: ModelState, *, provisional: dict[str, Any] | No
                          f"median {pivot['member_median_mag']:.2f}); sigma and cutkpc priors moved from mag {pivot['prior_mag0']:.2f} "
                          f"by x{pivot['sigma_factor']:.3f} and x{pivot['cutkpc_factor']:.3f}: sigma* {potfile['sigma_nominal']:.1f} km/s, "
                          f"r_cut* {potfile['cutkpc_nominal']:.1f} kpc")
+    if d.get("dropped_members"):
+        lines.append(f"  impact cut: {len(d['dropped_members'])} catalog members dropped from the model (deflection at every image "
+                     f"below {d.get('min_deflection_arcsec'):g}\" at the initial model)")
     lines += [
              f"  members {d['member_count']}: exact {d['exact_count']} (mandatory {d['mandatory_count']}), far-field {d['member_count'] - d['exact_count']}; "
              f"deviations: {state.packed_lens_spec.deviation_mode}, centered for {d.get('centered_count', 0)} members",

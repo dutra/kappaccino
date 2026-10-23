@@ -52,6 +52,16 @@ def conservative_cut_radii_arcsec(state: ModelState, reference_cut_kpc: float, b
     return np.max(np.stack([member_cut_radii_arcsec(state, reference_cut_kpc, b) for b in betas]), axis=0)
 
 
+def member_max_deflection_arcsec(state: ModelState, evaluator: Evaluator, theta: np.ndarray) -> np.ndarray:
+    """Per member, the largest deflection it produces at any image under the model at ``theta`` (exact kernel)."""
+    members = np.asarray(state.members.component_indices, dtype=np.int32)
+    if members.size == 0:
+        return np.zeros(0)
+    packed = evaluator.packed_state(evaluator.physical(jnp.asarray(theta, dtype=jnp.float64)))[0]
+    alpha, _ = evaluator.component_rows(evaluator.xy, packed, members)
+    return np.asarray(jnp.max(jnp.linalg.norm(alpha, axis=-1), axis=1))
+
+
 def member_cut_radii_arcsec(state: ModelState, reference_cut_kpc: float, beta_radius: float) -> np.ndarray:
     """Cut radius of every population member for a reference cut radius and radius exponent."""
     spec = state.packed_lens_spec

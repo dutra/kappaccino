@@ -231,6 +231,7 @@ class ModelState:
     log_softening_length_param_index: int = -1
     scaling_priors: dict[str, float] = field(default_factory=dict)
     sigma_obs_extra_param_index: int = -1        # extra image-plane scatter added in quadrature to the catalog errors; -1 when absent
+    dropped_member_ids: tuple[str, ...] = ()  # catalog members removed from the lens model (members.min_deflection_arcsec)
     initial_theta: np.ndarray | None = None
 
     @property

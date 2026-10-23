@@ -545,11 +545,18 @@ def source_sample_name(family_id: str, axis: str) -> str:
 
 
 # ----------------------------------------------------------------------------- state assembly
-def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.ndarray | None = None,
+def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.ndarray | None = None, drop_member_ids=(),
                 classification: dict[str, Any] | None = None) -> ModelState:
     """Build the full model state. Every member is sampled; classes default to all exact."""
     model_config = config.model
     potentials, potfiles, images_df, cosmo_config, reference = declared_model_inputs(model_config, config.scaling)
+    # Members removed after the pivot and the priors were set from the full catalog (members.min_deflection_arcsec).
+    dropped = tuple(str(i) for i in drop_member_ids)
+    if dropped:
+        for potfile in potfiles:
+            catalog_df = potfile["catalog_df"]
+            keep = ~catalog_df["id"].astype(str).isin({d.split(":", 1)[1] if ":" in d else d for d in dropped if d.split(":", 1)[0] in (str(potfile["id"]), d)})
+            potfile["catalog_df"] = catalog_df.loc[keep].copy().reset_index(drop=True)
     images_df, _ = filter_image_families(images_df)
     z_lens = float(next(float(p["z_lens"]) for p in potentials if p.get("z_lens") is not None))
     kpc_per_arcsec = kpc_per_arcsec_from_config(z_lens, cosmo_config)
@@ -692,7 +699,7 @@ def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.n
         base_components=base_components, packed_lens_spec=packed, lens_model_list=lens_model_list,
         family_data=families, images=images, potfiles=potfiles, scaling_component_records=records,
         members=members, z_source_values=z_values, dpie_sigma0_factor_by_z=factor_by_z,
-        log_softening_length_param_index=int(log_softening_index), sigma_obs_extra_param_index=int(sigma_obs_extra_index),
+        log_softening_length_param_index=int(log_softening_index), sigma_obs_extra_param_index=int(sigma_obs_extra_index), dropped_member_ids=dropped,
         scaling_priors={k: float(getattr(scaling, k)) for k in ("alpha_sigma_prior_mean", "alpha_sigma_prior_std",
                                                                  "beta_radius_prior_mean", "beta_radius_prior_std")})
     state.initial_theta = default_theta(specs)

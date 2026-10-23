@@ -451,7 +451,7 @@ def build_config(
             kappa_true_fits=cluster_config.get("kappa_true_fits"),
             gammax_true_fits=cluster_config.get("gammax_true_fits"),
             gammay_true_fits=cluster_config.get("gammay_true_fits"),
-            posterior_truth_recovery_draws=64,
+            posterior_truth_recovery_draws=16,
             truth_grid_size=256,
             caustic_source_redshift=9.0,
         ),

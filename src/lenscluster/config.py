@@ -85,7 +85,7 @@ class IndependentMemberHaloConfig:
 class MemberPopulationConfig:
     id: str
     catalog_path: str | Path
-    mag0: float
+    mag0: float | str                        # pivot magnitude, or "auto": the image-leverage-weighted member magnitude, rounded
     corekpc: float
     sigma: float
     cutkpc: float
@@ -94,6 +94,7 @@ class MemberPopulationConfig:
     sigma_prior: PriorConfig = field(default_factory=PriorConfig)
     cutkpc_prior: PriorConfig = field(default_factory=PriorConfig)
     exclude_catalog_ids: tuple[str, ...] = ()
+    prior_mag0: float | None = None          # magnitude at which sigma, cutkpc and their priors are given when mag0 is "auto"
 
 
 @dataclass(frozen=True)
@@ -380,6 +381,11 @@ def _validate_model_config(model: LensModelConfig | None) -> None:
             raise ValueError(f"large halo {halo.id!r} must have positive z_lens.")
     populations: dict[str, MemberPopulationConfig] = {}
     for population in model.member_populations:
+        if isinstance(population.mag0, str):
+            if population.mag0 != "auto":
+                raise ValueError(f"member population {population.id!r}: mag0 must be a number or 'auto'.")
+            if population.prior_mag0 is None:
+                raise ValueError(f"member population {population.id!r}: mag0='auto' needs prior_mag0, the magnitude the sigma and cutkpc priors refer to.")
         if population.id in populations:
             raise ValueError(f"duplicate member population id {population.id!r}.")
         populations[population.id] = population

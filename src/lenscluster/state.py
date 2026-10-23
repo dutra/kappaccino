@@ -526,7 +526,7 @@ def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.n
                 classification: dict[str, Any] | None = None) -> ModelState:
     """Build the full model state. Every member is sampled; classes default to all exact."""
     model_config = config.model
-    potentials, potfiles, images_df, cosmo_config, reference = declared_model_inputs(model_config)
+    potentials, potfiles, images_df, cosmo_config, reference = declared_model_inputs(model_config, config.scaling)
     images_df, _ = filter_image_families(images_df)
     z_lens = float(next(float(p["z_lens"]) for p in potentials if p.get("z_lens") is not None))
     kpc_per_arcsec = kpc_per_arcsec_from_config(z_lens, cosmo_config)

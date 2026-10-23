@@ -616,6 +616,16 @@ def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.n
         mean=float(np.log(source_prior.median)), std=float(source_prior.log_sigma),
         component_family="source_scatter", transform_kind="log_positive", physical_lower=0.0,
         physical_mean=float(source_prior.median)))
+    sigma_obs_extra_index = -1
+    if config.likelihood.sigma_obs_extra_prior is not None:
+        scatter_prior = config.likelihood.sigma_obs_extra_prior
+        sigma_obs_extra_index = len(specs)
+        specs.append(ParameterSpec(
+            name="images.sigma_obs_extra", sample_name="images_sigma_obs_extra", potential_id="images", profile_type=0, field="sigma_obs_extra",
+            prior_kind="normal", lower=-math.inf, upper=math.inf, step=0.1,
+            mean=float(np.log(scatter_prior.median)), std=float(scatter_prior.log_sigma),
+            component_family="source_scatter", transform_kind="log_positive", physical_lower=0.0,
+            physical_mean=float(scatter_prior.median)))
 
     families = build_family_data(images_df, sigma_arcsec, reference)
     source_param_indices: dict[str, tuple[int, int]] = {}
@@ -682,7 +692,7 @@ def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.n
         base_components=base_components, packed_lens_spec=packed, lens_model_list=lens_model_list,
         family_data=families, images=images, potfiles=potfiles, scaling_component_records=records,
         members=members, z_source_values=z_values, dpie_sigma0_factor_by_z=factor_by_z,
-        log_softening_length_param_index=int(log_softening_index),
+        log_softening_length_param_index=int(log_softening_index), sigma_obs_extra_param_index=int(sigma_obs_extra_index),
         scaling_priors={k: float(getattr(scaling, k)) for k in ("alpha_sigma_prior_mean", "alpha_sigma_prior_std",
                                                                  "beta_radius_prior_mean", "beta_radius_prior_std")})
     state.initial_theta = default_theta(specs)

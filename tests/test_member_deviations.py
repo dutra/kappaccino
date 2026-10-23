@@ -28,7 +28,7 @@ def test_centered_conversion_preserves_the_likelihood(synthetic_config, mode):
     assert np.isfinite(value)
     np.testing.assert_allclose(float(Evaluator(switched).loglike(jnp.asarray(switched.initial_theta))), value, rtol=1e-10, atol=1e-8)
     assert np.isfinite(float(prior_log_prob(switched.parameter_specs, jnp.asarray(switched.initial_theta))))
-    expected = {"sigma": 16, "mass": 16, "sigma_rcut": 21, "mass_rcut": 21}[mode]
+    expected = {"sigma": 17, "mass": 17, "sigma_rcut": 22, "mass_rcut": 22}[mode]   # incl. the sampled image-error scatter
     assert state.n_parameters == expected
 
 

@@ -127,7 +127,7 @@ class MemberPopulationConfig:
 @dataclass(frozen=True)
 class ImageConstraintsConfig:
     catalog_path: str | Path
-    sigma_arcsec: float = 0.5
+    sigma_arcsec: float = 0.1                # HST astrometric precision; model systematics belong to the source scatter, not here
     metadata_path: str | Path | None = None
     sigma_floor_arcsec: float = 0.0
 
@@ -236,10 +236,14 @@ class ScalingModelConfig:
 @dataclass(frozen=True)
 class LikelihoodConfig:
     likelihood_mode: str = "smoothed"       # "smoothed" (local image-plane, the model of the paper); diagnostics only: "source-anisotropic", "source-isotropic"
-    source_scatter_prior: LogNormalPriorConfig = field(default_factory=lambda: LogNormalPriorConfig(median=0.02, log_sigma=0.7))
+    source_scatter_prior: LogNormalPriorConfig = field(default_factory=lambda: LogNormalPriorConfig(median=0.1, log_sigma=1.0))
     source_position_prior_mean_arcsec: tuple[float, float] = (0.0, 0.0)
     source_position_prior_sigma_arcsec: float = 100.0
     pos_sigma_arcsec: float | None = None
+    # Extra image-plane scatter s (arcsec, log-normal prior) added in quadrature to every catalog error,
+    # sigma_obs = sqrt(sigma_catalog^2 + s^2): the catalog astrometric error is a floor, s absorbs e.g. feature
+    # mis-identification between images.  None keeps the catalog sigma fixed.
+    sigma_obs_extra_prior: LogNormalPriorConfig | None = field(default_factory=lambda: LogNormalPriorConfig(median=0.05, log_sigma=1.0))
 
 
 @dataclass(frozen=True)
@@ -399,6 +403,10 @@ def validate_config(config: LensClusterSolverConfig) -> None:
         raise ValueError("members.classification_prior_quantile must lie in (0.5, 1).")
     if config.likelihood.likelihood_mode not in {"smoothed", "source-anisotropic", "source-isotropic"}:
         raise ValueError("likelihood.likelihood_mode must be 'smoothed', 'source-anisotropic' or 'source-isotropic'.")
+    if config.likelihood.sigma_obs_extra_prior is not None:
+        prior = config.likelihood.sigma_obs_extra_prior
+        if float(prior.median) <= 0.0 or float(prior.log_sigma) <= 0.0:
+            raise ValueError("likelihood.sigma_obs_extra_prior must have a positive median (arcsec) and log_sigma.")
     if scaling.member_deviation not in {"sigma", "mass", "sigma_rcut", "mass_rcut"}:
         raise ValueError("scaling.member_deviation must be 'sigma', 'mass', 'sigma_rcut' or 'mass_rcut'.")
     if scaling.radius_deviation_members not in {"exact", "all"}:

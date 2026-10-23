@@ -64,6 +64,22 @@ class DPIEHaloConfig:
 
 
 @dataclass(frozen=True)
+class NFWHaloConfig:
+    """Elliptical NFW cluster-scale halo: mass M200 (log10 Msun, no little h) and scale radius in kpc; ellipticity is
+    in the convergence with the Lenstool convention of ``ellipticite``."""
+    id: str
+    x_centre: float
+    y_centre: float
+    ellipticite: float
+    angle_pos: float
+    log10_m200: float
+    scale_radius_kpc: float
+    z_lens: float
+    profile_type: int = 12
+    priors: dict[str, PriorConfig] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
 class ShearHaloConfig:
     id: str
     gamma: float
@@ -109,7 +125,7 @@ class ImageConstraintsConfig:
 class LensModelConfig:
     reference: ReferenceFrameConfig = field(default_factory=ReferenceFrameConfig)
     cosmology: CosmologyConfig = field(default_factory=CosmologyConfig)
-    large_halos: tuple[DPIEHaloConfig | ShearHaloConfig, ...] = ()
+    large_halos: tuple[DPIEHaloConfig | NFWHaloConfig | ShearHaloConfig, ...] = ()
     member_populations: tuple[MemberPopulationConfig, ...] = ()
     independent_member_halos: tuple[IndependentMemberHaloConfig, ...] = ()
     image_constraints: ImageConstraintsConfig | None = None
@@ -427,6 +443,11 @@ def _validate_model_config(model: LensModelConfig | None) -> None:
         if isinstance(halo, ShearHaloConfig):
             if int(halo.profile_type) != 14 or not math.isfinite(float(halo.gamma)) or halo.gamma < 0.0 or not math.isfinite(float(halo.angle_pos)):
                 raise ValueError(f"shear halo {halo.id!r} must use profile_type=14 with finite non-negative gamma and finite angle_pos.")
+        elif isinstance(halo, NFWHaloConfig):
+            if int(halo.profile_type) != 12 or halo.scale_radius_kpc <= 0.0 or not math.isfinite(float(halo.log10_m200)):
+                raise ValueError(f"NFW halo {halo.id!r} must use profile_type=12 with a positive scale radius and finite log10_m200.")
+            if not (0.0 <= float(halo.ellipticite) < 1.0):
+                raise ValueError(f"NFW halo {halo.id!r} must have ellipticite in [0, 1).")
         elif halo.core_radius_kpc <= 0.0 or halo.cut_radius_kpc <= 0.0 or halo.v_disp <= 0.0:
             raise ValueError(f"large halo {halo.id!r} must have positive core, cut, and velocity dispersion.")
         if halo.z_lens <= 0.0:

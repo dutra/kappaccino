@@ -6,6 +6,7 @@ import math
 
 import jax
 import jax.numpy as jnp
+import numpy as np
 from jaxtronomy.LensModel.Profiles.dpie_nie_e import DPIE_NIE_E as DPIENIE
 from jaxtronomy.LensModel.Profiles.nie_e import _atan_sqrt_ratio, _geometry as _nie_geometry
 
@@ -487,4 +488,108 @@ grouped_dpie_fields = {
 grouped_dpie_fields_from_geometry = {
     True: jax.vmap(dpie_fields_from_geometry, in_axes=(0, 0, 0, 0)),
     False: jax.vmap(functools.partial(dpie_fields_from_geometry, derivative=False), in_axes=(0, 0, 0, 0)),
+}
+
+
+# ----------------------------------------------------------------------------- elliptical NFW fields
+# Oguri (2021) CSE decomposition of the NFW convergence with ellipticity in the convergence; the 44-term set matches
+# the NFW to about one part in a thousand.  Deflection, Jacobian and its derivative are linear in alpha_Rs, so the kernel
+# is evaluated with unit normalization and scaled afterwards, which lets the normalization vary per point (per image).
+# Table 1 of Oguri (2021), the 44-term CSE decomposition of the NFW convergence (same table as jaxtronomy's
+# NFW_ELLIPSE_CSE with high_accuracy=True, kept here as NumPy so importing this module does not initialize JAX).
+_CSE_A = np.array([1.6489880e-18, 6.2744580e-16, 3.6466200e-17, 3.4592060e-15, 2.4573890e-14, 1.0593190e-13, 4.2115970e-13, 1.1428320e-12, 4.3912150e-12, 1.5565000e-11, 6.9512710e-11,
+                   3.1474660e-10, 1.3791090e-09, 3.8297780e-09, 1.3848580e-08, 5.3709510e-08, 1.8043840e-07, 5.7886080e-07, 3.2052560e-06, 1.1024220e-05, 4.0939710e-05, 1.2822060e-04,
+                   4.5755410e-04, 7.9952700e-04, 5.0137010e-03, 1.4035080e-02, 5.2307270e-02, 1.8989070e-01, 3.6434480e-01, 7.2037340e-01, 1.7176670e+00, 2.2175660e+00, 3.1874470e+00,
+                   8.1948980e+00, 1.7652100e+01, 1.9743190e+01, 2.7836880e+01, 4.4823110e+01, 5.5988970e+01, 1.4264850e+02, 2.2798330e+02, 5.4013350e+02, 9.7436820e+02, 1.7751240e+03])
+_CSE_S = np.array([1.0824110e-06, 8.7865660e-06, 3.2928680e-06, 1.8600190e-05, 3.2742310e-05, 6.2324850e-05, 9.2563330e-05, 1.5467620e-04, 2.0973210e-04, 3.3911400e-04, 5.1787900e-04,
+                   8.6367360e-04, 1.4051520e-03, 2.1938550e-03, 3.1795720e-03, 4.9709870e-03, 7.6319700e-03, 1.1194130e-02, 1.8272670e-02, 2.9452510e-02, 4.5627230e-02, 6.7825090e-02,
+                   1.5969870e-01, 1.1277510e-01, 2.1694690e-01, 3.4238350e-01, 5.1945270e-01, 8.6231850e-01, 1.3827370e+00, 2.0349290e+00, 3.4029790e+00, 5.5942760e+00, 8.0523450e+00,
+                   1.3490450e+01, 2.6038250e+01, 4.7368230e+01, 6.5593200e+01, 1.0879320e+02, 1.4776730e+02, 2.4953410e+02, 4.3059990e+02, 7.7602060e+02, 2.1430570e+03, 1.9357490e+03])
+_NFW_UNIT_NORMALIZATION = 1.0 / (1.0 - math.log(2.0))      # 4 rho0 Rs^3 / Rs for alpha_Rs = 1
+_ELLIPTICITY_SINGULARITY = 1.0e-12
+
+
+@jax.custom_jvp
+def ellipticity_frame(e1, e2):
+    """Position angle and axis ratio of the (e1, e2) ellipticity.  The lensing fields are even in the ellipticity, so
+    their derivative vanishes at e = 0; the custom tangent below returns that limit instead of the 0/0 of arctan2."""
+    c = jnp.sqrt(e1 * e1 + e2 * e2)
+    return 0.5 * jnp.arctan2(e2, e1), (1.0 - c) / (1.0 + c)
+
+
+@ellipticity_frame.defjvp
+def _ellipticity_frame_jvp(primals, tangents):
+    e1, e2 = primals
+    t1, t2 = tangents
+    c2 = e1 * e1 + e2 * e2
+    regular = c2 > _ELLIPTICITY_SINGULARITY ** 2
+    safe_c2 = jnp.where(regular, c2, 1.0)
+    c = jnp.sqrt(safe_c2)
+    dphi = jnp.where(regular, 0.5 * (e1 * t2 - e2 * t1) / safe_c2, 0.0)
+    dq = jnp.where(regular, -2.0 / (1.0 + c) ** 2 * (e1 * t1 + e2 * t2) / c, 0.0)
+    return ellipticity_frame(e1, e2), (dphi, dq)
+
+
+def _cse_set_deflection(x, y, q):
+    """Deflection of the unit-normalized product-averaged CSE set (Oguri 2021, eqs. 19-20) in the halo frame; the sum
+    over the 44 terms is a broadcast rather than a loop so that reverse-mode differentiation stays cheap."""
+    a, s = _CSE_A[:, None] / q, _CSE_S[:, None]
+    xq, yq = x[None, :] * jnp.sqrt(q), y[None, :] * jnp.sqrt(q)
+    psi = jnp.sqrt(q * q * (s * s + xq * xq) + yq * yq)
+    phi = (psi + s) ** 2 + (1.0 - q * q) * xq * xq
+    common = a * q * jnp.sqrt(q) / (s * psi * phi)
+    return jnp.sum(common * xq * (psi + q * q * s), axis=0), jnp.sum(common * yq * (psi + s), axis=0)
+
+
+def _cse_set_hessian(x, y, q):
+    """Second derivatives (f_xx, f_xy, f_yy) of the same set (Oguri 2021, eqs. 21-23)."""
+    a, s = _CSE_A[:, None] / q, _CSE_S[:, None]
+    xq, yq = x[None, :] * jnp.sqrt(q), y[None, :] * jnp.sqrt(q)
+    q2 = q * q
+    psi = jnp.sqrt(q2 * (s * s + xq * xq) + yq * yq)
+    phi = (psi + s) ** 2 + (1.0 - q2) * xq * xq
+    pre = a * q2 / (s * phi)                                   # extra q from the two sqrt(q) coordinate factors
+    psi3, psi2phi = psi ** 3, psi * psi * phi
+    fxx = pre * (1.0 + q2 * s * (q2 * s * s + yq * yq) / psi3 - 2.0 * xq * xq * (psi + q2 * s) ** 2 / psi2phi)
+    fyy = pre * (1.0 + q2 * s * (s * s + xq * xq) / psi3 - 2.0 * yq * yq * (psi + s) ** 2 / psi2phi)
+    fxy = -pre * xq * yq * (q2 * s / psi3 + 2.0 * (psi + q2 * s) * (psi + s) / psi2phi)
+    return jnp.sum(fxx, axis=0), jnp.sum(fxy, axis=0), jnp.sum(fyy, axis=0)
+
+
+def nfw_fields(x, y, rs, alpha_rs, e1, e2, center_x, center_y, derivative=True):
+    """alpha (N, 2), U = d alpha / d theta (N, 2, 2) and dU[..., i, j, l] = d U_ij / d theta_l (N, 2, 2, 2; None unless
+    ``derivative``) of one elliptical NFW with scale radius ``rs`` (arcsec) and deflection ``alpha_rs`` at the scale radius."""
+    scale = jnp.broadcast_to(jnp.asarray(alpha_rs, dtype=jnp.float64), jnp.shape(x))
+    phi, q = ellipticity_frame(e1, e2)
+    c, s = jnp.cos(phi), jnp.sin(phi)
+    rotation = jnp.array([[c, s], [-s, c]])                   # halo frame = rotation @ (theta - centre)
+
+    def frame(points):
+        return ((points[:, 0] - center_x) * c + (points[:, 1] - center_y) * s) / rs, (-(points[:, 0] - center_x) * s + (points[:, 1] - center_y) * c) / rs
+
+    def jacobian(points):
+        xr, yr = frame(points)
+        fxx, fxy, fyy = _cse_set_hessian(xr, yr, q)
+        u_frame = jnp.stack((jnp.stack((fxx, fxy), -1), jnp.stack((fxy, fyy), -1)), -2) * (_NFW_UNIT_NORMALIZATION / rs)
+        return jnp.einsum("ai,bj,nab->nij", rotation, rotation, u_frame)
+
+    xy = jnp.stack((x, y), -1)
+    fx, fy = _cse_set_deflection(*frame(xy), q)
+    alpha = jnp.einsum("ai,na->ni", rotation, jnp.stack((fx, fy), -1)) * (_NFW_UNIT_NORMALIZATION * scale[:, None])
+    u = jacobian(xy) * scale[:, None, None]
+    if not derivative:
+        return alpha, u, None
+    du = jnp.stack([jax.jvp(jacobian, (xy,), (jnp.broadcast_to(jnp.asarray(direction), xy.shape),))[1]
+                    for direction in ((1.0, 0.0), (0.0, 1.0))], -1)
+    return alpha, u, du * scale[:, None, None, None]
+
+
+def _rotate(x, y, angle):
+    c, s = jnp.cos(angle), jnp.sin(angle)
+    return c * x + s * y, -s * x + c * y
+
+
+grouped_nfw_fields = {
+    True: jax.vmap(nfw_fields, in_axes=(None, None, 0, 0, 0, 0, 0, 0)),
+    False: jax.vmap(functools.partial(nfw_fields, derivative=False), in_axes=(None, None, 0, 0, 0, 0, 0, 0)),
 }

@@ -1,9 +1,10 @@
 # Lenscluster
 
 Bayesian strong-lensing cluster models with JAX and NumPyro. The model is a sum of
-dPIE halos, an optional external shear, and a population of cluster-member dPIE
-subhalos that follow luminosity scaling relations with per-member velocity-dispersion
-deviations. The likelihood is the smoothed local image-plane likelihood: every observed
+cluster-scale halos (dPIE or elliptical NFW), an optional external shear, and a
+population of cluster-member dPIE subhalos that follow luminosity scaling relations
+with per-member velocity-dispersion and, optionally, cut-radius deviations. The
+profiles the solver knows are registered in `lenscluster/profiles.py`. The likelihood is the smoothed local image-plane likelihood: every observed
 image is ray-traced to the source plane, the source-plane residual is compared with a
 Gaussian whose covariance combines the intrinsic source scatter and the propagated
 astrometric error, and the conditional expectation of the absolute Jacobian determinant

@@ -14,6 +14,7 @@ from .jax_cosmology import cosmology_config_from_parsed, kpc_per_arcsec_from_con
 
 DP_IE_PROFILE = 81
 SHEAR_PROFILE = 14
+NFW_PROFILE = 12
 DEFAULT_POTFILE_SCALING_EXPONENT = 4.0
 STRICT_IMAGE_LABEL_RE = re.compile(r"^([A-Z0-9]+)\.([a-z]+)$")
 STRICT_IMAGE_LABEL_FORMAT = "FAMILY.image with FAMILY matching [A-Z0-9]+ and image matching [a-z]+"
@@ -208,11 +209,15 @@ def _normalize_potential_definition(
         normalized_priors["profil"] = normalized_priors.pop("profile")
     profile_type = int(normalized.get("profil"))
 
-    if profile_type == DP_IE_PROFILE:
+    if profile_type in (DP_IE_PROFILE, NFW_PROFILE):
         if "ellipticite" not in normalized and "ellipticity" in normalized:
             normalized["ellipticite"] = normalized.pop("ellipticity")
         if "ellipticite" not in normalized_priors and "ellipticity" in normalized_priors:
             normalized_priors["ellipticite"] = normalized_priors.pop("ellipticity")
+    if profile_type == NFW_PROFILE:
+        for field_name in ("x_centre", "y_centre", "ellipticite", "angle_pos", "log10_m200", "scale_radius_kpc", "z_lens"):
+            _require_numeric_field(normalized, field_name, potential_id)
+    elif profile_type == DP_IE_PROFILE:
         for field_name in ("x_centre", "y_centre", "ellipticite", "angle_pos", "v_disp", "z_lens"):
             _require_numeric_field(normalized, field_name, potential_id)
         z_lens = _require_numeric_field(normalized, "z_lens", potential_id)

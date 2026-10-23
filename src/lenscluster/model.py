@@ -7,10 +7,12 @@ from typing import Any, NamedTuple, Protocol
 import jax.numpy as jnp
 import numpy as np
 
-DP_IE_PROFILE = 81
+DP_IE_PROFILE = 81          # Lenstool profile codes
 SHEAR_PROFILE = 14
-DPIE_PROFILE_NAME = "DPIE_NIE_E"
+NFW_PROFILE = 12
+DPIE_PROFILE_NAME = "DPIE_NIE_E"        # lenstronomy names (exact-image solver)
 SHEAR_PROFILE_NAME = "SHEAR"
+NFW_PROFILE_NAME = "NFW_ELLIPSE_CSE"
 COMPONENT_FAMILY_LARGE = 0
 COMPONENT_FAMILY_SCALING = 1
 DEFAULT_SEARCH_PADDING = 8.0
@@ -97,19 +99,28 @@ class PackedLensSpec:
     # radius_deviation_members is "exact" (their offsets are then prior-only).
     radius_deviation_active: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=bool))
     radius_deviation_members: str = "exact"
+    # Elliptical NFW halos: M200 and scale radius.
+    scale_radius_kpc_base: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=float))
+    log10_m200_base: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=float))
+    scale_radius_param_index: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=np.int32))
+    log10_m200_param_index: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=np.int32))
 
 
 class PackedLensState(NamedTuple):
+    """Per-component kernel parameters.  Normalizations (sigma0, alpha_rs) carry the lensing efficiency of the source
+    and have shape (component, image) in the likelihood or (component,) for a single source redshift."""
     profile_type: jnp.ndarray
-    sigma0: jnp.ndarray
+    sigma0: jnp.ndarray          # dPIE
     Ra: jnp.ndarray
     Rs: jnp.ndarray
-    e1: jnp.ndarray
+    e1: jnp.ndarray              # dPIE and NFW
     e2: jnp.ndarray
     center_x: jnp.ndarray
     center_y: jnp.ndarray
-    gamma1: jnp.ndarray
+    gamma1: jnp.ndarray          # external shear
     gamma2: jnp.ndarray
+    nfw_rs: jnp.ndarray          # NFW: scale radius (arcsec) and deflection at the scale radius (arcsec)
+    alpha_rs: jnp.ndarray
 
 
 class PackedLensValidity(NamedTuple):

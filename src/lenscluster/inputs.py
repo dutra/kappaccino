@@ -13,7 +13,7 @@ from .lenstool_parser import (
     _load_multiple_images_catalog as load_multiple_images_catalog,
     _normalize_potential_definition as normalize_potential_definition,
 )
-from .model import SHEAR_PROFILE
+from .profiles import profile as lens_profile
 
 
 def radec_to_offsets_arcsec(ra_deg: np.ndarray, dec_deg: np.ndarray, ra0_deg: float, dec0_deg: float) -> tuple[np.ndarray, np.ndarray]:
@@ -194,15 +194,9 @@ def declared_model_inputs(model_config: LensModelConfig, scaling: Any = None) ->
 
     potentials: list[dict[str, Any]] = []
     for halo in model_config.large_halos:
-        if int(halo.profile_type) == SHEAR_PROFILE:
-            potential = {"id": str(halo.id), "profil": int(halo.profile_type), "gamma": float(halo.gamma),
-                         "angle_pos": float(halo.angle_pos), "z_lens": float(halo.z_lens)}
-        else:
-            potential = {"id": str(halo.id), "profil": int(halo.profile_type), "x_centre": float(halo.x_centre),
-                         "y_centre": float(halo.y_centre), "ellipticite": float(halo.ellipticite),
-                         "angle_pos": float(halo.angle_pos), "core_radius_kpc": float(halo.core_radius_kpc),
-                         "cut_radius_kpc": float(halo.cut_radius_kpc), "v_disp": float(halo.v_disp),
-                         "z_lens": float(halo.z_lens)}
+        info = lens_profile(int(halo.profile_type))
+        potential = {"id": str(halo.id), "profil": int(halo.profile_type), "z_lens": float(halo.z_lens),
+                     **{name: float(getattr(halo, name)) for name in info.required_fields}}
         priors = {name: prior_config_to_limit_entry(prior, default_fixed_value=float(potential.get(name, 0.0)))
                   for name, prior in (halo.priors or {}).items()}
         normalized, normalized_priors = normalize_potential_definition(potential, priors, cosmo_config)

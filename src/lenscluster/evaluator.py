@@ -9,8 +9,9 @@ import numpy as np
 
 from . import jax_lensing, smoothed_likelihood as sl
 from .farfield import evaluate_farfield, member_farfield_geometry, slice_geometry
-from .model import (member_log_deviations, COMPONENT_FAMILY_SCALING, DP_IE_PROFILE, SAFE_RADIUS_MARGIN_ARCSEC, SAFE_RADIUS_MARGIN_KPC,
-                    SHEAR_PROFILE, ModelState, PackedLensState, PackedLensValidity, apply_parameter_transforms_jax)
+from .model import (member_log_deviations, COMPONENT_FAMILY_SCALING, DP_IE_PROFILE, NFW_PROFILE, SAFE_RADIUS_MARGIN_ARCSEC,
+                    SAFE_RADIUS_MARGIN_KPC, SHEAR_PROFILE, ModelState, PackedLensState, PackedLensValidity, apply_parameter_transforms_jax)
+from .profiles import critical_density_msun_kpc3, nfw_alpha_rs_arcsec, nfw_scale_density
 
 BAD_LOG_LIKE = -1.0e30
 
@@ -36,6 +37,7 @@ class Evaluator:
         self.spec = {name: jnp.asarray(value) for name, value in vars(packed).items() if not isinstance(value, str)}
         self.n_components = int(np.asarray(packed.profile_type).size)
         self.factor_by_z = jnp.asarray([state.dpie_sigma0_factor_by_z[z] for z in state.z_source_values], dtype=jnp.float64)
+        self.nfw_rho_crit = float(critical_density_msun_kpc3(state.z_lens, state.cosmo_config))
         images = state.images
         self.xy = jnp.stack((images.x_obs, images.y_obs), -1)
         members = state.members
@@ -93,8 +95,11 @@ class Evaluator:
         v_disp = self._apply(spec["v_disp_base"], spec["v_disp_param_index"], physical)
         gamma1 = self._apply(spec["gamma1_base"], spec["gamma1_param_index"], physical)
         gamma2 = self._apply(spec["gamma2_base"], spec["gamma2_param_index"], physical)
+        scale_radius_kpc = self._apply(spec["scale_radius_kpc_base"], spec["scale_radius_param_index"], physical)
+        log10_m200 = self._apply(spec["log10_m200_base"], spec["log10_m200_param_index"], physical)
         profile_type = spec["profile_type"]
         is_dpie = profile_type == DP_IE_PROFILE
+        is_nfw = profile_type == NFW_PROFILE
         is_shear = profile_type == SHEAR_PROFILE
         is_scaling = spec["component_family"] == COMPONENT_FAMILY_SCALING
         luminosity_ratio = spec["luminosity_ratio"]
@@ -125,18 +130,26 @@ class Evaluator:
         rs_raw = cut_radius_kpc / kpc_per_arcsec
         ra = jnp.maximum(ra_raw, SAFE_RADIUS_MARGIN_ARCSEC)
         rs = jnp.maximum(rs_raw, ra + SAFE_RADIUS_MARGIN_ARCSEC)
-        if factor_per_image is None:
+        # NFW normalization: rho_s from (M200, r_s); other components get safe placeholders so no NaN enters a gradient.
+        safe_rs_kpc = jnp.where(is_nfw, jnp.maximum(scale_radius_kpc, SAFE_RADIUS_MARGIN_KPC), 1.0)
+        rho_s, _ = nfw_scale_density(jnp.where(is_nfw, log10_m200, 14.0), safe_rs_kpc, self.nfw_rho_crit)
+        nfw_rs = jnp.where(is_nfw, safe_rs_kpc / kpc_per_arcsec, 0.0)
+        per_image = factor_per_image is None
+        if per_image:
             factor_per_image = jnp.take(self.factor_by_z, self.state.images.z_index_per_image)
-            sigma0 = (v_disp[:, None] ** 2) * factor_per_image[None, :] / ra[:, None]
-            sigma0 = jnp.where(is_dpie[:, None], sigma0, 0.0)
+            sigma0 = jnp.where(is_dpie[:, None], (v_disp[:, None] ** 2) * factor_per_image[None, :] / ra[:, None], 0.0)
+            alpha_rs = jnp.where(is_nfw[:, None], nfw_alpha_rs_arcsec(rho_s[:, None], safe_rs_kpc[:, None], factor_per_image[None, :]), 0.0)
         else:
-            sigma0 = jnp.where(is_dpie, (v_disp ** 2) * jnp.asarray(factor_per_image, dtype=jnp.float64) / ra, 0.0)
+            factor = jnp.asarray(factor_per_image, dtype=jnp.float64)
+            sigma0 = jnp.where(is_dpie, (v_disp ** 2) * factor / ra, 0.0)
+            alpha_rs = jnp.where(is_nfw, nfw_alpha_rs_arcsec(rho_s, safe_rs_kpc, factor), 0.0)
+        elliptical = is_dpie | is_nfw
         packed = PackedLensState(
             profile_type=profile_type, sigma0=sigma0, Ra=jnp.where(is_dpie, ra, 0.0), Rs=jnp.where(is_dpie, rs, 0.0),
-            e1=jnp.where(is_dpie, e1, 0.0), e2=jnp.where(is_dpie, e2, 0.0), center_x=x_center, center_y=y_center,
-            gamma1=jnp.where(is_shear, gamma1, 0.0), gamma2=jnp.where(is_shear, gamma2, 0.0))
+            e1=jnp.where(elliptical, e1, 0.0), e2=jnp.where(elliptical, e2, 0.0), center_x=x_center, center_y=y_center,
+            gamma1=jnp.where(is_shear, gamma1, 0.0), gamma2=jnp.where(is_shear, gamma2, 0.0), nfw_rs=nfw_rs, alpha_rs=alpha_rs)
         flags = jnp.stack([
-            jnp.any(~jnp.isfinite(sigma0)),
+            jnp.any(~jnp.isfinite(sigma0)) | jnp.any(~jnp.isfinite(alpha_rs)),
             jnp.any(is_dpie & (ra_raw <= 0.0)),
             jnp.any(is_dpie & (rs_raw <= ra_raw)),
             jnp.any(is_dpie & ~jnp.isfinite(rs_raw)),
@@ -144,7 +157,8 @@ class Evaluator:
             jnp.any(is_scaling & (~jnp.isfinite(alpha_sigma) | ~jnp.isfinite(beta_radius))),
             jnp.any(~jnp.isfinite(x_center) | ~jnp.isfinite(y_center)),
             jnp.any(is_shear & (~jnp.isfinite(gamma1) | ~jnp.isfinite(gamma2))),
-            jnp.any(is_dpie & (~jnp.isfinite(e1) | ~jnp.isfinite(e2) | ((jnp.square(e1) + jnp.square(e2)) >= 1.0))),
+            jnp.any(elliptical & (~jnp.isfinite(e1) | ~jnp.isfinite(e2) | ((jnp.square(e1) + jnp.square(e2)) >= 1.0))),
+            jnp.any(is_nfw & ((scale_radius_kpc <= 0.0) | ~jnp.isfinite(scale_radius_kpc) | ~jnp.isfinite(log10_m200))),
         ])
         return packed, PackedLensValidity(is_valid=~jnp.any(flags), reason_flags=flags)
 
@@ -160,7 +174,7 @@ class Evaluator:
     def component_rows(self, xy: jnp.ndarray, packed: PackedLensState, components: np.ndarray, *, derivative: bool = False):
         """Per-component deflection rows (C, N, 2), Jacobians U = d alpha / d theta (C, N, 2, 2) and, with ``derivative``,
         the spatial derivatives dU (C, N, 2, 2, 2).  dPIE components with fixed catalog geometry evaluated at the image
-        positions reuse the precomputed geometry; the others use the full analytic kernel."""
+        positions reuse the precomputed geometry; the other dPIEs use the full analytic kernel, NFW halos the CSE kernel."""
         x, y = xy[:, 0], xy[:, 1]
         components = np.asarray(components, dtype=np.int32)
         n = x.shape[0]
@@ -189,6 +203,14 @@ class Evaluator:
             a_rows, u_rows, du_rows = jax_lensing.grouped_dpie_fields[derivative](x, y, take(packed.sigma0, idx), take(packed.Ra, idx), take(packed.Rs, idx),
                                                                                   take(packed.e1, idx), take(packed.e2, idx), take(packed.center_x, idx), take(packed.center_y, idx))
             pos = jnp.asarray(np.flatnonzero(variable_mask), dtype=jnp.int32)
+            alpha, u = alpha.at[pos].set(a_rows), u.at[pos].set(u_rows)
+            du = du.at[pos].set(du_rows) if derivative else du
+        nfw_mask = profile == NFW_PROFILE
+        if np.any(nfw_mask):
+            idx = components[nfw_mask]
+            a_rows, u_rows, du_rows = jax_lensing.grouped_nfw_fields[derivative](x, y, take(packed.nfw_rs, idx), take(packed.alpha_rs, idx),
+                                                                                 take(packed.e1, idx), take(packed.e2, idx), take(packed.center_x, idx), take(packed.center_y, idx))
+            pos = jnp.asarray(np.flatnonzero(nfw_mask), dtype=jnp.int32)
             alpha, u = alpha.at[pos].set(a_rows), u.at[pos].set(u_rows)
             du = du.at[pos].set(du_rows) if derivative else du
         shear_mask = profile == SHEAR_PROFILE

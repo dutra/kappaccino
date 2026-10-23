@@ -12,7 +12,8 @@ from scipy.optimize import linear_sum_assignment
 
 from .config import ImageDiagnosticsConfig
 from .evaluator import Evaluator
-from .model import DP_IE_PROFILE, SHEAR_PROFILE, FamilyData, PackedLensState
+from .model import FamilyData, PackedLensState
+from .profiles import lenstronomy_kwargs
 
 _TRUST_RADIUS_DEFAULT = 0.3
 _LM_DAMPING_RELATIVE = 1.0e-3
@@ -29,17 +30,8 @@ def astropy_cosmology(cosmo_config: dict[str, Any]):
 
 
 def packed_to_kwargs_lens(packed: PackedLensState) -> list[dict[str, float]]:
-    kwargs: list[dict[str, float]] = []
-    for idx, profile in enumerate(np.asarray(packed.profile_type, dtype=int).tolist()):
-        if profile == DP_IE_PROFILE:
-            kwargs.append({"sigma0": float(packed.sigma0[idx]), "Ra": float(packed.Ra[idx]), "Rs": float(packed.Rs[idx]),
-                           "e1": float(packed.e1[idx]), "e2": float(packed.e2[idx]),
-                           "center_x": float(packed.center_x[idx]), "center_y": float(packed.center_y[idx])})
-        elif profile == SHEAR_PROFILE:
-            kwargs.append({"gamma1": float(packed.gamma1[idx]), "gamma2": float(packed.gamma2[idx])})
-        else:
-            raise ValueError(f"Unsupported profile type {profile}.")
-    return kwargs
+    """lenstronomy keyword arguments of every component (packed state with scalar normalizations)."""
+    return [lenstronomy_kwargs(packed, idx) for idx in range(int(np.asarray(packed.profile_type).size))]
 
 
 class ExactImageSolver:

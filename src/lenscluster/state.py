@@ -20,7 +20,7 @@ from .model import (COMPONENT_FAMILY_LARGE, COMPONENT_FAMILY_SCALING, DP_IE_PROF
                     MemberModel, ModelState, PackedLensSpec, ParameterSpec, default_theta,
                     positive_lognormal_parameters)
 
-SUPPORTED_PROFILES = {DP_IE_PROFILE, SHEAR_PROFILE}
+from .profiles import ELLIPTICAL_PROFILES, SUPPORTED_PROFILES, profile as lens_profile
 VDISP_TRUNCATION_FLOOR_KM_S = 1.0e-4
 LOG_SOFTENING_LENGTH_SAMPLE_NAME = "log_softening_length_kpc"
 SOURCE_POSITION_SITE_NAME = "source_position_beta"
@@ -163,6 +163,22 @@ def _radius_prior_spec(potential, field_name, decoded, *, softening_length_kpc, 
             "transform_kind": transform_kind, "transform_offset": transform_offset, **physical}
 
 
+def _log_positive_prior_spec(decoded: dict[str, Any], context: str, *, floor: float) -> dict[str, Any]:
+    """A positive quantity sampled as its log; a plain normal prior becomes a truncated normal above ``floor``."""
+    decoded_kind = str(decoded["prior_kind"])
+    prior_kind = "truncated_normal" if decoded_kind == "normal" else decoded_kind
+    physical_lower = float(floor) if decoded_kind == "normal" else float(decoded["lower"])
+    physical_upper = math.inf if decoded_kind == "normal" else float(decoded["upper"])
+    physical_mean = None if decoded["mean"] is None else float(decoded["mean"])
+    physical_std = None if decoded["std"] is None else float(decoded["std"])
+    lower, upper, mean, std = transform_positive_prior_to_log_space(
+        prior_kind, physical_lower, physical_upper, physical_mean, physical_std, floor=floor, context=context)
+    return {"prior_kind": prior_kind, "lower": lower, "upper": upper, "step": float(decoded["step"]), "mean": mean, "std": std,
+            "transform_kind": "log_positive", "transform_offset": 0.0, "physical_lower": physical_lower,
+            "physical_upper": None if not np.isfinite(physical_upper) else physical_upper,
+            "physical_mean": physical_mean, "physical_std": physical_std}
+
+
 def _vdisp_prior_spec(decoded: dict[str, Any], context: str) -> dict[str, Any]:
     decoded_kind = str(decoded["prior_kind"])
     prior_kind = "truncated_normal" if decoded_kind == "normal" else decoded_kind
@@ -225,13 +241,12 @@ def build_halo_parameter_specs(potentials: list[dict[str, Any]], *, softening_le
     for potential in potentials:
         potential_id = str(potential["id"])
         profile_type = int(potential["profil"])
-        if profile_type not in SUPPORTED_PROFILES:
-            raise ValueError(f"Unsupported profile {profile_type} for potential {potential_id}.")
-        lens_model_list.append(DPIE_PROFILE_NAME if profile_type == DP_IE_PROFILE else SHEAR_PROFILE_NAME)
+        info = lens_profile(profile_type)
+        lens_model_list.append(info.name)
         assignments: list[tuple[str, int]] = []
         priors = {("ellipticite" if name == "ellipticity" else str(name)): prior
                   for name, prior in (potential.get("priors", {}) or {}).items()}
-        polar_fields = ("ellipticite", "angle_pos") if profile_type == DP_IE_PROFILE else ("gamma", "angle_pos")
+        polar_fields = info.polar_shape
         polar = {name: decode_parameter_prior(priors[name], f"{potential_id}.{name}") for name in polar_fields if name in priors}
         polar = {name: value for name, value in polar.items() if value is not None}
         if polar and set(polar) != set(polar_fields):
@@ -245,15 +260,14 @@ def build_halo_parameter_specs(potentials: list[dict[str, Any]], *, softening_le
                 amplitude, angle = polar[polar_fields[0]], polar["angle_pos"]
                 if amplitude["prior_kind"] != "uniform" or angle["prior_kind"] != "uniform":
                     raise ValueError(f"Direct Cartesian shape sampling for {potential_id} requires uniform priors.")
-                if profile_type == DP_IE_PROFILE:
+                if profile_type in ELLIPTICAL_PROFILES:
                     e_bounds = np.clip(np.asarray([amplitude["lower"], amplitude["upper"]], dtype=float), 0.0, 1.0 - 1.0e-9)
                     q_bounds = lenstool_ellipticite_to_axis_ratio(e_bounds)
                     modulus = (1.0 - q_bounds) / (1.0 + q_bounds)
                     radii = np.asarray([modulus.min(), modulus.max()])
-                    names = ("e1", "e2")
                 else:
                     radii = np.asarray([max(amplitude["lower"], 0.0), max(amplitude["upper"], 0.0)])
-                    names = ("gamma1", "gamma2")
+                names = info.cartesian_shape
                 bounds = _polar_box_bounds(radii, angle["lower"], angle["upper"])
                 for name, (lower, upper) in zip(names, bounds):
                     _append_spec(specs, assignments, potential_id=potential_id, profile_type=profile_type,
@@ -267,6 +281,8 @@ def build_halo_parameter_specs(potentials: list[dict[str, Any]], *, softening_le
                                                 dynamic_cut_above_effective_core=field_name == "cut_radius_kpc")
             elif profile_type == DP_IE_PROFILE and field_name == "v_disp":
                 prior_spec = _vdisp_prior_spec(decoded, f"{potential_id}.{field_name}")
+            elif field_name in info.log_positive_fields:
+                prior_spec = _log_positive_prior_spec(decoded, f"{potential_id}.{field_name}", floor=SAFE_RADIUS_MARGIN_KPC)
             else:
                 prior_spec = _identity_prior_spec(decoded)
             _append_spec(specs, assignments, potential_id=potential_id, profile_type=profile_type,
@@ -431,7 +447,8 @@ def build_packed_lens_spec(base_components, component_assignments, scaling_assig
         sigma_ref_param_index=ints(), cut_ref_param_index=ints(), core_ref_param_index=ints(),
         alpha_sigma_param_index=ints(), beta_radius_param_index=ints(),
         cut_radius_excess_above_effective_core=np.zeros(n, dtype=bool),
-        velocity_offset_param_index=ints(), velocity_scatter_param_index=ints())
+        velocity_offset_param_index=ints(), velocity_scatter_param_index=ints(),
+        scale_radius_kpc_base=floats(), log10_m200_base=floats(), scale_radius_param_index=ints(), log10_m200_param_index=ints())
     for idx, (component, assignments) in enumerate(zip(base_components, component_assignments)):
         spec.profile_type[idx] = int(component["profil"])
         spec.component_family[idx] = int(component.get("component_family_code", COMPONENT_FAMILY_LARGE))
@@ -443,10 +460,13 @@ def build_packed_lens_spec(base_components, component_assignments, scaling_assig
         spec.core_radius_kpc_base[idx] = float(component.get("core_radius_kpc", 0.0))
         spec.cut_radius_kpc_base[idx] = float(component.get("cut_radius_kpc", 0.0))
         spec.v_disp_base[idx] = float(component.get("v_disp", 0.0))
+        spec.scale_radius_kpc_base[idx] = float(component.get("scale_radius_kpc", 0.0))
+        spec.log10_m200_base[idx] = float(component.get("log10_m200", 0.0))
         for field_name, array in (("x_centre", spec.x_center_param_index), ("y_centre", spec.y_center_param_index),
                                   ("e1", spec.e1_param_index), ("e2", spec.e2_param_index),
                                   ("core_radius_kpc", spec.core_radius_param_index), ("cut_radius_kpc", spec.cut_radius_param_index),
-                                  ("v_disp", spec.v_disp_param_index), ("gamma1", spec.gamma1_param_index), ("gamma2", spec.gamma2_param_index)):
+                                  ("v_disp", spec.v_disp_param_index), ("gamma1", spec.gamma1_param_index), ("gamma2", spec.gamma2_param_index),
+                                  ("scale_radius_kpc", spec.scale_radius_param_index), ("log10_m200", spec.log10_m200_param_index)):
             array[idx] = _field_param_index(assignments, field_name)
     for item in scaling_assignments:
         idx = int(item["component_index"])

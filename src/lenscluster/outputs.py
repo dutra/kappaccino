@@ -14,6 +14,7 @@ from .config import LensClusterSolverConfig
 from .diagnostics import fit_summary, image_recovery_tables
 from .evaluator import Evaluator
 from .model import ModelState, PosteriorResults
+from .potfile_plots import write_potfile_plots
 from .truth_recovery import compute_truth_recovery
 
 
@@ -56,6 +57,7 @@ def write_outputs(config: LensClusterSolverConfig, state: ModelState, evaluator:
 
     member_table = plots.member_scaling_table(state, posterior)
     member_table.to_csv(tables / "member_scaling_relation.csv", index=False)
+    write_potfile_plots(posterior.physical, state.parameter_specs, figures, prefix, log=log)
     if not member_table.empty:
         plots.plot_scaling_relation(member_table, np.asarray(posterior.physical), state.parameter_specs,
                                     plots.figure_path(figures, "scaling_relation.pdf", prefix))

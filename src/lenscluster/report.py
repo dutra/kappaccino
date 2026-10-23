@@ -32,12 +32,22 @@ def classification_report(state: ModelState, *, provisional: dict[str, Any] | No
     by_ellipticity = sum(1 for r in rankings if r["exact"] and (r["truncation"] or 0) < 1 and (r["ellipticity"] or 0) >= 1)
     by_rank = sum(1 for r in rankings if r["exact"] and (r["score"] or 0) < 1 and r["member"] not in promoted)
     far = [r for r in rankings if not r["exact"]]
-    lines = ["=== Member classification ===",
-             f"  members {d['member_count']}: exact {d['exact_count']} (mandatory {d['mandatory_count']}), far-field {d['member_count'] - d['exact_count']}",
+    lines = ["=== Member classification ==="]
+    for potfile in state.potfiles:
+        pivot = potfile.get("pivot")
+        if pivot:
+            lines.append(f"  pivot {potfile['id']}: mag0 = {pivot['mag0']:.0f} (leverage-weighted member magnitude {pivot['weighted_mean_mag']:.2f}, "
+                         f"median {pivot['member_median_mag']:.2f}); sigma and cutkpc priors moved from mag {pivot['prior_mag0']:.2f} "
+                         f"by x{pivot['sigma_factor']:.3f} and x{pivot['cutkpc_factor']:.3f}: sigma* {potfile['sigma_nominal']:.1f} km/s, "
+                         f"r_cut* {potfile['cutkpc_nominal']:.1f} kpc")
+    lines += [
+             f"  members {d['member_count']}: exact {d['exact_count']} (mandatory {d['mandatory_count']}), far-field {d['member_count'] - d['exact_count']}; "
+             f"deviations: {state.packed_lens_spec.deviation_mode}, centered for {d.get('centered_count', 0)} members",
              f"  exact because an image lies within {d['guard_cut_radii']:g} r_cut: {by_truncation}; because of ellipticity error > {d['tolerance']:g}: {by_ellipticity}; "
              f"promoted by the collective budget: {len(promoted)}; added by top_exact: {by_rank}",
-             f"  cut radii: reference {d.get('reference_cut_kpc', float('nan')):.1f} kpc x {d.get('inflated_cut_kpc', 0) / max(d.get('reference_cut_kpc', 1), 1e-12):.1f} = "
-             f"{d.get('inflated_cut_kpc', float('nan')):.1f} kpc, beta {d.get('beta_radius', float('nan')):.3f}"]
+             f"  cut radii for classification: reference {d.get('reference_cut_kpc', float('nan')):.1f} kpc x {d.get('inflated_cut_kpc', 0) / max(d.get('reference_cut_kpc', 1), 1e-12):.1f} = "
+             f"{d.get('inflated_cut_kpc', float('nan')):.1f} kpc, beta in [{d.get('beta_range', [d.get('beta_radius', float('nan'))] * 2)[0]:.2f}, {d.get('beta_range', [d.get('beta_radius', float('nan'))] * 2)[1]:.2f}]"
+             + (f" (prior {d['prior_quantile']:.3f} quantiles or the current model, whichever is larger)" if d.get('prior_quantile') else "")]
     if far:
         worst = max(far, key=lambda r: r["score"] or 0)
         min_ratio = min(r["min_separation_arcsec"] / r["cut_radius_arcsec"] for r in far if r["cut_radius_arcsec"] > 0)

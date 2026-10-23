@@ -149,12 +149,14 @@ class SamplingConfig:
 
 @dataclass(frozen=True)
 class MemberConfig:
+    classification_prior_quantile: float | None = 0.975   # classify with the cut radii at this quantile of the cutkpc and beta priors
+                                                          # (and never below the current model); None uses the current model only
     centering: str = "auto"                 # which members sample their deviation directly (centered) rather than a unit offset:
                                             # "auto" (data curvature of the deviation exceeds the prior's 1/s^2 at the start), "exact", "none"
     centering_ratio: float = 1.0            # auto threshold on data/prior curvature
     """Member classification and far-field validity."""
     far_field_cut_radii: float = 3.0
-    cut_radius_inflation: float = 2.0
+    cut_radius_inflation: float = 1.0
     template_tolerance: float = 0.1
     top_exact: int | None = None
 
@@ -322,6 +324,8 @@ def validate_config(config: LensClusterSolverConfig) -> None:
     if config.members.centering not in {"auto", "exact", "none"}:
         raise ValueError("members.centering must be 'auto', 'exact' or 'none'.")
     _positive("members.centering_ratio", config.members.centering_ratio)
+    if config.members.classification_prior_quantile is not None and not (0.5 < float(config.members.classification_prior_quantile) < 1.0):
+        raise ValueError("members.classification_prior_quantile must lie in (0.5, 1).")
     if scaling.member_deviation not in {"sigma", "mass", "sigma_rcut", "mass_rcut"}:
         raise ValueError("scaling.member_deviation must be 'sigma', 'mass', 'sigma_rcut' or 'mass_rcut'.")
     for name, prior in (("member_velocity_scatter_prior", scaling.member_velocity_scatter_prior),

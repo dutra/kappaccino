@@ -22,6 +22,36 @@ from .farfield import evaluate_farfield_per_member
 from .model import ModelState
 
 
+def prior_quantile_cut_kpc(potfile: dict[str, Any], quantile: float) -> float:
+    """The cutkpc prior's upper quantile for one population from its Lenstool-style limit entry."""
+    from scipy.stats import norm, truncnorm
+    entry = list(potfile["cutkpc"])
+    kind = int(entry[0])
+    if kind == 0:
+        return float(potfile["cutkpc_nominal"])
+    if kind == 1:                                   # uniform [lo, hi]
+        lo, hi = float(entry[1]), float(entry[2])
+        return lo + float(quantile) * (hi - lo)
+    if kind == 3:                                   # normal
+        return float(norm.ppf(quantile, float(entry[1]), float(entry[2])))
+    mean, std, lo, hi = (float(v) for v in entry[1:5])   # truncated normal
+    return float(truncnorm.ppf(quantile, (lo - mean) / std, (hi - mean) / std, loc=mean, scale=std))
+
+
+def prior_quantile_beta(scaling: Any, quantile: float) -> float:
+    """A quantile of the beta_radius prior (truncated normal, possibly unbounded above)."""
+    from scipy.stats import truncnorm
+    mean, std = float(scaling.beta_radius_prior_mean), float(scaling.beta_radius_prior_std)
+    lo, hi = float(scaling.beta_radius_prior_lower), float(scaling.beta_radius_prior_upper)
+    return float(truncnorm.ppf(quantile, (lo - mean) / std, (hi - mean) / std if np.isfinite(hi) else np.inf, loc=mean, scale=std))
+
+
+def conservative_cut_radii_arcsec(state: ModelState, reference_cut_kpc: float, betas: list[float]) -> np.ndarray:
+    """Per member, the largest cut radius over the given radius exponents: faint members (L < 1) are largest at the
+    smallest beta, bright members at the largest."""
+    return np.max(np.stack([member_cut_radii_arcsec(state, reference_cut_kpc, b) for b in betas]), axis=0)
+
+
 def member_cut_radii_arcsec(state: ModelState, reference_cut_kpc: float, beta_radius: float) -> np.ndarray:
     """Cut radius of every population member for a reference cut radius and radius exponent."""
     spec = state.packed_lens_spec

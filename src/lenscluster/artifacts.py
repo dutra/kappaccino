@@ -20,6 +20,9 @@ SEARCH_FILE = "search.npz"
 POSTERIOR_FILE = "posterior.npz"
 AUDIT_FILE = "audit.json"
 SUMMARY_FILE = "summary.json"
+START_FILE = "start.json"
+MODES_FILE = "modes.json"
+INIT_SIGNATURE_FILE = "init_signature.json"
 
 
 def write_json(path: Path, payload: Any) -> None:
@@ -66,9 +69,14 @@ def save_state(directory: Path, state: ModelState) -> None:
 def save_search(directory: Path, search: dict[str, Any]) -> None:
     np.savez_compressed(directory / SEARCH_FILE, theta=np.asarray(search["theta"]), potential=np.asarray(search["potential"]),
                         starts=np.asarray(search["starts"]), assignment=np.asarray(search["assignment"]),
-                        iterations=np.asarray(search["iterations"]), gradient_norm=np.asarray(search["gradient_norm"]))
-    write_json(directory / "modes.json", {"modes": [{k: v for k, v in m.items() if k != "members"} | {"count": m["count"]} for m in search["modes"]],
-                                           "elapsed_seconds": search["elapsed_seconds"], "n_finite": search["n_finite"]})
+                        iterations=np.asarray(search["iterations"]), evaluations=np.asarray(search["evaluations"]),
+                        traces=np.asarray(search["traces"]), final_theta=np.asarray(search["final_theta"]))
+    write_json(directory / MODES_FILE, {"modes": [{k: v for k, v in m.items() if k != "members"} | {"count": m["count"]} for m in search["modes"]],
+                                           "method": search["method"], "n_global": search["n_global"], "search_seconds": search["search_seconds"],
+                                           "polish_seconds": search["polish_seconds"], "n_finite": search["n_finite"],
+                                           "stages": search.get("stages"), "stage_traces": search.get("stage_traces"),
+                                           "starts_in_basin": search.get("starts_in_basin"), "configured_in_basin": search.get("configured_in_basin"),
+                                           "escalated_from": search.get("escalated_from")})
 
 
 def save_posterior(directory: Path, posterior: PosteriorResults) -> None:

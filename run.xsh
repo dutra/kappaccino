@@ -207,7 +207,9 @@ FF_SIMS_CLUSTERS = {
                     "y_centre": PriorConfig("uniform", lower=-2.62179995, upper=7.37820005, step=0.5),
                     "ellipticite": PriorConfig("uniform", lower=0.0, upper=0.8, step=0.02),
                     "angle_pos": PriorConfig("uniform", lower=-180.0, upper=180.0, step=1.0),
-                    "core_radius_kpc": PriorConfig("uniform", lower=2.0, upper=100.0, step=1.0),
+                    "core_radius_kpc": PriorConfig("uniform", lower=0.5, upper=100.0, step=1.0),
+                    # Sampled with an informative prior: cluster-scale cut radii are expected at 1-2 Mpc and the arcs do not constrain them.
+                    "cut_radius_kpc": PriorConfig("truncated_normal", mean=1500.0, std=300.0, lower=500.0, upper=3000.0),
                     "v_disp": PriorConfig("truncated_normal", mean=800.0, std=280.0, lower=100.0, upper=2200.0),
                 },
             ),
@@ -226,7 +228,9 @@ FF_SIMS_CLUSTERS = {
                     "y_centre": PriorConfig("uniform", lower=-4.997, upper=5.003, step=0.5),
                     "ellipticite": PriorConfig("uniform", lower=0.0, upper=0.8, step=0.02),
                     "angle_pos": PriorConfig("uniform", lower=-180.0, upper=180.0, step=1.0),
-                    "core_radius_kpc": PriorConfig("uniform", lower=2.0, upper=100.0, step=1.0),
+                    "core_radius_kpc": PriorConfig("uniform", lower=0.5, upper=100.0, step=1.0),
+                    # Sampled with an informative prior: cluster-scale cut radii are expected at 1-2 Mpc and the arcs do not constrain them.
+                    "cut_radius_kpc": PriorConfig("truncated_normal", mean=1500.0, std=300.0, lower=500.0, upper=3000.0),
                     "v_disp": PriorConfig("truncated_normal", mean=700.0, std=245.0, lower=100.0, upper=2200.0),
                 },
             ),

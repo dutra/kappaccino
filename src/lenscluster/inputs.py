@@ -96,8 +96,10 @@ def _independent_member_default_priors(*, x_centre: float, y_centre: float, popu
     cut_mean = float(population.cutkpc)
     sigma_mean = float(population.sigma)
     return {
-        "x_centre": PriorConfig("truncated_normal", mean=x_centre, std=1.0, lower=x_centre - 5.0, upper=x_centre + 5.0),
-        "y_centre": PriorConfig("truncated_normal", mean=y_centre, std=1.0, lower=y_centre - 5.0, upper=y_centre + 5.0),
+        # The light fixes a galaxy's centroid to a fraction of an arcsecond; a loose position prior makes the posterior
+        # multi-well as the halo hops across nearby images.
+        "x_centre": PriorConfig("truncated_normal", mean=x_centre, std=0.3, lower=x_centre - 2.0, upper=x_centre + 2.0),
+        "y_centre": PriorConfig("truncated_normal", mean=y_centre, std=0.3, lower=y_centre - 2.0, upper=y_centre + 2.0),
         "ellipticite": PriorConfig("uniform", lower=0.0, upper=0.8),
         "angle_pos": PriorConfig("uniform", lower=-180.0, upper=180.0),
         "core_radius_kpc": PriorConfig("truncated_normal", mean=core_mean,

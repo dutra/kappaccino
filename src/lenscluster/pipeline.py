@@ -180,12 +180,12 @@ def choose_centering(state: ModelState, evaluator: Evaluator, config: LensCluste
 
 
 def search_is_fragile(search: dict[str, Any]) -> bool:
-    """True when no independent start reaches the best basin: the result rests on the configured model alone."""
+    """True when at most one start reaches the best basin: the result rests on a single optimization, whether that was
+    the configured model or one lucky prior draw."""
     if "starts_in_basin" in search:
-        return int(search["starts_in_basin"]) <= 1 and bool(search.get("configured_in_basin", True))
+        return int(search["starts_in_basin"]) <= 1
     modes = search["modes"]
-    in_basin = sum(int(m.get("count", 1)) for m in modes if m["within_margin"])
-    return in_basin <= 1 and 0 in set(modes[0].get("members", [0]))
+    return sum(int(m.get("count", 1)) for m in modes if m["within_margin"]) <= 1
 
 
 def init_verdict(search: dict[str, Any], *, fit: dict[str, Any] | None) -> str:
@@ -194,10 +194,12 @@ def init_verdict(search: dict[str, Any], *, fit: dict[str, Any] | None) -> str:
     n_starts = len(search.get("starts", []))
     in_basin = int(search.get("starts_in_basin", sum(int(m.get("count", 1)) for m in modes if m["within_margin"])))
     rms = f"; whitened rms at the start {fit['whitened_residual_rms']:.2f}" if fit else ""
+    finite = search.get("n_finite")
+    invalid = f"; {n_starts - int(finite)} of {n_starts} starts invalid" if finite is not None and int(finite) < n_starts else ""
     tag = f" [{search['method']}]"
     if search_is_fragile(search):
-        return f"verdict: fragile{tag} (only the configured start reaches the best basin out of {n_starts}){rms}"
-    return f"verdict: robust{tag} ({in_basin} of {n_starts} starts reach the best basin within the margin){rms}"
+        return f"verdict: fragile{tag} ({in_basin} of {n_starts} starts reach the best basin){invalid}{rms}"
+    return f"verdict: robust{tag} ({in_basin} of {n_starts} starts reach the best basin within the margin){invalid}{rms}"
 
 
 def run_init(config: LensClusterSolverConfig) -> InitResult:

@@ -127,6 +127,11 @@ class Evaluator:
         if softening_index >= 0:
             softening_kpc = jnp.exp(physical[softening_index])
             core_effective_kpc = jnp.sqrt(jnp.square(core_radius_kpc) + jnp.square(softening_kpc))
+            # A member whose cut radius is below the softening cannot be resolved by the simulation either: cap the
+            # softened core smoothly just below r_cut (plain quadrature when r_cut >> softening).  The dPIE total mass
+            # is pi sigma^2 r_cut / G, so member masses are unchanged and r_cut > r_core holds by construction.
+            capped = cut_radius_kpc * core_effective_kpc / jnp.sqrt(jnp.square(core_effective_kpc) + jnp.square(cut_radius_kpc))
+            core_effective_kpc = jnp.where(is_scaling, capped, core_effective_kpc)
         else:
             core_effective_kpc = core_radius_kpc
         cut_radius_kpc = jnp.where(spec["cut_radius_excess_above_effective_core"],

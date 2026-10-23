@@ -47,6 +47,20 @@ class Evaluator:
         self.far_min_separation = jnp.asarray(np.asarray(self.geometry.separation)[self.far_positions].min(axis=1)) if len(self.far_positions) else jnp.zeros(0)
         self.guard_cut_radii = float(members.far_field_guard_cut_radii)
         self.scale_indices = jnp.asarray(sorted({int(members.sigma_src_index)} | {int(i) for i in np.asarray(members.scatter_param_index) if i >= 0}), dtype=jnp.int32)
+        # Components whose geometry (centre, ellipticity) never changes: catalog members.  Their geometry at the image
+        # positions is a constant of the computation and is precomputed once.
+        packed_spec = state.packed_lens_spec
+        profile = np.asarray(packed_spec.profile_type)
+        fixed = ((profile == DP_IE_PROFILE) & (np.asarray(packed_spec.e1_param_index) < 0) & (np.asarray(packed_spec.e2_param_index) < 0)
+                 & (np.asarray(packed_spec.x_center_param_index) < 0) & (np.asarray(packed_spec.y_center_param_index) < 0))
+        self.fixed_geometry_components = np.flatnonzero(fixed).astype(np.int32)
+        self.fixed_geometry_position = {int(c): i for i, c in enumerate(self.fixed_geometry_components)}
+        if len(self.fixed_geometry_components):
+            take = lambda v: jnp.asarray(np.asarray(v, dtype=float)[self.fixed_geometry_components])
+            self.fixed_geometry = jax_lensing.grouped_dpie_geometry(self.xy[:, 0], self.xy[:, 1], take(packed_spec.e1_base), take(packed_spec.e2_base),
+                                                                    take(packed_spec.x_center_base), take(packed_spec.y_center_base))
+        else:
+            self.fixed_geometry = None
         self.loglike = jax.jit(self.log_likelihood)
         self.value_and_grad = jax.jit(jax.value_and_grad(self.log_likelihood))
 
@@ -136,53 +150,61 @@ class Evaluator:
         return self.packed_state(physical, factor_per_image=jnp.asarray(factor, dtype=jnp.float64))[0]
 
     # ------------------------------------------------------------------ lens fields
-    def component_rows(self, xy: jnp.ndarray, packed: PackedLensState, components: np.ndarray):
-        """Per-component deflection rows (C, N, 2) and Jacobians U = d alpha / d theta (C, N, 2, 2)."""
+    def component_rows(self, xy: jnp.ndarray, packed: PackedLensState, components: np.ndarray, *, derivative: bool = False):
+        """Per-component deflection rows (C, N, 2), Jacobians U = d alpha / d theta (C, N, 2, 2) and, with ``derivative``,
+        the spatial derivatives dU (C, N, 2, 2, 2).  dPIE components with fixed catalog geometry evaluated at the image
+        positions reuse the precomputed geometry; the others use the full analytic kernel."""
         x, y = xy[:, 0], xy[:, 1]
         components = np.asarray(components, dtype=np.int32)
+        n = x.shape[0]
         if components.size == 0:
-            return jnp.zeros((0, x.shape[0], 2)), jnp.zeros((0, x.shape[0], 2, 2))
+            empty = (jnp.zeros((0, n, 2)), jnp.zeros((0, n, 2, 2)))
+            return empty + ((jnp.zeros((0, n, 2, 2, 2)),) if derivative else ())
         profile = np.asarray(self.state.packed_lens_spec.profile_type)[components]
-        rows = [jnp.zeros((components.size, x.shape[0]), dtype=jnp.float64) for _ in range(6)]
+        alpha = jnp.zeros((components.size, n, 2), dtype=jnp.float64)
+        u = jnp.zeros((components.size, n, 2, 2), dtype=jnp.float64)
+        du = jnp.zeros((components.size, n, 2, 2, 2), dtype=jnp.float64)
+        at_images = xy is self.xy
         dpie_mask = profile == DP_IE_PROFILE
-        if np.any(dpie_mask):
-            idx = jnp.asarray(components[dpie_mask])
-            take = lambda value: jnp.take(jnp.asarray(value, dtype=jnp.float64), idx, axis=0)
-            dpie_rows = jax_lensing.grouped_dpie_rows_derivatives_and_hessian(
-                x, y, take(packed.sigma0), take(packed.Ra), take(packed.Rs), take(packed.e1), take(packed.e2),
-                take(packed.center_x), take(packed.center_y))
-            positions = jnp.asarray(np.flatnonzero(dpie_mask), dtype=jnp.int32)
-            rows = [row.at[positions].set(value) for row, value in zip(rows, dpie_rows)]
+        fixed_mask = dpie_mask & at_images & np.isin(components, self.fixed_geometry_components)
+        variable_mask = dpie_mask & ~fixed_mask
+        take = lambda value, idx: jnp.take(jnp.asarray(value, dtype=jnp.float64), jnp.asarray(idx), axis=0)
+        if np.any(fixed_mask):
+            idx = components[fixed_mask]
+            geom_rows = np.asarray([self.fixed_geometry_position[int(c)] for c in idx], dtype=np.int32)
+            geom = jax.tree.map(lambda g: g[geom_rows], self.fixed_geometry)
+            a_rows, u_rows, du_rows = jax_lensing.grouped_dpie_fields_from_geometry(geom, take(packed.sigma0, idx), take(packed.Ra, idx), take(packed.Rs, idx))
+            pos = jnp.asarray(np.flatnonzero(fixed_mask), dtype=jnp.int32)
+            alpha, u, du = alpha.at[pos].set(a_rows), u.at[pos].set(u_rows), du.at[pos].set(du_rows)
+        if np.any(variable_mask):
+            idx = components[variable_mask]
+            a_rows, u_rows, du_rows = jax_lensing.grouped_dpie_fields(x, y, take(packed.sigma0, idx), take(packed.Ra, idx), take(packed.Rs, idx),
+                                                                      take(packed.e1, idx), take(packed.e2, idx), take(packed.center_x, idx), take(packed.center_y, idx))
+            pos = jnp.asarray(np.flatnonzero(variable_mask), dtype=jnp.int32)
+            alpha, u, du = alpha.at[pos].set(a_rows), u.at[pos].set(u_rows), du.at[pos].set(du_rows)
         shear_mask = profile == SHEAR_PROFILE
         if np.any(shear_mask):
             idx = jnp.asarray(components[shear_mask])
             gamma1 = jnp.take(packed.gamma1, idx)[:, None]
             gamma2 = jnp.take(packed.gamma2, idx)[:, None]
             ones = jnp.ones_like(x)[None, :]
-            shear_rows = (gamma1 * x[None] + gamma2 * y[None], gamma2 * x[None] - gamma1 * y[None],
-                          -gamma1 * ones, -gamma2 * ones, -gamma2 * ones, gamma1 * ones)
-            positions = jnp.asarray(np.flatnonzero(shear_mask), dtype=jnp.int32)
-            rows = [row.at[positions].set(value) for row, value in zip(rows, shear_rows)]
-        alpha = jnp.stack(rows[:2], -1)
-        # Component rows store delta A = -U; the determinant conditioning needs U.
-        u = -jnp.stack((jnp.stack(rows[2:4], -1), jnp.stack(rows[4:6], -1)), -2)
-        return alpha, u
+            shear_alpha = jnp.stack((gamma1 * x[None] + gamma2 * y[None], gamma2 * x[None] - gamma1 * y[None]), -1)
+            # U = d alpha / d theta for the shear is the constant matrix [[gamma1, gamma2], [gamma2, -gamma1]]; dU = 0.
+            shear_u = jnp.stack((jnp.stack((gamma1 * ones, gamma2 * ones), -1), jnp.stack((gamma2 * ones, -gamma1 * ones), -1)), -2)
+            pos = jnp.asarray(np.flatnonzero(shear_mask), dtype=jnp.int32)
+            alpha, u = alpha.at[pos].set(shear_alpha), u.at[pos].set(shear_u)
+        return (alpha, u, du) if derivative else (alpha, u)
 
-    def fields(self, physical: jnp.ndarray, packed: PackedLensState | None = None, *, force_exact: bool = False) -> dict[str, Any]:
-        """Backprojected images, total Jacobian A, grad det A, and per-member deflections."""
+    def fields(self, physical: jnp.ndarray, packed: PackedLensState | None = None, *, force_exact: bool = False,
+               derivative: bool = True) -> dict[str, Any]:
+        """Backprojected images, total Jacobian A, grad det A (unless ``derivative`` is False), and per-member deflections."""
         if packed is None:
             packed = self.packed_state(physical)[0]
         xy = self.xy
         components = np.arange(self.n_components, dtype=np.int32) if force_exact else self.exact_components
-        alpha_rows, u_rows = self.component_rows(xy, packed, components)
+        alpha_rows, u_rows, du_rows = self.component_rows(xy, packed, components, derivative=True)
         alpha, u = jnp.sum(alpha_rows, axis=0), jnp.sum(u_rows, axis=0)
-
-        def total_u(position):
-            return jnp.sum(self.component_rows(position, packed, components)[1], axis=0)
-
-        dx = jnp.broadcast_to(jnp.array([1.0, 0.0]), xy.shape)
-        dy = jnp.broadcast_to(jnp.array([0.0, 1.0]), xy.shape)
-        du = jnp.stack((jax.jvp(total_u, (xy,), (dx,))[1], jax.jvp(total_u, (xy,), (dy,))[1]), -1)
+        du = jnp.sum(du_rows, axis=0) if derivative else jnp.zeros(xy.shape + (2, 2), dtype=xy.dtype)
         n_members, n_images = len(self.member_components), xy.shape[0]
         member_alpha = jnp.zeros((n_members, n_images, 2), dtype=xy.dtype)
         member_u = jnp.zeros((n_members, n_images, 2, 2), dtype=xy.dtype)
@@ -199,7 +221,7 @@ class Evaluator:
             member_u = member_u.at[self.far_positions].set(far.jacobian)
             alpha = alpha + jnp.sum(far.alpha, axis=0)
             u = u + jnp.sum(far.jacobian, axis=0)
-            du = du + far.total_jacobian_derivative
+            du = du + (far.total_jacobian_derivative if derivative else 0.0)
             far_cut_radii = jnp.take(packed.Rs, ci)
         a = jnp.eye(2) - u
         da = -du

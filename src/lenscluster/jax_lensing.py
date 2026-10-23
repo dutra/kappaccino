@@ -6,6 +6,7 @@ import math
 import jax
 import jax.numpy as jnp
 from jaxtronomy.LensModel.Profiles.dpie_nie_e import DPIE_NIE_E as DPIENIE
+from jaxtronomy.LensModel.Profiles.nie_e import _atan_sqrt_ratio, _geometry as _nie_geometry
 
 ORIGINAL_DPIE_PROFILE_NAME = "DPIE_NIE_E"
 SHEAR_PROFILE_NAME = "SHEAR"
@@ -404,3 +405,75 @@ def ray_shooting_tiled(
 ) -> tuple[jnp.ndarray, jnp.ndarray]:
     alpha_x, alpha_y, *_ = alpha_and_hessian_tiled(x, y, state, chunk_size=chunk_size)
     return jnp.asarray(x, dtype=jnp.float64) - alpha_x, jnp.asarray(y, dtype=jnp.float64) - alpha_y
+
+
+# ----------------------------------------------------------------------------- analytic dPIE fields
+def dpie_geometry(x, y, e1, e2, center_x, center_y):
+    """Geometry-only quantities of the cartesian dPIE kernel at points (x, y): everything that depends on the
+    position, the ellipticity and the centre but not on the amplitude or the radii.  For components with fixed
+    catalog geometry this is a constant and can be precomputed once per set of evaluation points."""
+    xs, ys, d, e, v, rsq, rx, ry = _nie_geometry(x, y, e1, e2, center_x, center_y)
+    e_sq = e1 * e1 + e2 * e2
+    qxx, qxy, qyy = (1 + e_sq - 2 * e1) / d, -2 * e2 / d, (1 + e_sq + 2 * e1) / d
+    c = jnp.conj(e) / d
+    return dict(rsq=rsq, rx=rx, ry=ry, v=v, c=c, qxx=qxx * jnp.ones_like(rsq), qxy=qxy * jnp.ones_like(rsq), qyy=qyy * jnp.ones_like(rsq),
+                vlx=(1 - e) * jnp.ones_like(v), vly=(1j * (1 + e)) * jnp.ones_like(v))
+
+
+def dpie_fields_from_geometry(geom, sigma0, a, b):
+    """alpha (N, 2), U = d alpha / d theta (N, 2, 2) and dU[..., i, j, l] = d U_ij / d theta_l (N, 2, 2, 2) of one
+    cartesian dPIE component from its precomputed geometry; the analytic form of two jvps through the Hessian."""
+    rsq, c, v = geom["rsq"], geom["c"], geom["v"]
+    r = (geom["rx"], geom["ry"])
+    q = ((geom["qxx"], geom["qxy"]), (geom["qxy"], geom["qyy"]))
+    vl = (geom["vlx"], geom["vly"])
+    ua, ub = jnp.sqrt(a * a + rsq), jnp.sqrt(b * b + rsq)
+    da, db = ua + a, ub + b
+    T = ua + ub
+    m = 1 + (a + b) / T
+    D = da * db + c * v * v
+    g = v * m / D
+    k2 = c * (b - a) ** 2
+    u = k2 * g * g
+    ual = [rl / ua for rl in r]
+    ubl = [rl / ub for rl in r]
+    Tl = [ual[i] + ubl[i] for i in range(2)]
+    ml = [-(a + b) * Tl[i] / T ** 2 for i in range(2)]
+    Dl = [ual[i] * db + da * ubl[i] + 2 * c * v * vl[i] for i in range(2)]
+    Nl = [vl[i] * m + v * ml[i] for i in range(2)]
+    gl = [(Nl[i] - g * Dl[i]) / D for i in range(2)]
+    gll = [[None, None], [None, None]]
+    for i in range(2):
+        for k in range(i, 2):
+            ua_ik = q[i][k] / ua - r[i] * r[k] / ua ** 3
+            ub_ik = q[i][k] / ub - r[i] * r[k] / ub ** 3
+            T_ik = ua_ik + ub_ik
+            m_ik = -(a + b) * (T_ik / T ** 2 - 2 * Tl[i] * Tl[k] / T ** 3)
+            D_ik = ua_ik * db + ual[i] * ubl[k] + ual[k] * ubl[i] + da * ub_ik + 2 * c * vl[i] * vl[k]
+            N_ik = vl[i] * ml[k] + vl[k] * ml[i] + v * m_ik
+            gll[i][k] = gll[k][i] = (N_ik - gl[k] * Dl[i] - g * D_ik - gl[i] * Dl[k]) / D
+    amp = 2 * sigma0 * a * b
+    alpha = amp * g * _atan_sqrt_ratio(u)
+    S = amp / (1 + u)
+    ul = [2 * k2 * g * gl[i] for i in range(2)]
+    Sl = [-S * ul[i] / (1 + u) for i in range(2)]
+    ax, ay = S * gl[0], S * gl[1]
+    hxy = 0.5 * (jnp.imag(ax) + jnp.real(ay))
+    U = jnp.stack((jnp.stack((jnp.real(ax), hxy), -1), jnp.stack((hxy, jnp.imag(ay)), -1)), -2)
+    dU_l = []
+    for l in range(2):
+        ax_l = Sl[l] * gl[0] + S * gll[0][l]
+        ay_l = Sl[l] * gl[1] + S * gll[1][l]
+        cross = 0.5 * (jnp.imag(ax_l) + jnp.real(ay_l))
+        dU_l.append(jnp.stack((jnp.stack((jnp.real(ax_l), cross), -1), jnp.stack((cross, jnp.imag(ay_l)), -1)), -2))
+    return jnp.stack((jnp.real(alpha), jnp.imag(alpha)), -1), U, jnp.stack(dU_l, -1)
+
+
+def dpie_fields(x, y, sigma0, a, b, e1, e2, center_x, center_y):
+    """alpha, U and dU of one dPIE component at points (x, y) with variable geometry."""
+    return dpie_fields_from_geometry(dpie_geometry(x, y, e1, e2, center_x, center_y), sigma0, a, b)
+
+
+grouped_dpie_fields = jax.vmap(dpie_fields, in_axes=(None, None, 0, 0, 0, 0, 0, 0, 0))
+grouped_dpie_geometry = jax.vmap(dpie_geometry, in_axes=(None, None, 0, 0, 0, 0))
+grouped_dpie_fields_from_geometry = jax.vmap(dpie_fields_from_geometry, in_axes=(0, 0, 0, 0))

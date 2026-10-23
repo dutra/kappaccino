@@ -27,6 +27,10 @@ def test_analytic_fields_match_forward_mode():
         for r, g, f in zip(ref, got, fixed):
             np.testing.assert_allclose(g, r, rtol=1e-11, atol=1e-13)
             np.testing.assert_array_equal(g, f)
+        alpha, u, du = jax_lensing.dpie_fields(x, y, sigma0, a, b, e1, e2, cx, cy, derivative=False)
+        assert du is None
+        np.testing.assert_array_equal(alpha, got[0])
+        np.testing.assert_array_equal(u, got[1])
 
 
 def test_amplitude_and_radius_gradients_match():

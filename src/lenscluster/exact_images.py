@@ -54,12 +54,10 @@ class ExactImageSolver:
 
     # ------------------------------------------------------------------ lens fields at arbitrary points
     def ray_shoot_and_jacobian(self, packed: PackedLensState, x: np.ndarray, y: np.ndarray):
-        xy = jnp.stack((jnp.asarray(x, dtype=jnp.float64), jnp.asarray(y, dtype=jnp.float64)), -1)
-        alpha_rows, u_rows = self.evaluator.component_rows(xy, packed, self.all_components)
-        alpha = np.asarray(jnp.sum(alpha_rows, axis=0))
-        a = np.asarray(jnp.eye(2) - jnp.sum(u_rows, axis=0))
-        return (np.asarray(xy[:, 0]) - alpha[:, 0], np.asarray(xy[:, 1]) - alpha[:, 1],
-                a[:, 0, 0], a[:, 0, 1], a[:, 1, 0], a[:, 1, 1])
+        xy = np.stack((np.asarray(x, dtype=float), np.asarray(y, dtype=float)), -1)
+        alpha, u = self.evaluator.total_fields_at(xy, packed, self.all_components)
+        a = np.eye(2) - u
+        return (xy[:, 0] - alpha[:, 0], xy[:, 1] - alpha[:, 1], a[:, 0, 0], a[:, 0, 1], a[:, 1, 0], a[:, 1, 1])
 
     def magnification(self, packed: PackedLensState, x: np.ndarray, y: np.ndarray) -> np.ndarray:
         _, _, a00, a01, a10, a11 = self.ray_shoot_and_jacobian(packed, x, y)

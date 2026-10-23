@@ -80,9 +80,8 @@ def lens_quantities(evaluator: Evaluator, theta: np.ndarray, z_source: float, x:
     """kappa, gamma, det A and magnification of the full lens model at the given points."""
     physical = evaluator.physical(jnp.asarray(theta, dtype=jnp.float64))
     packed = evaluator.packed_state_for_z(physical, z_source)
-    xy = jnp.stack((jnp.asarray(x, dtype=jnp.float64), jnp.asarray(y, dtype=jnp.float64)), -1)
-    _, u_rows = evaluator.component_rows(xy, packed, np.arange(evaluator.n_components, dtype=np.int32))
-    a = np.asarray(jnp.eye(2) - jnp.sum(u_rows, axis=0))
+    _, u = evaluator.total_fields_at(np.stack((np.asarray(x, dtype=float), np.asarray(y, dtype=float)), -1), packed)
+    a = np.eye(2) - u
     a00, a01, a10, a11 = a[:, 0, 0], a[:, 0, 1], a[:, 1, 0], a[:, 1, 1]
     kappa = 1.0 - 0.5 * (a00 + a11)
     gamma1 = 0.5 * (a11 - a00)

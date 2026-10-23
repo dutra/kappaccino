@@ -67,6 +67,7 @@ class Evaluator:
                                                                     take(packed_spec.x_center_base), take(packed_spec.y_center_base))
         else:
             self.fixed_geometry = None
+        self._total_fields_cache: dict = {}
         self.loglike = jax.jit(self.log_likelihood)
         self.value_and_grad = jax.jit(jax.value_and_grad(self.log_likelihood))
 
@@ -169,7 +170,7 @@ class Evaluator:
         profile = np.asarray(self.state.packed_lens_spec.profile_type)[components]
         alpha = jnp.zeros((components.size, n, 2), dtype=jnp.float64)
         u = jnp.zeros((components.size, n, 2, 2), dtype=jnp.float64)
-        du = jnp.zeros((components.size, n, 2, 2, 2), dtype=jnp.float64)
+        du = jnp.zeros((components.size, n, 2, 2, 2), dtype=jnp.float64) if derivative else None
         at_images = xy is self.xy
         dpie_mask = profile == DP_IE_PROFILE
         fixed_mask = dpie_mask & at_images & np.isin(components, self.fixed_geometry_components)
@@ -179,15 +180,17 @@ class Evaluator:
             idx = components[fixed_mask]
             geom_rows = np.asarray([self.fixed_geometry_position[int(c)] for c in idx], dtype=np.int32)
             geom = jax.tree.map(lambda g: g[geom_rows], self.fixed_geometry)
-            a_rows, u_rows, du_rows = jax_lensing.grouped_dpie_fields_from_geometry(geom, take(packed.sigma0, idx), take(packed.Ra, idx), take(packed.Rs, idx))
+            a_rows, u_rows, du_rows = jax_lensing.grouped_dpie_fields_from_geometry[derivative](geom, take(packed.sigma0, idx), take(packed.Ra, idx), take(packed.Rs, idx))
             pos = jnp.asarray(np.flatnonzero(fixed_mask), dtype=jnp.int32)
-            alpha, u, du = alpha.at[pos].set(a_rows), u.at[pos].set(u_rows), du.at[pos].set(du_rows)
+            alpha, u = alpha.at[pos].set(a_rows), u.at[pos].set(u_rows)
+            du = du.at[pos].set(du_rows) if derivative else du
         if np.any(variable_mask):
             idx = components[variable_mask]
-            a_rows, u_rows, du_rows = jax_lensing.grouped_dpie_fields(x, y, take(packed.sigma0, idx), take(packed.Ra, idx), take(packed.Rs, idx),
-                                                                      take(packed.e1, idx), take(packed.e2, idx), take(packed.center_x, idx), take(packed.center_y, idx))
+            a_rows, u_rows, du_rows = jax_lensing.grouped_dpie_fields[derivative](x, y, take(packed.sigma0, idx), take(packed.Ra, idx), take(packed.Rs, idx),
+                                                                                  take(packed.e1, idx), take(packed.e2, idx), take(packed.center_x, idx), take(packed.center_y, idx))
             pos = jnp.asarray(np.flatnonzero(variable_mask), dtype=jnp.int32)
-            alpha, u, du = alpha.at[pos].set(a_rows), u.at[pos].set(u_rows), du.at[pos].set(du_rows)
+            alpha, u = alpha.at[pos].set(a_rows), u.at[pos].set(u_rows)
+            du = du.at[pos].set(du_rows) if derivative else du
         shear_mask = profile == SHEAR_PROFILE
         if np.any(shear_mask):
             idx = jnp.asarray(components[shear_mask])
@@ -200,6 +203,31 @@ class Evaluator:
             pos = jnp.asarray(np.flatnonzero(shear_mask), dtype=jnp.int32)
             alpha, u = alpha.at[pos].set(shear_alpha), u.at[pos].set(shear_u)
         return (alpha, u, du) if derivative else (alpha, u)
+
+    def total_fields_at(self, xy, packed: PackedLensState, components: np.ndarray | None = None, *, chunk: int = 16384):
+        """Summed deflection (N, 2) and Jacobian U (N, 2, 2) of the given components at arbitrary points, evaluated in
+        jitted chunks so that large grids (figures, truth maps) never hold per-component arrays for every point."""
+        components = np.arange(self.n_components, dtype=np.int32) if components is None else np.asarray(components, dtype=np.int32)
+        xy = np.asarray(xy, dtype=float).reshape(-1, 2)
+        n = xy.shape[0]
+        # Small point sets (image solvers) use a power-of-two block so that only a few sizes are ever compiled.
+        chunk = int(min(chunk, max(64, 1 << max(0, int(n - 1)).bit_length())))
+        key = (components.tobytes(), chunk)
+        if key not in self._total_fields_cache:
+            def total(points, packed_state):
+                alpha_rows, u_rows = self.component_rows(points, packed_state, components)
+                return jnp.sum(alpha_rows, axis=0), jnp.sum(u_rows, axis=0)
+            self._total_fields_cache[key] = jax.jit(total)
+        total = self._total_fields_cache[key]
+        alpha, u = np.empty((n, 2)), np.empty((n, 2, 2))
+        for start in range(0, n, chunk):
+            block = xy[start:start + chunk]
+            pad = chunk - block.shape[0]
+            points = jnp.asarray(np.pad(block, ((0, pad), (0, 0))) if pad else block)
+            a_block, u_block = total(points, packed)
+            alpha[start:start + chunk] = np.asarray(a_block)[:block.shape[0]]
+            u[start:start + chunk] = np.asarray(u_block)[:block.shape[0]]
+        return alpha, u
 
     def fields(self, physical: jnp.ndarray, packed: PackedLensState | None = None, *, force_exact: bool = False,
                derivative: bool = True) -> dict[str, Any]:

@@ -210,9 +210,8 @@ def plot_critical_curves(state: ModelState, evaluator: Evaluator, theta: np.ndar
         for vertices in find_contours(field, 0.0):
             cx, cy = np.interp(vertices[:, 1], pixel, axis), np.interp(vertices[:, 0], pixel, axis)
             image_ax.plot(cx, cy, color=color, linewidth=1.0)
-            xy = jnp.stack((jnp.asarray(cx), jnp.asarray(cy)), -1)
-            alpha_rows, _ = evaluator.component_rows(xy, packed, np.arange(evaluator.n_components, dtype=np.int32))
-            beta = np.asarray(xy) - np.asarray(jnp.sum(alpha_rows, axis=0))
+            xy = np.stack((cx, cy), -1)
+            beta = xy - evaluator.total_fields_at(xy, packed)[0]
             source_ax.scatter(beta[:, 0], beta[:, 1], color=color, s=2, alpha=0.75, linewidths=0.0)
     cmap = plt.get_cmap("tab20", max(1, len(state.family_data)))
     for idx, family in enumerate(state.family_data):

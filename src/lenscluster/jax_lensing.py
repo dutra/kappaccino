@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import functools
 import math
 
 import jax
@@ -420,9 +421,10 @@ def dpie_geometry(x, y, e1, e2, center_x, center_y):
                 vlx=(1 - e) * jnp.ones_like(v), vly=(1j * (1 + e)) * jnp.ones_like(v))
 
 
-def dpie_fields_from_geometry(geom, sigma0, a, b):
+def dpie_fields_from_geometry(geom, sigma0, a, b, derivative=True):
     """alpha (N, 2), U = d alpha / d theta (N, 2, 2) and dU[..., i, j, l] = d U_ij / d theta_l (N, 2, 2, 2) of one
-    cartesian dPIE component from its precomputed geometry; the analytic form of two jvps through the Hessian."""
+    cartesian dPIE component from its precomputed geometry; the analytic form of two jvps through the Hessian.
+    With ``derivative`` False the second-derivative terms are skipped and dU is None."""
     rsq, c, v = geom["rsq"], geom["c"], geom["v"]
     r = (geom["rx"], geom["ry"])
     q = ((geom["qxx"], geom["qxy"]), (geom["qxy"], geom["qyy"]))
@@ -443,7 +445,7 @@ def dpie_fields_from_geometry(geom, sigma0, a, b):
     Nl = [vl[i] * m + v * ml[i] for i in range(2)]
     gl = [(Nl[i] - g * Dl[i]) / D for i in range(2)]
     gll = [[None, None], [None, None]]
-    for i in range(2):
+    for i in range(2 if derivative else 0):
         for k in range(i, 2):
             ua_ik = q[i][k] / ua - r[i] * r[k] / ua ** 3
             ub_ik = q[i][k] / ub - r[i] * r[k] / ub ** 3
@@ -460,6 +462,8 @@ def dpie_fields_from_geometry(geom, sigma0, a, b):
     ax, ay = S * gl[0], S * gl[1]
     hxy = 0.5 * (jnp.imag(ax) + jnp.real(ay))
     U = jnp.stack((jnp.stack((jnp.real(ax), hxy), -1), jnp.stack((hxy, jnp.imag(ay)), -1)), -2)
+    if not derivative:
+        return jnp.stack((jnp.real(alpha), jnp.imag(alpha)), -1), U, None
     dU_l = []
     for l in range(2):
         ax_l = Sl[l] * gl[0] + S * gll[0][l]
@@ -469,11 +473,18 @@ def dpie_fields_from_geometry(geom, sigma0, a, b):
     return jnp.stack((jnp.real(alpha), jnp.imag(alpha)), -1), U, jnp.stack(dU_l, -1)
 
 
-def dpie_fields(x, y, sigma0, a, b, e1, e2, center_x, center_y):
-    """alpha, U and dU of one dPIE component at points (x, y) with variable geometry."""
-    return dpie_fields_from_geometry(dpie_geometry(x, y, e1, e2, center_x, center_y), sigma0, a, b)
+def dpie_fields(x, y, sigma0, a, b, e1, e2, center_x, center_y, derivative=True):
+    """alpha, U and dU (None unless ``derivative``) of one dPIE component at points (x, y) with variable geometry."""
+    return dpie_fields_from_geometry(dpie_geometry(x, y, e1, e2, center_x, center_y), sigma0, a, b, derivative)
 
 
-grouped_dpie_fields = jax.vmap(dpie_fields, in_axes=(None, None, 0, 0, 0, 0, 0, 0, 0))
 grouped_dpie_geometry = jax.vmap(dpie_geometry, in_axes=(None, None, 0, 0, 0, 0))
-grouped_dpie_fields_from_geometry = jax.vmap(dpie_fields_from_geometry, in_axes=(0, 0, 0, 0))
+# Batches over components; the ``derivative`` flag is static, so each variant is its own vmapped function.
+grouped_dpie_fields = {
+    True: jax.vmap(dpie_fields, in_axes=(None, None, 0, 0, 0, 0, 0, 0, 0)),
+    False: jax.vmap(functools.partial(dpie_fields, derivative=False), in_axes=(None, None, 0, 0, 0, 0, 0, 0, 0)),
+}
+grouped_dpie_fields_from_geometry = {
+    True: jax.vmap(dpie_fields_from_geometry, in_axes=(0, 0, 0, 0)),
+    False: jax.vmap(functools.partial(dpie_fields_from_geometry, derivative=False), in_axes=(0, 0, 0, 0)),
+}

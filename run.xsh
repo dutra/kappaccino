@@ -25,8 +25,10 @@ from lenscluster.config import (
     LensModelConfig,
     LikelihoodConfig,
     LogNormalPriorConfig,
+    MassSheetConfig,
     MemberConfig,
     MemberPopulationConfig,
+    NFWHaloConfig,
     PriorConfig,
     RGBDisplayConfig,
     ReferenceFrameConfig,
@@ -266,9 +268,10 @@ FF_SIMS_CLUSTERS = {
         "kappa_true_fits": "data/ff_sims/published/hera/kappa_z9_0.fits",
         "gammax_true_fits": "data/ff_sims/published/hera/gammax_z9_0.fits",
         "gammay_true_fits": "data/ff_sims/published/hera/gammay_z9_0.fits",
-        # HERA uses H0=72 km/s/Mpc, so h=0.72 and 2.3 h^-1 kpc = 3.19 kpc physical.
-        "softening_length_kpc": 0.0,
-        #"softening_length_kpc": 2.3 / 0.72,
+        # HERA uses H0=72 km/s/Mpc, so h=0.72 and 2.3 h^-1 kpc = 3.19 kpc physical: the N-body softening, added in
+        # quadrature to every core radius so that member cusps match the simulation's resolution (the dPIE total mass
+        # is independent of the core, so member masses are unchanged).
+        "softening_length_kpc": 2.3 / 0.72,
         "softening_length_prior_log_sigma": 0.15,
     },
 }

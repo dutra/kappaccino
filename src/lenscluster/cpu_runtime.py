@@ -41,36 +41,124 @@ def _positive_integer(name, value):
     return int(value)
 
 
+def _core_key(cpu):
+    root = Path(f"/sys/devices/system/cpu/cpu{cpu}/topology")
+    try:
+        return ((root / "physical_package_id").read_text().strip(), (root / "core_id").read_text().strip())
+    except OSError:
+        return ("unknown", str(cpu))
+
+
 def _physical_core_order(cpu_ids):
     """Use one allowed logical CPU per physical core before SMT siblings."""
     groups = {}
     for cpu in sorted(cpu_ids):
-        root = Path(f"/sys/devices/system/cpu/cpu{cpu}/topology")
-        try:
-            key = ((root / "physical_package_id").read_text().strip(),
-                   (root / "core_id").read_text().strip())
-        except OSError:
-            key = ("unknown", str(cpu))
-        groups.setdefault(key, []).append(cpu)
+        groups.setdefault(_core_key(cpu), []).append(cpu)
     return tuple(group[i] for i in range(max(map(len, groups.values()), default=0))
                  for group in groups.values() if i < len(group))
 
 
-def resolve_cpu_plan(chains, chain_method="parallel", threads_per_chain=None):
+def _parse_cpu_list(text):
+    cpus = set()
+    for part in text.strip().split(","):
+        if not part:
+            continue
+        lo, _, hi = part.partition("-")
+        cpus.update(range(int(lo), int(hi or lo) + 1))
+    return cpus
+
+
+def cpus_claimed_by_other_runs(markers=("run.xsh", "lenscluster")):
+    """Logical CPUs that other solver processes on this machine have pinned themselves to (Linux /proc)."""
+    claimed = set()
+    proc = Path("/proc")
+    if not proc.is_dir():
+        return claimed
+    me = os.getpid()
+    total = os.cpu_count() or 1
+    for entry in proc.iterdir():
+        if not entry.name.isdigit() or int(entry.name) == me:
+            continue
+        try:
+            cmdline = (entry / "cmdline").read_bytes().replace(b"\0", b" ").decode(errors="replace")
+            if not any(marker in cmdline for marker in markers):
+                continue
+            for line in (entry / "status").read_text().splitlines():
+                if line.startswith("Cpus_allowed_list:"):
+                    cpus = _parse_cpu_list(line.split(":", 1)[1])
+                    if len(cpus) < total:                 # a pinned process, not one allowed everywhere
+                        claimed |= cpus
+        except OSError:
+            continue
+    return claimed
+
+
+def cpu_busy_fractions(interval=0.25):
+    """Fraction of the last ``interval`` seconds each logical CPU was busy, from two /proc/stat samples (Linux only)."""
+    import time
+
+    def sample():
+        rows = {}
+        try:
+            for line in Path("/proc/stat").read_text().splitlines():
+                if line.startswith("cpu") and line[3:4].isdigit():
+                    fields = [int(v) for v in line.split()[1:]]
+                    rows[int(line[3:].split()[0])] = (fields[3] + fields[4], sum(fields))     # idle + iowait, total
+        except OSError:
+            pass
+        return rows
+
+    first = sample()
+    if not first:
+        return {}
+    time.sleep(interval)
+    second = sample()
+    busy = {}
+    for cpu, (idle0, total0) in first.items():
+        idle1, total1 = second.get(cpu, (idle0, total0))
+        elapsed = total1 - total0
+        busy[cpu] = 1.0 - (idle1 - idle0) / elapsed if elapsed > 0 else 0.0
+    return busy
+
+
+def resolve_cpu_plan(chains, chain_method="parallel", threads_per_chain=None, *, avoid=None, load=None):
+    """Choose the CPUs of this run.  XLA sizes its thread pool from the affinity mask, so with ``threads_per_chain``
+    the run is pinned to concurrent * threads_per_chain physical cores.  Those are the least busy cores at launch
+    (``load``: busy fraction per CPU, by default sampled from /proc/stat), excluding cores already claimed by other
+    solver runs (``avoid``; by default read from /proc), so that several fits and other programs share the machine
+    without stacking on the same cores."""
     chains = _positive_integer("chains", chains)
     if chain_method not in {"parallel", "sequential", "vectorized"}:
         raise ValueError("Unsupported NUTS chain method for CPU setup.")
     if threads_per_chain is not None:
         threads_per_chain = _positive_integer("cpu_threads_per_chain", threads_per_chain)
+    # A repeated request for the configured plan returns it: the core choice depends on the load at launch and on
+    # our own narrowed affinity mask, so it must not be recomputed once applied.
+    if _ACTIVE_PLAN is not None and (_ACTIVE_PLAN.chains, _ACTIVE_PLAN.chain_method, _ACTIVE_PLAN.threads_per_chain) == (chains, chain_method, threads_per_chain):
+        return _ACTIVE_PLAN
     supported = hasattr(os, "sched_getaffinity") and hasattr(os, "sched_setaffinity")
     available = tuple(sorted(os.sched_getaffinity(0))) if supported else tuple(range(os.cpu_count() or 1))
-    # A repeated call after setup must use the original allocation, not regard
-    # our own narrower mask as a new scheduler allocation.
     if _ACTIVE_PLAN is not None and available == tuple(sorted(_ACTIVE_PLAN.selected_cpu_ids)):
         available = _ACTIVE_PLAN.available_cpu_ids
     concurrent = 1 if chain_method == "sequential" else chains
     count = len(available) if threads_per_chain is None else min(len(available), concurrent * threads_per_chain)
-    selected = available if threads_per_chain is None else _physical_core_order(available)[:count]
+    if threads_per_chain is None:
+        selected = available
+    else:
+        claimed = set(cpus_claimed_by_other_runs() if avoid is None else avoid)
+        free = tuple(cpu for cpu in available if cpu not in claimed)
+        pool = free if len(_physical_core_order(free)) >= count else available   # not enough unclaimed cores: share
+        busy = cpu_busy_fractions() if load is None else dict(load)
+        # A physical core is as busy as its busiest logical CPU, siblings pinned by other runs included; one logical CPU
+        # per core first (as _physical_core_order lists them), least busy core first, stable for equal loads.
+        siblings = {}
+        for cpu in available:
+            siblings.setdefault(_core_key(cpu), []).append(cpu)
+        core_load = lambda cpu: max(busy.get(c, 0.0) for c in siblings[_core_key(cpu)])
+        ordered = _physical_core_order(pool)
+        primary = ordered[:len({_core_key(cpu) for cpu in pool})]
+        primary = tuple(sorted(primary, key=lambda cpu: (round(core_load(cpu), 2), cpu)))
+        selected = (primary + tuple(cpu for cpu in ordered if cpu not in primary))[:count]
     return CPUPlan(chains, chain_method, threads_per_chain,
                    chains if chain_method == "parallel" else 1,
                    available, selected, supported, 1 if threads_per_chain is not None else None)

@@ -136,3 +136,29 @@ assert namespace['main'](['run.xsh', sys.argv[1]]) == 0
 """
     subprocess.run([sys.executable, "-c", code, cluster], check=True, timeout=45,
                    env=dict(os.environ, PYTHONPATH=str(Path("src").resolve())))
+
+
+def test_plan_prefers_idle_cores():
+    import lenscluster.cpu_runtime as cpu
+    idle = cpu.resolve_cpu_plan(4, "parallel", 2, avoid=set(), load={})
+    if len(idle.available_cpu_ids) < 2 * len(idle.selected_cpu_ids):
+        pytest.skip("not enough CPUs to test load-aware pinning")
+    busy = {c: 1.0 for c in idle.selected_cpu_ids}                 # the default choice is fully loaded
+    shifted = cpu.resolve_cpu_plan(4, "parallel", 2, avoid=set(), load=busy)
+    assert not set(shifted.selected_cpu_ids) & set(idle.selected_cpu_ids)
+    assert len(shifted.selected_cpu_ids) == len(idle.selected_cpu_ids)
+    assert cpu.resolve_cpu_plan(4, "parallel", 2, avoid=set(), load={}) == idle   # deterministic on an idle machine
+
+
+def test_plan_skips_cores_claimed_by_other_runs():
+    import lenscluster.cpu_runtime as cpu
+    base = cpu.resolve_cpu_plan(4, "parallel", 2, avoid=set(), load={})
+    if len(base.available_cpu_ids) < 2 * len(base.selected_cpu_ids):
+        pytest.skip("not enough CPUs to test disjoint pinning")
+    other = cpu.resolve_cpu_plan(4, "parallel", 2, avoid=set(base.selected_cpu_ids), load={})
+    assert not set(other.selected_cpu_ids) & set(base.selected_cpu_ids)
+    assert len(other.selected_cpu_ids) == len(base.selected_cpu_ids)
+    # When every core is claimed the plan falls back to sharing rather than failing.
+    crowded = cpu.resolve_cpu_plan(4, "parallel", 2, avoid=set(base.available_cpu_ids), load={})
+    assert len(crowded.selected_cpu_ids) == len(base.selected_cpu_ids)
+    assert cpu._parse_cpu_list("0-3,8,10-11") == {0, 1, 2, 3, 8, 10, 11}

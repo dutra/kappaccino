@@ -192,6 +192,8 @@ class ScalingModelConfig:
                                             # together along the relation, one scatter), "sigma_rcut" (independent dispersion and radius
                                             # deviations), "mass_rcut" (mass deviation along the relation plus an independent radius deviation)
     member_radius_scatter_prior: LogNormalPriorConfig = field(default_factory=lambda: LogNormalPriorConfig(median=0.1, log_sigma=1.0))
+    radius_deviation_members: str = "exact"  # which members' radius deviations act on the model: "exact" (far-field members keep
+                                            # the relation radius, so they cannot cross the far-field guard) or "all"
     alpha_sigma_prior_mean: float = 0.25
     alpha_sigma_prior_std: float = 0.04
     alpha_sigma_prior_lower: float = 0.10
@@ -372,6 +374,8 @@ def validate_config(config: LensClusterSolverConfig) -> None:
         raise ValueError("likelihood.likelihood_mode must be 'smoothed', 'source-anisotropic' or 'source-isotropic'.")
     if scaling.member_deviation not in {"sigma", "mass", "sigma_rcut", "mass_rcut"}:
         raise ValueError("scaling.member_deviation must be 'sigma', 'mass', 'sigma_rcut' or 'mass_rcut'.")
+    if scaling.radius_deviation_members not in {"exact", "all"}:
+        raise ValueError("scaling.radius_deviation_members must be 'exact' or 'all'.")
     for name, prior in (("member_velocity_scatter_prior", scaling.member_velocity_scatter_prior),
                         ("member_radius_scatter_prior", scaling.member_radius_scatter_prior),
                         ("source_scatter_prior", config.likelihood.source_scatter_prior)):

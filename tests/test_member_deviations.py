@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 
 from lenscluster.evaluator import Evaluator
+from lenscluster.model import member_log_deviations
 from lenscluster.sampling import prior_log_prob
 from lenscluster.state import build_state, with_member_classes
 
@@ -22,7 +23,7 @@ def test_centered_conversion_preserves_the_likelihood(synthetic_config, mode):
     theta = np.asarray(state.initial_theta) + np.random.default_rng(0).normal(0, 0.1, state.n_parameters)
     state.initial_theta = theta
     value = float(Evaluator(state).loglike(jnp.asarray(theta)))
-    switched = with_member_classes(state, np.asarray([0, 1], dtype=np.int32), centered=np.asarray([True, True, False, False]))
+    switched = with_member_classes(state, state.members.exact_positions, centered=np.asarray([True, True, False, False]))
     assert switched.members.centered.tolist() == [True, True, False, False]
     assert np.isfinite(value)
     np.testing.assert_allclose(float(Evaluator(switched).loglike(jnp.asarray(switched.initial_theta))), value, rtol=1e-10, atol=1e-8)
@@ -47,3 +48,14 @@ def test_mass_mode_moves_radii_with_the_dispersion(synthetic_config):
     np.testing.assert_allclose(float(dv[c]), 0.3 * alpha / (2 * alpha + beta))
     np.testing.assert_allclose(float(dr[c]), 0.3 * beta / (2 * alpha + beta))
     np.testing.assert_allclose(2 * float(dv[c]) + float(dr[c]), 0.3)
+
+
+def test_far_field_members_keep_the_relation_radius(synthetic_config):
+    config = replace(synthetic_config, scaling=replace(synthetic_config.scaling, member_deviation="sigma_rcut"))
+    state = with_member_classes(build_state(config), np.asarray([0, 1], dtype=np.int32))
+    theta = np.asarray(state.initial_theta).copy()
+    theta[np.asarray(state.members.radius_offset_param_index)] = 2.0
+    evaluator = Evaluator(state)
+    _, delta_r = member_log_deviations(state.packed_lens_spec, evaluator.physical(jnp.asarray(theta)))
+    delta_r = np.asarray(delta_r)[np.asarray(state.members.component_indices)]
+    assert np.all(delta_r[:2] > 0) and np.all(delta_r[2:] == 0)

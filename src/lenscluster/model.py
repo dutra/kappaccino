@@ -93,6 +93,10 @@ class PackedLensSpec:
     radius_scatter_param_index: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=np.int32))
     deviation_centered: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=bool))
     deviation_mode: str = "sigma"
+    # Components whose radius deviation acts on the model; far-field members keep the relation radius when
+    # radius_deviation_members is "exact" (their offsets are then prior-only).
+    radius_deviation_active: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=bool))
+    radius_deviation_members: str = "exact"
 
 
 class PackedLensState(NamedTuple):
@@ -410,6 +414,12 @@ def member_log_deviations(spec: PackedLensSpec, physical) -> tuple[Any, Any]:
         return jnp.where(present, jnp.where(centered, offset, offset * scatter), 0.0)
 
     delta_v = pick(spec.velocity_offset_param_index, spec.velocity_scatter_param_index)
+    active = np.asarray(spec.radius_deviation_active, dtype=bool)
+    radius_mask = jnp.asarray(active, dtype=jnp.float64) if active.size else 1.0
+
+    def pick_radius():
+        return radius_mask * pick(spec.radius_offset_param_index, spec.radius_scatter_param_index)
+
     if spec.deviation_mode == "sigma":
         return delta_v, jnp.zeros_like(delta_v)
     if spec.deviation_mode in ("mass", "mass_rcut"):
@@ -418,8 +428,8 @@ def member_log_deviations(spec: PackedLensSpec, physical) -> tuple[Any, Any]:
         beta = jnp.where(jnp.asarray(spec.beta_radius_param_index) >= 0,
                          physical[jnp.maximum(jnp.asarray(spec.beta_radius_param_index), 0)], jnp.asarray(spec.beta_radius_base))
         total = 2.0 * alpha + beta
-        extra = pick(spec.radius_offset_param_index, spec.radius_scatter_param_index) if spec.deviation_mode == "mass_rcut" else 0.0
+        extra = pick_radius() if spec.deviation_mode == "mass_rcut" else 0.0
         return delta_v * alpha / total, delta_v * beta / total + extra
     if spec.deviation_mode == "sigma_rcut":
-        return delta_v, pick(spec.radius_offset_param_index, spec.radius_scatter_param_index)
+        return delta_v, pick_radius()
     raise ValueError(f"unknown member deviation mode {spec.deviation_mode!r}")

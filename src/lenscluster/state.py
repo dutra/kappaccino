@@ -630,6 +630,8 @@ def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.n
     packed.radius_scatter_param_index = radius_scatter_index
     packed.deviation_centered = np.zeros(n_components, dtype=bool)
     packed.deviation_mode = deviation_mode
+    packed.radius_deviation_members = str(scaling.radius_deviation_members)
+    packed.radius_deviation_active = np.ones(n_components, dtype=bool)
 
     z_values = sorted({float(family.z_source) for family in families})
     factor_by_z = {float(z): float(dpie_sigma0_factor_from_config(z_lens, float(z), cosmo_config)) for z in z_values}
@@ -688,7 +690,11 @@ def with_member_classes(state: ModelState, exact_positions: np.ndarray, classifi
             scatter = float(np.exp(theta[int(scatter_idx)]))          # latent log scatter -> physical scatter
             theta[int(offset_idx)] = theta[int(offset_idx)] * scatter if centered[position] else theta[int(offset_idx)] / scatter
             specs[int(offset_idx)] = replace(specs[int(offset_idx)], centered=bool(centered[position]))
-    packed = replace(state.packed_lens_spec, deviation_centered=packed_centered)
+    active = np.asarray(state.packed_lens_spec.radius_deviation_active, dtype=bool).copy()
+    if state.packed_lens_spec.radius_deviation_members == "exact" and active.size:
+        active[np.asarray(state.members.component_indices)] = False
+        active[np.asarray(state.members.component_indices)[exact]] = True
+    packed = replace(state.packed_lens_spec, deviation_centered=packed_centered, radius_deviation_active=active)
     info = dict(classification if classification is not None else state.members.classification)
     info["centered_count"] = int(centered.sum())
     info["centered_members"] = [state.members.member_ids[i] for i in np.flatnonzero(centered)]

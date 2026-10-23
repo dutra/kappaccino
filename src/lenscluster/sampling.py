@@ -56,12 +56,20 @@ class _LowerInclusiveTruncatedNormal(dist.LeftTruncatedDistribution):
         return dist.constraints.greater_than_eq(self.low)
 
 
-def distribution_for_site(site: SampleSite, specs: list[ParameterSpec]):
+def distribution_for_site(site: SampleSite, specs: list[ParameterSpec], sampled: dict[str, Any] | None = None):
+    """Prior of one site. Centered deviation specs get N(0, exp(scatter site value)) using the already sampled scatter."""
     members = [specs[i] for i in site.indices]
     kinds = {spec.prior_kind for spec in members}
     if len(kinds) != 1:
         raise ValueError(f"Sample site {site.name!r} mixes prior kinds {sorted(kinds)}.")
     kind = kinds.pop()
+    if any(spec.centered for spec in members):
+        if sampled is None:
+            raise ValueError(f"Site {site.name!r} has centered deviations and needs the sampled scatter values.")
+        scale = jnp.stack([jnp.exp(sampled[spec.scale_site_name]) if spec.centered else jnp.asarray(float(spec.std), dtype=jnp.float64)
+                           for spec in members])
+        loc = jnp.asarray([float(spec.mean) for spec in members], dtype=jnp.float64)
+        return dist.Independent(dist.Normal(loc, scale), 1) if site.vector else dist.Normal(loc[0], scale[0])
     if not site.vector:
         spec = members[0]
         if kind == "normal":
@@ -107,8 +115,9 @@ def prior_model(specs: list[ParameterSpec]):
     sites = sample_sites(specs)
 
     def model():
+        sampled: dict[str, Any] = {}
         for site in sites:
-            numpyro.sample(site.name, distribution_for_site(site, specs))
+            sampled[site.name] = numpyro.sample(site.name, distribution_for_site(site, specs, sampled))
     return model
 
 
@@ -118,8 +127,10 @@ def posterior_model(specs: list[ParameterSpec], loglike: Callable[[jnp.ndarray],
 
     def model():
         values = [None] * n
+        sampled: dict[str, Any] = {}
         for site in sites:
-            value = numpyro.sample(site.name, distribution_for_site(site, specs))
+            value = numpyro.sample(site.name, distribution_for_site(site, specs, sampled))
+            sampled[site.name] = value
             if site.vector:
                 for position, idx in enumerate(site.indices):
                     values[idx] = value[..., position]
@@ -133,8 +144,9 @@ def posterior_model(specs: list[ParameterSpec], loglike: Callable[[jnp.ndarray],
 def prior_log_prob(specs: list[ParameterSpec], theta: jnp.ndarray) -> jnp.ndarray:
     theta = jnp.asarray(theta, dtype=jnp.float64)
     total = jnp.asarray(0.0, dtype=jnp.float64)
-    for site, value in zip(sample_sites(specs), site_values_from_theta(theta, sample_sites(specs)).values()):
-        total = total + distribution_for_site(site, specs).log_prob(value)
+    values = site_values_from_theta(theta, sample_sites(specs))
+    for site in sample_sites(specs):
+        total = total + distribution_for_site(site, specs, values).log_prob(values[site.name])
     return total
 
 
@@ -165,7 +177,14 @@ def block_mass_seed(model, specs: list[ParameterSpec], reference_theta: np.ndarr
     latent_dim = sum(int(unconstrained[name].size) for name in latent_names)
     inverse_mass: dict = {}
     if latent_names:
-        inverse_mass[latent_names] = jnp.ones(latent_dim, dtype=jnp.float64)
+        # Unit mass for unit offsets; centered deviations get the scatter^2 at the reference as their scale.
+        site_by_name = {site.name: site for site in sites}
+        scales = []
+        for name in latent_names:
+            for idx in site_by_name[name].indices:
+                spec = specs[idx]
+                scales.append(float(np.exp(theta[[s_.sample_name for s_ in specs].index(spec.scale_site_name)])) ** 2 if spec.centered else 1.0)
+        inverse_mass[latent_names] = jnp.asarray(scales, dtype=jnp.float64)
     diagnostics: dict[str, Any] = dict(global_dim=int(global_vector.size), latent_dim=latent_dim,
                                        global_sites=list(global_names), latent_sites=list(latent_names))
     if not global_names:

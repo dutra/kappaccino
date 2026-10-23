@@ -15,7 +15,7 @@ import pandas as pd
 
 from .. import pipeline
 from ..config import DPIEHaloConfig
-from ..model import ModelState, PosteriorResults
+from ..model import ModelState, PosteriorResults, member_log_deviations
 from ..utils import log10_dpie_mass_msun, progress
 from .aperture import APERTURE_RADII_KPC, COMPONENT_GROUPS, aperture_profiles, truth_groups
 from .config import MockValidationConfig, solver_config_for_mock
@@ -140,16 +140,16 @@ def model_groups(state: ModelState, config_model, physical_row: np.ndarray, name
                      (("v_disp", 1.0), ("core_radius_kpc", 1.0), ("cut_radius_kpc", 1.0), ("x_centre", kpc), ("y_centre", kpc)))
 
     spec = state.packed_lens_spec
+    dev_v, dev_r = (np.asarray(a) for a in member_log_deviations(spec, physical_row))
     v, core, cut, xs, ys = [], [], [], [], []
     for record in state.scaling_component_records:
         c = int(record["component_index"])
         lum = float(spec.luminosity_ratio[c])
         sigma_ref, cut_ref, core_ref = (physical_row[int(idx[c])] for idx in (spec.sigma_ref_param_index, spec.cut_ref_param_index, spec.core_ref_param_index))
         alpha, beta = physical_row[int(spec.alpha_sigma_param_index[c])], physical_row[int(spec.beta_radius_param_index[c])]
-        offset = physical_row[int(spec.velocity_offset_param_index[c])] * physical_row[int(spec.velocity_scatter_param_index[c])]
-        v.append(sigma_ref * lum ** alpha * math.exp(offset))
-        core.append(core_ref * lum ** beta)
-        cut.append(cut_ref * lum ** beta)
+        v.append(sigma_ref * lum ** alpha * math.exp(float(dev_v[c])))
+        core.append(core_ref * lum ** beta * math.exp(float(dev_r[c])))
+        cut.append(cut_ref * lum ** beta * math.exp(float(dev_r[c])))
         xs.append(float(record["x_centre"]) * kpc)
         ys.append(float(record["y_centre"]) * kpc)
     return {"halo": large("halo"), "bcg": large("bcg"), "members": tuple(np.asarray(a, dtype=float) for a in (v, core, cut, xs, ys))}

@@ -47,6 +47,8 @@ class ParameterSpec:
     transform_scale: float = 1.0
     sample_site_name: str | None = None
     sample_site_index: int | None = None
+    centered: bool = False                   # deviation sampled directly with prior N(0, scatter) instead of a unit offset
+    scale_site_name: str | None = None       # sample site whose exp(value) is that scatter
 
 
 @dataclass
@@ -84,9 +86,13 @@ class PackedLensSpec:
     alpha_sigma_param_index: np.ndarray
     beta_radius_param_index: np.ndarray
     cut_radius_excess_above_effective_core: np.ndarray
-    # Sampled log velocity-dispersion deviation (member) and its population scatter.
+    # Sampled member deviations (per component) and their population scatters; -1 where absent.
     velocity_offset_param_index: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=np.int32))
     velocity_scatter_param_index: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=np.int32))
+    radius_offset_param_index: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=np.int32))
+    radius_scatter_param_index: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=np.int32))
+    deviation_centered: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=bool))
+    deviation_mode: str = "sigma"
 
 
 class PackedLensState(NamedTuple):
@@ -178,6 +184,9 @@ class MemberModel:
     source_prior_sigma: float
     far_field_guard_cut_radii: float
     classification: dict[str, Any] = field(default_factory=dict)
+    radius_scatter_param_index: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=np.int32))
+    radius_offset_param_index: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=np.int32))
+    centered: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=bool))
 
 
 @dataclass
@@ -379,3 +388,38 @@ def default_theta(parameter_specs: list[ParameterSpec], boundary_frac: float = 0
         [0.5 * (spec.lower + spec.upper) if spec.prior_kind == "uniform" else float(spec.mean) for spec in parameter_specs],
         dtype=float)
     return clip_theta_to_support(values, parameter_specs, boundary_frac=boundary_frac)
+
+
+def member_log_deviations(spec: PackedLensSpec, physical) -> tuple[Any, Any]:
+    """Per-component (d ln sigma, d ln radius) implied by the sampled deviations in ``physical``.
+
+    Centered members hold the deviation itself; non-centered members hold a unit offset times the population
+    scatter.  In "mass" mode one deviation moves dispersion and radii together along the relation
+    (d ln sigma : d ln r = alpha : beta); in "sigma_rcut" mode the radius has its own offset and scatter.
+    Works with NumPy or JAX arrays.
+    """
+    import jax.numpy as jnp
+    physical = jnp.asarray(physical)
+    centered = jnp.asarray(spec.deviation_centered, dtype=bool)
+
+    def pick(offset_index, scatter_index):
+        offset_index, scatter_index = jnp.asarray(offset_index), jnp.asarray(scatter_index)
+        present = offset_index >= 0
+        offset = jnp.where(present, physical[jnp.maximum(offset_index, 0)], 0.0)
+        scatter = jnp.where(scatter_index >= 0, physical[jnp.maximum(scatter_index, 0)], 1.0)
+        return jnp.where(present, jnp.where(centered, offset, offset * scatter), 0.0)
+
+    delta_v = pick(spec.velocity_offset_param_index, spec.velocity_scatter_param_index)
+    if spec.deviation_mode == "sigma":
+        return delta_v, jnp.zeros_like(delta_v)
+    if spec.deviation_mode in ("mass", "mass_rcut"):
+        alpha = jnp.where(jnp.asarray(spec.alpha_sigma_param_index) >= 0,
+                          physical[jnp.maximum(jnp.asarray(spec.alpha_sigma_param_index), 0)], jnp.asarray(spec.alpha_sigma_base))
+        beta = jnp.where(jnp.asarray(spec.beta_radius_param_index) >= 0,
+                         physical[jnp.maximum(jnp.asarray(spec.beta_radius_param_index), 0)], jnp.asarray(spec.beta_radius_base))
+        total = 2.0 * alpha + beta
+        extra = pick(spec.radius_offset_param_index, spec.radius_scatter_param_index) if spec.deviation_mode == "mass_rcut" else 0.0
+        return delta_v * alpha / total, delta_v * beta / total + extra
+    if spec.deviation_mode == "sigma_rcut":
+        return delta_v, pick(spec.radius_offset_param_index, spec.radius_scatter_param_index)
+    raise ValueError(f"unknown member deviation mode {spec.deviation_mode!r}")

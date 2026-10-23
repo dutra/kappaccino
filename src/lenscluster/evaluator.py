@@ -9,7 +9,7 @@ import numpy as np
 
 from . import jax_lensing, smoothed_likelihood as sl
 from .farfield import evaluate_farfield, member_farfield_geometry, slice_geometry
-from .model import (COMPONENT_FAMILY_SCALING, DP_IE_PROFILE, SAFE_RADIUS_MARGIN_ARCSEC, SAFE_RADIUS_MARGIN_KPC,
+from .model import (member_log_deviations, COMPONENT_FAMILY_SCALING, DP_IE_PROFILE, SAFE_RADIUS_MARGIN_ARCSEC, SAFE_RADIUS_MARGIN_KPC,
                     SHEAR_PROFILE, ModelState, PackedLensState, PackedLensValidity, apply_parameter_transforms_jax)
 
 BAD_LOG_LIKE = -1.0e30
@@ -28,7 +28,7 @@ class Evaluator:
         self.transform_offset = jnp.asarray([float(spec.transform_offset) for spec in specs], dtype=jnp.float64)
         self.transform_scale = jnp.asarray([float(spec.transform_scale) for spec in specs], dtype=jnp.float64)
         packed = state.packed_lens_spec
-        self.spec = {name: jnp.asarray(getattr(packed, name)) for name in vars(packed)}
+        self.spec = {name: jnp.asarray(value) for name, value in vars(packed).items() if not isinstance(value, str)}
         self.n_components = int(np.asarray(packed.profile_type).size)
         self.factor_by_z = jnp.asarray([state.dpie_sigma0_factor_by_z[z] for z in state.z_source_values], dtype=jnp.float64)
         images = state.images
@@ -46,7 +46,8 @@ class Evaluator:
         self.far_components = self.member_components[self.far_positions]
         self.far_min_separation = jnp.asarray(np.asarray(self.geometry.separation)[self.far_positions].min(axis=1)) if len(self.far_positions) else jnp.zeros(0)
         self.guard_cut_radii = float(members.far_field_guard_cut_radii)
-        self.scale_indices = jnp.asarray(sorted({int(members.sigma_src_index)} | {int(i) for i in np.asarray(members.scatter_param_index) if i >= 0}), dtype=jnp.int32)
+        self.scale_indices = jnp.asarray(sorted({int(members.sigma_src_index)} | {int(i) for i in np.asarray(members.scatter_param_index) if i >= 0}
+                                                | {int(i) for i in np.asarray(members.radius_scatter_param_index) if i >= 0}), dtype=jnp.int32)
         # Components whose geometry (centre, ellipticity) never changes: catalog members.  Their geometry at the image
         # positions is a constant of the computation and is precomputed once.
         packed_spec = state.packed_lens_spec
@@ -99,10 +100,10 @@ class Evaluator:
         scaled_vdisp = sigma_ref * jnp.power(luminosity_ratio, alpha_sigma)
         size_scale = jnp.power(luminosity_ratio, beta_radius)
         v_disp = jnp.where(is_scaling, scaled_vdisp, v_disp)
-        # Sampled member deviation: non-centered offset times the population scatter.
-        offset_index, scatter_index = spec["velocity_offset_param_index"], spec["velocity_scatter_param_index"]
-        delta = jnp.where(offset_index >= 0, physical[jnp.maximum(offset_index, 0)] * physical[jnp.maximum(scatter_index, 0)], 0.0)
-        v_disp = v_disp * jnp.exp(delta)
+        # Sampled member deviations: dispersion and (in the mass and sigma_rcut modes) the radii.
+        delta_v, delta_r = member_log_deviations(self.state.packed_lens_spec, physical)
+        v_disp = v_disp * jnp.exp(delta_v)
+        size_scale = size_scale * jnp.exp(delta_r)
         core_radius_kpc = jnp.where(is_scaling, core_ref * size_scale, core_radius_kpc)
         cut_radius_kpc = jnp.where(is_scaling, cut_ref * size_scale, cut_radius_kpc)
         kpc_per_arcsec = jnp.asarray(self.state.kpc_per_arcsec, dtype=jnp.float64)

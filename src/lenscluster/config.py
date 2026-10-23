@@ -148,6 +148,9 @@ class SamplingConfig:
 
 @dataclass(frozen=True)
 class MemberConfig:
+    centering: str = "auto"                 # which members sample their deviation directly (centered) rather than a unit offset:
+                                            # "auto" (data curvature of the deviation exceeds the prior's 1/s^2 at the start), "exact", "none"
+    centering_ratio: float = 1.0            # auto threshold on data/prior curvature
     """Member classification and far-field validity."""
     far_field_cut_radii: float = 3.0
     cut_radius_inflation: float = 2.0
@@ -158,6 +161,10 @@ class MemberConfig:
 @dataclass(frozen=True)
 class ScalingModelConfig:
     member_velocity_scatter_prior: LogNormalPriorConfig = field(default_factory=lambda: LogNormalPriorConfig(median=0.02, log_sigma=1.0))
+    member_deviation: str = "sigma"         # how a member leaves the relation: "sigma" (dispersion only), "mass" (dispersion and radii
+                                            # together along the relation, one scatter), "sigma_rcut" (independent dispersion and radius
+                                            # deviations), "mass_rcut" (mass deviation along the relation plus an independent radius deviation)
+    member_radius_scatter_prior: LogNormalPriorConfig = field(default_factory=lambda: LogNormalPriorConfig(median=0.1, log_sigma=1.0))
     alpha_sigma_prior_mean: float = 0.25
     alpha_sigma_prior_std: float = 0.04
     alpha_sigma_prior_lower: float = 0.10
@@ -311,7 +318,13 @@ def validate_config(config: LensClusterSolverConfig) -> None:
     if members.top_exact is not None and (isinstance(members.top_exact, bool) or not isinstance(members.top_exact, Integral) or members.top_exact < 0):
         raise ValueError("members.top_exact must be a nonnegative integer or None.")
     scaling = config.scaling
+    if config.members.centering not in {"auto", "exact", "none"}:
+        raise ValueError("members.centering must be 'auto', 'exact' or 'none'.")
+    _positive("members.centering_ratio", config.members.centering_ratio)
+    if scaling.member_deviation not in {"sigma", "mass", "sigma_rcut", "mass_rcut"}:
+        raise ValueError("scaling.member_deviation must be 'sigma', 'mass', 'sigma_rcut' or 'mass_rcut'.")
     for name, prior in (("member_velocity_scatter_prior", scaling.member_velocity_scatter_prior),
+                        ("member_radius_scatter_prior", scaling.member_radius_scatter_prior),
                         ("source_scatter_prior", config.likelihood.source_scatter_prior)):
         if not isinstance(prior, LogNormalPriorConfig) or not all(math.isfinite(float(v)) and v > 0.0 for v in (prior.median, prior.log_sigma)):
             raise ValueError(f"{name} must be a LogNormalPriorConfig with positive median and log_sigma.")

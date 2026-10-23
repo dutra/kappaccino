@@ -17,7 +17,7 @@ from matplotlib.ticker import MaxNLocator
 from skimage.measure import find_contours
 
 from .evaluator import Evaluator
-from .model import ModelState, ParameterSpec, PosteriorResults
+from .model import ModelState, ParameterSpec, PosteriorResults, member_log_deviations
 from .truth_recovery import lens_quantities
 from .utils import log10_dpie_mass_msun
 
@@ -129,10 +129,10 @@ def plot_corner(samples: np.ndarray, specs: list[ParameterSpec], path: Path, *, 
 def member_scaling_table(state: ModelState, posterior: PosteriorResults) -> pd.DataFrame:
     """Posterior summary of every member's velocity dispersion, radii and mass, with its class."""
     physical = np.asarray(posterior.physical, dtype=float)
-    specs = state.parameter_specs
-    index = {spec.sample_name: i for i, spec in enumerate(specs)}
     spec_packed = state.packed_lens_spec
     exact = set(state.members.exact_positions.tolist())
+    import jax
+    dev_v, dev_r = (np.asarray(a) for a in jax.vmap(lambda row: member_log_deviations(spec_packed, row))(physical))   # (draws, components)
     rows = []
     for position, record in enumerate(state.scaling_component_records):
         c = int(record["component_index"])
@@ -142,18 +142,17 @@ def member_scaling_table(state: ModelState, posterior: PosteriorResults) -> pd.D
         core_ref = physical[:, int(spec_packed.core_ref_param_index[c])]
         alpha = physical[:, int(spec_packed.alpha_sigma_param_index[c])]
         beta = physical[:, int(spec_packed.beta_radius_param_index[c])]
-        offset = physical[:, int(spec_packed.velocity_offset_param_index[c])]
-        scatter = physical[:, int(spec_packed.velocity_scatter_param_index[c])]
         lum = float(spec_packed.luminosity_ratio[c])
-        v_disp = sigma_ref * lum ** alpha * np.exp(offset * scatter)
+        v_disp = sigma_ref * lum ** alpha * np.exp(dev_v[:, c])
         v_scaling = sigma_ref * lum ** alpha
-        core, cut = core_ref * lum ** beta, cut_ref * lum ** beta
+        core, cut = core_ref * lum ** beta * np.exp(dev_r[:, c]), cut_ref * lum ** beta * np.exp(dev_r[:, c])
         mass = log10_dpie_mass_msun(v_disp, cut)
         row = {"potfile_id": pop, "catalog_id": record["catalog_id"], "component_index": c, "catalog_mag": record["catalog_mag"],
                "luminosity_ratio": lum, "member_class": "exact" if position in exact else "far-field",
+               "centered": bool(state.members.centered[position]) if len(state.members.centered) else False,
                "x_centre": record["x_centre"], "y_centre": record["y_centre"]}
         for name, values in (("v_disp", v_disp), ("v_disp_scaling", v_scaling), ("core_radius_kpc", core), ("cut_radius_kpc", cut),
-                             ("log10_mass_msun", mass), ("velocity_offset", offset * scatter)):
+                             ("log10_mass_msun", mass), ("velocity_offset", dev_v[:, c]), ("radius_offset", dev_r[:, c])):
             q16, q50, q84 = np.percentile(values, [16, 50, 84])
             row.update({f"{name}_p16": q16, f"{name}_median": q50, f"{name}_p84": q84})
         rows.append(row)

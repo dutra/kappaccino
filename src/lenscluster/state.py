@@ -25,6 +25,7 @@ VDISP_TRUNCATION_FLOOR_KM_S = 1.0e-4
 LOG_SOFTENING_LENGTH_SAMPLE_NAME = "log_softening_length_kpc"
 SOURCE_POSITION_SITE_NAME = "source_position_beta"
 MEMBER_OFFSET_SITE_NAME = "member_velocity_offsets"
+MEMBER_RADIUS_OFFSET_SITE_NAME = "member_radius_offsets"
 SOLVER_POTFILE_DEFAULTS = {
     "sigma": dict(lower=20.0, upper=500.0, mean=100.0, std=40.0, step=5.0, floor=VDISP_TRUNCATION_FLOOR_KM_S),
     "cutkpc": dict(lower=20.0, upper=1000.0, mean=300.0, std=120.0, step=10.0, floor=SAFE_RADIUS_MARGIN_KPC),
@@ -545,33 +546,45 @@ def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.n
     component_assignments.extend(assignments)
     lens_model_list.extend(scaling_models)
 
-    # Member hierarchy: population scatter, one sampled offset per member, source scatter.
+    # Member hierarchy: population scatter(s), one sampled offset per member (and per radius in sigma_rcut mode), source scatter.
     n_components = len(base_components)
+    deviation_mode = str(scaling.member_deviation)
     scatter_index = np.full(n_components, -1, dtype=np.int32)
     offset_index = np.full(n_components, -1, dtype=np.int32)
-    scatter_by_population: dict[str, int] = {}
-    member_prior = scaling.member_velocity_scatter_prior
-    for record in records:
-        population = str(record["potfile_id"])
-        if population not in scatter_by_population:
-            scatter_by_population[population] = len(specs)
+    radius_scatter_index = np.full(n_components, -1, dtype=np.int32)
+    radius_offset_index = np.full(n_components, -1, dtype=np.int32)
+    scatter_specs = [("velocity_log_scatter", scaling.member_velocity_scatter_prior, scatter_index)]
+    if deviation_mode in ("sigma_rcut", "mass_rcut"):
+        scatter_specs.append(("radius_log_scatter", scaling.member_radius_scatter_prior, radius_scatter_index))
+    for field_name, member_prior, index_array in scatter_specs:
+        scatter_by_population: dict[str, int] = {}
+        for record in records:
+            population = str(record["potfile_id"])
+            if population not in scatter_by_population:
+                scatter_by_population[population] = len(specs)
+                specs.append(ParameterSpec(
+                    name=f"{population}.{field_name}", sample_name=f"{population}_{field_name}",
+                    potential_id=population, profile_type=DP_IE_PROFILE, field=field_name,
+                    prior_kind="normal", lower=-math.inf, upper=math.inf, step=0.1,
+                    mean=float(np.log(member_prior.median)), std=float(member_prior.log_sigma),
+                    component_family="member_velocity_scatter", transform_kind="log_positive",
+                    physical_lower=0.0, physical_mean=float(member_prior.median)))
+            index_array[int(record["component_index"])] = scatter_by_population[population]
+    offset_specs = [("velocity_offset", MEMBER_OFFSET_SITE_NAME, offset_index, scatter_index)]
+    if deviation_mode in ("sigma_rcut", "mass_rcut"):
+        offset_specs.append(("radius_offset", MEMBER_RADIUS_OFFSET_SITE_NAME, radius_offset_index, radius_scatter_index))
+    for field_name, site_name, index_array, scale_index in offset_specs:
+        for site_index, record in enumerate(records):
+            component = int(record["component_index"])
+            index_array[component] = len(specs)
             specs.append(ParameterSpec(
-                name=f"{population}.velocity_log_scatter", sample_name=f"{population}_velocity_log_scatter",
-                potential_id=population, profile_type=DP_IE_PROFILE, field="velocity_log_scatter",
-                prior_kind="normal", lower=-math.inf, upper=math.inf, step=0.1,
-                mean=float(np.log(member_prior.median)), std=float(member_prior.log_sigma),
-                component_family="member_velocity_scatter", transform_kind="log_positive",
-                physical_lower=0.0, physical_mean=float(member_prior.median)))
-        scatter_index[int(record["component_index"])] = scatter_by_population[population]
-    for site_index, record in enumerate(records):
-        offset_index[int(record["component_index"])] = len(specs)
-        specs.append(ParameterSpec(
-            name=f"{record['potfile_id']}.{record['catalog_id']}.velocity_offset",
-            sample_name=f"{record['potfile_id']}_{record['catalog_id']}_velocity_offset",
-            potential_id=str(record["potfile_id"]), profile_type=DP_IE_PROFILE, field="velocity_offset",
-            prior_kind="normal", lower=-math.inf, upper=math.inf, step=0.1, mean=0.0, std=1.0,
-            component_family="member_scatter_offset", transform_kind="identity",
-            physical_mean=0.0, physical_std=1.0, sample_site_name=MEMBER_OFFSET_SITE_NAME, sample_site_index=site_index))
+                name=f"{record['potfile_id']}.{record['catalog_id']}.{field_name}",
+                sample_name=f"{record['potfile_id']}_{record['catalog_id']}_{field_name}",
+                potential_id=str(record["potfile_id"]), profile_type=DP_IE_PROFILE, field=field_name,
+                prior_kind="normal", lower=-math.inf, upper=math.inf, step=0.1, mean=0.0, std=1.0,
+                component_family="member_scatter_offset", transform_kind="identity",
+                physical_mean=0.0, physical_std=1.0, sample_site_name=site_name, sample_site_index=site_index,
+                centered=False, scale_site_name=specs[int(scale_index[component])].sample_name))
     source_prior = config.likelihood.source_scatter_prior
     sigma_src_index = len(specs)
     specs.append(ParameterSpec(
@@ -613,6 +626,10 @@ def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.n
     packed = build_packed_lens_spec(base_components, component_assignments, scaling_assignments, scaling)
     packed.velocity_offset_param_index = offset_index
     packed.velocity_scatter_param_index = scatter_index
+    packed.radius_offset_param_index = radius_offset_index
+    packed.radius_scatter_param_index = radius_scatter_index
+    packed.deviation_centered = np.zeros(n_components, dtype=bool)
+    packed.deviation_mode = deviation_mode
 
     z_values = sorted({float(family.z_source) for family in families})
     factor_by_z = {float(z): float(dpie_sigma0_factor_from_config(z_lens, float(z), cosmo_config)) for z in z_values}
@@ -627,6 +644,9 @@ def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.n
         component_indices=member_components,
         scatter_param_index=scatter_index[member_components] if n_members else np.asarray([], dtype=np.int32),
         offset_param_index=offset_index[member_components] if n_members else np.asarray([], dtype=np.int32),
+        radius_scatter_param_index=radius_scatter_index[member_components] if n_members else np.asarray([], dtype=np.int32),
+        radius_offset_param_index=radius_offset_index[member_components] if n_members else np.asarray([], dtype=np.int32),
+        centered=np.zeros(n_members, dtype=bool),
         sigma_src_index=int(sigma_src_index), exact_positions=exact, far_positions=far,
         source_prior_mean=prior_mean, source_prior_sigma=prior_sigma,
         far_field_guard_cut_radii=float(config.members.far_field_cut_radii),
@@ -641,13 +661,63 @@ def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.n
         scaling_priors={k: float(getattr(scaling, k)) for k in ("alpha_sigma_prior_mean", "alpha_sigma_prior_std",
                                                                  "beta_radius_prior_mean", "beta_radius_prior_std")})
     state.initial_theta = default_theta(specs)
-    return state
+    return with_member_classes(state, exact, classification, centered=np.zeros(n_members, dtype=bool))
 
 
-def with_member_classes(state: ModelState, exact_positions: np.ndarray, classification: dict[str, Any] | None = None) -> ModelState:
+def with_member_classes(state: ModelState, exact_positions: np.ndarray, classification: dict[str, Any] | None = None, *,
+                        centered: np.ndarray | None = None) -> ModelState:
+    """Set the exact/far-field classes and, if given, which members use centered deviations; the initial theta
+    is converted between centered and unit-offset form so that the physical model is unchanged."""
     n_members = len(state.members.member_ids)
     exact = np.asarray(sorted(set(int(i) for i in exact_positions)), dtype=np.int32)
     far = np.asarray(sorted(set(range(n_members)) - set(exact.tolist())), dtype=np.int32)
-    members = replace(state.members, exact_positions=exact, far_positions=far,
-                      classification=dict(classification if classification is not None else state.members.classification))
-    return replace(state, members=members)
+    old_centered = np.asarray(state.members.centered, dtype=bool) if len(state.members.centered) else np.zeros(n_members, dtype=bool)
+    centered = old_centered.copy() if centered is None else np.asarray(centered, dtype=bool).copy()
+    specs = list(state.parameter_specs)
+    theta = np.asarray(state.initial_theta, dtype=float).copy()
+    packed_centered = np.asarray(state.packed_lens_spec.deviation_centered, dtype=bool).copy()
+    for position in range(n_members):
+        component = int(state.members.component_indices[position])
+        packed_centered[component] = centered[position]
+        if centered[position] == old_centered[position]:
+            continue
+        for offset_idx, scatter_idx in ((state.members.offset_param_index[position], state.members.scatter_param_index[position]),
+                                        (state.members.radius_offset_param_index[position], state.members.radius_scatter_param_index[position])):
+            if int(offset_idx) < 0:
+                continue
+            scatter = float(np.exp(theta[int(scatter_idx)]))          # latent log scatter -> physical scatter
+            theta[int(offset_idx)] = theta[int(offset_idx)] * scatter if centered[position] else theta[int(offset_idx)] / scatter
+            specs[int(offset_idx)] = replace(specs[int(offset_idx)], centered=bool(centered[position]))
+    packed = replace(state.packed_lens_spec, deviation_centered=packed_centered)
+    info = dict(classification if classification is not None else state.members.classification)
+    info["centered_count"] = int(centered.sum())
+    info["centered_members"] = [state.members.member_ids[i] for i in np.flatnonzero(centered)]
+    members = replace(state.members, exact_positions=exact, far_positions=far, centered=centered, classification=info)
+    new_state = replace(state, members=members, parameter_specs=specs, packed_lens_spec=packed)
+    new_state.initial_theta = theta
+    return new_state
+
+
+def deviation_constraint_ratio(state: ModelState, evaluator, theta: np.ndarray, scatter: float) -> np.ndarray:
+    """Per member, the data curvature of the log-likelihood in the ln-sigma deviation divided by the prior curvature 1/s^2.
+
+    Above one the data constrain the deviation more tightly than the population prior at scatter ``s``: such a
+    member should sample its deviation directly (centered); below one a unit offset is the better coordinate.
+    """
+    import jax
+    import jax.numpy as jnp
+    theta = np.asarray(theta, dtype=float)
+    offsets = np.asarray(state.members.offset_param_index)
+    if offsets.size == 0:
+        return np.zeros(0)
+    centered = np.asarray(state.members.centered, dtype=bool)
+    scatter_now = np.exp(theta[np.asarray(state.members.scatter_param_index)])
+    grad = jax.grad(evaluator.log_likelihood)
+
+    def curvature(i):
+        direction = jnp.zeros(theta.size).at[i].set(1.0)
+        return -jax.jvp(grad, (jnp.asarray(theta),), (direction,))[1][i]
+
+    h = np.asarray(jax.jit(jax.vmap(curvature))(jnp.asarray(offsets)))
+    h_delta = np.where(centered, h, h / scatter_now ** 2)            # unit-offset coordinates carry a factor s^2
+    return np.maximum(h_delta, 0.0) * float(scatter) ** 2

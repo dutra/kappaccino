@@ -159,38 +159,112 @@ def member_scaling_table(state: ModelState, posterior: PosteriorResults) -> pd.D
     return pd.DataFrame(rows)
 
 
+def population_scaling_draws(table: pd.DataFrame, posterior_physical: np.ndarray,
+                             specs: list[ParameterSpec]) -> dict:
+    """Joint population relations, without individual velocity/radius deviations."""
+    names = {spec.name: i for i, spec in enumerate(specs)}
+    result = {}
+    for population, members in table.groupby("potfile_id", sort=True):
+        # Recover the saved pivot, without depending on a possibly changed config.
+        pivots = members["catalog_mag"].to_numpy() + 2.5 * np.log10(members["luminosity_ratio"].to_numpy())
+        if not np.isfinite(pivots).all() or not np.allclose(pivots, pivots[0], rtol=0, atol=1e-8):
+            raise ValueError(f"Inconsistent luminosity pivot for {population}")
+        magnitude = np.linspace(members.catalog_mag.min(), members.catalog_mag.max(), 240)
+        lum = 10. ** (-.4 * (magnitude - pivots[0]))
+        def draws(field):
+            return posterior_physical[:, names[f"{population}.{field}"]][:, None]
+        velocity = draws("sigma") * lum ** draws("alpha_sigma")
+        radius = draws("cutkpc") * lum ** draws("beta_radius")
+        result[population] = (magnitude, {"v_disp": velocity, "cut_radius_kpc": radius,
+                                        "log10_mass_msun": log10_dpie_mass_msun(velocity, radius)})
+    return result
+
+
+@plt.rc_context({"font.family": "sans-serif", "font.size": 11, "axes.labelsize": 12,
+                 "mathtext.fontset": "dejavusans", "mathtext.default": "regular",
+                 "axes.linewidth": .9, "xtick.labelsize": 10, "ytick.labelsize": 10,
+                 "xtick.major.width": .8, "ytick.major.width": .8,
+                 "xtick.minor.width": .6, "ytick.minor.width": .6,
+                 "xtick.major.size": 4, "ytick.major.size": 4,
+                 "xtick.top": False, "ytick.right": False, "axes.grid": False,
+                 "pdf.fonttype": 42})
 def plot_scaling_relation(table: pd.DataFrame, posterior_physical: np.ndarray, specs: list[ParameterSpec], path: Path) -> Path:
-    fields = [("v_disp", "velocity dispersion (km/s)", True), ("cut_radius_kpc", "cut radius (kpc)", True), ("log10_mass_msun", r"$\log_{10} M$ ($M_\odot$)", False)]
-    fig, axes = plt.subplots(1, len(fields), figsize=(13.5, 4.0))
-    exact = table["member_class"] == "exact"
+    from matplotlib.patches import Patch
+    fields = [("v_disp", r"$\sigma$ (km s$^{-1}$)", True),
+              ("cut_radius_kpc", r"$r_{\rm cut}$ (kpc)", True),
+              ("log10_mass_msun", r"$\log_{10}(M/M_\odot)$", False)]
+    relations = population_scaling_draws(table, np.asarray(posterior_physical), specs)
+    names = {spec.name: i for i, spec in enumerate(specs)}
+    pivots = {}
+    for population, members in table.groupby("potfile_id"):
+        member = members.iloc[0]
+        pivot = float(member.catalog_mag + 2.5 * np.log10(member.luminosity_ratio))
+        velocity = posterior_physical[:, names[f"{population}.sigma"]]
+        radius = posterior_physical[:, names[f"{population}.cutkpc"]]
+        pivots[population] = (pivot, {"v_disp": np.median(velocity), "cut_radius_kpc": np.median(radius),
+                                     "log10_mass_msun": np.median(log10_dpie_mass_msun(velocity, radius))})
+    fig, axes = plt.subplots(1, 3, figsize=(10.5, 3.7), sharex=True)
+    handles = []
+    relation_colors = ["black", "#77529B", "#237A66"]
     for ax, (field, label, logscale) in zip(axes, fields):
-        for mask, marker, name in ((~exact, "o", "far-field"), (exact, "s", "exact")):
-            sub = table[mask]
+        for idx, (population, (mag, curves)) in enumerate(relations.items()):
+            color = relation_colors[idx % len(relation_colors)]
+            lo, med, hi = np.quantile(curves[field], [.16, .5, .84], axis=0)
+            ax.fill_between(mag, lo, hi, color=color, alpha=.06, linewidth=0, zorder=1)
+            line, = ax.plot(mag, med, color=color, lw=1.6, zorder=4,
+                            label="Population relation" if len(relations) == 1 else str(population))
+            if ax is axes[0]:
+                handles.append(line)
+            pivot, pivot_values = pivots[population]
+            relative_luminosity = 10. ** (-.4 * (mag - pivot))
+            if field == "v_disp":
+                reference = pivot_values[field] * relative_luminosity ** .25
+                reference_label = "Faber–Jackson"
+            elif field == "cut_radius_kpc":
+                reference = pivot_values[field] * relative_luminosity ** .5
+                reference_label = "Faber–Jackson + constant M/L"
+            else:
+                reference = pivot_values[field] + np.log10(relative_luminosity)
+                reference_label = "Constant M/L"
+            reference_line, = ax.plot(mag, reference, color="tab:red", lw=1.3,
+                                     ls=(0, (5, 3)), zorder=5, label=reference_label)
+            if idx == 0:
+                ax.legend(handles=[reference_line], loc="upper left", fontsize=8,
+                          frameon=False, handlelength=2.3, handletextpad=.6)
+            pivot_marker, = ax.plot(pivot, pivot_values[field], marker="o", ms=5.5, mfc="white",
+                                   mec=color, mew=1.3, linestyle="none", zorder=10, label=r"$m_\star$")
+            if ax is axes[0] and idx == 0:
+                handles.append(pivot_marker)
+        for kind, marker, color in (("far-field", "o", "tab:blue"), ("exact", "D", "tab:orange")):
+            sub = table[table.member_class == kind]
             if sub.empty:
                 continue
-            yerr = [sub[f"{field}_median"] - sub[f"{field}_p16"], sub[f"{field}_p84"] - sub[f"{field}_median"]]
-            ax.errorbar(sub["catalog_mag"], sub[f"{field}_median"], yerr=np.asarray(yerr), fmt=marker, markersize=3.5, elinewidth=0.6,
-                        capsize=0, alpha=0.8, label=name)
-        if field != "log10_mass_msun":
-            sub = table.sort_values("catalog_mag")
-            ax.plot(sub["catalog_mag"], sub[f"v_disp_scaling_median"] if field == "v_disp" else sub[f"{field}_median"], color="black", linewidth=1.0, label="scaling relation")
+            yerr = np.array([sub[f"{field}_median"] - sub[f"{field}_p16"],
+                             sub[f"{field}_p84"] - sub[f"{field}_median"]])
+            container = ax.errorbar(sub.catalog_mag, sub[f"{field}_median"], yerr=yerr,
+                fmt=marker, color=color, ecolor=matplotlib.colors.to_rgba(color, .23),
+                markersize=3.1, markeredgewidth=0, elinewidth=.55, capsize=0,
+                zorder=3 if kind == "exact" else 2,
+                label=f"{kind.capitalize()} members")
+            # Raise only the markers; retain the lighter error bars underneath the curves.
+            container.lines[0].set_zorder(9 if kind == "exact" else 8)
+            if ax is axes[0]:
+                handles.append(container)
         if logscale:
             ax.set_yscale("log")
-        ax.invert_xaxis()
-        ax.set_xlabel("catalog magnitude")
+        ax.set_xlabel("Catalog magnitude")
         ax.set_ylabel(label)
-    names = {spec.sample_name: i for i, spec in enumerate(specs)}
-    lines = []
-    for key in ("alpha_sigma", "beta_radius", "velocity_log_scatter"):
-        for name, i in names.items():
-            if name.endswith(key):
-                q = np.percentile(posterior_physical[:, i], [16, 50, 84])
-                lines.append(f"{key}: {q[1]:.3g} [{q[0]:.3g}, {q[2]:.3g}]")
-    axes[0].text(0.02, 0.04, "\n".join(lines), transform=axes[0].transAxes, fontsize=7, va="bottom",
-                 bbox={"boxstyle": "round,pad=0.25", "facecolor": "white", "edgecolor": "0.65", "alpha": 0.88})
-    axes[0].legend(loc="upper right", fontsize=7)
-    fig.tight_layout()
-    return _finish(fig, path, dpi=180)
+        ax.spines[["top", "right"]].set_visible(False)
+        ax.grid(False)
+        ax.xaxis.set_major_locator(MaxNLocator(5))
+        ax.margins(y=.10)
+    lo, hi = table.catalog_mag.min(), table.catalog_mag.max()
+    axes[0].set_xlim(hi + .03 * (hi-lo), lo - .03 * (hi-lo))
+    handles.append(Patch(facecolor=relation_colors[0], alpha=.06, edgecolor="none", label="16–84% relation interval"))
+    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(.52, 1.0), ncol=5,
+               fontsize=9, frameon=False, handletextpad=.6, columnspacing=1.5)
+    fig.tight_layout(rect=(0, 0, 1, .91), w_pad=2.)
+    return _finish(fig, path, dpi=250)
 
 
 # ----------------------------------------------------------------------------- critical curves

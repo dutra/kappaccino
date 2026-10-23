@@ -184,6 +184,7 @@ class ScalingModelConfig:
 
 @dataclass(frozen=True)
 class LikelihoodConfig:
+    likelihood_mode: str = "smoothed"       # "smoothed" (local image-plane, the model of the paper); diagnostics only: "source-anisotropic", "source-isotropic"
     source_scatter_prior: LogNormalPriorConfig = field(default_factory=lambda: LogNormalPriorConfig(median=0.02, log_sigma=0.7))
     source_position_prior_mean_arcsec: tuple[float, float] = (0.0, 0.0)
     source_position_prior_sigma_arcsec: float = 100.0
@@ -328,6 +329,8 @@ def validate_config(config: LensClusterSolverConfig) -> None:
     _positive("members.centering_ratio", config.members.centering_ratio)
     if config.members.classification_prior_quantile is not None and not (0.5 < float(config.members.classification_prior_quantile) < 1.0):
         raise ValueError("members.classification_prior_quantile must lie in (0.5, 1).")
+    if config.likelihood.likelihood_mode not in {"smoothed", "source-anisotropic", "source-isotropic"}:
+        raise ValueError("likelihood.likelihood_mode must be 'smoothed', 'source-anisotropic' or 'source-isotropic'.")
     if scaling.member_deviation not in {"sigma", "mass", "sigma_rcut", "mass_rcut"}:
         raise ValueError("scaling.member_deviation must be 'sigma', 'mass', 'sigma_rcut' or 'mass_rcut'.")
     for name, prior in (("member_velocity_scatter_prior", scaling.member_velocity_scatter_prior),

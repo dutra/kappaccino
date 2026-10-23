@@ -18,7 +18,12 @@ BAD_LOG_LIKE = -1.0e30
 class Evaluator:
     """Evaluates deflections, Jacobians and the log-likelihood for a fixed member classification."""
 
-    def __init__(self, state: ModelState) -> None:
+    def __init__(self, state: ModelState, likelihood: str = "smoothed") -> None:
+        """``likelihood``: "smoothed" (local image-plane, default) or "source-isotropic" (source-plane Gaussian with
+        variance sigma_src^2 + sigma_obs^2 per image and no Jacobian; cheap, biased, for searches only)."""
+        if likelihood not in {"smoothed", "source-isotropic", "source-anisotropic"}:
+            raise ValueError("likelihood must be 'smoothed', 'source-isotropic' or 'source-anisotropic'")
+        self.likelihood_mode = likelihood
         self.state = state
         specs = state.parameter_specs
         kinds = np.asarray([spec.transform_kind for spec in specs], dtype=object)
@@ -241,15 +246,20 @@ class Evaluator:
     def statistics(self, params: jnp.ndarray, *, force_exact: bool = False) -> dict[str, Any]:
         physical = self.physical(params)
         images, members = self.state.images, self.state.members
-        fields = self.fields(physical, force_exact=force_exact)
+        isotropic = self.likelihood_mode == "source-isotropic"
+        fields = self.fields(physical, force_exact=force_exact, derivative=not isotropic)
         sigma_src = physical[members.sigma_src_index]
-        cov = sl.source_covariance(fields["jacobian"], images.sigma_per_image, sigma_src)
+        jacobian = jnp.zeros_like(fields["jacobian"]) if isotropic else fields["jacobian"]
+        cov = sl.source_covariance(jacobian, images.sigma_per_image, sigma_src)
         whitening = sl.source_whitening(fields["backprojected"], cov["covariance"], images.family_index_per_image, images.n_families)
         coordinates = jnp.stack((params[images.source_x_param_index], params[images.source_y_param_index]), -1)
         transported = sl.transport_sources(coordinates, whitening, jnp.asarray(members.source_prior_mean), members.source_prior_sigma)
         source = transported["source"]
-        stats = sl.statistics(fields["backprojected"], source[images.family_index_per_image], fields["jacobian"],
+        stats = sl.statistics(fields["backprojected"], source[images.family_index_per_image], jacobian,
                               fields["determinant_gradient"], images.sigma_per_image, sigma_src, parity=images.parity)
+        if isotropic or self.likelihood_mode == "source-anisotropic":   # Gaussian source-plane term only: no determinant factor
+            stats["loglike"] = stats["gaussian_loglike"]
+            stats["valid"] = cov["valid"] & jnp.all(jnp.isfinite(stats["residual"]), axis=-1)
         stats.update(source_by_family=source, source_correction=transported["log_correction"], whitening=whitening,
                      transport_valid=transported["valid"], sigma_src=sigma_src, fields=fields, physical=physical)
         return stats

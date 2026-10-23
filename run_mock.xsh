@@ -89,10 +89,10 @@ def _parse_args(argv: list[str]) -> dict:
 def _solver(*, production: bool, seed: int) -> LensClusterSolverConfig:
     return LensClusterSolverConfig(
         runtime=RuntimeConfig(seed=seed, chains=cores, resume=True, numpyro_print_summary=True, nuts_chain_method="parallel"),
-        search=SearchConfig(n_starts=128 if production else 16, lbfgs_max_iter=500, mode_margin=10.0, max_chain_modes=4),
+        search=SearchConfig(n_starts=32 if production else 8, lbfgs_max_iter=400, mode_margin=10.0, max_chain_modes=4),
         sampling=SamplingConfig(warmup=1000 if production else 100, samples=1000 if production else 100, max_tree_depth=8 if production else 6,
                                 target_accept=0.7),
-        members=MemberConfig(far_field_cut_radii=3.0, cut_radius_inflation=2.0, template_tolerance=0.1),
+        members=MemberConfig(far_field_cut_radii=3.0, classification_prior_quantile=0.975, template_tolerance=0.1),
         likelihood=LikelihoodConfig(pos_sigma_arcsec=pos_sigma_arcsec),
         image_diagnostics=ImageDiagnosticsConfig(
             posterior_image_diagnostic_draws=64 if production else 8,

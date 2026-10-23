@@ -54,7 +54,7 @@ FF_RGB_DISPLAY = RGBDisplayConfig(q=6.8, stretch=0.0158, minimum=0.00105, red_ga
 
 def _usage() -> str:
     return (
-        "Usage: xonsh run.xsh <cluster> [--campaign NAME] [--run-label NAME] [--image-metadata PATH] [--dry-run]\n"
+        "Usage: xonsh run.xsh <cluster> [--campaign NAME] [--run-label NAME] [--image-metadata PATH] [--init hybrid|multistart|staged] [--search lbfgs|adam|svi] [--stage init|final|both] [--dry-run]\n"
         f"Valid clusters: {VALID_CLUSTERS}"
     )
 
@@ -67,8 +67,8 @@ def _parse_args(argv: list[str]) -> dict:
         print(_usage())
         raise SystemExit(2)
     cluster = str(argv[1]).strip().upper()
-    values = {"campaign": OUTPUT_DIR_LABEL, "run_label": None, "image_metadata": None, "dry_run": False}
-    flag_to_key = {"--campaign": "campaign", "--run-label": "run_label", "--image-metadata": "image_metadata"}
+    values = {"campaign": OUTPUT_DIR_LABEL, "run_label": None, "image_metadata": None, "dry_run": False, "search": "lbfgs", "stage": "both", "init": "multistart"}
+    flag_to_key = {"--campaign": "campaign", "--run-label": "run_label", "--image-metadata": "image_metadata", "--search": "search", "--stage": "stage", "--init": "init"}
     index = 2
     while index < len(argv):
         flag = argv[index]
@@ -89,8 +89,19 @@ def _parse_args(argv: list[str]) -> dict:
         if value is not None and (not str(value).strip() or str(value) in {".", ".."} or "/" in str(value) or "\\" in str(value)):
             print(f"--{key.replace('_', '-')} must be a nonempty single path segment.")
             raise SystemExit(2)
+    if values["search"] not in {"lbfgs", "adam", "svi"}:
+        print("--search must be lbfgs, adam or svi.")
+        raise SystemExit(2)
+    if values["init"] not in {"hybrid", "multistart", "staged"}:
+        print("--init must be hybrid, multistart or staged.")
+        raise SystemExit(2)
+    if values["init"] == "staged" and values["search"] == "lbfgs":
+        values["search"] = "adam"
+    if values["stage"] not in {"init", "final", "both"}:
+        print("--stage must be init, final or both.")
+        raise SystemExit(2)
     return dict(cluster=cluster, campaign_name=str(values["campaign"]).strip(), run_label=values["run_label"],
-                dry_run=values["dry_run"], image_metadata=values["image_metadata"])
+                dry_run=values["dry_run"], image_metadata=values["image_metadata"], search_method=values["search"], stage=values["stage"], init_strategy=values["init"])
 
 
 FF_SIMS_CLUSTERS = {
@@ -154,7 +165,8 @@ FF_SIMS_CLUSTERS = {
         "member_population": MemberPopulationConfig(
             id="potfile_1",
             catalog_path="data/ff_sims/ares/ares_cluster_members_potfile.cat",
-            mag0=18.5,
+            mag0="auto",
+            prior_mag0=18.5,
             corekpc=0.15,
             sigma=100.0,
             cutkpc=270.0,
@@ -232,46 +244,21 @@ FF_SIMS_CLUSTERS = {
         "member_population": MemberPopulationConfig(
             id="potfile_1",
             catalog_path="data/ff_sims/hera/hera_cluster_members_potfile.cat",
-            mag0=19.82,
+            mag0="auto",
+            prior_mag0=19.82,
             corekpc=0.15,
-            sigma=96.7,
-            cutkpc=33.0,
+            sigma=200.0,
+            cutkpc=12.0,
             z_lens=0.507,
-            sigma_prior=PriorConfig("truncated_normal", mean=96.7, std=40.0, lower=30.0, upper=250.0),
-            cutkpc_prior=PriorConfig("truncated_normal", mean=33.0, std=25.0, lower=3.0, upper=250.0),
+            # Priors at m_F160W = 19.82, about L* at z = 0.507: central dispersion ~220 km/s and r_cut ~10 (+13, -7) kpc from the
+            # MUSE-calibrated relations of Bergamini et al. 2019, widened because the mock's galaxies need not share real M/L.
+            sigma_prior=PriorConfig("truncated_normal", mean=200.0, std=70.0, lower=40.0, upper=500.0),
+            cutkpc_prior=PriorConfig("truncated_normal", mean=12.0, std=10.0, lower=2.0, upper=60.0),
         ),
-        "independent_member_halos": (
-            IndependentMemberHaloConfig(
-                population_id="potfile_1",
-                catalog_id="1",
-                priors={
-                    # Preserve the default prior location/width; restrict galaxy radii.
-                    "core_radius_kpc": PriorConfig(
-                        "truncated_normal", mean=0.15, std=0.24937792281771562,
-                        lower=0.01, upper=2.0,
-                    ),
-                    "cut_radius_kpc": PriorConfig(
-                        "truncated_normal", mean=33.0, std=54.86314301989744,
-                        lower=1.0, upper=300.0,
-                    ),
-                },
-            ),
-            IndependentMemberHaloConfig(
-                population_id="potfile_1",
-                catalog_id="2",
-                priors={
-                    # Preserve the default prior location/width; restrict galaxy radii.
-                    "core_radius_kpc": PriorConfig(
-                        "truncated_normal", mean=0.15, std=0.24937792281771562,
-                        lower=0.01, upper=2.0,
-                    ),
-                    "cut_radius_kpc": PriorConfig(
-                        "truncated_normal", mean=33.0, std=54.86314301989744,
-                        lower=1.0, upper=300.0,
-                    ),
-                },
-            ),
-        ),
+        # Members 1 and 2 (the two central galaxies) stay in the scaling relation: on Hera the independent halos cost 12
+        # parameters for 7 in log-likelihood and made the chains multi-well; the classifier makes them exact and they
+        # carry their own deviation.
+        "independent_member_halos": (),
         "kappa_true_fits": "data/ff_sims/published/hera/kappa_z9_0.fits",
         "gammax_true_fits": "data/ff_sims/published/hera/gammax_z9_0.fits",
         "gammay_true_fits": "data/ff_sims/published/hera/gammay_z9_0.fits",
@@ -352,7 +339,7 @@ def _hff_clusters():
             ),
             "member_population": MemberPopulationConfig(
                 id="potfile_1", catalog_path=f"{AS1063_CATALOG_DIR}/members.cat",
-                mag0=16.176001, corekpc=0.05 * AS1063_KPC_PER_ARCSEC,
+                mag0="auto", prior_mag0=16.176001, corekpc=0.05 * AS1063_KPC_PER_ARCSEC,
                 sigma=310.0, cutkpc=10.0 * AS1063_KPC_PER_ARCSEC, z_lens=0.348,
                 # Member-scaling priors require finite bounds; cap the Gaussian tails at +10 sigma.
                 sigma_prior=PriorConfig("truncated_normal", mean=310.0, std=100.0, lower=0.0, upper=1310.0),
@@ -390,6 +377,8 @@ def build_config(
     run_label: str | None = None,
     image_metadata: str | None = None,
     runtime: RuntimeConfig | None = None,
+    search_method: str = "lbfgs",
+    init_strategy: str = "multistart",
 ) -> LensClusterSolverConfig:
     if cluster not in CLUSTERS:
         raise ValueError(f"cluster must be one of {', '.join(sorted(CLUSTERS))}; got {cluster!r}.")
@@ -412,19 +401,22 @@ def build_config(
         ),
         paths=RunPathsConfig(output_dir=output_dir, run_name=run_name, figure_prefix=cluster_config["cluster_key"]),
         runtime=runtime if runtime is not None else build_runtime(cores),
-        search=SearchConfig(n_starts=128, lbfgs_max_iter=500, mode_margin=10.0, max_chain_modes=4),
-        sampling=SamplingConfig(warmup=1000, samples=500, max_tree_depth=8, target_accept=0.7),
-        members=MemberConfig(far_field_cut_radii=3.0, cut_radius_inflation=2.0, template_tolerance=0.1, top_exact=None),
+        search=SearchConfig(strategy=init_strategy, method=search_method, staged_method=search_method if search_method != "lbfgs" else "adam",
+                            n_starts=32, lbfgs_max_iter=400, mode_margin=10.0, max_chain_modes=4, polish_scatter=0.1, search_latent=True,
+                            staged_starts=8, staged_steps=500, staged_learning_rate=0.01, svi_particles=1),
+        sampling=SamplingConfig(warmup=500, samples=250, max_tree_depth=8, target_accept=0.85),
+        members=MemberConfig(far_field_cut_radii=3.0, classification_prior_quantile=0.975, template_tolerance=0.1, top_exact=None),
         scaling=ScalingModelConfig(
             member_velocity_scatter_prior=LogNormalPriorConfig(median=0.02, log_sigma=1.0),
-            alpha_sigma_prior_mean=0.25,
-            alpha_sigma_prior_std=0.3,
+            # Faber-Jackson slope 0.27-0.28 and beta_cut 0.64-0.66 in three MUSE-calibrated clusters (Bergamini et al. 2019).
+            alpha_sigma_prior_mean=0.27,
+            alpha_sigma_prior_std=0.05,
             alpha_sigma_prior_lower=0.05,
             alpha_sigma_prior_upper=0.50,
-            beta_radius_prior_mean=0.50,
-            beta_radius_prior_std=0.20,
+            beta_radius_prior_mean=0.65,
+            beta_radius_prior_std=0.15,
             beta_radius_prior_lower=0.0,
-            beta_radius_prior_upper=float("inf"),
+            beta_radius_prior_upper=1.5,
             softening_length_kpc=float(cluster_config["softening_length_kpc"]),
             softening_length_prior_log_sigma=float(cluster_config["softening_length_prior_log_sigma"]),
         ),
@@ -473,17 +465,18 @@ def main(argv=None):
     if not options["dry_run"]:
         configure_cpu_runtime(runtime.chains, runtime.nuts_chain_method, runtime.cpu_threads_per_chain)
     config = build_config(cluster, cores=cores, campaign_name=options["campaign_name"], run_label=options["run_label"],
-                          image_metadata=options["image_metadata"], runtime=runtime).validate()
+                          image_metadata=options["image_metadata"], runtime=runtime, search_method=options["search_method"],
+                          init_strategy=options["init_strategy"]).validate()
     if options["dry_run"]:
         from lenscluster.pipeline import dry_run
         print(json.dumps({"dry_run": True, "cpu_plan": cpu_plan.to_dict(), **dry_run(config)}, indent=2, default=str))
         return 0
     from lenscluster.pipeline import run
     print(f"[config] cluster={cluster} run_name={config.paths.run_name} output_dir={config.paths.output_dir} "
-          f"chains={runtime.chains} n_starts={config.search.n_starts} sigma_obs_floor_arcsec={config.model.image_constraints.sigma_floor_arcsec}")
+          f"stage={options["stage"]} init={config.search.strategy} chains={runtime.chains} search={config.search.method}/{config.search.staged_method} n_starts={config.search.n_starts} sigma_obs_floor_arcsec={config.model.image_constraints.sigma_floor_arcsec}")
     start = time.monotonic()
     try:
-        run(config)
+        run(config, stage=options["stage"])
     finally:
         print(f"[timing] elapsed={time.monotonic() - start:.2f}s")
     return 0

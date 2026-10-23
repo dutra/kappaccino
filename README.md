@@ -23,37 +23,52 @@ classification and the search and sampling sizes, and writes nothing. CPU device
 `RuntimeConfig(chains, nuts_chain_method, cpu_threads_per_chain)`; the launcher configures
 them before JAX initializes.
 
-Every run is one stage, implemented in `lenscluster.pipeline.run`:
+Every run has two stages, implemented in `lenscluster.pipeline`:
+
+**Init** (`run_init`, about a minute on Hera) finds the start of the final inference:
 
 1. Build the model state from the typed configuration.
 2. Provisional member classification with prior-inflated cut radii at the initial model.
-3. Multi-start MAP: L-BFGS (zoom line search) from prior draws of the lens parameters, with
-   source offsets and member deviations at zero and scatter hyperparameters at their prior
-   medians, run under `vmap`; converged points are clustered into modes.
-4. Final classification at the best mode with inflated MAP cut radii.
+3. Multi-start MAP of the global block (halos, shear, scaling hyperparameters) from prior draws,
+   with member deviations and source offsets at zero; `SearchConfig.method` selects scipy
+   L-BFGS-B per start (default), vmapped Adam, or vmapped mean-field SVI. The end points are
+   clustered into modes and the modes that can seed chains are polished in full dimension.
+4. Final classification at the best mode and the classification report. The init log ends with a
+   one-line verdict: "robust" when several independent starts reach the best basin, "fragile" when
+   only the configured model does; a fragile multistart automatically escalates to the hybrid
+   Adam-then-L-BFGS search (`SearchConfig.escalate`). The start, the classification and the modes
+   are saved under `init/`.
+
+**Final** (`run_final`) samples from that start:
+
 5. NUTS from the best mode(s), with a dense mass matrix seeded by the Hessian of the global
    block and unit mass for the source and member latent sites.
-6. Posterior audit of the far-field approximation, then tables and figures.
+6. Posterior audit of the far-field approximation (including whether reclassifying at the
+   posterior median would change the exact set), then tables and figures under `final/`.
 
-A completed run resumes from its artifacts; the saved configuration must match.
+`run.xsh --stage init|final|both` runs one or both. A completed init is reused by any later
+final run whose model, likelihood, member and search configuration match; a completed final
+stage is reloaded when the whole configuration matches and refused otherwise.
 
 ## Outputs
 
 For a run root `results/<campaign>/<cluster>/<run-label>`:
 
-- `artifacts/`: `config.json` and `config.pkl`, `state.json`, `classification.json`,
-  `search.npz` and `modes.json`, `posterior.npz`, `audit.json`, `summary.json`.
-- `tables/`: `posterior_summary.csv`, `member_classification.csv`,
+- `init/artifacts/`: `config.json` and `config.pkl`, `init_signature.json`, `state.json`,
+  `classification.json`, `search.npz` and `modes.json`, `start.json`, `summary.json`;
+  `init/tables/classification_report.txt`; `init/logs/init.log`.
+- `final/artifacts/`: `config.json` and `config.pkl`, `posterior.npz`, `audit.json`, `summary.json`.
+- `final/tables/`: `posterior_summary.csv`, `member_classification.csv`,
   `member_scaling_relation.csv`, `image_fit_quality.csv`, `image_count_recovery.csv`,
   `model_magnification.csv`, `posterior_image_residual_draws.csv`, `run_summary.json`,
   and for simulated clusters `truth_recovery_m2d_aperture_profile.csv`.
-- `figures/`: `image_residual_histogram.pdf`, `image_recovery.pdf`, `corner_globals.pdf`,
+- `final/figures/`: `image_residual_histogram.pdf`, `image_recovery.pdf`, `corner_globals.pdf`,
   `scaling_relation.pdf`, `critical_curves.pdf`, `image_catalog_family_cluster_mass.pdf`,
   and for simulated clusters `truth_recovery_residuals.pdf` and
   `truth_recovery_m2d_aperture_ratio.pdf`.
-- `fits/`: convergence, shear, det A and magnification grids of the posterior median and
+- `final/fits/`: convergence, shear, det A and magnification grids of the posterior median and
   16/84 percentiles on the truth WCS, and the overview convergence map.
-- `logs/run.log`.
+- `final/logs/final.log`.
 
 Figure names carry the cluster prefix from `RunPathsConfig.figure_prefix`.
 
@@ -101,4 +116,4 @@ image-residual distribution.
 /home/dutra/.conda/envs/lenstronomy/bin/python -m pytest tests
 ```
 
-`tests/test_pipeline.py` runs the whole stage on a synthetic cluster.
+`tests/test_pipeline.py` runs both stages on a synthetic cluster.

@@ -407,7 +407,13 @@ def build_config(
         sampling=SamplingConfig(warmup=500, samples=250, max_tree_depth=8, target_accept=0.85),
         members=MemberConfig(far_field_cut_radii=3.0, classification_prior_quantile=0.975, template_tolerance=0.1, top_exact=None),
         scaling=ScalingModelConfig(
-            member_velocity_scatter_prior=LogNormalPriorConfig(median=0.02, log_sigma=1.0),
+            # Members leave the relation in dispersion (tight: Faber-Jackson scatter is about 0.1 dex) and, for the exact
+            # members only, in cut radius (loose: tidal truncation depends on the orbit).  With a single dispersion
+            # deviation the sampler turned the two biggest subhalos into 700 km/s point masses to patch mass at 20-60".
+            member_deviation="sigma_rcut",
+            radius_deviation_members="exact",
+            member_velocity_scatter_prior=LogNormalPriorConfig(median=0.10, log_sigma=0.3),
+            member_radius_scatter_prior=LogNormalPriorConfig(median=0.3, log_sigma=0.5),
             # Faber-Jackson slope 0.27-0.28 and beta_cut 0.64-0.66 in three MUSE-calibrated clusters (Bergamini et al. 2019).
             alpha_sigma_prior_mean=0.27,
             alpha_sigma_prior_std=0.05,

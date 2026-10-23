@@ -145,6 +145,8 @@ class SamplingConfig:
     target_accept: float = 0.7
     initial_step_size: float = 1.0e-3
     thin: int = 1
+    mass_matrix: str = "hessian"            # "hessian": dense global block seeded by the Hessian; "dense": dense global block, adapted
+                                            # from the identity; "diagonal": NumPyro's default diagonal adaptation
 
 
 @dataclass(frozen=True)

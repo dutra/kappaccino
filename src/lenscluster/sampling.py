@@ -234,14 +234,22 @@ def chain_diagnostics(grouped_theta: np.ndarray) -> dict[str, Any]:
 
 def run_nuts(state: ModelState, evaluator: Evaluator, starts: np.ndarray, *, warmup: int, samples: int, chains: int,
              chain_method: str, max_tree_depth: int, target_accept: float, initial_step_size: float, seed: int,
-             thin: int = 1, print_summary: bool = False, log=print) -> PosteriorResults:
+             thin: int = 1, print_summary: bool = False, mass_matrix: str = "hessian", log=print) -> PosteriorResults:
     """Run NUTS from one latent start per chain (starts has shape (chains, n_params))."""
     specs = state.parameter_specs
     model = posterior_model(specs, evaluator.log_likelihood)
     starts = np.asarray(starts, dtype=float).reshape(chains, -1)
     dense_mass, inverse_mass, mass_diagnostics = block_mass_seed(model, specs, starts[0])
-    log(f"[nuts] mass seed global_dim={mass_diagnostics.get('global_dim')} latent_dim={mass_diagnostics.get('latent_dim')} "
-        f"cond_raw={mass_diagnostics.get('condition_raw', float('nan')):.3e} negative={mass_diagnostics.get('n_negative_eigenvalues')}")
+    if mass_matrix == "hessian":
+        log(f"[nuts] mass seed global_dim={mass_diagnostics.get('global_dim')} latent_dim={mass_diagnostics.get('latent_dim')} "
+            f"cond_raw={mass_diagnostics.get('condition_raw', float('nan')):.3e} negative={mass_diagnostics.get('n_negative_eigenvalues')}")
+    elif mass_matrix == "dense":
+        inverse_mass = None
+        log(f"[nuts] dense mass for the global block {mass_diagnostics.get('global_sites')}, adapted from the identity")
+    else:
+        dense_mass, inverse_mass = False, None
+        log("[nuts] diagonal mass matrix, adapted from the identity")
+    mass_diagnostics["mass_matrix"] = mass_matrix
     if chain_method == "parallel" and jax.device_count() < chains:
         raise RuntimeError(f"nuts_chain_method='parallel' needs {chains} JAX devices; {jax.device_count()} are visible. "
                            "Set JAX_NUM_CPU_DEVICES or use 'sequential'.")

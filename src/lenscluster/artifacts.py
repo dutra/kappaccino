@@ -1,4 +1,4 @@
-"""Saved run artifacts: one directory with the config, classification, search, posterior and audit."""
+"""Saved run artifacts: the init stage (config, state, classification, search, start) and the final stage (posterior, audit)."""
 from __future__ import annotations
 
 import json
@@ -103,5 +103,36 @@ def load_exact_positions(directory: Path) -> np.ndarray:
     return np.asarray(payload["exact_positions"], dtype=np.int32)
 
 
-def is_complete(directory: Path) -> bool:
-    return all((directory / name).exists() for name in (CONFIG_PICKLE, STATE_FILE, POSTERIOR_FILE, AUDIT_FILE))
+def load_search(directory: Path) -> dict[str, Any]:
+    """The saved search in the shape chain_starts expects (modes with theta and within_margin, best theta)."""
+    payload = json.loads((directory / MODES_FILE).read_text(encoding="utf-8"))
+    with np.load(directory / SEARCH_FILE) as data:
+        arrays = {k: np.asarray(data[k]) for k in data.files}
+    return {**arrays, "theta": np.asarray(arrays["theta"], dtype=float), "modes": payload["modes"], "method": payload.get("method"),
+            "n_finite": payload.get("n_finite"), "search_seconds": payload.get("search_seconds"), "polish_seconds": payload.get("polish_seconds"),
+            **({"stages": payload["stages"], "stage_traces": payload["stage_traces"]} if payload.get("stages") else {})}
+
+
+def save_start(directory: Path, theta: np.ndarray, info: dict[str, Any]) -> None:
+    write_json(directory / START_FILE, {"theta": np.asarray(theta, dtype=float).tolist(), **info})
+
+
+def load_start(directory: Path) -> np.ndarray:
+    return np.asarray(json.loads((directory / START_FILE).read_text(encoding="utf-8"))["theta"], dtype=float)
+
+
+def init_signature(config: LensClusterSolverConfig) -> dict[str, Any]:
+    """The part of the configuration the init stage depends on: model, members, scaling, likelihood, search, seed."""
+    payload = config.to_json_dict()
+    for key in ("sampling", "image_diagnostics", "truth", "image_catalog", "paths"):
+        payload.pop(key, None)
+    payload["runtime"] = {"seed": config.runtime.seed}
+    return payload
+
+
+def is_init_complete(directory: Path) -> bool:
+    return all((directory / name).exists() for name in (INIT_SIGNATURE_FILE, STATE_FILE, CLASSIFICATION_FILE, SEARCH_FILE, MODES_FILE, START_FILE))
+
+
+def is_final_complete(directory: Path) -> bool:
+    return all((directory / name).exists() for name in (CONFIG_PICKLE, POSTERIOR_FILE, AUDIT_FILE))

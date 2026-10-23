@@ -184,7 +184,7 @@ def write_recovery(recovery_dir: Path, result: pipeline.RunResult, solver_config
     from ..plots import member_scaling_table
     recovery_dir.mkdir(parents=True, exist_ok=True)
     state, evaluator, posterior = result.state, result.evaluator, result.posterior
-    tables = result.paths.tables
+    tables = result.paths.final.tables
     best_index = int(np.nanargmax(np.asarray(posterior.log_prob)))
     columns = posterior_columns(state, evaluator, posterior)
     parameters = parameter_recovery(columns, parameter_truth(truth), best_index)

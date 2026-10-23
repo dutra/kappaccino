@@ -41,6 +41,7 @@ def classification_table(state: ModelState) -> pd.DataFrame:
 
 def write_outputs(config: LensClusterSolverConfig, state: ModelState, evaluator: Evaluator, posterior: PosteriorResults,
                   audit: dict[str, Any], paths, *, log=print) -> dict[str, Any]:
+    """``paths`` is the final StagePaths."""
     tables, figures, prefix = paths.tables, paths.figures, config.paths.figure_prefix
     tables.mkdir(parents=True, exist_ok=True)
     log_prob = np.asarray(posterior.log_prob, dtype=float)

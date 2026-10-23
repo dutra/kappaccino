@@ -6,6 +6,7 @@ from dataclasses import replace
 
 import jax.numpy as jnp
 import numpy as np
+import pytest
 
 from lenscluster import artifacts, pipeline
 from lenscluster.config import ImageDiagnosticsConfig, RuntimeConfig, SamplingConfig, SearchConfig
@@ -35,22 +36,32 @@ def test_single_stage_end_to_end(synthetic_config):
     np.testing.assert_allclose(np.asarray(stats["source_by_family"]), expected, rtol=1e-12, atol=1e-12)
     np.testing.assert_allclose(np.asarray(evaluator.source_positions(theta)), expected, rtol=1e-12, atol=1e-12)
 
-    # The final classification was made at the best mode and is the one saved with the run.
-    saved = json.loads((result.paths.artifacts / artifacts.CLASSIFICATION_FILE).read_text())
+    # The final classification was made at the best mode in the init stage and is the model the final stage sampled.
+    init_dir = result.paths.init.artifacts
+    saved = json.loads((init_dir / artifacts.CLASSIFICATION_FILE).read_text())
     assert saved["exact_count"] == len(state.members.exact_positions) == state.members.classification["exact_count"]
-    assert set(np.asarray(artifacts.load_exact_positions(result.paths.artifacts)).tolist()) == set(state.members.exact_positions.tolist())
+    assert set(np.asarray(artifacts.load_exact_positions(init_dir)).tolist()) == set(state.members.exact_positions.tolist())
+    np.testing.assert_array_equal(artifacts.load_start(init_dir), result.init.theta)
     assert state.members.classification["exact_count"] + len(state.members.far_positions) == len(state.members.member_ids)
 
     # Audit and outputs exist.
     assert result.audit["approximation_validation"] in {"passed", "failed"}
     for name in ("posterior_summary.csv", "member_classification.csv", "image_fit_quality.csv", "member_scaling_relation.csv", "run_summary.json"):
-        assert (result.paths.tables / name).is_file()
-    assert (result.paths.figures / "critical_curves.pdf").is_file()
+        assert (result.paths.final.tables / name).is_file()
+    assert (result.paths.final.figures / "critical_curves.pdf").is_file()
+    assert (result.paths.init.tables / "classification_report.txt").is_file()
 
-    # Resuming reloads the same posterior without sampling again.
+    # Resuming reloads both stages without searching or sampling again.
     again = pipeline.run(config)
-    assert again.resumed
+    assert again.resumed and again.init.resumed
     np.testing.assert_array_equal(again.posterior.samples, posterior.samples)
+    np.testing.assert_array_equal(again.init.theta, result.init.theta)
+    # The init stage alone resumes too; a changed sampling setting under the same run name is refused
+    # rather than silently overwriting the saved posterior.
+    assert pipeline.run(config, stage="init").resumed
+    changed = replace(config, sampling=SamplingConfig(warmup=10, samples=12, max_tree_depth=4))
+    with pytest.raises(ValueError, match="different configuration"):
+        pipeline.run(changed)
 
 
 def test_far_field_guard_returns_minus_infinity_with_zero_gradient(synthetic_config):

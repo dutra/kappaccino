@@ -125,7 +125,7 @@ from jax._src import xla_bridge
 assert not xla_bridge.backends_are_initialized(), 'launcher initialized JAX before CPU setup'
 build = namespace['build_runtime']
 namespace['build_runtime'] = lambda cores: replace(build(cores), chains=2, cpu_threads_per_chain=2)
-def check_run(config):
+def check_run(config, stage="both"):
     import jax
     assert config.runtime.chains == 2
     assert len(jax.devices('cpu')) == 2

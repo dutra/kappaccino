@@ -1,6 +1,7 @@
 $XONSH_SHOW_TRACEBACK = True
 $MPLBACKEND = "Agg"
 
+import json
 import os
 os.environ["MPLBACKEND"] = "Agg"
 import sys
@@ -8,20 +9,18 @@ import time
 from pathlib import Path
 import numpy as np
 
-cores = 4  # NUTS chains; one JAX CPU device per chain.
+cores = 4  # NUTS chains; one JAX CPU device per chain (same budget as run.xsh).
 seed_default = 12345
 output_dir_default = "validation_runs"
-# The mock injects Gaussian position scatter of this size and the likelihood assumes the same
-# catalog sigma, so the 68% coverage test is meaningful.
+# The mock injects Gaussian image-position noise of this size and the solver uses it as the catalog error (the floor
+# under the sampled sigma_obs_extra), so the coverage test checks both the error model and the mass model.
 pos_sigma_arcsec = 0.05
-# Injected member scaling-relation scatter in ln(sigma) units.
-scatter_ln = 0.05
+# Injected member scatter in ln(sigma), at the median of the solver's scatter prior (LogNormal(0.10, 0.3)).
+scatter_ln = 0.10
 lens_redshift_min = 0.30
 lens_redshift_max = 0.50
 
-$JAX_NUM_CPU_DEVICES = str(cores)
 $MPLCONFIGDIR = "/tmp/matplotlib-lenscluster-mock"
-os.environ["JAX_NUM_CPU_DEVICES"] = str(cores)
 os.environ["MPLCONFIGDIR"] = "/tmp/matplotlib-lenscluster-mock"
 sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
 
@@ -29,32 +28,24 @@ from lenscluster.config import (
     ImageDiagnosticsConfig,
     LensClusterSolverConfig,
     LikelihoodConfig,
-    MemberConfig,
     RuntimeConfig,
     SamplingConfig,
     SearchConfig,
     TruthRecoveryConfig,
 )
-from lenscluster.mock_validation import (
-    MockValidationConfig,
-    MockValidationPathsConfig,
-    MockValidationRuntimeConfig,
-    SingleBCGMockConfig,
-    run_mock_validation,
-    write_aggregate_plots,
-)
+from lenscluster.cpu_runtime import configure_cpu_runtime, resolve_cpu_plan
 
 VALID_PRESETS = ("smoke", "production")
 
 
 def _usage() -> str:
     return ("Usage: xonsh run_mock.xsh --campaign NAME [--preset smoke|production] [--seed INT] "
-            "[--realizations INT] [--output-dir PATH] [--aggregate-only]")
+            "[--realizations INT] [--output-dir PATH] [--aggregate-only] [--dry-run]")
 
 
 def _parse_args(argv: list[str]) -> dict:
     values = {"campaign": None, "preset": "smoke", "seed": str(seed_default), "realizations": "1",
-              "output_dir": output_dir_default, "aggregate_only": False}
+              "output_dir": output_dir_default, "aggregate_only": False, "dry_run": False}
     flag_to_key = {"--campaign": "campaign", "--preset": "preset", "--seed": "seed", "--realizations": "realizations", "--output-dir": "output_dir"}
     index = 1
     while index < len(argv):
@@ -62,8 +53,8 @@ def _parse_args(argv: list[str]) -> dict:
         if flag in {"--help", "-h"}:
             print(_usage())
             raise SystemExit(0)
-        if flag == "--aggregate-only":
-            values["aggregate_only"] = True
+        if flag in {"--aggregate-only", "--dry-run"}:
+            values[flag.lstrip("-").replace("-", "_")] = True
             index += 1
             continue
         if flag not in flag_to_key or index + 1 >= len(argv):
@@ -83,32 +74,30 @@ def _parse_args(argv: list[str]) -> dict:
         print("Seed must be nonnegative and realizations positive.")
         raise SystemExit(2)
     return dict(preset=preset, seed=seed, realizations=realizations, campaign=str(values["campaign"]).strip(),
-                output_dir=str(values["output_dir"]), aggregate_only=values["aggregate_only"])
+                output_dir=str(values["output_dir"]), aggregate_only=values["aggregate_only"], dry_run=values["dry_run"])
+
+
+def build_runtime(seed: int) -> RuntimeConfig:
+    return RuntimeConfig(seed=seed, chains=cores, resume=True, numpyro_print_summary=True, nuts_chain_method="parallel",
+                         cpu_threads_per_chain=2)   # same CPU budget as run.xsh: chains * 2 cores, chosen to avoid other runs
 
 
 def _solver(*, production: bool, seed: int) -> LensClusterSolverConfig:
+    """The solver template: library defaults (the tuned Hera settings) plus what the mock needs.  The lens model, with
+    priors centred on the mock's truth, is attached per realization by the mock-validation pipeline."""
     return LensClusterSolverConfig(
-        runtime=RuntimeConfig(seed=seed, chains=cores, resume=True, numpyro_print_summary=True, nuts_chain_method="parallel"),
-        search=SearchConfig(n_starts=32 if production else 8, lbfgs_max_iter=400, mode_margin=10.0, max_chain_modes=4),
-        sampling=SamplingConfig(warmup=1000 if production else 100, samples=1000 if production else 100, max_tree_depth=8 if production else 6,
-                                target_accept=0.7),
-        members=MemberConfig(far_field_cut_radii=3.0, classification_prior_quantile=0.975, template_tolerance=0.1),
+        runtime=build_runtime(seed),
+        search=SearchConfig() if production else SearchConfig(n_starts=8),
+        sampling=(SamplingConfig(warmup=250, samples=200, max_tree_depth=8, target_accept=0.85) if production
+                  else SamplingConfig(warmup=100, samples=100, max_tree_depth=6, target_accept=0.85)),
         likelihood=LikelihoodConfig(pos_sigma_arcsec=pos_sigma_arcsec),
-        image_diagnostics=ImageDiagnosticsConfig(
-            posterior_image_diagnostic_draws=64 if production else 8,
-            exact_image_finder="local-lm-adaptive",
-            exact_image_min_distance_arcsec=0.5,
-            exact_image_precision_limit=1.0e-2,
-            exact_image_num_iter_max=100,
-            exact_image_displacement_tol_arcsec=1.0e-4,
-            exact_image_identification_tol_arcsec=1.0e-3,
-            match_tolerance_arcsec=3.0,
-        ),
+        image_diagnostics=ImageDiagnosticsConfig(posterior_image_diagnostic_draws=64 if production else 8, match_tolerance_arcsec=3.0),
         truth=TruthRecoveryConfig(posterior_truth_recovery_draws=0),
     )
 
 
-def build_config(preset: str, *, seed: int, realizations: int, campaign_name: str, output_dir: str) -> MockValidationConfig:
+def build_config(preset: str, *, seed: int, realizations: int, campaign_name: str, output_dir: str):
+    from lenscluster.mock_validation import MockValidationConfig, MockValidationPathsConfig, MockValidationRuntimeConfig, SingleBCGMockConfig
     production = preset == "production"
     n_primary_families = 15 if production else 5
     n_subhalo_families = 5 if production else 1
@@ -137,7 +126,7 @@ def build_config(preset: str, *, seed: int, realizations: int, campaign_name: st
         primary_seed_grid_pixel_arcsec=1.0,
         subhalo_seed_grid_pixel_arcsec=1.0,
         max_sources_to_try=400,
-        mock_generation_workers=min(cores, 16) if production else 1,
+        mock_generation_workers=cores if production else 1,
     )
     return MockValidationConfig(
         mock=mock,
@@ -147,18 +136,32 @@ def build_config(preset: str, *, seed: int, realizations: int, campaign_name: st
     )
 
 
-options = _parse_args(sys.argv)
-config = build_config(options["preset"], seed=options["seed"], realizations=options["realizations"],
-                      campaign_name=options["campaign"], output_dir=options["output_dir"]).validate()
-campaign_dir = Path(config.paths.output_dir) / config.paths.campaign_name / config.paths.run_name
-print(f"[config] preset={options['preset']} seed={options['seed']} realizations={options['realizations']} "
-      f"scatter_ln={scatter_ln} pos_sigma_arcsec={pos_sigma_arcsec} n_subhalos={config.mock.n_subhalos} "
-      f"n_starts={config.solver.search.n_starts} chains={cores} campaign_dir={campaign_dir}")
-start = time.monotonic()
-try:
-    if not options["aggregate_only"]:
-        run_mock_validation(config)
-    for path in write_aggregate_plots(campaign_dir):
-        print(f"[aggregate] {path}")
-finally:
-    print(f"[timing] elapsed={time.monotonic() - start:.2f}s")
+def main(argv=None):
+    options = _parse_args(sys.argv if argv is None else argv)
+    runtime = build_runtime(options["seed"])
+    cpu_plan = resolve_cpu_plan(runtime.chains, runtime.nuts_chain_method, runtime.cpu_threads_per_chain)
+    if not options["dry_run"]:
+        configure_cpu_runtime(runtime.chains, runtime.nuts_chain_method, runtime.cpu_threads_per_chain)
+    config = build_config(options["preset"], seed=options["seed"], realizations=options["realizations"],
+                          campaign_name=options["campaign"], output_dir=options["output_dir"]).validate()
+    campaign_dir = Path(config.paths.output_dir) / config.paths.campaign_name / config.paths.run_name
+    if options["dry_run"]:
+        print(json.dumps({"dry_run": True, "cpu_plan": cpu_plan.to_dict(), "campaign_dir": str(campaign_dir), **config.to_json_dict()}, indent=2, default=str))
+        return 0
+    from lenscluster.mock_validation import run_mock_validation, write_aggregate_plots
+    print(f"[config] preset={options['preset']} seed={options['seed']} realizations={options['realizations']} "
+          f"scatter_ln={scatter_ln} pos_sigma_arcsec={pos_sigma_arcsec} n_subhalos={config.mock.n_subhalos} "
+          f"n_starts={config.solver.search.n_starts} chains={cores} cpus={cpu_plan.selected_cpu_ids} campaign_dir={campaign_dir}")
+    start = time.monotonic()
+    try:
+        if not options["aggregate_only"]:
+            run_mock_validation(config)
+        for path in write_aggregate_plots(campaign_dir):
+            print(f"[aggregate] {path}")
+    finally:
+        print(f"[timing] elapsed={time.monotonic() - start:.2f}s")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

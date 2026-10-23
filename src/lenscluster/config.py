@@ -62,6 +62,23 @@ class DPIEHaloConfig:
     profile_type: int = 81
     priors: dict[str, PriorConfig] = field(default_factory=dict)
 
+    @classmethod
+    def cluster_scale(cls, id: str, x_centre: float, y_centre: float, z_lens: float, *, v_disp: float = 800.0,
+                      position_half_width_arcsec: float = 5.0, ellipticity_upper: float = 0.8) -> "DPIEHaloConfig":
+        """A cluster-scale dPIE with the standard priors: centre within a box around the light, free ellipticity and
+        angle, core 0.5-100 kpc, cut radius TN(1500, 300) kpc on 500-3000 kpc (the arcs do not constrain it), and a
+        dispersion prior of 35% width around the given value."""
+        half = float(position_half_width_arcsec)
+        return cls(id=str(id), x_centre=float(x_centre), y_centre=float(y_centre), ellipticite=0.3, angle_pos=0.0, core_radius_kpc=10.0,
+                   cut_radius_kpc=1500.0, v_disp=float(v_disp), z_lens=float(z_lens), priors={
+                       "x_centre": PriorConfig("uniform", lower=x_centre - half, upper=x_centre + half, step=0.5),
+                       "y_centre": PriorConfig("uniform", lower=y_centre - half, upper=y_centre + half, step=0.5),
+                       "ellipticite": PriorConfig("uniform", lower=0.0, upper=float(ellipticity_upper), step=0.02),
+                       "angle_pos": PriorConfig("uniform", lower=-180.0, upper=180.0, step=1.0),
+                       "core_radius_kpc": PriorConfig("uniform", lower=0.5, upper=100.0, step=1.0),
+                       "cut_radius_kpc": PriorConfig("truncated_normal", mean=1500.0, std=300.0, lower=500.0, upper=3000.0),
+                       "v_disp": PriorConfig("truncated_normal", mean=float(v_disp), std=0.35 * float(v_disp), lower=100.0, upper=2200.0)})
+
 
 @dataclass(frozen=True)
 class NFWHaloConfig:
@@ -99,6 +116,13 @@ class ShearHaloConfig:
     profile_type: int = 14
     priors: dict[str, PriorConfig] = field(default_factory=dict)
 
+    @classmethod
+    def free(cls, id: str, z_lens: float, *, gamma_upper: float = 0.3) -> "ShearHaloConfig":
+        """External shear with a free amplitude up to ``gamma_upper`` and a free angle."""
+        return cls(id=str(id), gamma=0.0, angle_pos=0.0, z_lens=float(z_lens), priors={
+            "gamma": PriorConfig("uniform", lower=0.0, upper=float(gamma_upper), step=0.005),
+            "angle_pos": PriorConfig("uniform", lower=-180.0, upper=180.0, step=0.5)})
+
 
 @dataclass(frozen=True)
 class IndependentMemberHaloConfig:
@@ -122,6 +146,17 @@ class MemberPopulationConfig:
     cutkpc_prior: PriorConfig = field(default_factory=PriorConfig)
     exclude_catalog_ids: tuple[str, ...] = ()
     prior_mag0: float | None = None          # magnitude at which sigma, cutkpc and their priors are given when mag0 is "auto"
+
+    @classmethod
+    def literature(cls, id: str, catalog_path: str | Path, z_lens: float, *, prior_mag0: float, sigma: float = 200.0,
+                   cutkpc: float = 12.0, corekpc: float = 0.15) -> "MemberPopulationConfig":
+        """A member population on the literature relation at L* (``prior_mag0``): central dispersion ~220 km/s and
+        r_cut ~10 (+13, -7) kpc from the MUSE-calibrated relations of Bergamini et al. 2019, widened to TN(200, 70) km/s on
+        40-500 and TN(12, 10) kpc on 2-60; the pivot is chosen automatically from image leverage."""
+        return cls(id=str(id), catalog_path=catalog_path, mag0="auto", prior_mag0=float(prior_mag0), corekpc=float(corekpc),
+                   sigma=float(sigma), cutkpc=float(cutkpc), z_lens=float(z_lens),
+                   sigma_prior=PriorConfig("truncated_normal", mean=float(sigma), std=0.35 * float(sigma), lower=40.0, upper=500.0),
+                   cutkpc_prior=PriorConfig("truncated_normal", mean=float(cutkpc), std=10.0, lower=2.0, upper=60.0))
 
 
 @dataclass(frozen=True)
@@ -188,10 +223,10 @@ class SearchConfig:
 
 @dataclass(frozen=True)
 class SamplingConfig:
-    warmup: int = 1000
-    samples: int = 500
+    warmup: int = 250
+    samples: int = 200
     max_tree_depth: int = 8
-    target_accept: float = 0.7
+    target_accept: float = 0.85
     initial_step_size: float = 1.0e-3
     thin: int = 1
     mass_matrix: str = "hessian"            # "hessian": dense global block seeded by the Hessian; "dense": dense global block, adapted
@@ -215,21 +250,25 @@ class MemberConfig:
 
 @dataclass(frozen=True)
 class ScalingModelConfig:
-    member_velocity_scatter_prior: LogNormalPriorConfig = field(default_factory=lambda: LogNormalPriorConfig(median=0.02, log_sigma=1.0))
-    member_deviation: str = "sigma"         # how a member leaves the relation: "sigma" (dispersion only), "mass" (dispersion and radii
+    # Members leave the relation in dispersion (tight scatter: Faber-Jackson is about 0.1 dex) and, for the exact members,
+    # in cut radius (loose: tidal truncation depends on the orbit).  With a dispersion deviation alone the sampler turned
+    # the biggest subhalos into point masses to patch mass the cluster halos lacked.
+    member_velocity_scatter_prior: LogNormalPriorConfig = field(default_factory=lambda: LogNormalPriorConfig(median=0.10, log_sigma=0.3))
+    member_deviation: str = "sigma_rcut"    # how a member leaves the relation: "sigma" (dispersion only), "mass" (dispersion and radii
                                             # together along the relation, one scatter), "sigma_rcut" (independent dispersion and radius
                                             # deviations), "mass_rcut" (mass deviation along the relation plus an independent radius deviation)
-    member_radius_scatter_prior: LogNormalPriorConfig = field(default_factory=lambda: LogNormalPriorConfig(median=0.1, log_sigma=1.0))
+    member_radius_scatter_prior: LogNormalPriorConfig = field(default_factory=lambda: LogNormalPriorConfig(median=0.3, log_sigma=0.5))
     radius_deviation_members: str = "exact"  # which members' radius deviations act on the model: "exact" (far-field members keep
                                             # the relation radius, so they cannot cross the far-field guard) or "all"
-    alpha_sigma_prior_mean: float = 0.25
-    alpha_sigma_prior_std: float = 0.04
-    alpha_sigma_prior_lower: float = 0.10
-    alpha_sigma_prior_upper: float = 0.40
-    beta_radius_prior_mean: float = 0.50
-    beta_radius_prior_std: float = 0.20
+    # Faber-Jackson slope 0.27-0.28 and beta_cut 0.64-0.66 in three MUSE-calibrated clusters (Bergamini et al. 2019).
+    alpha_sigma_prior_mean: float = 0.27
+    alpha_sigma_prior_std: float = 0.05
+    alpha_sigma_prior_lower: float = 0.05
+    alpha_sigma_prior_upper: float = 0.50
+    beta_radius_prior_mean: float = 0.65
+    beta_radius_prior_std: float = 0.15
     beta_radius_prior_lower: float = 0.0
-    beta_radius_prior_upper: float = float("inf")
+    beta_radius_prior_upper: float = 1.5
     softening_length_kpc: float = 0.0
     softening_length_prior_log_sigma: float = 0.15
 
@@ -250,16 +289,16 @@ class LikelihoodConfig:
 @dataclass(frozen=True)
 class ImageDiagnosticsConfig:
     posterior_image_diagnostic_draws: int = 32
-    exact_image_min_distance_arcsec: float = 0.1
-    exact_image_precision_limit: float = 1.0e-8
-    exact_image_num_iter_max: int = 200
+    exact_image_min_distance_arcsec: float = 0.5
+    exact_image_precision_limit: float = 1.0e-2
+    exact_image_num_iter_max: int = 100
     exact_image_finder: str = "local-lm-adaptive"
     exact_image_displacement_tol_arcsec: float = 1.0e-4
     exact_image_identification_tol_arcsec: float = 1.0e-3
-    exact_image_lm_max_iter: int = 30
+    exact_image_lm_max_iter: int = 100
     exact_image_lm_trust_radius_arcsec: float = 1.0
     exact_image_adaptive_max_levels: int = 8
-    match_tolerance_arcsec: float = 2.0
+    match_tolerance_arcsec: float = 5.0
 
 
 @dataclass(frozen=True)
@@ -267,7 +306,7 @@ class TruthRecoveryConfig:
     kappa_true_fits: str | Path | None = None
     gammax_true_fits: str | Path | None = None
     gammay_true_fits: str | Path | None = None
-    posterior_truth_recovery_draws: int = 64
+    posterior_truth_recovery_draws: int = 16
     truth_grid_size: int = 256
     caustic_source_redshift: float = 9.0
 

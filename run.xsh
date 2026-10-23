@@ -8,27 +8,21 @@ from pathlib import Path
 
 cores = 4  # NUTS chains; one JAX CPU device per chain.
 seed = 12345
-pos_sigma_arcsec = 0.5
 
 $MPLCONFIGDIR = "/tmp/matplotlib-lenscluster"
 os.environ["MPLCONFIGDIR"] = "/tmp/matplotlib-lenscluster"
 sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
+
+from dataclasses import replace
 
 from lenscluster.config import (
     CosmologyConfig,
     DPIEHaloConfig,
     ImageCatalogCutoutConfig,
     ImageConstraintsConfig,
-    ImageDiagnosticsConfig,
-    IndependentMemberHaloConfig,
     LensClusterSolverConfig,
     LensModelConfig,
-    LikelihoodConfig,
-    LogNormalPriorConfig,
-    MassSheetConfig,
-    MemberConfig,
     MemberPopulationConfig,
-    NFWHaloConfig,
     PriorConfig,
     RGBDisplayConfig,
     ReferenceFrameConfig,
@@ -56,7 +50,10 @@ FF_RGB_DISPLAY = RGBDisplayConfig(q=6.8, stretch=0.0158, minimum=0.00105, red_ga
 
 def _usage() -> str:
     return (
-        "Usage: xonsh run.xsh <cluster> [--campaign NAME] [--run-label NAME] [--image-metadata PATH] [--init hybrid|multistart|staged] [--search lbfgs|adam|svi] [--stage init|final|both] [--dry-run]\n"
+        "Usage: xonsh run.xsh <cluster> [--campaign NAME] [--run-label NAME] [--image-metadata PATH] [--init hybrid|multistart|staged] [--search lbfgs|adam|svi] [--stage init|final|both] [--fast] [--dry-run]\n"
+        "  --fast: exploratory settings: members deflecting every image by < 0.03\" are dropped, far-field members allowed down to\n"
+        "          2 cut radii from an image, classification at the current model, 16 search starts, 300+150 draws at tree depth 7\n"
+        "          (check the audit's far-field error before trusting a fast run)\n"
         f"Valid clusters: {VALID_CLUSTERS}"
     )
 
@@ -69,13 +66,13 @@ def _parse_args(argv: list[str]) -> dict:
         print(_usage())
         raise SystemExit(2)
     cluster = str(argv[1]).strip().upper()
-    values = {"campaign": OUTPUT_DIR_LABEL, "run_label": None, "image_metadata": None, "dry_run": False, "search": "lbfgs", "stage": "both", "init": "multistart"}
+    values = {"campaign": OUTPUT_DIR_LABEL, "run_label": None, "image_metadata": None, "dry_run": False, "fast": False, "search": "lbfgs", "stage": "both", "init": "multistart"}
     flag_to_key = {"--campaign": "campaign", "--run-label": "run_label", "--image-metadata": "image_metadata", "--search": "search", "--stage": "stage", "--init": "init"}
     index = 2
     while index < len(argv):
         flag = argv[index]
-        if flag == "--dry-run":
-            values["dry_run"] = True
+        if flag in {"--dry-run", "--fast"}:
+            values[flag.lstrip("-").replace("-", "_")] = True
             index += 1
             continue
         if flag in {"--help", "-h"}:
@@ -103,176 +100,50 @@ def _parse_args(argv: list[str]) -> dict:
         print("--stage must be init, final or both.")
         raise SystemExit(2)
     return dict(cluster=cluster, campaign_name=str(values["campaign"]).strip(), run_label=values["run_label"],
-                dry_run=values["dry_run"], image_metadata=values["image_metadata"], search_method=values["search"], stage=values["stage"], init_strategy=values["init"])
+                dry_run=values["dry_run"], fast=values["fast"], image_metadata=values["image_metadata"], search_method=values["search"], stage=values["stage"], init_strategy=values["init"])
 
 
+# The solver's tuned defaults live in lenscluster.config; a cluster entry carries only what is specific to it: the
+# image catalog, the cosmology, where the cluster-scale halos sit, the member catalog, the truth maps and the
+# simulation's softening.  Both simulated clusters are at z = 0.5 with F160W magnitudes, where L* is m_F160W = 19.82.
 FF_SIMS_CLUSTERS = {
     "ARES": {
         "cluster_key": "ares",
-        "output_dir": f"results/{OUTPUT_DIR_LABEL}/ares",
         "image_catalog": "data/ff_sims/ares/ares_obs_arcs.cat",
-        "member_catalog": "data/ff_sims/ares/ares_cluster_members_potfile.cat",
         "cosmology": CosmologyConfig(H0=70.4, Om0=0.272, Ode0=0.728),
-        "z_lens": 0.5,
+        # One cluster-scale halo at the light peak of each clump of the MOKA cluster (Meneghetti et al. 2017) plus shear.
         "halos": (
-            DPIEHaloConfig(
-                id="1",
-                x_centre=20.0,
-                y_centre=-32.0,
-                ellipticite=0.3,
-                angle_pos=0.0,
-                core_radius_kpc=20.0,
-                cut_radius_kpc=1500.0,
-                v_disp=950.0,
-                z_lens=0.5,
-                priors={
-                    "x_centre": PriorConfig("uniform", lower=15.0, upper=25.0, step=0.5),
-                    "y_centre": PriorConfig("uniform", lower=-37.0, upper=-27.0, step=0.5),
-                    "ellipticite": PriorConfig("uniform", lower=0.0, upper=0.5, step=0.02),
-                    "angle_pos": PriorConfig("uniform", lower=-180.0, upper=180.0, step=1.0),
-                    "core_radius_kpc": PriorConfig("uniform", lower=5.0, upper=60.0, step=1.0),
-                    "v_disp": PriorConfig("truncated_normal", mean=950.0, std=250.0, lower=500.0, upper=1800.0),
-                },
-            ),
-            DPIEHaloConfig(
-                id="2",
-                x_centre=-40.0,
-                y_centre=40.0,
-                ellipticite=0.3,
-                angle_pos=0.0,
-                core_radius_kpc=20.0,
-                cut_radius_kpc=1500.0,
-                v_disp=950.0,
-                z_lens=0.5,
-                priors={
-                    "x_centre": PriorConfig("uniform", lower=-45.0, upper=-35.0, step=0.5),
-                    "y_centre": PriorConfig("uniform", lower=35.0, upper=45.0, step=0.5),
-                    "ellipticite": PriorConfig("uniform", lower=0.0, upper=0.5, step=0.02),
-                    "angle_pos": PriorConfig("uniform", lower=-180.0, upper=180.0, step=1.0),
-                    "core_radius_kpc": PriorConfig("uniform", lower=5.0, upper=45.0, step=1.0),
-                    "v_disp": PriorConfig("truncated_normal", mean=950.0, std=175.0, lower=600.0, upper=1400.0),
-                },
-            ),
-            ShearHaloConfig(
-                id="S1",
-                gamma=0.0,
-                angle_pos=0.0,
-                z_lens=0.5,
-                priors={
-                    "gamma": PriorConfig("uniform", lower=0.0, upper=0.3, step=0.005),
-                    "angle_pos": PriorConfig("uniform", lower=-180.0, upper=180.0, step=0.5),
-                },
-            ),
+            DPIEHaloConfig.cluster_scale("1", 20.0, -32.0, 0.5, v_disp=950.0),
+            DPIEHaloConfig.cluster_scale("2", -40.0, 40.0, 0.5, v_disp=950.0),
+            ShearHaloConfig.free("S1", 0.5),
         ),
-        "member_population": MemberPopulationConfig(
-            id="potfile_1",
-            catalog_path="data/ff_sims/ares/ares_cluster_members_potfile.cat",
-            mag0="auto",
-            prior_mag0=18.5,
-            corekpc=0.15,
-            sigma=100.0,
-            cutkpc=270.0,
-            z_lens=0.5,
-            sigma_prior=PriorConfig("truncated_normal", mean=100.0, std=15.0, lower=70.0, upper=500.0),
-            cutkpc_prior=PriorConfig("truncated_normal", mean=270.0, std=35.0, lower=160.0, upper=800.0),
-        ),
-        "independent_member_halos": (
-            IndependentMemberHaloConfig(population_id="potfile_1", catalog_id="2"),
-            IndependentMemberHaloConfig(population_id="potfile_1", catalog_id="3"),
-        ),
+        "member_population": MemberPopulationConfig.literature("potfile_1", "data/ff_sims/ares/ares_cluster_members_potfile.cat", 0.5, prior_mag0=19.82),
+        # The brightest cluster galaxies stay in the scaling relation, as on Hera: independent halos cost parameters, made
+        # the chains multi-well and did not improve the fit.
+        "independent_member_halos": (),
         "kappa_true_fits": "data/ff_sims/published/ares/kappa_z9_0.fits",
         "gammax_true_fits": "data/ff_sims/published/ares/gammax_z9_0.fits",
         "gammay_true_fits": "data/ff_sims/published/ares/gammay_z9_0.fits",
+        # Ares is semi-analytic: its subhalos are analytic profiles, so there is no resolution softening to match.
         "softening_length_kpc": 0.0,
-        "softening_length_prior_log_sigma": 0.15,
     },
     "HERA": {
         "cluster_key": "hera",
-        "output_dir": f"results/{OUTPUT_DIR_LABEL}/hera",
         "image_catalog": "data/ff_sims/hera/hera_obs_arcs.cat",
-        "member_catalog": "data/ff_sims/hera/hera_cluster_members_potfile.cat",
         "cosmology": CosmologyConfig(H0=72.0, Om0=0.24, Ode0=0.76),
-        "z_lens": 0.507,
         "halos": (
-            DPIEHaloConfig(
-                id="1",
-                x_centre=19.54080009,
-                y_centre=2.37820005,
-                ellipticite=0.3,
-                angle_pos=30.0,
-                core_radius_kpc=8.0,
-                cut_radius_kpc=1500.0,
-                v_disp=800.0,
-                z_lens=0.507,
-                priors={
-                    "x_centre": PriorConfig("uniform", lower=14.54080009, upper=24.54080009, step=0.5),
-                    "y_centre": PriorConfig("uniform", lower=-2.62179995, upper=7.37820005, step=0.5),
-                    "ellipticite": PriorConfig("uniform", lower=0.0, upper=0.8, step=0.02),
-                    "angle_pos": PriorConfig("uniform", lower=-180.0, upper=180.0, step=1.0),
-                    "core_radius_kpc": PriorConfig("uniform", lower=0.5, upper=100.0, step=1.0),
-                    # Sampled with an informative prior: cluster-scale cut radii are expected at 1-2 Mpc and the arcs do not constrain them.
-                    "cut_radius_kpc": PriorConfig("truncated_normal", mean=1500.0, std=300.0, lower=500.0, upper=3000.0),
-                    "v_disp": PriorConfig("truncated_normal", mean=800.0, std=280.0, lower=100.0, upper=2200.0),
-                },
-            ),
-            DPIEHaloConfig(
-                id="2",
-                x_centre=0.001,
-                y_centre=0.003,
-                ellipticite=0.3,
-                angle_pos=24.0,
-                core_radius_kpc=5.0,
-                cut_radius_kpc=1500.0,
-                v_disp=700.0,
-                z_lens=0.507,
-                priors={
-                    "x_centre": PriorConfig("uniform", lower=-4.999, upper=5.001, step=0.5),
-                    "y_centre": PriorConfig("uniform", lower=-4.997, upper=5.003, step=0.5),
-                    "ellipticite": PriorConfig("uniform", lower=0.0, upper=0.8, step=0.02),
-                    "angle_pos": PriorConfig("uniform", lower=-180.0, upper=180.0, step=1.0),
-                    "core_radius_kpc": PriorConfig("uniform", lower=0.5, upper=100.0, step=1.0),
-                    # Sampled with an informative prior: cluster-scale cut radii are expected at 1-2 Mpc and the arcs do not constrain them.
-                    "cut_radius_kpc": PriorConfig("truncated_normal", mean=1500.0, std=300.0, lower=500.0, upper=3000.0),
-                    "v_disp": PriorConfig("truncated_normal", mean=700.0, std=245.0, lower=100.0, upper=2200.0),
-                },
-            ),
-            ShearHaloConfig(
-                id="S1",
-                gamma=0.0,
-                angle_pos=0.0,
-                z_lens=0.507,
-                priors={
-                    "gamma": PriorConfig("uniform", lower=0.0, upper=0.3, step=0.005),
-                    "angle_pos": PriorConfig("uniform", lower=-180.0, upper=180.0, step=0.5),
-                },
-            ),
+            DPIEHaloConfig.cluster_scale("1", 19.54080009, 2.37820005, 0.507, v_disp=800.0),
+            DPIEHaloConfig.cluster_scale("2", 0.001, 0.003, 0.507, v_disp=700.0),
+            ShearHaloConfig.free("S1", 0.507),
         ),
-        "member_population": MemberPopulationConfig(
-            id="potfile_1",
-            catalog_path="data/ff_sims/hera/hera_cluster_members_potfile.cat",
-            mag0="auto",
-            prior_mag0=19.82,
-            corekpc=0.15,
-            sigma=200.0,
-            cutkpc=12.0,
-            z_lens=0.507,
-            # Priors at m_F160W = 19.82, about L* at z = 0.507: central dispersion ~220 km/s and r_cut ~10 (+13, -7) kpc from the
-            # MUSE-calibrated relations of Bergamini et al. 2019, widened because the mock's galaxies need not share real M/L.
-            sigma_prior=PriorConfig("truncated_normal", mean=200.0, std=70.0, lower=40.0, upper=500.0),
-            cutkpc_prior=PriorConfig("truncated_normal", mean=12.0, std=10.0, lower=2.0, upper=60.0),
-        ),
-        # Members 1 and 2 (the two central galaxies) stay in the scaling relation: on Hera the independent halos cost 12
-        # parameters for 7 in log-likelihood and made the chains multi-well; the classifier makes them exact and they
-        # carry their own deviation.
+        "member_population": MemberPopulationConfig.literature("potfile_1", "data/ff_sims/hera/hera_cluster_members_potfile.cat", 0.507, prior_mag0=19.82),
         "independent_member_halos": (),
         "kappa_true_fits": "data/ff_sims/published/hera/kappa_z9_0.fits",
         "gammax_true_fits": "data/ff_sims/published/hera/gammax_z9_0.fits",
         "gammay_true_fits": "data/ff_sims/published/hera/gammay_z9_0.fits",
-        # HERA uses H0=72 km/s/Mpc, so h=0.72 and 2.3 h^-1 kpc = 3.19 kpc physical: the N-body softening, added in
-        # quadrature to every core radius so that member cusps match the simulation's resolution (the dPIE total mass
-        # is independent of the core, so member masses are unchanged).
+        # Hera is an N-body cluster (H0 = 72, softening 2.3 h^-1 kpc = 3.19 kpc): added in quadrature to the member cores so
+        # that their cusps match the simulation's resolution; the dPIE total mass is independent of the core.
         "softening_length_kpc": 2.3 / 0.72,
-        "softening_length_prior_log_sigma": 0.15,
     },
 }
 
@@ -386,78 +257,32 @@ def build_config(
     runtime: RuntimeConfig | None = None,
     search_method: str = "lbfgs",
     init_strategy: str = "multistart",
+    fast: bool = False,
 ) -> LensClusterSolverConfig:
+    """The solver configuration for one cluster: library defaults plus the cluster entry, the command-line choices and,
+    with ``fast``, the exploratory overrides."""
     if cluster not in CLUSTERS:
         raise ValueError(f"cluster must be one of {', '.join(sorted(CLUSTERS))}; got {cluster!r}.")
     is_hff = cluster not in FF_SIMS_CLUSTERS
     cluster_config = _hff_clusters()[cluster] if is_hff else FF_SIMS_CLUSTERS[cluster]
-    output_dir = f"results/{campaign_name}/{cluster_config['cluster_key']}"
-    run_name = run_label if run_label is not None else "smoothed-local-image-plane"
-
-    return LensClusterSolverConfig(
+    config = LensClusterSolverConfig(
         model=LensModelConfig(
             reference=cluster_config.get("reference", ReferenceFrameConfig(reference=3, ra0_deg=0.0, dec0_deg=0.0)),
             cosmology=cluster_config["cosmology"],
             large_halos=cluster_config["halos"],
             independent_member_halos=cluster_config["independent_member_halos"],
             member_populations=(cluster_config["member_population"],),
-            image_constraints=ImageConstraintsConfig(
-                catalog_path=cluster_config["image_catalog"], sigma_arcsec=pos_sigma_arcsec,
-                sigma_floor_arcsec=0.5, metadata_path=image_metadata,
-            ),
+            image_constraints=ImageConstraintsConfig(catalog_path=cluster_config["image_catalog"], metadata_path=image_metadata),
         ),
-        paths=RunPathsConfig(output_dir=output_dir, run_name=run_name, figure_prefix=cluster_config["cluster_key"]),
+        paths=RunPathsConfig(output_dir=f"results/{campaign_name}/{cluster_config['cluster_key']}",
+                             run_name=run_label if run_label is not None else "smoothed-local-image-plane",
+                             figure_prefix=cluster_config["cluster_key"]),
         runtime=runtime if runtime is not None else build_runtime(cores),
-        search=SearchConfig(strategy=init_strategy, method=search_method, staged_method=search_method if search_method != "lbfgs" else "adam",
-                            n_starts=32, lbfgs_max_iter=400, mode_margin=10.0, max_chain_modes=4, polish_scatter=0.1, search_latent=True,
-                            staged_starts=8, staged_steps=500, staged_learning_rate=0.01, svi_particles=1),
-        sampling=SamplingConfig(warmup=500, samples=250, max_tree_depth=8, target_accept=0.85),
-        members=MemberConfig(far_field_cut_radii=3.0, classification_prior_quantile=0.975, template_tolerance=0.1, top_exact=None),
-        scaling=ScalingModelConfig(
-            # Members leave the relation in dispersion (tight: Faber-Jackson scatter is about 0.1 dex) and, for the exact
-            # members only, in cut radius (loose: tidal truncation depends on the orbit).  With a single dispersion
-            # deviation the sampler turned the two biggest subhalos into 700 km/s point masses to patch mass at 20-60".
-            member_deviation="sigma_rcut",
-            radius_deviation_members="exact",
-            member_velocity_scatter_prior=LogNormalPriorConfig(median=0.10, log_sigma=0.3),
-            member_radius_scatter_prior=LogNormalPriorConfig(median=0.3, log_sigma=0.5),
-            # Faber-Jackson slope 0.27-0.28 and beta_cut 0.64-0.66 in three MUSE-calibrated clusters (Bergamini et al. 2019).
-            alpha_sigma_prior_mean=0.27,
-            alpha_sigma_prior_std=0.05,
-            alpha_sigma_prior_lower=0.05,
-            alpha_sigma_prior_upper=0.50,
-            beta_radius_prior_mean=0.65,
-            beta_radius_prior_std=0.15,
-            beta_radius_prior_lower=0.0,
-            beta_radius_prior_upper=1.5,
-            softening_length_kpc=float(cluster_config["softening_length_kpc"]),
-            softening_length_prior_log_sigma=float(cluster_config["softening_length_prior_log_sigma"]),
-        ),
-        likelihood=LikelihoodConfig(
-            source_scatter_prior=LogNormalPriorConfig(median=0.02, log_sigma=0.7),
-            source_position_prior_mean_arcsec=(0.0, 0.0),
-            source_position_prior_sigma_arcsec=100.0,
-            pos_sigma_arcsec=pos_sigma_arcsec,
-        ),
-        image_diagnostics=ImageDiagnosticsConfig(
-            posterior_image_diagnostic_draws=32,
-            exact_image_min_distance_arcsec=0.5,
-            exact_image_precision_limit=1.0e-2,
-            exact_image_num_iter_max=100,
-            exact_image_finder="local-lm-adaptive",
-            exact_image_lm_max_iter=100,
-            exact_image_displacement_tol_arcsec=1.0e-4,
-            exact_image_identification_tol_arcsec=1.0e-3,
-            match_tolerance_arcsec=5.0,
-        ),
-        truth=TruthRecoveryConfig(
-            kappa_true_fits=cluster_config.get("kappa_true_fits"),
-            gammax_true_fits=cluster_config.get("gammax_true_fits"),
-            gammay_true_fits=cluster_config.get("gammay_true_fits"),
-            posterior_truth_recovery_draws=16,
-            truth_grid_size=256,
-            caustic_source_redshift=9.0,
-        ),
+        search=SearchConfig(strategy=init_strategy, method=search_method, staged_method=search_method if search_method != "lbfgs" else "adam"),
+        sampling=SamplingConfig(warmup=1000, samples=1000, max_tree_depth=8, target_accept=0.85),
+        scaling=ScalingModelConfig(softening_length_kpc=float(cluster_config.get("softening_length_kpc", 0.0))),
+        truth=TruthRecoveryConfig(kappa_true_fits=cluster_config.get("kappa_true_fits"), gammax_true_fits=cluster_config.get("gammax_true_fits"),
+                                  gammay_true_fits=cluster_config.get("gammay_true_fits")),
         image_catalog=ImageCatalogCutoutConfig(
             image_dir="data/BUFFALO_Images" if is_hff else "data/ff_sims",
             image_scale="auto",
@@ -465,7 +290,16 @@ def build_config(
             rgb=RGBDisplayConfig(**HFF_RGB_DISPLAY) if is_hff else FF_RGB_DISPLAY,
         ),
     )
-
+    if fast:
+        # Exploratory: members deflecting every image by < 0.03" leave the model (Ares: 332 -> ~150), far-field members
+        # allowed down to 2 cut radii, classification at the current model, fewer starts, shorter chains at tree depth 7.
+        config = replace(
+            config,
+            search=replace(config.search, n_starts=32),
+            sampling=SamplingConfig(warmup=500, samples=500, max_tree_depth=7, target_accept=0.8),
+            members=replace(config.members, far_field_cut_radii=2.0, classification_prior_quantile=None, min_deflection_arcsec=0.03),
+        )
+    return config
 
 def main(argv=None):
     options = _parse_args(sys.argv if argv is None else argv)
@@ -479,14 +313,15 @@ def main(argv=None):
         configure_cpu_runtime(runtime.chains, runtime.nuts_chain_method, runtime.cpu_threads_per_chain)
     config = build_config(cluster, cores=cores, campaign_name=options["campaign_name"], run_label=options["run_label"],
                           image_metadata=options["image_metadata"], runtime=runtime, search_method=options["search_method"],
-                          init_strategy=options["init_strategy"]).validate()
+                          init_strategy=options["init_strategy"], fast=options["fast"]).validate()
     if options["dry_run"]:
         from lenscluster.pipeline import dry_run
         print(json.dumps({"dry_run": True, "cpu_plan": cpu_plan.to_dict(), **dry_run(config)}, indent=2, default=str))
         return 0
     from lenscluster.pipeline import run
     print(f"[config] cluster={cluster} run_name={config.paths.run_name} output_dir={config.paths.output_dir} "
-          f"stage={options["stage"]} init={config.search.strategy} chains={runtime.chains} search={config.search.method}/{config.search.staged_method} n_starts={config.search.n_starts} sigma_obs_floor_arcsec={config.model.image_constraints.sigma_floor_arcsec}")
+          f"stage={options['stage']} init={config.search.strategy} chains={runtime.chains} search={config.search.method}/{config.search.staged_method} "
+          f"n_starts={config.search.n_starts} fast={options['fast']} sigma_obs_arcsec={config.model.image_constraints.sigma_arcsec}")
     start = time.monotonic()
     try:
         run(config, stage=options["stage"])

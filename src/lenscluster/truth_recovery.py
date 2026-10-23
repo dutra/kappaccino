@@ -17,6 +17,7 @@ from scipy.ndimage import gaussian_filter, map_coordinates
 from .config import TruthRecoveryConfig
 from .evaluator import Evaluator
 from .model import ModelState
+from .utils import progress
 
 QUANTITIES = ("kappa", "gamma1", "gamma2", "detA", "mu", "abs_mu")
 APERTURE_CENTER_SMOOTHING_SIGMA_PIX = 2.0
@@ -183,7 +184,7 @@ def compute_truth_recovery(state: ModelState, evaluator: Evaluator, samples: np.
     finite = np.isfinite(x) & np.isfinite(y)
     flat_x, flat_y = x[finite], y[finite]
     grids = {q: np.full((len(realizations),) + shape, np.nan) for q in QUANTITIES}
-    for index, theta in enumerate(realizations):
+    for index, theta in enumerate(progress(realizations, desc="truth grids")):
         quantities = lens_quantities(evaluator, theta, z_source, flat_x, flat_y)
         for q in QUANTITIES:
             grids[q][index][finite] = quantities[q]

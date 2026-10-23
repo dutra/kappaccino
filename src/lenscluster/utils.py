@@ -10,6 +10,12 @@ from astropy.coordinates import SkyCoord
 from .jax_cosmology import kpc_per_arcsec_from_config
 
 
+def progress(iterable=None, *, total: int | None = None, desc: str = ""):
+    """A tqdm bar (stderr, cleared when done) around a loop or used manually with ``update``."""
+    from tqdm.auto import tqdm
+    return tqdm(iterable, total=total, desc=desc, leave=False, dynamic_ncols=True)
+
+
 DPIE_MASS_GRAVITATIONAL_CONSTANT_KPC_KMS2_PER_MSUN = 4.30091e-6
 
 

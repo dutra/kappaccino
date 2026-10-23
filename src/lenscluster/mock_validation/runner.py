@@ -16,7 +16,7 @@ import pandas as pd
 from .. import pipeline
 from ..config import DPIEHaloConfig
 from ..model import ModelState, PosteriorResults
-from ..utils import log10_dpie_mass_msun
+from ..utils import log10_dpie_mass_msun, progress
 from .aperture import APERTURE_RADII_KPC, COMPONENT_GROUPS, aperture_profiles, truth_groups
 from .config import MockValidationConfig, solver_config_for_mock
 from .generation import MockClusterPaths, generate_single_bcg_mock
@@ -162,7 +162,7 @@ def m2d_recovery(state: ModelState, config_model, posterior: PosteriorResults, t
     physical = np.asarray(posterior.physical, dtype=float)
     draws = physical[np.unique(np.linspace(0, len(physical) - 1, min(int(max_draws), len(physical))).astype(int))]
     per_group = {g: [] for g in (*COMPONENT_GROUPS, "total")}
-    for row in draws:
+    for row in progress(draws, desc="aperture draws"):
         for group, profile in aperture_profiles(radii, model_groups(state, config_model, row, name_index)).items():
             per_group[group].append(profile)
     rows = []

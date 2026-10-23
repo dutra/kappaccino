@@ -12,6 +12,7 @@ from .config import ImageDiagnosticsConfig
 from .evaluator import Evaluator
 from .exact_images import ExactImageSolver
 from .model import ModelState, PosteriorResults
+from .utils import progress
 
 
 def predictions_at(solver: ExactImageSolver, state: ModelState, evaluator: Evaluator, theta: np.ndarray) -> dict[str, Any]:
@@ -71,7 +72,7 @@ def image_recovery_tables(state: ModelState, evaluator: Evaluator, posterior: Po
     draws = posterior.samples[np.linspace(0, len(posterior.samples) - 1, n_draws).astype(int)] if n_draws else np.empty((0, state.n_parameters))
     by_label: dict[str, list[dict[str, Any]]] = {}
     rms_rows, draw_rows = [], []
-    for draw_index, theta in enumerate(draws):
+    for draw_index, theta in enumerate(progress(draws, desc="exact images")):
         prediction = predictions_at(solver, state, evaluator, theta)
         residuals = np.asarray([r["image_residual_arcsec"] for r in prediction["image_rows"]], dtype=float)
         rms_rows.append({"draw_index": draw_index, "recovered_image_count": int(np.isfinite(residuals).sum()),

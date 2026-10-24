@@ -15,21 +15,29 @@ from .model import ModelState, PosteriorResults
 from .utils import progress
 
 
-def predictions_at(solver: ExactImageSolver, state: ModelState, evaluator: Evaluator, theta: np.ndarray) -> dict[str, Any]:
+def predictions_at(solver: ExactImageSolver, state: ModelState, evaluator: Evaluator, theta: np.ndarray, *,
+                   adaptive: bool | None = None) -> dict[str, Any]:
     """Per-image model positions, residuals and magnifications for one latent vector."""
     theta = np.asarray(theta, dtype=float)
     physical = evaluator.physical(jnp.asarray(theta))
     sources = evaluator.source_positions(jnp.asarray(theta))
     images = state.images
     family_by_id = {f.family_id: f for f in state.family_data}
+    families = [family_by_id[family_id] for family_id in images.family_ids]
+    if adaptive is False:        # posterior draws: all families in one batched local solve
+        batched = solver.predict_all_local(images, families, evaluator.packed_state(physical)[0], np.asarray(sources))
     rows, extra_rows, count_rows = [], [], []
-    for family_index, family_id in enumerate(images.family_ids):
-        family = family_by_id[family_id]
-        packed = evaluator.packed_state_for_z(physical, family.z_source)
-        details = solver.predict_family(family, packed, float(sources[family_index, 0]), float(sources[family_index, 1]))
+    for family_index, family in enumerate(families):
+        family_id = family.family_id
+        if adaptive is False:
+            details = batched[family_index]
+        else:
+            packed = evaluator.packed_state_for_z(physical, family.z_source)
+            details = solver.predict_family(family, packed, float(sources[family_index, 0]), float(sources[family_index, 1]), adaptive=adaptive)
         recovered = np.asarray(details["recovered_image_mask"], dtype=bool)
         mx, my = details["matched_model_x_arcsec"], details["matched_model_y_arcsec"]
         mu = np.asarray(details["magnification"], dtype=float)
+        mu_model = np.asarray(details["magnification_at_model"], dtype=float)
         count_rows.append({"family_id": family_id, "z_source": family.z_source, "observed_image_count": family.n_images,
                            "produced_image_count": details["produced_image_count"], "recovered_image_count": details["recovered_image_count"],
                            "missing_image_count": details["missing_image_count"], "extra_image_count": details["extra_image_count"],
@@ -45,7 +53,7 @@ def predictions_at(solver: ExactImageSolver, state: ModelState, evaluator: Evalu
                          "radius_arcsec": math.hypot(x_obs, y_obs), "angle_deg": math.degrees(math.atan2(y_obs, x_obs)),
                          "image_recovery_status": "recovered" if recovered[k] else "not_recovered",
                          "x_model_arcsec": float(mx[k]), "y_model_arcsec": float(my[k]), "image_residual_arcsec": float(residual),
-                         "magnification_model": float(mu[k]),
+                         "magnification_model": float(mu[k]), "magnification_model_at_model_position": float(mu_model[k]),
                          "model_produced_image_count": details["produced_image_count"], "model_recovered_image_count": details["recovered_image_count"],
                          "model_missing_image_count": details["missing_image_count"], "model_extra_image_count": details["extra_image_count"],
                          "model_multiplicity_failed": bool(details["multiplicity_failed"]),
@@ -73,7 +81,8 @@ def image_recovery_tables(state: ModelState, evaluator: Evaluator, posterior: Po
     by_label: dict[str, list[dict[str, Any]]] = {}
     rms_rows, draw_rows = [], []
     for draw_index, theta in enumerate(progress(draws, desc="exact images")):
-        prediction = predictions_at(solver, state, evaluator, theta)
+        # Local solver only: the adaptive fallback is for the best fit; on a poor draw it costs minutes per family set.
+        prediction = predictions_at(solver, state, evaluator, theta, adaptive=False)
         residuals = np.asarray([r["image_residual_arcsec"] for r in prediction["image_rows"]], dtype=float)
         rms_rows.append({"draw_index": draw_index, "recovered_image_count": int(np.isfinite(residuals).sum()),
                          "image_rms_arcsec": float(np.sqrt(np.nanmean(residuals ** 2))) if np.isfinite(residuals).any() else np.nan})
@@ -81,7 +90,8 @@ def image_recovery_tables(state: ModelState, evaluator: Evaluator, posterior: Po
             by_label.setdefault(row["image_label"], []).append(row)
             draw_rows.append({"draw_index": draw_index, "family_id": row["family_id"], "image_label": row["image_label"],
                               "recovered": row["image_recovery_status"] == "recovered", "image_residual_arcsec": row["image_residual_arcsec"],
-                              "magnification_model": row["magnification_model"]})
+                              "magnification_model": row["magnification_model"],
+                              "magnification_model_at_model_position": row["magnification_model_at_model_position"]})
     log(f"[diagnostics] exact images at best fit + {n_draws} draws in {solver.timing['exact_solver']:.1f}s of solver time")
     image_rows = []
     for row in best["image_rows"]:
@@ -90,18 +100,23 @@ def image_recovery_tables(state: ModelState, evaluator: Evaluator, posterior: Po
         y16, y50, y84 = _quantiles([d["y_model_arcsec"] for d in draws_for])
         r16, r50, r84 = _quantiles([d["image_residual_arcsec"] for d in draws_for])
         m16, m50, m84 = _quantiles([d["magnification_model"] for d in draws_for])
+        p16, p50, p84 = _quantiles([d["magnification_model_at_model_position"] for d in draws_for])
         sigma = float(row["sigma_arcsec"])
         image_rows.append({**row, "x_model_q16": x16, "x_model_q50": x50, "x_model_q84": x84,
                            "y_model_q16": y16, "y_model_q50": y50, "y_model_q84": y84,
                            "image_residual_q16": r16, "image_residual_q50": r50, "image_residual_q84": r84,
                            "magnification_model_q16": m16, "magnification_model_q50": m50, "magnification_model_q84": m84,
+                           "magnification_model_at_model_position_q16": p16, "magnification_model_at_model_position_q50": p50,
+                           "magnification_model_at_model_position_q84": p84,
                            "residual_norm": float(row["image_residual_arcsec"]) / sigma if sigma > 0 else np.nan,
                            "posterior_valid_draws": int(sum(np.isfinite(d["x_model_arcsec"]) for d in draws_for)),
                            "posterior_failed_draws": int(sum(not np.isfinite(d["x_model_arcsec"]) for d in draws_for))})
     image_df = pd.DataFrame(image_rows)
-    magnification_df = image_df[[c for c in image_df.columns if c in {"family_id", "image_label", "x_obs_arcsec", "y_obs_arcsec",
-                                 "z_source", "image_recovery_status", "magnification_model", "magnification_model_q16",
-                                 "magnification_model_q50", "magnification_model_q84"}]].copy() if not image_df.empty else pd.DataFrame()
+    magnification_columns = ["family_id", "image_label", "x_obs_arcsec", "y_obs_arcsec", "z_source", "image_recovery_status", "x_model_arcsec", "y_model_arcsec",
+                             "magnification_model", "magnification_model_q16", "magnification_model_q50", "magnification_model_q84",
+                             "magnification_model_at_model_position", "magnification_model_at_model_position_q16",
+                             "magnification_model_at_model_position_q50", "magnification_model_at_model_position_q84"]
+    magnification_df = image_df[[c for c in magnification_columns if c in image_df.columns]].copy() if not image_df.empty else pd.DataFrame()
     count_df = pd.DataFrame(best["count_rows"])
     return {"image_fit_quality": image_df, "image_count_recovery": count_df, "model_magnification": magnification_df,
             "image_recovery_extra_images": pd.DataFrame(best["extra_rows"]), "posterior_image_rms": pd.DataFrame(rms_rows),

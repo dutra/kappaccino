@@ -283,7 +283,9 @@ class Evaluator:
             packed = self.packed_state(physical)[0]
         xy = self.xy
         components = np.arange(self.n_components, dtype=np.int32) if force_exact else self.exact_components
-        alpha_rows, u_rows, du_rows = self.component_rows(xy, packed, components, derivative=True)
+        rows = self.component_rows(xy, packed, components, derivative=derivative)
+        alpha_rows, u_rows = rows[:2]
+        du_rows = rows[2] if derivative else None
         alpha, u = jnp.sum(alpha_rows, axis=0), jnp.sum(u_rows, axis=0)
         du = jnp.sum(du_rows, axis=0) if derivative else jnp.zeros(xy.shape + (2, 2), dtype=xy.dtype)
         n_members, n_images = len(self.member_components), xy.shape[0]

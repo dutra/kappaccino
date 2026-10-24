@@ -4,6 +4,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
+import jax
 import jax.numpy as jnp
 import numpy as np
 from lenstronomy.LensModel.lens_model import LensModel as NPLensModel
@@ -43,6 +44,7 @@ class ExactImageSolver:
         self.models_by_z: dict[float, tuple[NPLensModel, NPLensEquationSolver]] = {}
         self.timing: dict[str, float] = {"exact_solver": 0.0}
         self.all_components = np.arange(evaluator.n_components, dtype=np.int32)
+        self._per_image_fields = None
 
     # ------------------------------------------------------------------ lens fields at arbitrary points
     def ray_shoot_and_jacobian(self, packed: PackedLensState, x: np.ndarray, y: np.ndarray):
@@ -50,6 +52,21 @@ class ExactImageSolver:
         alpha, u = self.evaluator.total_fields_at(xy, packed, self.all_components)
         a = np.eye(2) - u
         return (xy[:, 0] - alpha[:, 0], xy[:, 1] - alpha[:, 1], a[:, 0, 0], a[:, 0, 1], a[:, 1, 0], a[:, 1, 1])
+
+    def ray_shoot_and_jacobian_per_image(self, packed_images: PackedLensState, x: np.ndarray, y: np.ndarray):
+        """As ray_shoot_and_jacobian, for the N constrained images at once with the per-image packed state (normalizations of
+        shape (component, image), so every point carries its own source redshift); one jitted call per iteration."""
+        if self._per_image_fields is None:
+            components = self.all_components
+
+            def fields(xy, packed_state):
+                alpha_rows, u_rows = self.evaluator.component_rows(xy, packed_state, components)
+                return jnp.sum(alpha_rows, axis=0), jnp.sum(u_rows, axis=0)
+            self._per_image_fields = jax.jit(fields)
+        xy = jnp.stack((jnp.asarray(x, dtype=jnp.float64), jnp.asarray(y, dtype=jnp.float64)), -1)
+        alpha, u = self._per_image_fields(xy, packed_images)
+        alpha, a = np.asarray(alpha), np.eye(2) - np.asarray(u)
+        return (np.asarray(x, dtype=float) - alpha[:, 0], np.asarray(y, dtype=float) - alpha[:, 1], a[:, 0, 0], a[:, 0, 1], a[:, 1, 0], a[:, 1, 1])
 
     def magnification(self, packed: PackedLensState, x: np.ndarray, y: np.ndarray) -> np.ndarray:
         _, _, a00, a01, a10, a11 = self.ray_shoot_and_jacobian(packed, x, y)
@@ -84,8 +101,9 @@ class ExactImageSolver:
             dx, dy = dx * scale, dy * scale
         return dx, dy, finite & np.isfinite(dx) & np.isfinite(dy)
 
-    def _refine(self, packed, source_x, source_y, start_x, start_y) -> dict[str, np.ndarray]:
+    def _refine(self, packed, source_x, source_y, start_x, start_y, *, shoot=None) -> dict[str, np.ndarray]:
         cfg = self.config
+        shoot = self.ray_shoot_and_jacobian if shoot is None else shoot
         x = np.asarray(start_x, dtype=float).copy()
         y = np.asarray(start_y, dtype=float).copy()
         n = x.size
@@ -95,7 +113,7 @@ class ExactImageSolver:
         final_step = np.full(n, np.inf)
         final_source = np.full(n, np.inf)
         for step in range(int(cfg.exact_image_lm_max_iter)):
-            bx, by, a00, a01, a10, a11 = self.ray_shoot_and_jacobian(packed, x, y)
+            bx, by, a00, a01, a10, a11 = shoot(packed, x, y)
             rx, ry = bx - source_x, by - source_y
             dx, dy, ok = self._lm_step(rx, ry, a00, a01, a10, a11)
             step_norm = np.sqrt(dx ** 2 + dy ** 2)
@@ -112,7 +130,7 @@ class ExactImageSolver:
             finite &= ok & np.isfinite(x) & np.isfinite(y)
             if np.all(converged | ~finite):
                 break
-        bx, by, a00, a01, a10, a11 = self.ray_shoot_and_jacobian(packed, x, y)
+        bx, by, a00, a01, a10, a11 = shoot(packed, x, y)
         rx, ry = bx - source_x, by - source_y
         cx, cy, ok = self._lm_step(rx, ry, a00, a01, a10, a11)
         root_error = np.sqrt(cx ** 2 + cy ** 2)
@@ -142,6 +160,8 @@ class ExactImageSolver:
                         best_score, best = float(score[k]), {key: np.asarray(value)[k] for key, value in refined.items()}
                     if best is not None and bool(best["identification_pass"]):
                         break
+                    if not np.isfinite(score).any() and best is None:
+                        break                                   # nothing finite from nine starts: a smaller box will not help
                     r *= 0.5
                 if best is not None and bool(best["identification_pass"]):
                     for key in result:
@@ -160,13 +180,17 @@ class ExactImageSolver:
             precision_limit=float(self.config.exact_image_precision_limit))
         return np.asarray(x, dtype=float), np.asarray(y, dtype=float)
 
-    def solve(self, family: FamilyData, packed, source_x: float, source_y: float):
+    def solve(self, family: FamilyData, packed, source_x: float, source_y: float, *, adaptive: bool | None = None):
+        """Model image positions of one family.  ``adaptive`` overrides the configured finder's fallback search; the
+        posterior-draw diagnostics switch it off because a draw whose images the local solver cannot find from the
+        observed positions is a failed recovery, and the fallback costs minutes per draw on a bad model."""
         started = time.perf_counter()
         try:
             finder = self.config.exact_image_finder
             if finder == "lenstronomy":
                 return self.solve_lenstronomy(family, packed, source_x, source_y)
-            return self.solve_local_lm(family, packed, source_x, source_y, adaptive=finder == "local-lm-adaptive")
+            return self.solve_local_lm(family, packed, source_x, source_y,
+                                       adaptive=(finder == "local-lm-adaptive") if adaptive is None else bool(adaptive))
         finally:
             self.timing["exact_solver"] += time.perf_counter() - started
 
@@ -209,22 +233,64 @@ class ExactImageSolver:
         return out
 
     # ------------------------------------------------------------------ per family prediction
-    def predict_family(self, family: FamilyData, packed: PackedLensState, source_x: float, source_y: float) -> dict[str, Any]:
-        """Model images of one family: matched positions, recovery mask, extra images, magnifications."""
+    def _details(self, family: FamilyData, x_pred: np.ndarray, y_pred: np.ndarray, mu: np.ndarray, *, error: str | None = None) -> dict[str, Any]:
         details: dict[str, Any] = {"failed": True, "exact_image_rms": np.nan}
-        mu = self.magnification(packed, family.x_obs, family.y_obs)
-        try:
-            x_pred, y_pred = self.solve(family, packed, source_x, source_y)
-        except Exception as error:
-            details.update(self.match(np.asarray([]), np.asarray([]), family))
+        details.update(self.match(np.asarray(x_pred, dtype=float), np.asarray(y_pred, dtype=float), family))
+        if error is not None:
             details["multiplicity_failure_reason"] = f"exact_image_prediction_failed: {error}"
-            details["magnification"] = mu
-            return details
-        details.update(self.match(x_pred, y_pred, family))
         recovered = details["recovered_image_mask"]
         if recovered.any():
             residual = np.sqrt((details["matched_model_x_arcsec"] - family.x_obs) ** 2 + (details["matched_model_y_arcsec"] - family.y_obs) ** 2)
             details["exact_image_rms"] = float(np.sqrt(np.nanmean(residual[recovered] ** 2)))
             details["failed"] = not bool(recovered.all())
-        details["magnification"] = mu
+        details["magnification"] = mu                                        # model magnification at the observed positions
+        details["magnification_at_model"] = np.full(family.n_images, np.nan)  # and at the recovered model positions (filled by the caller)
+        return details
+
+    def predict_family(self, family: FamilyData, packed: PackedLensState, source_x: float, source_y: float, *,
+                       adaptive: bool | None = None) -> dict[str, Any]:
+        """Model images of one family: matched positions, recovery mask, extra images, magnifications."""
+        mu = self.magnification(packed, family.x_obs, family.y_obs)
+        try:
+            x_pred, y_pred = self.solve(family, packed, source_x, source_y, adaptive=adaptive)
+        except Exception as error:
+            return self._details(family, np.asarray([]), np.asarray([]), mu, error=str(error))
+        details = self._details(family, x_pred, y_pred, mu)
+        recovered = details["recovered_image_mask"]
+        if recovered.any():
+            details["magnification_at_model"][recovered] = self.magnification(
+                packed, details["matched_model_x_arcsec"][recovered], details["matched_model_y_arcsec"][recovered])
+        return details
+
+    def predict_all_local(self, images, families: list[FamilyData], packed_images: PackedLensState, sources: np.ndarray) -> list[dict[str, Any]]:
+        """Every family of one model in a single batched local solve from the observed positions (no fallback search):
+        one Levenberg-Marquardt pass over all N images with per-image source redshifts.  ``families`` is in the order of
+        ``images.family_ids`` and ``sources`` is (F, 2)."""
+        started = time.perf_counter()
+        x0, y0 = np.asarray(images.x_obs, dtype=float), np.asarray(images.y_obs, dtype=float)
+        family_index = np.asarray(images.family_index_per_image, dtype=int)
+        sources = np.asarray(sources, dtype=float)
+        result = self._refine(packed_images, sources[family_index, 0], sources[family_index, 1], x0, y0, shoot=self.ray_shoot_and_jacobian_per_image)
+        _, _, a00, a01, a10, a11 = self.ray_shoot_and_jacobian_per_image(packed_images, x0, y0)
+        mu = 1.0 / (a00 * a11 - a01 * a10)
+        self.timing["exact_solver"] += time.perf_counter() - started
+        details = []
+        for f, family in enumerate(families):
+            sel = family_index == f
+            ok = np.asarray(result["identification_pass"])[sel]
+            if ok.any():
+                details.append(self._details(family, np.asarray(result["x"])[sel][ok], np.asarray(result["y"])[sel][ok], mu[sel]))
+            else:
+                details.append(self._details(family, np.asarray([]), np.asarray([]), mu[sel], error="local exact image solver failed identification tolerance"))
+        # Magnification at the recovered model positions: one more per-image evaluation (unrecovered images keep the observed position, masked).
+        x_model, y_model, recovered = x0.copy(), y0.copy(), np.zeros(x0.size, dtype=bool)
+        for f, d in enumerate(details):
+            sel = family_index == f
+            mask = d["recovered_image_mask"]
+            x_model[np.flatnonzero(sel)[mask]], y_model[np.flatnonzero(sel)[mask]] = d["matched_model_x_arcsec"][mask], d["matched_model_y_arcsec"][mask]
+            recovered[np.flatnonzero(sel)[mask]] = True
+        _, _, b00, b01, b10, b11 = self.ray_shoot_and_jacobian_per_image(packed_images, x_model, y_model)
+        mu_model = np.where(recovered, 1.0 / (b00 * b11 - b01 * b10), np.nan)
+        for f, d in enumerate(details):
+            d["magnification_at_model"] = mu_model[family_index == f]
         return details

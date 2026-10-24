@@ -299,6 +299,7 @@ class ImageDiagnosticsConfig:
     exact_image_lm_trust_radius_arcsec: float = 1.0
     exact_image_adaptive_max_levels: int = 8
     match_tolerance_arcsec: float = 5.0
+    posterior_diagnostic_draws: int = 32  # additional joint field draws; zero reports the best fit only
 
 
 @dataclass(frozen=True)
@@ -474,6 +475,9 @@ def validate_config(config: LensClusterSolverConfig) -> None:
     if likelihood.pos_sigma_arcsec is not None:
         _positive("pos_sigma_arcsec", likelihood.pos_sigma_arcsec)
     diagnostics = config.image_diagnostics
+    count = diagnostics.posterior_diagnostic_draws
+    if isinstance(count, bool) or not isinstance(count, Integral) or count < 0:
+        raise ValueError("image_diagnostics.posterior_diagnostic_draws must be a nonnegative integer.")
     if int(diagnostics.posterior_image_diagnostic_draws) < 0:
         raise ValueError("image_diagnostics.posterior_image_diagnostic_draws must be nonnegative.")
     if diagnostics.exact_image_finder not in {"lenstronomy", "local-lm", "local-lm-adaptive"}:

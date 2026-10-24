@@ -89,6 +89,18 @@ paper figures under `aggregate_plots/`: parameter recovery, subhalo mass functio
 magnification recovery, aperture-mass components of the representative seed, and the
 image-residual distribution.
 
+## Member diagnostics
+
+The normal plotting workflow also writes `member_deviations.pdf` (one multipage PDF),
+`member_constraints.pdf`, `whitened_image_residuals.pdf`, `far_field_accuracy.pdf`, and
+`<population>_scaling_correlations.pdf`, with the configured figure prefix. Numerical
+products and variable definitions are saved in `final/tables/member_diagnostic_*`
+and `image_field_diagnostics.csv`. The suite uses existing inputs only.
+
+`ImageDiagnosticsConfig(posterior_diagnostic_draws=32)` controls additional joint
+draws for exact field diagnostics; zero uses only the best fit. Inexpensive member
+summaries still use the full posterior.
+
 ## Package layout
 
 - `config.py`: typed configuration dataclasses and validation.

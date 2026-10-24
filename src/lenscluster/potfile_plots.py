@@ -55,7 +55,7 @@ def plot_potfile_corner(samples, specs, population, path):
     if len(samples) < 3 or len(selection) < 2:
         return None
     selection = [(i, spec, label) for i, spec, label in selection if np.ptp(samples[:, i]) > 0]
-    if len(selection) < 2:
+    if len(selection) < 2 or len(samples) <= len(selection) + 1:   # corner needs more samples than dimensions
         return None
     values = samples[:, [i for i, _, _ in selection]]
     spans = np.ptp(values, axis=0)

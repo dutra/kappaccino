@@ -115,7 +115,7 @@ def plot_corner(samples: np.ndarray, specs: list[ParameterSpec], path: Path, *, 
     values = values[finite]
     spans = values.max(axis=0) - values.min(axis=0)
     dynamic = np.isfinite(spans) & (spans > 0)
-    if dynamic.sum() < 2 or values.shape[0] < 3:
+    if dynamic.sum() < 2 or values.shape[0] <= int(dynamic.sum()) + 1:   # corner needs more samples than dimensions
         return None
     values = values[:, dynamic]
     labels = [specs[i].name for i, d in zip(keep, dynamic) if d]

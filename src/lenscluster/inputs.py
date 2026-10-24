@@ -222,7 +222,7 @@ def declared_model_inputs(model_config: LensModelConfig, scaling: Any = None) ->
         catalog_df = _apply_catalog_exclusions(catalog_df, population)
         sigma_entry = prior_config_to_limit_entry(population.sigma_prior, default_fixed_value=float(population.sigma))
         cutkpc_entry = prior_config_to_limit_entry(population.cutkpc_prior, default_fixed_value=float(population.cutkpc))
-        sigma_nominal, cutkpc_nominal, pivot = float(population.sigma), float(population.cutkpc), None
+        sigma_nominal, cutkpc_nominal, corekpc_nominal, pivot = float(population.sigma), float(population.cutkpc), float(population.corekpc), None
         if isinstance(population.mag0, str):
             if scaling is None:
                 raise ValueError("mag0='auto' needs the scaling configuration to move the priors to the pivot.")
@@ -232,14 +232,14 @@ def declared_model_inputs(model_config: LensModelConfig, scaling: Any = None) ->
             f_sigma, f_cut = ratio ** float(scaling.alpha_sigma_prior_mean), ratio ** float(scaling.beta_radius_prior_mean)
             pivot.update(luminosity_ratio=ratio, sigma_factor=f_sigma, cutkpc_factor=f_cut)
             sigma_entry, cutkpc_entry = _scale_limit_entry(sigma_entry, f_sigma), _scale_limit_entry(cutkpc_entry, f_cut)
-            sigma_nominal, cutkpc_nominal = sigma_nominal * f_sigma, cutkpc_nominal * f_cut
+            sigma_nominal, cutkpc_nominal, corekpc_nominal = sigma_nominal * f_sigma, cutkpc_nominal * f_cut, corekpc_nominal * f_cut
             mag0 = pivot["mag0"]
         else:
             mag0 = float(population.mag0)
         potfiles.append({
             "id": str(population.id), "type": int(population.profile_type),
             "catalog_path": str(population.catalog_path), "catalog_df": catalog_df,
-            "mag0": mag0, "pivot": pivot, "corekpc": float(population.corekpc), "zlens": float(population.z_lens),
+            "mag0": mag0, "pivot": pivot, "corekpc": float(population.corekpc), "corekpc_nominal": corekpc_nominal, "zlens": float(population.z_lens),
             "sigma": sigma_entry, "sigma_nominal": sigma_nominal, "cutkpc": cutkpc_entry, "cutkpc_nominal": cutkpc_nominal,
         })
     return potentials, potfiles, images_df, cosmo_config, reference

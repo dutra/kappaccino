@@ -260,6 +260,8 @@ class ScalingModelConfig:
     member_radius_scatter_prior: LogNormalPriorConfig = field(default_factory=lambda: LogNormalPriorConfig(median=0.3, log_sigma=0.5))
     radius_deviation_members: str = "exact"  # which members' radius deviations act on the model: "exact" (far-field members keep
                                             # the relation radius, so they cannot cross the far-field guard) or "all"
+    fit_corekpc: bool = True                # sample the member core radius at the pivot; False fixes it at the population's corekpc
+                                            # moved to the pivot (a 0.1 kpc member core is not a lensing observable)
     # Faber-Jackson slope 0.27-0.28 and beta_cut 0.64-0.66 in three MUSE-calibrated clusters (Bergamini et al. 2019).
     alpha_sigma_prior_mean: float = 0.27
     alpha_sigma_prior_std: float = 0.05

@@ -351,7 +351,8 @@ def build_scaling_parameter_specs(potfiles: list[dict[str, Any]], scaling: Any, 
                 priors[field_name]["step"] = step
             priors[field_name].update(override)
         field_index: dict[str, int] = {}
-        for field_name in ("sigma", "cutkpc", "corekpc", "alpha_sigma", "beta_radius"):
+        fields = ("sigma", "cutkpc", "corekpc", "alpha_sigma", "beta_radius") if getattr(scaling, "fit_corekpc", True) else ("sigma", "cutkpc", "alpha_sigma", "beta_radius")
+        for field_name in fields:
             prior = priors[field_name]
             physical_lower, physical_upper = float(prior["lower"]), float(prior["upper"])
             physical_mean = None if prior.get("mean") is None else float(prior["mean"])
@@ -386,7 +387,7 @@ def build_member_components(potfiles, reference, scaling_param_indices, *, start
         catalog_df = potfile["catalog_df"]
         if catalog_df.empty:
             continue
-        core_radius_kpc = float(potfile["corekpc"])
+        core_radius_kpc = float(potfile.get("corekpc_nominal", potfile["corekpc"]))   # at the pivot, like sigma and cutkpc
         cut_radius_kpc = float(potfile["cutkpc_nominal"])
         x_offsets, y_offsets = radec_to_offsets_arcsec(catalog_df["ra"].to_numpy(dtype=float),
                                                        catalog_df["dec"].to_numpy(dtype=float), ra0_deg, dec0_deg)

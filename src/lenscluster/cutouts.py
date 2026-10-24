@@ -24,7 +24,7 @@ from .rgb import (CALIBRATED_RGB_MINIMUM_SKY_SIGMA, DEFAULT_CALIBRATED_RGB_CHANN
 IMAGE_SCALE_CHOICES = ("auto", "30mas", "60mas")
 CLUSTER_IMAGE_TOKENS = {
     "a2744": ("a2744", "abell2744"), "a370": ("a370", "abell370"), "ares": ("ares",),
-    "as1063": ("as1063", "abells1063", "rxcj2248"), "hera": ("hera",), "m0416": ("m0416", "macs0416"),
+    "as1063": ("as1063", "abells1063", "rxcj2248", "rxj2248"), "hera": ("hera",), "m0416": ("m0416", "macs0416"),
     "m0717": ("m0717", "macs0717"), "m1149": ("m1149", "macs1149"),
 }
 

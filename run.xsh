@@ -22,6 +22,7 @@ from lenscluster.config import (
     ImageConstraintsConfig,
     LensClusterSolverConfig,
     LensModelConfig,
+    MemberConfig,
     MemberPopulationConfig,
     PriorConfig,
     RGBDisplayConfig,
@@ -154,6 +155,7 @@ FF_SIMS_CLUSTERS = {
 def _hff_clusters():
     AS1063_KPC_PER_ARCSEC = kpc_per_arcsec_from_config(0.348, {"H0": 70.0, "Om0": 0.3})
     AS1063_CATALOG_DIR = "data/Bergamini/RXJ2248_Bergamini19"
+    AS1063_MSTAR_F160W = 18.33
     return {
         "AS1063": {
             "cluster_key": "as1063",
@@ -215,20 +217,17 @@ def _hff_clusters():
                     v_disp=249.68220495795586, z_lens=0.348,
                 ),
             ),
-            "member_population": MemberPopulationConfig(
-                id="potfile_1", catalog_path=f"{AS1063_CATALOG_DIR}/members.cat",
-                mag0="auto", prior_mag0=16.176001, corekpc=0.05 * AS1063_KPC_PER_ARCSEC,
-                sigma=310.0, cutkpc=10.0 * AS1063_KPC_PER_ARCSEC, z_lens=0.348,
-                # Member-scaling priors require finite bounds; cap the Gaussian tails at +10 sigma.
-                sigma_prior=PriorConfig("truncated_normal", mean=310.0, std=100.0, lower=0.0, upper=1310.0),
-                cutkpc_prior=PriorConfig(
-                    "truncated_normal", mean=10.0 * AS1063_KPC_PER_ARCSEC,
-                    std=10.0 * AS1063_KPC_PER_ARCSEC, lower=0.0, upper=110.0 * AS1063_KPC_PER_ARCSEC,
-                ),
-            ),
+            # Literature member priors at L*, as for Hera and Ares.  Bergamini et al. 2019 define L* as M_F160W = -23 with no
+            # K-correction, so m* = -23 + mu(z = 0.348) = 18.33 (their AS1063 fit, sigma 299 km/s and r_cut 6.8 kpc at the BCG
+            # magnitude 16.18, moves to 175 km/s and 25 kpc at m*, inside these priors).  The pivot itself is chosen automatically.
+            "member_population": MemberPopulationConfig.literature("potfile_1", f"{AS1063_CATALOG_DIR}/members.cat", 0.348, prior_mag0=AS1063_MSTAR_F160W),
             "independent_member_halos": (),
             "softening_length_kpc": 0.0,
             "softening_length_prior_log_sigma": 0.15,
+            # Real data: the 0.1" HST floor is too tight for a lenstool-style catalog (Bergamini's model reaches 0.55" rms).
+            "image_sigma_arcsec": 0.2,
+            # Members within 4 cut radii of an image are exact (library default 3): includes 9753, 4.2" from the fold pair 13.a/b.
+            "far_field_cut_radii": 4.0,
         },
     }
 
@@ -272,15 +271,17 @@ def build_config(
             large_halos=cluster_config["halos"],
             independent_member_halos=cluster_config["independent_member_halos"],
             member_populations=(cluster_config["member_population"],),
-            image_constraints=ImageConstraintsConfig(catalog_path=cluster_config["image_catalog"], metadata_path=image_metadata),
+            image_constraints=ImageConstraintsConfig(catalog_path=cluster_config["image_catalog"], metadata_path=image_metadata,
+                                                     sigma_arcsec=float(cluster_config.get("image_sigma_arcsec", ImageConstraintsConfig.sigma_arcsec))),
         ),
         paths=RunPathsConfig(output_dir=f"results/{campaign_name}/{cluster_config['cluster_key']}",
                              run_name=run_label if run_label is not None else "smoothed-local-image-plane",
                              figure_prefix=cluster_config["cluster_key"]),
         runtime=runtime if runtime is not None else build_runtime(cores),
-        search=SearchConfig(strategy=init_strategy, method=search_method, staged_method=search_method if search_method != "lbfgs" else "adam"),
+        search=SearchConfig(n_starts=128, strategy=init_strategy, method=search_method, staged_method=search_method if search_method != "lbfgs" else "adam"),
         sampling=SamplingConfig(warmup=1000, samples=1000, max_tree_depth=8, target_accept=0.85),
         scaling=ScalingModelConfig(softening_length_kpc=float(cluster_config.get("softening_length_kpc", 0.0))),
+        members=MemberConfig(far_field_cut_radii=float(cluster_config.get("far_field_cut_radii", MemberConfig.far_field_cut_radii))),
         truth=TruthRecoveryConfig(kappa_true_fits=cluster_config.get("kappa_true_fits"), gammax_true_fits=cluster_config.get("gammax_true_fits"),
                                   gammay_true_fits=cluster_config.get("gammay_true_fits")),
         image_catalog=ImageCatalogCutoutConfig(

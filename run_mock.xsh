@@ -7,18 +7,19 @@ os.environ["MPLBACKEND"] = "Agg"
 import sys
 import time
 from pathlib import Path
-import numpy as np
 
 cores = 4  # NUTS chains; one JAX CPU device per chain (same budget as run.xsh).
 seed_default = 12345
 output_dir_default = "validation_runs"
-# The mock injects Gaussian image-position noise of this size and the solver uses it as the catalog error (the floor
-# under the sampled sigma_obs_extra), so the coverage test checks both the error model and the mass model.
-pos_sigma_arcsec = 0.05
-# Injected member scatter in ln(sigma), at the median of the solver's scatter prior (LogNormal(0.10, 0.3)).
+# What the mock injects.  The astrometric noise is also the solver's catalog error (the floor under the sampled
+# sigma_obs_extra); the source-plane scatter is the truth of sigma_src; the member scatters are the truths of the two
+# population scatters (0.10 is the median of the solver's dispersion-scatter prior).  Unmodelled members are subhalos
+# present in the truth but missing from the catalog, the misspecification experiment.
+pos_sigma_arcsec = 0.10
+source_scatter_arcsec = 0.05
 scatter_ln = 0.10
-lens_redshift_min = 0.30
-lens_redshift_max = 0.50
+cut_scatter_ln = 0.0
+unmodelled_members = 0
 
 $MPLCONFIGDIR = "/tmp/matplotlib-lenscluster-mock"
 os.environ["MPLCONFIGDIR"] = "/tmp/matplotlib-lenscluster-mock"
@@ -30,6 +31,7 @@ from lenscluster.config import (
     LikelihoodConfig,
     RuntimeConfig,
     SamplingConfig,
+    ScalingModelConfig,
     SearchConfig,
     TruthRecoveryConfig,
 )
@@ -39,21 +41,23 @@ VALID_PRESETS = ("smoke", "production")
 
 
 def _usage() -> str:
-    return ("Usage: xonsh run_mock.xsh --campaign NAME [--preset smoke|production] [--seed INT] "
-            "[--realizations INT] [--output-dir PATH] [--aggregate-only] [--dry-run]")
+    return ("Usage: xonsh run_mock.xsh --campaign NAME [--preset smoke|production] [--mode production|idealized] [--seed INT] "
+            "[--realizations INT] [--output-dir PATH] [--aggregate-only] [--rescore] [--dry-run]\n"
+            "  --mode production: the solver uses the same priors as the real clusters (halo on the BCG light, literature member relation);\n"
+            "  --mode idealized: priors centred on each realization's truth, which isolates the sampler and the likelihood")
 
 
 def _parse_args(argv: list[str]) -> dict:
-    values = {"campaign": None, "preset": "smoke", "seed": str(seed_default), "realizations": "1",
-              "output_dir": output_dir_default, "aggregate_only": False, "dry_run": False}
-    flag_to_key = {"--campaign": "campaign", "--preset": "preset", "--seed": "seed", "--realizations": "realizations", "--output-dir": "output_dir"}
+    values = {"campaign": None, "preset": "smoke", "mode": "production", "seed": str(seed_default), "realizations": "1",
+              "output_dir": output_dir_default, "aggregate_only": False, "rescore": False, "dry_run": False}
+    flag_to_key = {"--campaign": "campaign", "--preset": "preset", "--mode": "mode", "--seed": "seed", "--realizations": "realizations", "--output-dir": "output_dir"}
     index = 1
     while index < len(argv):
         flag = argv[index]
         if flag in {"--help", "-h"}:
             print(_usage())
             raise SystemExit(0)
-        if flag in {"--aggregate-only", "--dry-run"}:
+        if flag in {"--aggregate-only", "--rescore", "--dry-run"}:
             values[flag.lstrip("-").replace("-", "_")] = True
             index += 1
             continue
@@ -69,12 +73,15 @@ def _parse_args(argv: list[str]) -> dict:
     if preset not in VALID_PRESETS:
         print(f"Preset must be 'smoke' or 'production'; got {values['preset']!r}.\n{_usage()}")
         raise SystemExit(2)
+    if values["mode"] not in {"production", "idealized"}:
+        print(f"Mode must be 'production' or 'idealized'; got {values['mode']!r}.\n{_usage()}")
+        raise SystemExit(2)
     seed, realizations = int(values["seed"]), int(values["realizations"])
     if seed < 0 or realizations <= 0:
         print("Seed must be nonnegative and realizations positive.")
         raise SystemExit(2)
-    return dict(preset=preset, seed=seed, realizations=realizations, campaign=str(values["campaign"]).strip(),
-                output_dir=str(values["output_dir"]), aggregate_only=values["aggregate_only"], dry_run=values["dry_run"])
+    return dict(preset=preset, mode=values["mode"], seed=seed, realizations=realizations, campaign=str(values["campaign"]).strip(),
+                output_dir=str(values["output_dir"]), aggregate_only=values["aggregate_only"], rescore=values["rescore"], dry_run=values["dry_run"])
 
 
 def build_runtime(seed: int) -> RuntimeConfig:
@@ -88,49 +95,33 @@ def _solver(*, production: bool, seed: int) -> LensClusterSolverConfig:
     return LensClusterSolverConfig(
         runtime=build_runtime(seed),
         search=SearchConfig() if production else SearchConfig(n_starts=8),
-        sampling=(SamplingConfig(warmup=250, samples=200, max_tree_depth=8, target_accept=0.85) if production
+        sampling=(SamplingConfig(warmup=2000, samples=1000, max_tree_depth=8, target_accept=0.85) if production
                   else SamplingConfig(warmup=100, samples=100, max_tree_depth=6, target_accept=0.85)),
         likelihood=LikelihoodConfig(pos_sigma_arcsec=pos_sigma_arcsec),
+        scaling=ScalingModelConfig(fit_corekpc=False),   # the 0.15 kpc member core is not a lensing observable; fixed at the truth value
         image_diagnostics=ImageDiagnosticsConfig(posterior_image_diagnostic_draws=64 if production else 8, match_tolerance_arcsec=3.0),
         truth=TruthRecoveryConfig(posterior_truth_recovery_draws=0),
     )
 
 
-def build_config(preset: str, *, seed: int, realizations: int, campaign_name: str, output_dir: str):
-    from lenscluster.mock_validation import MockValidationConfig, MockValidationPathsConfig, MockValidationRuntimeConfig, SingleBCGMockConfig
+def build_config(preset: str, *, seed: int, realizations: int, campaign_name: str, output_dir: str, mode: str):
+    from lenscluster.mock_validation import MockConfig, MockValidationConfig, MockValidationPathsConfig, MockValidationRuntimeConfig
     production = preset == "production"
-    n_primary_families = 15 if production else 5
-    n_subhalo_families = 5 if production else 1
-    mock = SingleBCGMockConfig(
+    mock = MockConfig(
         seed=seed,
-        n_primary_families=n_primary_families,
-        n_subhalo_families=n_subhalo_families,
-        n_subhalos=50 if production else 10,
-        subhalo_spatial_distribution="dpie",
-        subhalo_spatial_core_radius_arcsec=25.0,
-        subhalo_spatial_cut_radius_arcsec=180.0,
-        subhalo_field_radius_arcsec=250.0,
-        subhalo_force_core_count=0,
-        subhalo_sigma_scatter_dex=float(scatter_ln) / np.log(10.0),
-        subhalo_cut_scatter_dex=0.0,
-        lens_redshift_min=lens_redshift_min,
-        lens_redshift_max=lens_redshift_max,
-        min_images_per_family=3,
-        max_images_per_family=None,
-        primary_source_redshifts=np.linspace(1.5, 9.0, n_primary_families),
-        subhalo_source_redshifts=np.linspace(1.5, 9.0, n_subhalo_families),
+        mode=mode,
+        n_members=200 if production else 10,   # Hera has 332 members, AS1063 222; far-field approximation for the distant ones (library default)
+        n_primary_families=15 if production else 4,
+        n_member_families=15 if production else 1,   # galaxy-galaxy families are what constrain sigma* and r_cut*
         pos_sigma_arcsec=pos_sigma_arcsec,
-        mock_image_candidate_batch_size=1024,
-        mock_image_seed_cap=64,
-        mock_image_search_window_arcsec=80.0,
-        primary_seed_grid_pixel_arcsec=1.0,
-        subhalo_seed_grid_pixel_arcsec=1.0,
-        max_sources_to_try=400,
-        mock_generation_workers=cores if production else 1,
+        source_scatter_arcsec=source_scatter_arcsec,
+        sigma_scatter_ln=scatter_ln,
+        cut_scatter_ln=cut_scatter_ln,
+        unmodelled_members=unmodelled_members,
     )
     return MockValidationConfig(
         mock=mock,
-        paths=MockValidationPathsConfig(output_dir=output_dir, campaign_name=campaign_name, run_name=f"single_bcg_{preset}"),
+        paths=MockValidationPathsConfig(output_dir=output_dir, campaign_name=campaign_name, run_name=f"analytic_{mode}_{preset}"),
         runtime=MockValidationRuntimeConfig(realizations=realizations, seed=seed, resume=True, quiet=False),
         solver=_solver(production=production, seed=seed),
     )
@@ -143,18 +134,20 @@ def main(argv=None):
     if not options["dry_run"]:
         configure_cpu_runtime(runtime.chains, runtime.nuts_chain_method, runtime.cpu_threads_per_chain)
     config = build_config(options["preset"], seed=options["seed"], realizations=options["realizations"],
-                          campaign_name=options["campaign"], output_dir=options["output_dir"]).validate()
+                          campaign_name=options["campaign"], output_dir=options["output_dir"], mode=options["mode"]).validate()
     campaign_dir = Path(config.paths.output_dir) / config.paths.campaign_name / config.paths.run_name
     if options["dry_run"]:
         print(json.dumps({"dry_run": True, "cpu_plan": cpu_plan.to_dict(), "campaign_dir": str(campaign_dir), **config.to_json_dict()}, indent=2, default=str))
         return 0
-    from lenscluster.mock_validation import run_mock_validation, write_aggregate_plots
-    print(f"[config] preset={options['preset']} seed={options['seed']} realizations={options['realizations']} "
-          f"scatter_ln={scatter_ln} pos_sigma_arcsec={pos_sigma_arcsec} n_subhalos={config.mock.n_subhalos} "
+    from lenscluster.mock_validation import rescore_mock_validation, run_mock_validation, write_aggregate_plots
+    print(f"[config] preset={options['preset']} mode={options['mode']} seed={options['seed']} realizations={options['realizations']} "
+          f"scatter_ln={scatter_ln} pos_sigma_arcsec={pos_sigma_arcsec} source_scatter_arcsec={source_scatter_arcsec} members={config.mock.n_members} "
           f"n_starts={config.solver.search.n_starts} chains={cores} cpus={cpu_plan.selected_cpu_ids} campaign_dir={campaign_dir}")
     start = time.monotonic()
     try:
-        if not options["aggregate_only"]:
+        if options["rescore"]:
+            rescore_mock_validation(config)
+        elif not options["aggregate_only"]:
             run_mock_validation(config)
         for path in write_aggregate_plots(campaign_dir):
             print(f"[aggregate] {path}")

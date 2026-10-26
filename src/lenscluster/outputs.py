@@ -18,6 +18,7 @@ from .model import ModelState, PosteriorResults
 from .potfile_plots import write_potfile_plots
 from .member_diagnostic_plots import write_member_diagnostic_plots
 from .truth_recovery import compute_truth_recovery
+from .results_tex import write_run_results
 
 
 def posterior_summary_table(state: ModelState, posterior: PosteriorResults) -> pd.DataFrame:
@@ -89,6 +90,11 @@ def write_outputs(config: LensClusterSolverConfig, state: ModelState, evaluator:
     truth = compute_truth_recovery(state, evaluator, np.asarray(posterior.samples), config.truth, paths.fits, tables,
                                    seed=config.runtime.seed, log=log)
     if truth is not None:
+        from .exact_images import astropy_cosmology
+        from .magnification_recovery_plot import write_magnification_recovery
+        write_magnification_recovery(truth, image_df, state.reference, state.z_lens,
+                                     astropy_cosmology(state.cosmo_config), config.truth,
+                                     figures, tables, prefix, log=log)
         plots.plot_truth_recovery_residuals(truth, image_df, plots.figure_path(figures, "truth_recovery_residuals.pdf", prefix))
         if truth["profile"] is not None:
             plots.plot_m2d_aperture_ratio(truth["profile"], truth["center"], image_df, truth["mass_per_kappa_pixel_msun"],
@@ -110,4 +116,5 @@ def write_outputs(config: LensClusterSolverConfig, state: ModelState, evaluator:
                                        tables_dir=tables, fits_dir=paths.fits)
             log(f"[outputs] cluster mass figure rendered from {imaging[3]} imaging")
     (tables / "run_summary.json").write_text(json.dumps(summary, indent=2, default=float))
+    write_run_results(paths.root, name=prefix)
     return summary

@@ -136,3 +136,43 @@ summaries still use the full posterior.
 ```
 
 `tests/test_pipeline.py` runs both stages on a synthetic cluster.
+
+### Results for manuscript LaTeX
+
+Every final run exports `final/tables/<figure_prefix>_results.tex`; aggregate mock
+plotting exports `aggregate_plots/mock_results.tex`. Include a file with
+`\input{path/to/hera_results.tex}` and use commands such as `\HeraNImages`,
+`\HeraNRecovered`, `\HeraRMS`, `\HeraMedianResidual`, and `\HeraRuntime`.
+Residual values are in arcseconds (add units in the manuscript). Runtime includes
+upright hours, minutes, and seconds and works in text or math mode. Names contain
+only letters: M0416 uses `MJZeroFourOneSix`, AS1063 uses `ASOneZeroSixThree`.
+
+The export also includes family/member counts, recovery percentage, R-hat, ESS,
+divergences, configured chain lengths, and sampling runtime. Full-run wall time
+is recorded for fresh complete runs; unavailable historical totals are explicitly
+marked `not available`. Sampling runtime is separate and is not substituted for
+full runtime. Mock counts sum included best-fit realizations; mock RMS and median
+residual follow the aggregate figure's median across mock/draw groups. Concurrent
+campaign runtime is not inferred by adding individual run durations.
+
+Regenerate these files from saved cluster artifacts without inference or plotting:
+
+```sh
+PYTHONPATH=src /home/dutra/.conda/envs/lenstronomy/bin/python -m lenscluster.results_tex path/to/run/final
+```
+
+For simulated clusters with convergence and shear truth maps, normal outputs also
+write `<prefix>_magnification_recovery.pdf`. Blue diamonds compare truth and the
+best-fit exact model at the observed positions and each family's source redshift.
+The gray map distribution and orange binned medians use the configured truth-map
+source redshift (9 for Hera and Ares) and the coordinatewise median model. The
+orange error bars are spatial 16–84 percentiles, not posterior uncertainties.
+The field is restricted to the image-position convex hull and true `|mu| >= 1`.
+CSV tables and `magnification_recovery_provenance.json` record the inputs, bins,
+redshifts, and points outside the displayed limits. No truth map means no plot.
+
+Regenerate just this plot, without inference:
+
+```sh
+/home/dutra/.conda/envs/lenstronomy/bin/python scripts/regenerate_magnification_recovery.py path/to/run
+```

@@ -16,6 +16,7 @@ import pandas as pd
 from scipy.integrate import quad
 from matplotlib.ticker import MaxNLocator
 
+from ..plot_style import PAPER_STYLE
 from .aperture import COMPONENT_GROUPS
 from .runner import CONVERGENCE_MIN_NEFF, CONVERGENCE_RHAT, convergence_verdict, RECOVERY_FILE
 
@@ -41,14 +42,6 @@ PARAMETER_UNITS = {"x_centre": "arcsec", "y_centre": "arcsec", "v_disp": "km/s",
                    "sigma": "km/s", "cutkpc": "kpc", "log10_mass_msun": r"$M_\odot$"}
 COMPONENT_NAMES = {"halo": "Halo", "bcg": "BCG", "potfile": "Members"}
 
-# Scale the shared stylesheet for single-column figures and a 7.1-inch panel array.
-PAPER_STYLE = {"font.size": 10, "axes.labelsize": 10, "legend.fontsize": 8.5,
-               "xtick.labelsize": 8, "ytick.labelsize": 8, "axes.linewidth": .9,
-               "xtick.major.size": 3.5, "ytick.major.size": 3.5,
-               "xtick.major.width": .8, "ytick.major.width": .8,
-               "xtick.minor.size": 2, "ytick.minor.size": 2,
-               "xtick.minor.width": .5, "ytick.minor.width": .5,
-               "axes.grid": False, "pdf.fonttype": 42, "ps.fonttype": 42}
 
 
 def _polish(ax):
@@ -564,6 +557,8 @@ def write_aggregate_plots(campaign_root: str | Path, output_dir: str | Path | No
         "rule": f"max R-hat < {CONVERGENCE_RHAT} and min n_eff >= {CONVERGENCE_MIN_NEFF:.0f}", "all_realizations_used": fallback,
         "excluded": [{"seed": int(r.seed), "reasons": r.convergence_reasons} for r in excluded.itertuples()]}, indent=2) + "\n")
     coverage_table(campaign).to_csv(output / "mock_coverage_table.csv", index=False)
+    from ..results_tex import write_mock_results
+    write_mock_results(campaign, output, rhat_cut=CONVERGENCE_RHAT, min_ess=CONVERGENCE_MIN_NEFF)
     plots = [plot_parameter_recovery(campaign, output / "mock_parameter_recovery_paper.pdf"),
              plot_subhalo_mass_function(campaign, output / "mock_aggregate_subhalo_recovery_shmf.pdf"),
              plot_magnification_recovery(campaign, output / "mock_magnification_recovery.pdf"),

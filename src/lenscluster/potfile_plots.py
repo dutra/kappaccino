@@ -49,7 +49,7 @@ def _style():
 
 
 @_style()
-def plot_potfile_corner(samples, specs, population, path):
+def plot_potfile_corner(samples, specs, population, path, *, grouped_physical=None, best_index=None):
     import corner
     samples, selection = _selection(samples, specs, population)
     if len(samples) < 3 or len(selection) < 2:
@@ -58,6 +58,8 @@ def plot_potfile_corner(samples, specs, population, path):
     if len(selection) < 2 or len(samples) <= len(selection) + 1:   # corner needs more samples than dimensions
         return None
     values = samples[:, [i for i, _, _ in selection]]
+    if best_index is not None and not 0 <= best_index < len(samples):
+        raise ValueError("Best posterior index is outside the saved draws")
     spans = np.ptp(values, axis=0)
     # Full saved sample ranges, padded for contours. No tail trimming or draw filtering.
     ranges = []
@@ -70,26 +72,21 @@ def plot_potfile_corner(samples, specs, population, path):
         ranges.append((low, high))
     plt.rcParams.update({"font.family": "sans-serif",
                         "mathtext.fontset": "dejavusans", "mathtext.default": "regular",
-                        "font.size": 10, "axes.labelsize": 11,
-                        "axes.linewidth": .8, "xtick.labelsize": 8,
-                        "ytick.labelsize": 8, "xtick.major.width": .7,
-                        "ytick.major.width": .7, "xtick.major.size": 3,
-                        "ytick.major.size": 3, "xtick.top": False,
-                        "ytick.right": False, "xtick.minor.visible": False,
-                        "ytick.minor.visible": False, "axes.grid": False,
                         "pdf.fonttype": 42, "ps.fonttype": 42})
-    blue = "#286B91"
-    fig = plt.figure(figsize=(9, 9))
+    contour_color = "black"
+    n = len(selection)
+    side = max(6., 1.8 * n)
+    fig = plt.figure(figsize=(side, side))
     corner.corner(values, fig=fig, labels=[label for _, _, label in selection],
                   range=ranges, bins=32, smooth=1., smooth1d=.8,
-                  color=blue, levels=(.68, .95), plot_datapoints=False,
+                  color=contour_color, levels=(.68, .95), plot_datapoints=False,
                   plot_density=False, fill_contours=True, no_fill_contours=False,
-                  contourf_kwargs={"colors": ["white", "#E2EDF4", "#80AFCB", blue]},
+                  contourf_kwargs={"colors": ["white", "#E6E6E6", "#AAAAAA", contour_color]},
                   contour_kwargs={"linewidths": .85},
                   hist_kwargs={"linewidth": 1.5},
                   quantiles=(.16, .5, .86), show_titles=False,
                   max_n_ticks=3, labelpad=.12)
-    n = len(selection)
+    fig.subplots_adjust(wspace=0, hspace=0)
     axes = np.asarray(fig.axes).reshape(n, n)
     for row in range(n):
         for col in range(row + 1):
@@ -103,12 +100,63 @@ def plot_potfile_corner(samples, specs, population, path):
         symbol = label.split("$")[1]
         annotation = (rf"${symbol} = {median:.{decimals}f}"
                       rf"^{{+{plus:.{decimals}f}}}_{{-{minus:.{decimals}f}}}$")
-        axes[j, j].set_title(annotation, fontsize=9, pad=7)
+        axes[j, j].set_title(annotation, fontsize=.75 * plt.rcParams["font.size"], pad=8)
+    if best_index is not None:
+        for row in range(n):
+            axes[row, row].axvline(values[best_index, row], color="tab:red", lw=1.1, zorder=6)
+            for col in range(row):
+                axes[row, col].plot(values[best_index, col], values[best_index, row],
+                                    marker="x", color="tab:red", ms=9,
+                                    markeredgewidth=1.7, linestyle="none", zorder=6)
+    if grouped_physical is not None:
+        grouped = np.asarray(grouped_physical)
+        if grouped.ndim != 3 or grouped.shape[2] != samples.shape[1] or not np.array_equal(grouped.reshape(samples.shape), samples):
+            raise ValueError("Corner traces require chain-ordered physical samples matching the corner draws")
+        middle = max(1, n // 2)
+        left = axes[0, middle].get_position().x0 + .055
+        right = axes[0, -1].get_position().x1 - .015
+        bottom = axes[middle, middle].get_position().y1 + .065
+        top = axes[0, 0].get_position().y1 - .025
+        height = (top - bottom) / n
+        palette = ["tab:blue", "tab:orange", "tab:green", "tab:purple", "tab:red", "tab:brown", "tab:pink", "tab:gray"]
+        handles = []
+        for j, (index, _, label) in enumerate(selection):
+            ax = fig.add_axes([left, top - (j + 1) * height, right - left, height * .72])
+            for chain in range(grouped.shape[0]):
+                line, = ax.plot(np.arange(1, grouped.shape[1] + 1), grouped[chain, :, index],
+                               color=palette[chain % len(palette)], lw=.45, alpha=.75,
+                               label=f"Chain {chain + 1}", rasterized=True)
+                if j == 0:
+                    handles.append(line)
+            if best_index is not None:
+                draw = best_index % grouped.shape[1] + 1
+                ax.plot(draw, samples[best_index, index], marker="x", color="tab:red", ms=8,
+                        markeredgewidth=1.7, linestyle="none", zorder=6)
+            ax.set_xlim(.5, grouped.shape[1] + .5)
+            ax.set_ylabel('$' + label.split('$')[1] + '$', fontsize=11, rotation=0, labelpad=18)
+            ax.yaxis.set_label_coords(-.075, .35)
+            ax.yaxis.set_major_locator(MaxNLocator(2, prune="both"))
+            ax.tick_params(axis="both", which="major", labelsize=8, length=2, width=.6,
+                           top=False, right=False, labelbottom=j == n - 1)
+            ax.minorticks_off()
+            ax.spines[["top", "right"]].set_visible(False)
+            for spine in ax.spines.values():
+                spine.set_linewidth(.6)
+            if j == n - 1:
+                ax.set_xlabel("Post-warmup draw per chain", fontsize=10, labelpad=4)
+        if best_index is not None:
+            handles.append(Line2D([], [], marker="x", color="tab:red", linestyle="none", markersize=9, markeredgewidth=1.7,
+                                  label="Best posterior"))
+        fig.legend(handles=handles, loc="lower center", bbox_to_anchor=((left + right) / 2, top + .005),
+                   ncol=min(len(handles), 5), fontsize=9, frameon=False)
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, bbox_inches="tight", pad_inches=.08)
     plt.close(fig)
     path.with_suffix(".json").write_text(json.dumps({
         "population": population, "draws": len(samples), "sample_space": "physical",
+        "best_posterior_draw_index": int(best_index) if best_index is not None else None,
+        "trace_chains": int(np.asarray(grouped_physical).shape[0]) if grouped_physical is not None else 0,
+        "trace_draws_per_chain": int(np.asarray(grouped_physical).shape[1]) if grouped_physical is not None else 0,
         "contour_probabilities": [.68, .95], "marginal_quantiles": [.16, .5, .86],
         "parameters": {spec.name: dict(zip(("q16", "q50", "q86"),
                        np.quantile(values[:, j], [.16, .5, .86]).tolist()))
@@ -204,14 +252,25 @@ def plot_potfile_prior_posterior(samples, specs, population, path):
     return path
 
 
-def write_potfile_plots(samples, specs, figures, prefix=None, *, log=print):
+def write_potfile_plots(samples, specs, figures, prefix=None, *, posterior=None, log=print):
     """Create both figures for every population using the run's naming convention."""
     results = []
+    grouped = None
+    best_index = None
+    if posterior is not None:
+        from .chain_traces import trace_data
+        traces = trace_data(posterior, specs)
+        if traces is not None:
+            grouped = traces["chains"]
+        log_prob = np.asarray(posterior.log_prob)
+        if np.isfinite(log_prob).any():
+            best_index = int(np.nanargmax(log_prob))
     for population in potfile_populations(specs):
         for name, renderer in (("corner", plot_potfile_corner), ("prior_posterior", plot_potfile_prior_posterior)):
             basename = f"{population}_{name}.pdf"
             path = Path(figures) / (f"{prefix}_{basename}" if prefix else basename)
-            result = renderer(samples, specs, population, path)
+            kwargs = {"grouped_physical": grouped, "best_index": best_index} if name == "corner" else {}
+            result = renderer(samples, specs, population, path, **kwargs)
             if result is None:
                 log(f"[outputs] {population} {name} skipped: insufficient varying posterior draws")
             else:

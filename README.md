@@ -53,6 +53,12 @@ stage is reloaded when the whole configuration matches and refused otherwise.
 
 ## Outputs
 
+Normal plotting also writes `<prefix>_chain_traces.pdf`, covering the sampler diagnostics,
+all global parameters and the twelve other parameters with highest split R-hat.
+`chain_convergence.csv` records split R-hat and ESS for every parameter in the plotted
+reporting coordinates. Regenerate from saved samples without inference with
+`/home/dutra/.conda/envs/lenstronomy/bin/python scripts/chain_traces.py <run-root>`.
+
 For a run root `results/<campaign>/<cluster>/<run-label>`:
 
 - `init/artifacts/`: `config.json` and `config.pkl`, `init_signature.json`, `state.json`,

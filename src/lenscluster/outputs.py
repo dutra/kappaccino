@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 
 from . import plots
+from .chain_traces import write_chain_traces
 from .config import LensClusterSolverConfig
 from .diagnostics import fit_summary, image_recovery_tables
 from .evaluator import Evaluator
@@ -53,12 +54,13 @@ def write_outputs(config: LensClusterSolverConfig, state: ModelState, evaluator:
 
     posterior_summary_table(state, posterior).to_csv(tables / "posterior_summary.csv", index=False)
     classification_table(state).to_csv(tables / "member_classification.csv", index=False)
+    write_chain_traces(posterior, state.parameter_specs, figures, tables, prefix, log=log)
     if audit:
         (tables / "audit.json").write_text(json.dumps(audit, indent=2, default=float))
 
     member_table = plots.member_scaling_table(state, posterior)
     member_table.to_csv(tables / "member_scaling_relation.csv", index=False)
-    write_potfile_plots(posterior.physical, state.parameter_specs, figures, prefix, log=log)
+    write_potfile_plots(posterior.physical, state.parameter_specs, figures, prefix, posterior=posterior, log=log)
     write_member_diagnostic_plots(config, state, evaluator, posterior, paths, log=log)
     if not member_table.empty:
         plots.plot_scaling_relation(member_table, np.asarray(posterior.physical), state.parameter_specs,

@@ -78,3 +78,15 @@ def test_prior_quantiles_and_density_match_sampler():
         values = prior.ppf(np.linspace(.001, .999, 100))
         distribution = distribution_for_site(SampleSite("beta", (0,), False), [spec])
         np.testing.assert_allclose(prior.logpdf(values), distribution.log_prob(values), atol=2e-14, rtol=2e-14)
+
+
+def test_corner_traces_preserve_chain_order(tmp_path):
+    samples, specs = fixture_draws()
+    grouped = samples.reshape(3, 100, 2)
+    path = tmp_path / 'corner_with_traces.pdf'
+    potfile_plots.plot_potfile_corner(samples, specs, 'potfile_members', path, grouped_physical=grouped)
+    metadata = json.loads(path.with_suffix('.json').read_text())
+    assert metadata['trace_chains'] == 3 and metadata['trace_draws_per_chain'] == 100
+    with pytest.raises(ValueError, match='chain-ordered'):
+        potfile_plots.plot_potfile_corner(samples, specs, 'potfile_members', tmp_path/'bad.pdf', grouped_physical=grouped[::-1])
+    plt.close('all')

@@ -163,6 +163,24 @@ def _radius_prior_spec(potential, field_name, decoded, *, softening_length_kpc, 
             "transform_kind": transform_kind, "transform_offset": transform_offset, **physical}
 
 
+ERROR_SCALE_FLOOR_ARCSEC = 1.0e-4
+
+
+def _error_scale_spec(name: str, sample_name: str, potential_id: str, field: str, prior) -> ParameterSpec:
+    """A sampled error scale (source scatter, extra observation error): log-normal in the log coordinate, truncated
+    above at ``prior.upper`` arcsec when given so the sampler cannot inflate the errors until the likelihood goes flat."""
+    if prior.upper is None:
+        return ParameterSpec(name=name, sample_name=sample_name, potential_id=potential_id, profile_type=0, field=field,
+                             prior_kind="normal", lower=-math.inf, upper=math.inf, step=0.1,
+                             mean=float(np.log(prior.median)), std=float(prior.log_sigma),
+                             component_family="source_scatter", transform_kind="log_positive", physical_lower=0.0, physical_mean=float(prior.median))
+    return ParameterSpec(name=name, sample_name=sample_name, potential_id=potential_id, profile_type=0, field=field,
+                         prior_kind="truncated_normal", lower=float(np.log(ERROR_SCALE_FLOOR_ARCSEC)), upper=float(np.log(prior.upper)), step=0.1,
+                         mean=float(np.log(prior.median)), std=float(prior.log_sigma),
+                         component_family="source_scatter", transform_kind="log_positive",
+                         physical_lower=ERROR_SCALE_FLOOR_ARCSEC, physical_upper=float(prior.upper), physical_mean=float(prior.median))
+
+
 def _log_positive_prior_spec(decoded: dict[str, Any], context: str, *, floor: float) -> dict[str, Any]:
     """A positive quantity sampled as its log; a plain normal prior becomes a truncated normal above ``floor``."""
     decoded_kind = str(decoded["prior_kind"])
@@ -616,24 +634,12 @@ def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.n
                 component_family="member_scatter_offset", transform_kind="identity",
                 physical_mean=0.0, physical_std=1.0, sample_site_name=site_name, sample_site_index=site_index,
                 centered=False, scale_site_name=specs[int(scale_index[component])].sample_name))
-    source_prior = config.likelihood.source_scatter_prior
     sigma_src_index = len(specs)
-    specs.append(ParameterSpec(
-        name="source.sigma_src", sample_name="source_sigma_src", potential_id="source", profile_type=0, field="sigma_src",
-        prior_kind="normal", lower=-math.inf, upper=math.inf, step=0.1,
-        mean=float(np.log(source_prior.median)), std=float(source_prior.log_sigma),
-        component_family="source_scatter", transform_kind="log_positive", physical_lower=0.0,
-        physical_mean=float(source_prior.median)))
+    specs.append(_error_scale_spec("source.sigma_src", "source_sigma_src", "source", "sigma_src", config.likelihood.source_scatter_prior))
     sigma_obs_extra_index = -1
     if config.likelihood.sigma_obs_extra_prior is not None:
-        scatter_prior = config.likelihood.sigma_obs_extra_prior
         sigma_obs_extra_index = len(specs)
-        specs.append(ParameterSpec(
-            name="images.sigma_obs_extra", sample_name="images_sigma_obs_extra", potential_id="images", profile_type=0, field="sigma_obs_extra",
-            prior_kind="normal", lower=-math.inf, upper=math.inf, step=0.1,
-            mean=float(np.log(scatter_prior.median)), std=float(scatter_prior.log_sigma),
-            component_family="source_scatter", transform_kind="log_positive", physical_lower=0.0,
-            physical_mean=float(scatter_prior.median)))
+        specs.append(_error_scale_spec("images.sigma_obs_extra", "images_sigma_obs_extra", "images", "sigma_obs_extra", config.likelihood.sigma_obs_extra_prior))
 
     families = build_family_data(images_df, sigma_arcsec, reference)
     source_param_indices: dict[str, tuple[int, int]] = {}
@@ -693,7 +699,9 @@ def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.n
         sigma_src_index=int(sigma_src_index), exact_positions=exact, far_positions=far,
         source_prior_mean=prior_mean, source_prior_sigma=prior_sigma,
         far_field_guard_cut_radii=float(config.members.far_field_cut_radii),
-        classification=dict(classification or {}))
+        classification=dict(classification or {}),
+        far_field_barrier_width=float(config.members.far_field_barrier_width),
+        far_field_barrier_strength=float(config.members.far_field_barrier_strength))
     state = ModelState(
         run_name=str(config.paths.run_name or "cluster"), cosmo_config=cosmo_config, z_lens=z_lens,
         kpc_per_arcsec=float(kpc_per_arcsec), reference=reference, parameter_specs=specs,

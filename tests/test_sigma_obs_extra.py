@@ -20,7 +20,12 @@ def test_sigma_obs_extra_adds_in_quadrature_to_the_catalog_errors(synthetic_conf
     index = names.index("images.sigma_obs_extra")
     assert state.sigma_obs_extra_param_index == index
     spec = state.parameter_specs[index]
-    assert spec.prior_kind == "normal" and spec.transform_kind == "log_positive" and np.isclose(spec.mean, np.log(0.05))
+    assert spec.prior_kind == "normal" and spec.transform_kind == "log_positive" and np.isclose(spec.mean, np.log(0.05))   # no cap requested here
+    capped = build_state(replace(config, likelihood=replace(likelihood, sigma_obs_extra_prior=LogNormalPriorConfig(median=0.05, log_sigma=1.0, upper=1.0))))
+    cap = capped.parameter_specs[[s.name for s in capped.parameter_specs].index("images.sigma_obs_extra")]
+    assert cap.prior_kind == "truncated_normal" and np.isclose(cap.upper, 0.0) and cap.physical_upper == 1.0 and cap.physical_lower > 0
+    src = capped.parameter_specs[[s.name for s in capped.parameter_specs].index("source.sigma_src")]
+    assert src.prior_kind == "truncated_normal" and src.physical_upper == 1.0                                              # the library default caps sigma_src at 1"
     evaluator = Evaluator(state)
     theta = np.asarray(state.initial_theta).copy()
 

@@ -75,7 +75,8 @@ def write_outputs(config: LensClusterSolverConfig, state: ModelState, evaluator:
     log(f"[outputs] recovered {summary['fit'].get('recovered_image_count')}/{summary['fit']['observed_image_count']} images at the best fit, "
         f"rms={summary['fit'].get('image_rms_arcsec')}")
     if not image_df.empty:
-        plots.plot_image_residual_histogram(image_df, plots.figure_path(figures, "image_residual_histogram.pdf", prefix))
+        plots.plot_image_residual_histogram(image_df, plots.figure_path(figures, "image_residual_histogram.pdf", prefix),
+                                            draws=recovery.get("posterior_image_residual_draws"), log=log)
         plots.plot_image_recovery(image_df, recovery["image_recovery_extra_images"], plots.figure_path(figures, "image_recovery.pdf", prefix))
 
     corner_path = plots.plot_corner(np.asarray(posterior.physical), state.parameter_specs, plots.figure_path(figures, "corner_globals.pdf", prefix), best=best_physical)

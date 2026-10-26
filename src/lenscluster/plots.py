@@ -16,6 +16,7 @@ from matplotlib.lines import Line2D
 from matplotlib.ticker import MaxNLocator
 from skimage.measure import find_contours
 
+from .plot_style import PAPER_STYLE
 from .evaluator import Evaluator
 from .model import ModelState, ParameterSpec, PosteriorResults, member_log_deviations
 from .truth_recovery import lens_quantities
@@ -41,30 +42,77 @@ def _finish(fig, path: Path, dpi: int = 220) -> Path:
 
 
 # ----------------------------------------------------------------------------- image recovery
-def plot_image_residual_histogram(image_df: pd.DataFrame, path: Path) -> Path:
+def posterior_residual_spread(draws: pd.DataFrame | None, best_count: int) -> dict[str, Any]:
+    """RMS and median of the recovered residuals over the posterior draws that recovered exactly as many images as the
+    best fit: their 16th to 84th percentiles, how many draws were used, and how many recovered more images than the best."""
+    out = {"draws_used": 0, "draws_total": 0, "draws_more_than_best": 0, "rms_q16": np.nan, "rms_q84": np.nan, "median_q16": np.nan, "median_q84": np.nan}
+    if draws is None or draws.empty or "draw_index" not in draws:
+        return out
+    residual = pd.to_numeric(draws["image_residual_arcsec"], errors="coerce")
+    recovered = draws["recovered"].astype(bool) & np.isfinite(residual)
+    per_draw = draws.assign(residual=residual, recovered=recovered).groupby("draw_index").agg(
+        count=("recovered", "sum"), rms=("residual", lambda v: float(np.sqrt(np.nanmean(np.square(v[np.isfinite(v)])))) if np.isfinite(v).any() else np.nan),
+        median=("residual", lambda v: float(np.nanmedian(v)) if np.isfinite(v).any() else np.nan))
+    out["draws_total"] = int(len(per_draw))
+    out["draws_more_than_best"] = int((per_draw["count"] > best_count).sum())
+    same = per_draw[per_draw["count"] == best_count]
+    out["draws_used"] = int(len(same))
+    if len(same) >= 2:
+        out["rms_q16"], out["rms_q84"] = (float(v) for v in np.nanpercentile(same["rms"], [16, 84]))
+        out["median_q16"], out["median_q84"] = (float(v) for v in np.nanpercentile(same["median"], [16, 84]))
+    return out
+
+
+def posterior_residual_histogram_counts(draws: pd.DataFrame | None, bins: np.ndarray, *, min_recovered: int = 0) -> np.ndarray:
+    """Raw counts for draws meeting the minimum recovered-image count."""
+    if draws is None or draws.empty or "draw_index" not in draws:
+        return np.empty((0, len(bins) - 1), dtype=int)
+    counts = []
+    for _, group in draws.groupby("draw_index", sort=True):
+        values = pd.to_numeric(group["image_residual_arcsec"], errors="coerce").to_numpy(float)
+        valid = group["recovered"].astype(bool).to_numpy() & np.isfinite(values) & (values >= 0)
+        if valid.sum() < min_recovered:
+            continue
+        counts.append(np.histogram(values[valid], bins=bins)[0])
+    return np.asarray(counts, dtype=int).reshape(-1, len(bins) - 1)
+
+
+@plt.rc_context(fname=STYLE, rc=PAPER_STYLE)
+def plot_image_residual_histogram(image_df: pd.DataFrame, path: Path, *, draws: pd.DataFrame | None = None, log=None) -> Path:
+    """Best-fit residual histogram; posterior draws are used only for recovery warnings."""
     residual = pd.to_numeric(image_df["image_residual_arcsec"], errors="coerce").to_numpy(dtype=float)
     recovered = (image_df["image_recovery_status"].astype(str) == "recovered").to_numpy() & np.isfinite(residual)
     values = residual[recovered]
-    fig, ax = plt.subplots(figsize=(6.4, 4.8))
+    spread = posterior_residual_spread(draws, int(values.size))
+    fig, ax = plt.subplots(figsize=(3.5, 2.6))
     if values.size:
         bins = np.linspace(0.0, max(float(values.max()) * 1.04, 1.0e-6), min(48, max(14, int(np.sqrt(values.size) * 2.4))) + 1)
-        ax.hist(values, bins=bins, color=POINT_COLOR, alpha=0.45, edgecolor="white", linewidth=0.7, zorder=2)
+        counts, _ = np.histogram(values, bins=bins)
+        ax.stairs(counts, bins, color="tab:blue", linewidth=1.5, label="Best fit", zorder=3)
         rms, median = float(np.sqrt(np.mean(values ** 2))), float(np.median(values))
-        ax.axvline(rms, color="#ba5a2a", linestyle="--", linewidth=1.8, label=f"RMS = {rms:.3f}″", zorder=4)
-        ax.axvline(median, color="#303030", linestyle=":", linewidth=1.8, label=f"median = {median:.3f}″", zorder=4)
+        ax.axvline(rms, color="#ba5a2a", linestyle="--", linewidth=1.3, label="RMS", zorder=4)
+        ax.axvline(median, color="#303030", linestyle=":", linewidth=1.3, label="Median", zorder=4)
         ax.set_xlim(0.0, bins[-1])
     text = f"Recovered: {values.size}/{len(image_df)}"
-    if len(image_df) - values.size:
-        text += f"\nMissed: {len(image_df) - values.size}"
-    ax.text(0.97, 0.97, text, transform=ax.transAxes, ha="right", va="top", fontsize=14)
+    if spread["draws_more_than_best"]:
+        if log is not None:
+            log(f"[outputs] warning: {spread['draws_more_than_best']} of {spread['draws_total']} posterior draws recovered more images "
+                f"than the best fit ({values.size}); the best fit may not be the best image-plane solution")
+    ax.text(0.97, 0.97, text, transform=ax.transAxes, ha="right", va="top", fontsize=9)
     if values.size:
-        ax.legend(loc="upper right", bbox_to_anchor=(0.99, 0.85), fontsize=14, frameon=False)
+        ax.legend(loc="upper right", bbox_to_anchor=(1, .87), fontsize=8, frameon=False)
     ax.set_xlabel("Image-position residual (arcsec)")
     ax.set_ylabel("Number of images")
     ax.set_ylim(bottom=0.0)
-    ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.yaxis.set_major_locator(MaxNLocator(4, integer=True))
+    ax.xaxis.set_major_locator(MaxNLocator(4))
+    ax.grid(False)
+    ax.spines[["top", "right"]].set_visible(False)
+    ax.tick_params(which="both", top=False, right=False)
     fig.tight_layout()
-    return _finish(fig, path, dpi=300)
+    fig.savefig(path, dpi=300, bbox_inches="tight", pad_inches=.04)
+    plt.close(fig)
+    return path
 
 
 def plot_image_recovery(image_df: pd.DataFrame, extra_df: pd.DataFrame, path: Path) -> Path:

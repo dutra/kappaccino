@@ -205,6 +205,8 @@ class MemberModel:
     source_prior_sigma: float
     far_field_guard_cut_radii: float
     classification: dict[str, Any] = field(default_factory=dict)
+    far_field_barrier_width: float = 0.05     # width of the soft guard barrier in ln(R / (guard r_cut))
+    far_field_barrier_strength: float = 25.0  # log-likelihood penalty scale
     radius_scatter_param_index: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=np.int32))
     radius_offset_param_index: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=np.int32))
     centered: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=bool))

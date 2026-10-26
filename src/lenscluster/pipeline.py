@@ -13,14 +13,14 @@ import numpy as np
 
 from . import artifacts
 from .audit import audit_posterior
-from .classification import (classify_members, conservative_cut_radii_arcsec, member_cut_radii_arcsec, member_max_deflection_arcsec,
+from .classification import (classify_members, far_field_threshold_rows, conservative_cut_radii_arcsec, member_cut_radii_arcsec, member_max_deflection_arcsec,
                              prior_quantile_beta, prior_quantile_cut_kpc)
 from .config import LensClusterSolverConfig
 from .evaluator import Evaluator
 from .init_plots import write_init_plots
 from .model import ModelState, PosteriorResults
 from .outputs import write_outputs
-from .report import audit_report, classification_report
+from .report import audit_report, classification_report, far_field_threshold_table, run_summary_table
 from .sampling import run_nuts
 from .search import chain_starts, multistart_map, prior_starts
 from .search_staged import hybrid_map, staged_map
@@ -128,19 +128,48 @@ def classify(state: ModelState, evaluator: Evaluator, theta: np.ndarray, config:
         beta_radius = float(config.scaling.beta_radius_prior_mean)
     quantile = config.members.classification_prior_quantile
     betas = [float(beta_radius)]
-    if quantile is not None and state.potfiles:
-        reference_cut_kpc = max(float(reference_cut_kpc), max(prior_quantile_cut_kpc(p, float(quantile)) for p in state.potfiles))
-        betas += [prior_quantile_beta(config.scaling, float(quantile)), prior_quantile_beta(config.scaling, 1.0 - float(quantile))]
     inflated = float(reference_cut_kpc) * float(config.members.cut_radius_inflation)
+    if quantile is not None and state.potfiles:
+        inflated = max(inflated, max(prior_quantile_cut_kpc(p, float(quantile)) for p in state.potfiles))
+        betas += [prior_quantile_beta(config.scaling, float(quantile)), prior_quantile_beta(config.scaling, 1.0 - float(quantile))]
     cut = conservative_cut_radii_arcsec(state, inflated, betas)
     exact, diagnostics = classify_members(state, evaluator, physical, cut_radius_arcsec=cut,
                                           guard_cut_radii=float(config.members.far_field_cut_radii),
                                           tolerance=float(config.members.template_tolerance), top_exact=config.members.top_exact)
     diagnostics.update(reference_cut_kpc=float(reference_cut_kpc), inflated_cut_kpc=inflated, beta_radius=float(beta_radius),
-                       beta_range=[float(min(betas)), float(max(betas))], prior_quantile=None if quantile is None else float(quantile))
+                       beta_range=[float(min(betas)), float(max(betas))], prior_quantile=None if quantile is None else float(quantile),
+                       threshold_study=far_field_threshold_rows(state, evaluator, physical, cut_radius_arcsec=cut,
+                                                                tolerance=float(config.members.template_tolerance),
+                                                                selected_guard=float(config.members.far_field_cut_radii),
+                                                                top_exact=config.members.top_exact))
+    diagnostics.update(guard_headroom(state, evaluator, physical, exact, guard=float(config.members.far_field_cut_radii)))
     log(f"[classify] members={diagnostics['member_count']} exact={diagnostics['exact_count']} "
-        f"mandatory={diagnostics['mandatory_count']} cut_kpc={inflated:.1f} beta in [{min(betas):.2f}, {max(betas):.2f}]")
+        f"mandatory={diagnostics['mandatory_count']} cut_kpc={inflated:.1f} beta in [{min(betas):.2f}, {max(betas):.2f}] "
+        f"guard headroom x{diagnostics['guard_headroom']:.2f}")
+    if diagnostics["guard_headroom"] < MIN_GUARD_HEADROOM:
+        log(f"[classify] WARNING: the nearest far-field member ({diagnostics['guard_headroom_member']}) sits at only "
+            f"{diagnostics['guard_headroom']:.2f} times the far-field guard at the current model; the sampler will be pinned "
+            f"against the guard as soon as r_cut* grows by that factor.  Raise members.cut_radius_inflation or the prior quantile.")
     return with_member_classes(state, exact, diagnostics)
+
+
+MIN_GUARD_HEADROOM = 2.0
+
+
+def guard_headroom(state: ModelState, evaluator: Evaluator, physical: np.ndarray, exact: np.ndarray, *, guard: float) -> dict[str, Any]:
+    """By what factor the sampled r_cut* can grow before the nearest far-field member reaches the guard, at this model:
+    min over far-field members of (R / r_cut_current) / guard, with r_cut_current from the current relation."""
+    members = state.members
+    n = len(members.member_ids)
+    far = np.ones(n, dtype=bool)
+    far[np.asarray(exact, dtype=int)] = False
+    if not far.any() or not state.potfiles:
+        return {"guard_headroom": float("inf"), "guard_headroom_member": None}
+    cut_now = member_cut_radii_arcsec(state, _scaling_value(state, physical, "cutkpc"), _scaling_value(state, physical, "beta_radius"))
+    separation = np.asarray(evaluator.geometry.separation).min(axis=1)        # (M,) nearest image per member
+    ratio = separation[far] / np.maximum(cut_now[far], 1e-12) / float(guard)
+    worst = int(np.argmin(ratio))
+    return {"guard_headroom": float(ratio[worst]), "guard_headroom_member": str(np.asarray(members.member_ids)[far][worst])}
 
 
 def reclassification_at_median(state: ModelState, evaluator: Evaluator, samples: np.ndarray, config: LensClusterSolverConfig) -> dict[str, Any]:
@@ -284,7 +313,7 @@ def run_init(config: LensClusterSolverConfig) -> InitResult:
         theta = np.asarray(state.initial_theta, dtype=float)
         state.members.classification["dropped_members"] = list(state.dropped_member_ids)
         state.members.classification["min_deflection_arcsec"] = config.members.min_deflection_arcsec
-        report = classification_report(state, provisional=provisional)
+        report = classification_report(state, provisional=provisional) + "\n" + far_field_threshold_table(state)
         log(report)
         (paths.tables / "classification_report.txt").write_text(report + "\n")
         evaluator = Evaluator(state, config.likelihood.likelihood_mode)
@@ -404,6 +433,7 @@ def dry_run(config: LensClusterSolverConfig) -> dict[str, Any]:
     classification["dropped_members"] = list(state.dropped_member_ids)
     classification["min_deflection_arcsec"] = floor
     print(classification_report(state))
+    print(far_field_threshold_table(state))
     return {
         "stages": {"init": f"classify -> {config.search.strategy} search from {config.search.n_starts} prior starts -> reclassify at the MAP -> start.json",
                    "final": "NUTS from the start -> posterior audit -> tables and figures"},

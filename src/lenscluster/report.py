@@ -23,6 +23,91 @@ def _rank_table(rankings: list[dict[str, Any]], title: str) -> list[str]:
     return lines
 
 
+def _duration(seconds: float | None) -> str:
+    if seconds is None or not np.isfinite(seconds):
+        return "-"
+    seconds = int(round(seconds))
+    hours, minutes, secs = seconds // 3600, (seconds % 3600) // 60, seconds % 60
+    return f"{hours}h {minutes:02d}m {secs:02d}s" if hours else (f"{minutes}m {secs:02d}s" if minutes else f"{secs}s")
+
+
+def run_summary_table(result, config) -> str:
+    """The end-of-run summary: data and model sizes, image recovery and residuals at the best fit, sampler health,
+    the far-field audit, and how long each stage took.  Rendered with rich without colour, so the log and the terminal
+    read the same."""
+    from rich.console import Console
+    from rich.table import Table
+    state, posterior, audit = result.state, result.posterior, result.audit
+    fit = (result.summary or {}).get("fit", {})
+    diagnostics = posterior.diagnostics or {}
+    timing = result.timing or {}
+
+    def number(value, digits=3):
+        return "-" if value is None or (isinstance(value, float) and not np.isfinite(value)) else f"{value:.{digits}f}"
+
+    sections = [
+        ("Run", [("name", str(config.paths.run_name)), ("output", str(result.paths.final.root)),
+                 ("stages", ("init resumed, " if result.init.resumed else "init run, ") + ("final resumed" if result.resumed else "final run"))]),
+        ("Data and model", [("images, families", f"{state.images.n_images}, {state.images.n_families}"),
+                            ("members: exact, far-field", f"{len(state.members.exact_positions)}, {len(state.members.far_positions)}"),
+                            ("sampled parameters", str(state.n_parameters)),
+                            ("global parameters, dof", f"{fit.get('n_global_parameters', '-')}, {fit.get('dof', '-')}")]),
+        ("Images at the best fit", [("recovered / observed", f"{fit.get('recovered_image_count', '-')} / {fit.get('observed_image_count', '-')}"),
+                                    ("missing, extra", f"{fit.get('missing_image_count', '-')}, {fit.get('extra_image_count', '-')}"),
+                                    ("families fully recovered", f"{fit.get('families_fully_recovered', '-')} / {state.images.n_families}"),
+                                    ("residual rms, median, max (arcsec)", f"{number(fit.get('image_rms_arcsec'))}, {number(fit.get('image_median_residual_arcsec'))}, {number(fit.get('image_max_residual_arcsec'))}"),
+                                    ("chi-square / dof (catalog errors)", f"{number(fit.get('chi_square'), 1)} / {fit.get('dof', '-')} = {number(fit.get('reduced_chi_square'), 2)}")]),
+        ("Sampler", [("chains x (warmup + samples)", f"{config.runtime.chains} x ({config.sampling.warmup} + {config.sampling.samples})"),
+                     ("draws, divergences", f"{len(posterior.samples)}, {int(np.asarray(posterior.diverging).sum())}"),
+                     ("mean accept, mean steps", f"{float(np.mean(posterior.accept_prob)):.3f}, {float(np.mean(posterior.num_steps)):.1f}"),
+                     ("max R-hat, min ESS", f"{number(diagnostics.get('max_r_hat'))}, {number(diagnostics.get('min_n_eff'), 0)}")]),
+        ("Far-field audit", [("verdict", str(audit.get("approximation_validation", "-"))),
+                             ("min R/r_cut over draws (guard)", f"{number(audit.get('min_separation_over_cut_radius'), 2)} ({audit.get('guard_cut_radii', '-')})"),
+                             ("draws near / inside the guard", f"{100 * audit.get('fraction_of_draws_near_guard', 0.0):.0f}% / {audit.get('draws_inside_guard', 0)}")]),
+        ("Time", [("init stage", _duration(timing.get("init"))), ("sampling", _duration(timing.get("sampling"))),
+                  ("outputs", _duration(timing.get("outputs"))), ("total", _duration(timing.get("total")))]),
+    ]
+    table = Table(title="Run summary", title_justify="left", show_header=False, box=None, padding=(0, 2))
+    table.add_column(style="bold"); table.add_column()
+    for section, rows in sections:
+        table.add_row(f"[underline]{section}[/underline]", "")
+        for label, value in rows:
+            table.add_row(f"  {label}", value)
+        table.add_row("", "")
+    console = Console(width=120, color_system=None, force_terminal=False)
+    with console.capture() as capture:
+        console.print(table)
+    return capture.get().rstrip()
+
+
+def far_field_threshold_table(state: ModelState) -> str:
+    """The far-field threshold study of the current classification as a table: for each R/r_cut, how many members
+    would be exact and far-field and what deflection error the far-field members leave at the images; the configured
+    threshold is marked.  Rendered with rich, without colour, so it reads the same in a log file."""
+    from rich.console import Console
+    from rich.table import Table
+    d = state.members.classification
+    rows = d.get("threshold_study") or []
+    if not rows:
+        return "far-field threshold study: no members"
+    tolerance = d.get("tolerance")
+    table = Table(title=f"Far-field threshold study ({d.get('member_count', 0)} members, {state.images.n_images} images; "
+                        f"error = deflection left at the images by the far-field members at the current model)", title_justify="left")
+    for name, justify in (("", "center"), ("R/r_cut", "right"), ("exact", "right"), ("far-field", "right"), ("max error (µas)", "right"),
+                          ("median error (µas)", "right"), ("max whitened", "right"), (f"images > {tolerance:g} sigma" if tolerance else "images over tol.", "right"),
+                          ("worst image", "left")):
+        table.add_column(name, justify=justify)
+    for row in rows:
+        style = "bold" if row["selected"] else None
+        table.add_row("*" if row["selected"] else "", f"{row['guard_cut_radii']:g}", str(row["exact"]), str(row["far_field"]),
+                      f"{1000.0 * row['max_error_mas']:.2g}", f"{1000.0 * row['median_error_mas']:.2g}", f"{row['max_whitened_error']:.1e}",
+                      str(row["images_over_tolerance"]), row["worst_image"] or "none", style=style)
+    console = Console(width=140, color_system=None, force_terminal=False)
+    with console.capture() as capture:
+        console.print(table)
+    return capture.get().rstrip()
+
+
 def classification_report(state: ModelState, *, provisional: dict[str, Any] | None = None, top: int = 15) -> str:
     """Counts, why each member is exact, the highest-ranked members, and changes since the provisional pass."""
     d = state.members.classification
@@ -54,6 +139,9 @@ def classification_report(state: ModelState, *, provisional: dict[str, Any] | No
     if far:
         worst = max(far, key=lambda r: r["score"] or 0)
         min_ratio = min(r["min_separation_arcsec"] / r["cut_radius_arcsec"] for r in far if r["cut_radius_arcsec"] > 0)
+        if d.get("guard_headroom") is not None:
+            lines.append(f"  guard headroom: r_cut* can grow x{d['guard_headroom']:.2f} before {d.get('guard_headroom_member')} reaches the guard"
+                         + ("  <-- WARNING: the sampler will be pinned; raise members.cut_radius_inflation" if d["guard_headroom"] < 2.0 else ""))
         lines.append(f"  far-field: highest score {worst['score']:.3g} ({worst['member']}), smallest R/r_cut {min_ratio:.2f} (guard {d['guard_cut_radii']:g}), "
                      f"summed ellipticity budget per image < {d['tolerance']:g}")
     lines += _rank_table(rankings[:top], f"  top {min(top, len(rankings))} members by score:")
@@ -77,7 +165,11 @@ def audit_report(state: ModelState, audit: dict[str, Any], *, posterior_summary:
              f"  draws {audit.get('draws')}, far-field members {audit.get('far_member_count')}, exact {audit.get('exact_member_count')}"]
     if "min_separation_over_cut_radius" in audit:
         lines.append(f"  guard: min R/r_cut over draws {audit['min_separation_over_cut_radius']:.2f} (limit {audit['guard_cut_radii']:g}), "
-                     f"draws inside the guard {audit['draws_inside_guard']}, worst member {audit['worst_member']}")
+                     f"draws inside the guard {audit['draws_inside_guard']}, worst member {audit['worst_member']}, "
+                     f"draws within 10% of the guard {100 * audit.get('fraction_of_draws_near_guard', 0.0):.0f}%")
+        if audit.get("guard_pinned"):
+            lines.append("  WARNING: the posterior is pinned against the far-field guard; the cut-radius relation was shaped by the guard, "
+                         "not by the data.  Raise members.cut_radius_inflation (classify with a larger cut radius) and rerun.")
     w = audit.get("whitened_far_field_error_median_model", {})
     if w:
         lines.append(f"  whitened far-field error at the median model: max {w['max']:.3g} (image {w['worst_image']}), median {w['median']:.3g}, "

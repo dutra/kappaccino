@@ -78,18 +78,13 @@ def scaling_values(state: ModelState, physical: np.ndarray) -> dict[str, float]:
     return values
 
 
-def classify_members(state: ModelState, evaluator: Evaluator, physical: np.ndarray, *,
-                     cut_radius_arcsec: np.ndarray, guard_cut_radii: float, tolerance: float,
-                     top_exact: int | None = None) -> tuple[np.ndarray, dict[str, Any]]:
-    """Return the exact member positions and the ranking diagnostics.
+FAR_FIELD_THRESHOLD_GRID = (2.0, 3.0, 4.0, 5.0, 10.0)
 
-    ``physical`` supplies the Jacobians, source scatter and member deflections used by the
-    ellipticity term; ``cut_radius_arcsec`` supplies the (conservative) cut radius per member.
-    """
+
+def member_field_terms(state: ModelState, evaluator: Evaluator, physical: np.ndarray) -> dict[str, np.ndarray]:
+    """Per member and image at this model: the exact (elliptical) deflection, the circular far-field series, their
+    difference whitened by the image covariance C = sigma_src^2 I + sigma_obs^2 A A^T, the precision and the separation."""
     members = state.members
-    n_members = len(members.member_ids)
-    if n_members == 0:
-        return np.asarray([], dtype=np.int32), {"member_count": 0, "mandatory_count": 0, "exact_count": 0, "rankings": []}
     physical_jax = jnp.asarray(physical, dtype=jnp.float64)
     packed, _ = evaluator.packed_state(physical_jax)
     fields = evaluator.fields(physical_jax, packed, force_exact=True)
@@ -98,7 +93,6 @@ def classify_members(state: ModelState, evaluator: Evaluator, physical: np.ndarr
     circular_alpha = np.asarray(evaluate_farfield_per_member(
         evaluator.geometry, jnp.take(packed.sigma0, components, axis=0), jnp.take(packed.Ra, components),
         jnp.take(packed.Rs, components))[0])                             # (M, N, 2) circular series
-    # Whitened error: ||C^-1/2 e|| with C = sigma_src^2 I + sigma_obs^2 A A^T at this model.
     a = np.asarray(fields["jacobian"])
     sigma_obs = np.asarray(state.images.sigma_per_image)
     sigma_src = float(physical[members.sigma_src_index])
@@ -107,7 +101,53 @@ def classify_members(state: ModelState, evaluator: Evaluator, physical: np.ndarr
     error = exact_alpha - circular_alpha
     error = np.where(np.isfinite(error), error, np.inf)
     whitened = np.sqrt(np.einsum("mni,nij,mnj->mn", error, precision, error))
-    separation = np.asarray(evaluator.geometry.separation)             # (M, N)
+    return {"exact_alpha": exact_alpha, "circular_alpha": circular_alpha, "error": error, "whitened": whitened,
+            "precision": precision, "separation": np.asarray(evaluator.geometry.separation)}
+
+
+def far_field_threshold_rows(state: ModelState, evaluator: Evaluator, physical: np.ndarray, *, cut_radius_arcsec: np.ndarray,
+                             tolerance: float, selected_guard: float, guards: tuple[float, ...] = FAR_FIELD_THRESHOLD_GRID,
+                             top_exact: int | None = None) -> list[dict[str, Any]]:
+    """What each far-field threshold R/r_cut would do at this model: exact and far-field counts and the deflection error
+    the far-field members leave at the images (summed exact minus circular), in milliarcseconds and whitened units."""
+    if len(state.members.member_ids) == 0:
+        return []
+    terms = member_field_terms(state, evaluator, physical)
+    rows = []
+    for guard in sorted(set(float(g) for g in guards) | {float(selected_guard)}):
+        exact, _ = classify_members(state, evaluator, physical, cut_radius_arcsec=cut_radius_arcsec, guard_cut_radii=guard,
+                                    tolerance=tolerance, top_exact=top_exact, terms=terms)
+        far = np.ones(len(state.members.member_ids), dtype=bool)
+        far[exact] = False
+        per_image = np.where(np.isfinite(terms["error"][far]), terms["error"][far], 0.0).sum(axis=0)   # (N, 2)
+        magnitude_mas = 1000.0 * np.hypot(per_image[:, 0], per_image[:, 1])
+        whitened = np.sqrt(np.einsum("ni,nij,nj->n", per_image, terms["precision"], per_image))
+        worst = int(np.argmax(whitened)) if whitened.size else -1
+        rows.append({"guard_cut_radii": float(guard), "exact": int(len(exact)), "far_field": int(far.sum()),
+                     "max_error_mas": float(magnitude_mas.max()) if magnitude_mas.size else 0.0,
+                     "median_error_mas": float(np.median(magnitude_mas)) if magnitude_mas.size else 0.0,
+                     "max_whitened_error": float(whitened.max()) if whitened.size else 0.0,
+                     "images_over_tolerance": int((whitened > float(tolerance)).sum()),
+                     "worst_image": str(state.images.image_labels[worst]) if worst >= 0 else "",
+                     "selected": bool(abs(float(guard) - float(selected_guard)) < 1e-9)})
+    return rows
+
+
+def classify_members(state: ModelState, evaluator: Evaluator, physical: np.ndarray, *,
+                     cut_radius_arcsec: np.ndarray, guard_cut_radii: float, tolerance: float,
+                     top_exact: int | None = None, terms: dict[str, np.ndarray] | None = None) -> tuple[np.ndarray, dict[str, Any]]:
+    """Return the exact member positions and the ranking diagnostics.
+
+    ``physical`` supplies the Jacobians, source scatter and member deflections used by the
+    ellipticity term; ``cut_radius_arcsec`` supplies the (conservative) cut radius per member.
+    ``terms`` are the precomputed member field terms at this model (see member_field_terms).
+    """
+    members = state.members
+    n_members = len(members.member_ids)
+    if n_members == 0:
+        return np.asarray([], dtype=np.int32), {"member_count": 0, "mandatory_count": 0, "exact_count": 0, "rankings": []}
+    terms = member_field_terms(state, evaluator, physical) if terms is None else terms
+    whitened, separation = terms["whitened"], terms["separation"]      # (M, N)
     ratio = (float(guard_cut_radii) * np.asarray(cut_radius_arcsec)[:, None] / np.where(separation > 0, separation, np.inf)) ** 6
     truncation_score = ratio.max(axis=1)
     ellipticity_score = (whitened / float(tolerance)).max(axis=1)

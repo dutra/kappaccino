@@ -56,6 +56,8 @@ class Evaluator:
         self.far_components = self.member_components[self.far_positions]
         self.far_min_separation = jnp.asarray(np.asarray(self.geometry.separation)[self.far_positions].min(axis=1)) if len(self.far_positions) else jnp.zeros(0)
         self.guard_cut_radii = float(members.far_field_guard_cut_radii)
+        self.far_field_barrier_width = float(members.far_field_barrier_width)
+        self.far_field_barrier_strength = float(members.far_field_barrier_strength)
         self.sigma_obs_extra_index = int(getattr(state, "sigma_obs_extra_param_index", -1))
         self.scale_indices = jnp.asarray(sorted({int(members.sigma_src_index)} | {int(i) for i in np.asarray(members.scatter_param_index) if i >= 0}
                                                 | {int(i) for i in np.asarray(members.radius_scatter_param_index) if i >= 0}
@@ -314,10 +316,20 @@ class Evaluator:
                     member_alpha=member_alpha, member_jacobian=member_u, far_cut_radii=far_cut_radii, packed=packed)
 
     def far_field_valid(self, far_cut_radii) -> jnp.ndarray:
-        """True when every far-field member keeps all images beyond the guard distance in cut radii."""
+        """True when every far-field member keeps all images beyond the guard distance in cut radii (a diagnostic; the
+        likelihood enforces the guard through the smooth barrier below)."""
         if far_cut_radii is None or len(self.far_positions) == 0:
             return jnp.asarray(True)
         return jnp.all(self.far_min_separation >= self.guard_cut_radii * far_cut_radii)
+
+    def far_field_log_barrier(self, far_cut_radii) -> jnp.ndarray:
+        """The far-field guard as a smooth log-likelihood penalty: for each far-field member, with x = ln(R / (guard r_cut)),
+        -strength * softplus(-x / width).  Zero far outside the guard, about -0.7 strength at it, and linear in -x
+        inside, so the Hamiltonian flow sees the boundary and turns back instead of diverging on a wall."""
+        if far_cut_radii is None or len(self.far_positions) == 0:
+            return jnp.asarray(0.0, dtype=jnp.float64)
+        x = jnp.log(self.far_min_separation) - jnp.log(self.guard_cut_radii * far_cut_radii)
+        return -self.far_field_barrier_strength * jnp.sum(jax.nn.softplus(-x / self.far_field_barrier_width))
 
     # ------------------------------------------------------------------ likelihood
     def statistics(self, params: jnp.ndarray, *, force_exact: bool = False) -> dict[str, Any]:
@@ -359,7 +371,8 @@ class Evaluator:
         safe_params = jnp.where(ok, params, reference)
         stats = self.statistics(safe_params)
         value = jnp.sum(stats["loglike"]) + stats["source_correction"]
-        valid = jnp.all(stats["valid"]) & jnp.all(stats["transport_valid"]) & ~jnp.isnan(value) & self.far_field_valid(stats["fields"]["far_cut_radii"])
+        value = value + self.far_field_log_barrier(stats["fields"]["far_cut_radii"])
+        valid = jnp.all(stats["valid"]) & jnp.all(stats["transport_valid"]) & ~jnp.isnan(value)
         value = jnp.where(valid, value, -jnp.inf)
         return jnp.where(ok_model, jnp.where(ok_scales, value, -jnp.inf), jnp.asarray(BAD_LOG_LIKE, dtype=jnp.float64))
 

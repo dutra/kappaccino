@@ -255,10 +255,17 @@ class MemberConfig:
                                             # "auto" (data curvature of the deviation exceeds the prior's 1/s^2 at the start), "exact", "none"
     centering_ratio: float = 1.0            # auto threshold on data/prior curvature
     """Member classification and far-field validity."""
-    far_field_cut_radii: float = 3.0
-    cut_radius_inflation: float = 1.0
+    far_field_cut_radii: float = 3.0        # a far-field member stays at least this many of its (sampled) cut radii from every image
+    cut_radius_inflation: float = 3.0       # members are classified with this multiple of the current cut radius (or the prior quantile
+                                            # below, whichever is larger), so the sampled r_cut* can grow by that factor before any
+                                            # far-field member reaches the guard
     template_tolerance: float = 0.1
     top_exact: int | None = None
+    # The guard is a smooth log-barrier during sampling: -strength * softplus(-x / width) per far-field member with
+    # x = ln(R / (guard r_cut)), so NUTS feels the boundary and turns back instead of diverging on a hard wall (about
+    # -0.7 strength at the guard, -1e-2 strength one width outside, linear in -x inside).
+    far_field_barrier_width: float = 0.05
+    far_field_barrier_strength: float = 25.0
     min_deflection_arcsec: float | None = None   # drop members whose deflection at every image, at the initial model, is below this
 
 
@@ -462,6 +469,8 @@ def validate_config(config: LensClusterSolverConfig) -> None:
         raise ValueError("members.cut_radius_inflation must be at least one.")
     if not 0.0 < members.template_tolerance < 1.0:
         raise ValueError("members.template_tolerance must lie between zero and one.")
+    _positive("members.far_field_barrier_width", members.far_field_barrier_width)
+    _positive("members.far_field_barrier_strength", members.far_field_barrier_strength)
     if members.top_exact is not None and (isinstance(members.top_exact, bool) or not isinstance(members.top_exact, Integral) or members.top_exact < 0):
         raise ValueError("members.top_exact must be a nonnegative integer or None.")
     if members.min_deflection_arcsec is not None:

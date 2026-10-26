@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 from dataclasses import replace
 
+import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
@@ -64,21 +65,30 @@ def test_single_stage_end_to_end(synthetic_config):
         pipeline.run(changed)
 
 
-def test_far_field_guard_returns_minus_infinity_with_zero_gradient(synthetic_config):
-    state = build_state(synthetic_config)
-    evaluator = Evaluator(state)
-    # The two distant members are far-field; inflating the reference cut radius until the images fall
-    # inside three cut radii of one of them must reject the model with -inf and a zero gradient.
+def test_far_field_barrier_is_finite_smooth_and_pushes_back(synthetic_config):
     from lenscluster.state import with_member_classes
-    exact = np.asarray([0, 1], dtype=np.int32)
-    state = with_member_classes(state, exact, {"exact_count": 2, "mandatory_count": 2})
+    state = build_state(synthetic_config)
+    state = with_member_classes(state, np.asarray([0, 1], dtype=np.int32), {"exact_count": 2, "mandatory_count": 2})   # two far-field members
     evaluator = Evaluator(state)
     theta = np.asarray(state.initial_theta, dtype=float)
-    value, grad = evaluator.value_and_grad(jnp.asarray(theta))
-    assert np.isfinite(float(value)) and np.isfinite(np.asarray(grad)).all()
     cut_index = next(i for i, s in enumerate(state.parameter_specs) if s.field == "cutkpc")
-    bad = theta.copy()
-    bad[cut_index] = np.log(5.0e4)                      # 50 Mpc cut radius: every image is within 3 r_cut
-    value, grad = evaluator.value_and_grad(jnp.asarray(bad))
-    assert np.isneginf(float(value))
-    np.testing.assert_array_equal(np.asarray(grad), 0.0)
+
+    def barrier(latent):
+        physical = evaluator.physical(latent)
+        return evaluator.far_field_log_barrier(evaluator.fields(physical)["far_cut_radii"])
+
+    ratio0 = float(np.min(np.asarray(evaluator.far_min_separation) / np.asarray(evaluator.fields(evaluator.physical(jnp.asarray(theta)))["far_cut_radii"])))
+    # Scale the relation's cut radius so the nearest far-field member sits at these multiples of the guard distance.
+    targets = (3.0, 1.5, 1.1, 1.0, 0.9, 0.5)
+    values, slopes = [], []
+    for target in targets:
+        trial = theta.copy()
+        trial[cut_index] += np.log(ratio0 / (target * evaluator.guard_cut_radii))
+        values.append(float(barrier(jnp.asarray(trial))))
+        slopes.append(float(jax.grad(barrier)(jnp.asarray(trial))[cut_index]))
+        value, grad = evaluator.value_and_grad(jnp.asarray(trial))
+        assert np.isfinite(float(value)) and np.isfinite(np.asarray(grad)).all()
+    assert all(v <= 0 for v in values) and values == sorted(values, reverse=True)      # never positive, worse as r_cut grows
+    assert values[0] > -1e-3                                                            # negligible three guard distances out
+    assert abs(values[3] + np.log(2.0) * evaluator.far_field_barrier_strength) < 1.0    # about -0.7 strength at the guard (one member there)
+    assert slopes[-1] < 0 and values[-1] < -evaluator.far_field_barrier_strength        # steep inside, gradient points back out

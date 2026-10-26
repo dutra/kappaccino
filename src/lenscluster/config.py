@@ -150,15 +150,27 @@ class MemberPopulationConfig:
     prior_mag0: float | None = None          # magnitude at which sigma, cutkpc and their priors are given when mag0 is "auto"
 
     @classmethod
-    def literature(cls, id: str, catalog_path: str | Path, z_lens: float, *, prior_mag0: float, sigma: float = 200.0,
-                   cutkpc: float = 12.0, corekpc: float = 0.15) -> "MemberPopulationConfig":
-        """A member population on the literature relation at L* (``prior_mag0``): central dispersion ~220 km/s and
-        r_cut ~10 (+13, -7) kpc from the MUSE-calibrated relations of Bergamini et al. 2019, widened to TN(200, 70) km/s on
-        40-500 and TN(12, 10) kpc on 2-60; the pivot is chosen automatically from image leverage."""
+    def bergamini2019(cls, id: str, catalog_path: str | Path, z_lens: float, *, prior_mag0: float, sigma: float = 200.0,
+                      cutkpc: float = 12.0, corekpc: float = 0.15) -> "MemberPopulationConfig":
+        """A member population on the MUSE-calibrated relation of Bergamini et al. 2019 at L* (``prior_mag0``): central
+        dispersion ~220 km/s and r_cut ~10 (+13, -7) kpc from their three clusters, widened to TN(200, 70) km/s on 40-500
+        and TN(12, 10) kpc on 2-60; the pivot is chosen automatically from image leverage.  Pair with
+        ScalingModelConfig.bergamini2019() for the slopes."""
         return cls(id=str(id), catalog_path=catalog_path, mag0="auto", prior_mag0=float(prior_mag0), corekpc=float(corekpc),
                    sigma=float(sigma), cutkpc=float(cutkpc), z_lens=float(z_lens),
                    sigma_prior=PriorConfig("truncated_normal", mean=float(sigma), std=0.35 * float(sigma), lower=40.0, upper=500.0),
                    cutkpc_prior=PriorConfig("truncated_normal", mean=float(cutkpc), std=10.0, lower=2.0, upper=60.0))
+
+    @classmethod
+    def neutral(cls, id: str, catalog_path: str | Path, z_lens: float, *, prior_mag0: float, corekpc: float = 0.15) -> "MemberPopulationConfig":
+        """A member population with priors that do not come from any cluster's lens model, at L* (``prior_mag0``):
+        dispersion TN(200, 100) km/s on 50-500 (an L* early type in any Faber-Jackson calibration) and a cut radius
+        uniform in log between 2 and 100 kpc (lensing barely constrains it, so scale-free).  Pair with
+        ScalingModelConfig.neutral() for the slopes."""
+        return cls(id=str(id), catalog_path=catalog_path, mag0="auto", prior_mag0=float(prior_mag0), corekpc=float(corekpc),
+                   sigma=200.0, cutkpc=15.0, z_lens=float(z_lens),
+                   sigma_prior=PriorConfig("truncated_normal", mean=200.0, std=100.0, lower=50.0, upper=500.0),
+                   cutkpc_prior=PriorConfig("uniform", lower=2.0, upper=100.0))        # uniform in the log sampling coordinate
 
 
 @dataclass(frozen=True)
@@ -275,6 +287,18 @@ class ScalingModelConfig:
     beta_radius_prior_upper: float = 1.5
     softening_length_kpc: float = 0.0
     softening_length_prior_log_sigma: float = 0.15
+
+    @classmethod
+    def bergamini2019(cls, **overrides) -> "ScalingModelConfig":
+        """The slope priors of the defaults: alpha 0.27 +- 0.05 and beta 0.65 +- 0.15 (Bergamini et al. 2019)."""
+        return cls(**overrides)
+
+    @classmethod
+    def neutral(cls, **overrides) -> "ScalingModelConfig":
+        """Slope priors from scaling arguments only: alpha 0.25 +- 0.10 (L ~ sigma^4) on 0-0.5 and beta 0.5 +- 0.25
+        (constant mass-to-light, 2 alpha + beta = 1) on 0-1.5."""
+        return cls(alpha_sigma_prior_mean=0.25, alpha_sigma_prior_std=0.10, alpha_sigma_prior_lower=0.0, alpha_sigma_prior_upper=0.5,
+                   beta_radius_prior_mean=0.5, beta_radius_prior_std=0.25, beta_radius_prior_lower=0.0, beta_radius_prior_upper=1.5, **overrides)
 
 
 @dataclass(frozen=True)

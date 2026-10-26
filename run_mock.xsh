@@ -43,7 +43,7 @@ VALID_PRESETS = ("smoke", "production")
 def _usage() -> str:
     return ("Usage: xonsh run_mock.xsh --campaign NAME [--preset smoke|production] [--mode production|idealized] [--seed INT] "
             "[--realizations INT] [--output-dir PATH] [--aggregate-only] [--rescore] [--dry-run]\n"
-            "  --mode production: the solver uses the same priors as the real clusters (halo on the BCG light, literature member relation);\n"
+            "  --mode production: the solver uses the same priors as the real clusters (halo on the BCG light, Bergamini et al. 2019 member relation);\n"
             "  --mode idealized: priors centred on each realization's truth, which isolates the sampler and the likelihood")
 
 

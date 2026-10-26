@@ -6,7 +6,7 @@ scaling relation; its sources are lensed exactly and the images carry astrometri
 realization is built from that realization's truth (never from the nominal configuration) in one of two modes:
 
 * ``production``: the priors an observer would use, i.e. the same factories as the real clusters, with the halo centred
-  on the BCG light and the member population on the literature relation at the mock's pivot magnitude;
+  on the BCG light and the member population on the Bergamini et al. 2019 relation at the mock's pivot magnitude;
 * ``idealized``: priors centred on the truth with moderate widths, which isolates the sampler and the likelihood.
 """
 from __future__ import annotations
@@ -227,7 +227,7 @@ def mock_lens_model_config(config: MockConfig, truth: dict[str, Any], *, image_c
         halos = (DPIEHaloConfig.cluster_scale("halo", bcg["x_centre"], bcg["y_centre"], z_lens, v_disp=800.0, position_half_width_arcsec=5.0),
                  _bcg_halo("bcg", bcg["x_centre"], bcg["y_centre"], z_lens, v_disp=300.0, cut_kpc=150.0, half_width=1.0, truth=None),
                  ShearHaloConfig.free("shear", z_lens, gamma_upper=0.1))
-        members = (MemberPopulationConfig.literature("potfile", member_catalog, z_lens, prior_mag0=float(relation["pivot_magnitude"])),) if has_members else ()
+        members = (MemberPopulationConfig.bergamini2019("potfile", member_catalog, z_lens, prior_mag0=float(relation["pivot_magnitude"])),) if has_members else ()
     return LensModelConfig(
         reference=ReferenceFrameConfig(reference=3, ra0_deg=float(config.reference_ra_deg), dec0_deg=float(config.reference_dec_deg)),
         cosmology=config.cosmology, large_halos=halos, member_populations=members,

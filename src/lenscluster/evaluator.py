@@ -91,7 +91,10 @@ class Evaluator:
 
     # ------------------------------------------------------------------ packed lens state
     def packed_state(self, physical: jnp.ndarray, factor_per_image: jnp.ndarray | None = None) -> tuple[PackedLensState, PackedLensValidity]:
-        """Current dPIE and shear parameters.  sigma0 has shape (component, image) unless a scalar factor is given."""
+        """Current dPIE and shear parameters.  The normalizations carry the lensing efficiency: by default one per
+        constrained image (shape (component, image), from each image's source redshift); a scalar ``factor_per_image``
+        gives one normalization for all points (shape (component,)); a one-dimensional array gives one per arbitrary
+        point (shape (component, point)), which the global image search uses for its seeds."""
         spec = self.spec
         x_center = self._apply(spec["x_center_base"], spec["x_center_param_index"], physical)
         y_center = self._apply(spec["y_center_base"], spec["y_center_param_index"], physical)
@@ -148,14 +151,16 @@ class Evaluator:
         safe_rs_kpc = jnp.where(is_nfw, jnp.maximum(scale_radius_kpc, SAFE_RADIUS_MARGIN_KPC), 1.0)
         rho_s, _ = nfw_scale_density(jnp.where(is_nfw, log10_m200, 14.0), safe_rs_kpc, self.nfw_rho_crit)
         nfw_rs = jnp.where(is_nfw, safe_rs_kpc / kpc_per_arcsec, 0.0)
-        per_image = factor_per_image is None
-        if per_image:
+        if factor_per_image is None:
             factor_per_image = jnp.take(self.factor_by_z, self.state.images.z_index_per_image)
+        factor_per_image = jnp.asarray(factor_per_image, dtype=jnp.float64)
+        per_image = factor_per_image.ndim == 1
+        if per_image:
             sigma0 = jnp.where(is_dpie[:, None], (v_disp[:, None] ** 2) * factor_per_image[None, :] / ra[:, None], 0.0)
             alpha_rs = jnp.where(is_nfw[:, None], nfw_alpha_rs_arcsec(rho_s[:, None], safe_rs_kpc[:, None], factor_per_image[None, :]), 0.0)
             kappa = jnp.where(is_sheet[:, None], kappa_inf[:, None] * (self.efficiency_per_factor * factor_per_image)[None, :], 0.0)
         else:
-            factor = jnp.asarray(factor_per_image, dtype=jnp.float64)
+            factor = factor_per_image
             sigma0 = jnp.where(is_dpie, (v_disp ** 2) * factor / ra, 0.0)
             alpha_rs = jnp.where(is_nfw, nfw_alpha_rs_arcsec(rho_s, safe_rs_kpc, factor), 0.0)
             kappa = jnp.where(is_sheet, kappa_inf * (self.efficiency_per_factor * factor), 0.0)

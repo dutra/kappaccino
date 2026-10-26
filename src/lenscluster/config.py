@@ -327,7 +327,14 @@ class ImageDiagnosticsConfig:
     exact_image_min_distance_arcsec: float = 0.5
     exact_image_precision_limit: float = 1.0e-2
     exact_image_num_iter_max: int = 100
-    exact_image_finder: str = "local-lm-adaptive"
+    exact_image_finder: str = "global-jax"      # best-fit finder: "global-jax" (grid seeds over each family window, one batched solve,
+                                                # reports extra images), "local-lm-adaptive", "local-lm" or "lenstronomy"
+    exact_image_grid_pitch_arcsec: float = 0.5        # coarse grid of the global search over each family window
+    exact_image_fine_pitch_arcsec: float = 0.1        # sub-grid seeded inside near-source cells close to a critical curve
+    exact_image_critical_det_threshold: float = 0.25  # |det A| below which a cell counts as close to a critical curve
+    exact_image_seed_tolerance_pitches: float = 3.0   # a cell is near the source when |beta - source| is within this many coarse pitches
+    exact_image_window_margin_arcsec: float = 3.0     # added around each family's image span
+    exact_image_min_separation_arcsec: float = 0.05   # two roots closer than this are one image
     exact_image_displacement_tol_arcsec: float = 1.0e-4
     exact_image_identification_tol_arcsec: float = 1.0e-3
     exact_image_lm_max_iter: int = 100
@@ -521,8 +528,13 @@ def validate_config(config: LensClusterSolverConfig) -> None:
         raise ValueError("image_diagnostics.posterior_diagnostic_draws must be a nonnegative integer.")
     if int(diagnostics.posterior_image_diagnostic_draws) < 0:
         raise ValueError("image_diagnostics.posterior_image_diagnostic_draws must be nonnegative.")
-    if diagnostics.exact_image_finder not in {"lenstronomy", "local-lm", "local-lm-adaptive"}:
-        raise ValueError("image_diagnostics.exact_image_finder must be 'lenstronomy', 'local-lm', or 'local-lm-adaptive'.")
+    if diagnostics.exact_image_finder not in {"global-jax", "lenstronomy", "local-lm", "local-lm-adaptive"}:
+        raise ValueError("image_diagnostics.exact_image_finder must be 'global-jax', 'lenstronomy', 'local-lm', or 'local-lm-adaptive'.")
+    _positive("image_diagnostics.exact_image_grid_pitch_arcsec", diagnostics.exact_image_grid_pitch_arcsec)
+    _positive("image_diagnostics.exact_image_fine_pitch_arcsec", diagnostics.exact_image_fine_pitch_arcsec)
+    if diagnostics.exact_image_fine_pitch_arcsec > diagnostics.exact_image_grid_pitch_arcsec:
+        raise ValueError("image_diagnostics.exact_image_fine_pitch_arcsec must not exceed the coarse grid pitch.")
+    _positive("image_diagnostics.exact_image_seed_tolerance_pitches", diagnostics.exact_image_seed_tolerance_pitches)
     if int(config.truth.posterior_truth_recovery_draws) < 0 or int(config.truth.truth_grid_size) < 0:
         raise ValueError("truth.posterior_truth_recovery_draws and truth.truth_grid_size must be nonnegative.")
 

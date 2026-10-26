@@ -26,6 +26,8 @@ def predictions_at(solver: ExactImageSolver, state: ModelState, evaluator: Evalu
     families = [family_by_id[family_id] for family_id in images.family_ids]
     if adaptive is False:        # posterior draws: all families in one batched local solve
         batched = solver.predict_all_local(images, families, evaluator.packed_state(physical)[0], np.asarray(sources))
+    elif solver.config.exact_image_finder == "global-jax":   # the best fit: a global search that also reports extra images
+        batched, adaptive = solver.predict_all_global(images, families, np.asarray(physical), np.asarray(sources)), False
     rows, extra_rows, count_rows = [], [], []
     for family_index, family in enumerate(families):
         family_id = family.family_id

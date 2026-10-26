@@ -11,6 +11,8 @@ sys.path.insert(0, str(ROOT / "src"))
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("run_directory", type=Path, help="Directory containing init/ and final/")
+    parser.add_argument("--imaging", choices=("saved", "hst", "jwst"), default="saved",
+                        help="Imaging for the background: the run's saved configuration, the HST (BUFFALO) mosaics, or the JWST NIRCam mosaics (suffix _jwst)")
     args = parser.parse_args()
     import jax
     jax.config.update("jax_enable_x64", True)
@@ -28,6 +30,15 @@ def main():
     run = args.run_directory.resolve()
     init, final = run / "init" / "artifacts", run / "final"
     config = artifacts.load_config(final / "artifacts")
+    if args.imaging != "saved":
+        from dataclasses import replace
+        from lenscluster.rgb import DEFAULT_HFF_RGB_BANDS, DEFAULT_JWST_RGB_BANDS
+        jwst = args.imaging == "jwst"
+        from lenscluster.config import RGBDisplayConfig
+        # The run's saved display numbers belong to the imaging it was run with; the library defaults carry the balance.
+        config = replace(config, image_catalog=replace(config.image_catalog, image_dir="data/JWST_Images" if jwst else "data/BUFFALO_Images",
+                                                       image_scale="auto", bands=tuple(DEFAULT_JWST_RGB_BANDS if jwst else DEFAULT_HFF_RGB_BANDS),
+                                                       rgb=RGBDisplayConfig(), figure_suffix="_jwst" if jwst else ""))
     state = build_state(config)
     classes = json.loads((init / artifacts.CLASSIFICATION_FILE).read_text())
     centered_ids = set(classes.get("centered_members", []))
@@ -52,7 +63,7 @@ def main():
         extra = pd.DataFrame()  # No extra images were recovered in this saved run.
     imaging = load_cluster_imaging(config.image_catalog, config.model, config.paths.run_name)
     plt.style.use(str(ROOT / "src" / "lenscluster" / "style.mplstyle"))
-    output = plots.figure_path(final / "figures", "image_catalog_family_cluster_mass.pdf", config.paths.figure_prefix)
+    output = plots.figure_path(final / "figures", f"image_catalog_family_cluster_mass{config.image_catalog.figure_suffix}.pdf", config.paths.figure_prefix)
     print(f"Rendering saved draw {best_index}: {output}", flush=True)
     provenance = render_cluster_mass_figure(evaluator, theta, catalog, extra, imaging,
         z_source=float(config.truth.caustic_source_redshift), kappa_true_fits=config.truth.kappa_true_fits,

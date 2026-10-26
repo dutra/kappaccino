@@ -369,6 +369,7 @@ class ImageCatalogCutoutConfig:
     image_dir: str | Path | None = None
     image_scale: str = "60mas"
     bands: tuple[str, ...] | None = None
+    figure_suffix: str = ""                  # appended to the cluster mass figure name, e.g. "_jwst"
     rgb: RGBDisplayConfig = field(default_factory=RGBDisplayConfig)
     mode: str = "full"
     dpi: int | None = None

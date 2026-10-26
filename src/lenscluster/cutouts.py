@@ -12,16 +12,19 @@ from astropy.io import fits
 from astropy import units as u
 from astropy.wcs import WCS
 from astropy.wcs.utils import proj_plane_pixel_scales
+from scipy.ndimage import map_coordinates
 
 from .rgb import (CALIBRATED_RGB_MINIMUM_SKY_SIGMA, DEFAULT_CALIBRATED_RGB_CHANNEL_GAINS, DEFAULT_CALIBRATED_RGB_Q,
                   DEFAULT_CALIBRATED_RGB_STRETCH, DEFAULT_CALIBRATED_RGB_WARM_HIGHLIGHT_DESATURATION,
-                  DEFAULT_HFF_RGB_BANDS, DEFAULT_HFF_RGB_CHANNEL_GAINS, DEFAULT_HFF_RGB_CHANNEL_WEIGHTS,
+                  DEFAULT_HFF_RGB_BANDS, DEFAULT_HFF_RGB_CHANNEL_FLOOR_SIGMA, DEFAULT_HFF_RGB_CHANNEL_GAINS, DEFAULT_HFF_RGB_CHANNEL_WEIGHTS,
                   DEFAULT_HFF_RGB_HIGHLIGHT_CEILING, DEFAULT_HFF_RGB_HIGHLIGHT_KNEE, DEFAULT_HFF_RGB_HIGHLIGHT_SOFTNESS,
                   DEFAULT_HFF_RGB_MINIMUM, DEFAULT_HFF_RGB_Q, DEFAULT_HFF_RGB_REFERENCE_BAND, DEFAULT_HFF_RGB_STRETCH,
+                  DEFAULT_JWST_RGB_BANDS, DEFAULT_JWST_RGB_CHANNEL_GAINS, DEFAULT_JWST_RGB_CHANNEL_WEIGHTS, DEFAULT_JWST_RGB_MINIMUM,
+                  DEFAULT_JWST_RGB_CHROMA, DEFAULT_JWST_RGB_GAMMA, DEFAULT_JWST_RGB_PEDESTAL, DEFAULT_JWST_RGB_Q, DEFAULT_JWST_RGB_REFERENCE_BAND, DEFAULT_JWST_RGB_STRETCH, DEFAULT_JWST_RGB_HUE_MIX, DEFAULT_JWST_RGB_UNSHARP_SIGMA_ARCSEC, DEFAULT_JWST_RGB_UNSHARP_AMOUNT, DEFAULT_JWST_RGB_SHADOW_LUMINANCE, DEFAULT_JWST_RGB_HIGHLIGHT_KNEE,
                   DEFAULT_HFF_RGB_WARM_HIGHLIGHT_DESATURATION, DEFAULT_RGB_MINIMUM, CalibratedRGBDisplayConfig,
                   RGBDisplayConfig, compute_fnu_band_fluxscales, make_natural_rgb)
 
-IMAGE_SCALE_CHOICES = ("auto", "30mas", "60mas")
+IMAGE_SCALE_CHOICES = ("auto", "20mas", "30mas", "40mas", "60mas")
 CLUSTER_IMAGE_TOKENS = {
     "a2744": ("a2744", "abell2744"), "a370": ("a370", "abell370"), "ares": ("ares",),
     "as1063": ("as1063", "abells1063", "rxcj2248", "rxj2248"), "hera": ("hera",), "m0416": ("m0416", "macs0416"),
@@ -103,7 +106,10 @@ def find_rgb_band_paths(image_dir: Path, *, cluster: str, bands: Sequence[str], 
         if not candidates:
             missing.append(str(band))
             continue
-        result[str(band)] = sorted(candidates, key=lambda p: (0 if "_drz" in p.name.lower() else 1, len(p.parts), str(p)))[0]
+        # Prefer drizzled science mosaics, plain FITS over gzip (memory-mappable), and the unsubtracted image over a
+        # background- or galaxy-subtracted product.
+        result[str(band)] = sorted(candidates, key=lambda p: (0 if "_drz" in p.name.lower() else 1, 1 if p.name.lower().endswith(".gz") else 0,
+                                                              1 if "bgsub" in p.name.lower() else 0, len(p.parts), str(p)))[0]
     if missing:
         raise FileNotFoundError(f"Missing FITS image(s) for cluster {cluster!r} under {root}: {', '.join(missing)}")
     return result
@@ -205,10 +211,24 @@ def extract_band_cutout(image: BandImage, coord: SkyCoord, cutout_size_arcsec: f
     return cutout
 
 
-def _hff_channel_weights(bands: Sequence[str]) -> dict[str, dict[str, float]]:
+def rgb_instrument(bands: Sequence[str]) -> str:
+    """"jwst" when any NIRCam band is present, else "hst"."""
+    return "jwst" if any(str(b) in DEFAULT_JWST_RGB_BANDS for b in bands) else "hst"
+
+
+def rgb_reference_band(bands: Sequence[str]) -> str:
+    """The band whose pixel grid and flux scale the display is built on."""
+    keys = [str(b) for b in bands]
+    preferred = DEFAULT_JWST_RGB_REFERENCE_BAND if rgb_instrument(keys) == "jwst" else DEFAULT_HFF_RGB_REFERENCE_BAND
+    return preferred if preferred in keys else keys[-1]
+
+
+def _channel_weights(bands: Sequence[str]) -> dict[str, dict[str, float]]:
+    """The instrument's channel recipe restricted to the bands at hand."""
     available = {str(b) for b in bands}
+    table = DEFAULT_JWST_RGB_CHANNEL_WEIGHTS if rgb_instrument(bands) == "jwst" else DEFAULT_HFF_RGB_CHANNEL_WEIGHTS
     out = {}
-    for role, weights in DEFAULT_HFF_RGB_CHANNEL_WEIGHTS.items():
+    for role, weights in table.items():
         selected = {b: float(w) for b, w in weights.items() if b in available}
         if selected:
             out[role] = selected
@@ -217,33 +237,84 @@ def _hff_channel_weights(bands: Sequence[str]) -> dict[str, dict[str, float]]:
 
 def build_rgb_display(band_images: Mapping[str, BandImage], *, bands: Sequence[str], q: float | None = None, stretch: float | None = None,
                       channel_gains: Mapping[str, float] | None = None, minimum: float | None = None) -> RGBDisplayConfig:
-    """Calibrated Lupton display; the weighted multi-band HFF path when more than three bands are given."""
+    """Calibrated Lupton display: the weighted multi-band recipe (HST Frontier Fields or JWST NIRCam) when more than three
+    bands are given, else a three-band composite.  Band flux scales put every band on the reference band's f_nu scale
+    per unit sky area, so bands with different pixel sizes combine correctly."""
     keys = [str(b) for b in bands]
-    weights = _hff_channel_weights(keys)
-    hff = len(keys) > 3 and all(weights.get(role) for role in ("blue", "green", "red"))
-    reference = DEFAULT_HFF_RGB_REFERENCE_BAND if DEFAULT_HFF_RGB_REFERENCE_BAND in keys else keys[-1]
+    instrument = rgb_instrument(keys)
+    weights = _channel_weights(keys)
+    weighted = len(keys) > 3 and all(weights.get(role) for role in ("blue", "green", "red"))
+    reference = rgb_reference_band(keys)
     fluxscales = compute_fnu_band_fluxscales({b: getattr(band_images.get(b), "photflam", None) for b in keys},
                                              {b: getattr(band_images.get(b), "photplam", None) for b in keys}, reference_band=reference)
+    reference_pixel_scale = float(getattr(band_images.get(reference), "pixel_scale_arcsec", 0.0) or 0.0)
+    reference_area = (reference_pixel_scale or 1.0) ** 2
+    for b in keys:                                                        # per-pixel flux -> the reference band's pixel area
+        area = float(getattr(band_images.get(b), "pixel_scale_arcsec", 0.0) or 0.0) ** 2
+        if area > 0.0 and reference_area > 0.0:
+            fluxscales[b] = float(fluxscales.get(b, 1.0)) * reference_area / area
     backgrounds = {b: float(getattr(band_images.get(b), "background", 0.0) or 0.0) for b in keys}
-    if minimum is None:
-        if hff:
-            minimum = DEFAULT_HFF_RGB_MINIMUM
-        else:
-            sigmas = [float(getattr(band_images.get(b), "background_sigma", 0.0) or 0.0) * float(fluxscales.get(b, 1.0)) for b in keys]
-            sigmas = [v for v in sigmas if v > 0]
-            minimum = CALIBRATED_RGB_MINIMUM_SKY_SIGMA * float(np.median(sigmas)) if sigmas else DEFAULT_RGB_MINIMUM
+    if weighted and instrument == "jwst":
+        defaults = dict(q=DEFAULT_JWST_RGB_Q, stretch=DEFAULT_JWST_RGB_STRETCH, gains=DEFAULT_JWST_RGB_CHANNEL_GAINS, minimum=DEFAULT_JWST_RGB_MINIMUM)
+    elif weighted:
+        defaults = dict(q=DEFAULT_HFF_RGB_Q, stretch=DEFAULT_HFF_RGB_STRETCH, gains=DEFAULT_HFF_RGB_CHANNEL_GAINS, minimum=DEFAULT_HFF_RGB_MINIMUM)
+    else:
+        sigmas = [float(getattr(band_images.get(b), "background_sigma", 0.0) or 0.0) * float(fluxscales.get(b, 1.0)) for b in keys]
+        sigmas = [v for v in sigmas if v > 0]
+        defaults = dict(q=DEFAULT_CALIBRATED_RGB_Q, stretch=DEFAULT_CALIBRATED_RGB_STRETCH, gains=DEFAULT_CALIBRATED_RGB_CHANNEL_GAINS,
+                        minimum=CALIBRATED_RGB_MINIMUM_SKY_SIGMA * float(np.median(sigmas)) if sigmas else DEFAULT_RGB_MINIMUM)
     return CalibratedRGBDisplayConfig(
-        q=(DEFAULT_HFF_RGB_Q if hff else DEFAULT_CALIBRATED_RGB_Q) if q is None else float(q),
-        stretch=(DEFAULT_HFF_RGB_STRETCH if hff else DEFAULT_CALIBRATED_RGB_STRETCH) if stretch is None else float(stretch),
-        channel_gains=dict((DEFAULT_HFF_RGB_CHANNEL_GAINS if hff else DEFAULT_CALIBRATED_RGB_CHANNEL_GAINS) if channel_gains is None else channel_gains),
-        minimum=float(minimum), band_backgrounds=backgrounds, band_fluxscales=fluxscales,
-        warm_highlight_desaturation=DEFAULT_HFF_RGB_WARM_HIGHLIGHT_DESATURATION if hff else DEFAULT_CALIBRATED_RGB_WARM_HIGHLIGHT_DESATURATION,
-        channel_weights=weights if hff else {}, highlight_knee=DEFAULT_HFF_RGB_HIGHLIGHT_KNEE if hff else 1.0,
-        highlight_ceiling=DEFAULT_HFF_RGB_HIGHLIGHT_CEILING if hff else 1.0, highlight_softness=DEFAULT_HFF_RGB_HIGHLIGHT_SOFTNESS if hff else 0.44)
+        q=float(defaults["q"] if q is None else q), stretch=float(defaults["stretch"] if stretch is None else stretch),
+        channel_gains=dict(defaults["gains"] if channel_gains is None else channel_gains),
+        minimum=float(defaults["minimum"] if minimum is None else minimum), band_backgrounds=backgrounds, band_fluxscales=fluxscales,
+        warm_highlight_desaturation=DEFAULT_HFF_RGB_WARM_HIGHLIGHT_DESATURATION if weighted else DEFAULT_CALIBRATED_RGB_WARM_HIGHLIGHT_DESATURATION,
+        channel_weights=weights if weighted else {}, highlight_ceiling=DEFAULT_HFF_RGB_HIGHLIGHT_CEILING if weighted else 1.0, highlight_softness=DEFAULT_HFF_RGB_HIGHLIGHT_SOFTNESS if weighted else 0.44,
+        local_background=weighted and instrument == "hst", channel_floor_sigma=DEFAULT_HFF_RGB_CHANNEL_FLOOR_SIGMA if (weighted and instrument == "hst") else 0.0,
+        **(_jwst_display_fields(reference_pixel_scale) if (weighted and instrument == "jwst") else dict(highlight_knee=DEFAULT_HFF_RGB_HIGHLIGHT_KNEE if weighted else 1.0)))
+
+
+def _jwst_display_fields(reference_pixel_scale_arcsec: float) -> dict:
+    """The per-channel stretch fitted to the STScI release look (see the DEFAULT_JWST_RGB_* constants)."""
+    pixel = float(reference_pixel_scale_arcsec) if reference_pixel_scale_arcsec > 0.0 else 1.0
+    return dict(per_channel_stretch=True, pedestal=DEFAULT_JWST_RGB_PEDESTAL, gamma=DEFAULT_JWST_RGB_GAMMA, chroma=DEFAULT_JWST_RGB_CHROMA,
+                hue_mix=DEFAULT_JWST_RGB_HUE_MIX, unsharp_sigma_pixels=DEFAULT_JWST_RGB_UNSHARP_SIGMA_ARCSEC / pixel,
+                unsharp_amount=DEFAULT_JWST_RGB_UNSHARP_AMOUNT, shadow_luminance=DEFAULT_JWST_RGB_SHADOW_LUMINANCE,
+                highlight_knee=DEFAULT_JWST_RGB_HIGHLIGHT_KNEE)
+
+
+def extract_band_cutout_on_grid(image: BandImage, reference: BandImage, coord: SkyCoord, cutout_size_arcsec: float) -> np.ndarray:
+    """A band's cutout resampled (bilinear, through both WCSs) onto the reference band's cutout grid, so bands with
+    different pixel sizes share one pixel grid.  Values stay per source pixel; the flux scales convert the area."""
+    if image.path == reference.path and image.hdu_index == reference.hdu_index:
+        return extract_band_cutout(image, coord, cutout_size_arcsec)
+    window = cutout_window(reference, coord, cutout_size_arcsec)
+    npix = cutout_npixels(reference, cutout_size_arcsec)
+    if window is None:
+        return np.full((npix, npix), np.nan, dtype=np.float32)
+    # Sky positions of the reference cutout's pixel centres -> pixel coordinates in the other band.
+    yy, xx = np.mgrid[0:npix, 0:npix]
+    sky = reference.wcs.pixel_to_world(xx + window.x0, yy + window.y0)
+    px, py = image.wcs.world_to_pixel(sky)
+    px, py = np.asarray(px, dtype=float), np.asarray(py, dtype=float)
+    # Read the covering section of the other band once, with a one-pixel margin for the interpolation.
+    x0, x1 = int(np.floor(np.nanmin(px))) - 1, int(np.ceil(np.nanmax(px))) + 2
+    y0, y1 = int(np.floor(np.nanmin(py))) - 1, int(np.ceil(np.nanmax(py))) + 2
+    ny, nx = image.shape
+    x0, x1, y0, y1 = max(0, x0), min(nx, x1), max(0, y0), min(ny, y1)
+    out = np.full((npix, npix), np.nan, dtype=np.float32)
+    if x0 >= x1 or y0 >= y1:
+        return out
+    with fits.open(image.path, memmap=True) as hdul:
+        section = np.asarray(hdul[image.hdu_index].section[y0:y1, x0:x1], dtype=np.float32)
+    inside = (px >= x0) & (px <= x1 - 1) & (py >= y0) & (py <= y1 - 1)
+    filled = np.where(np.isfinite(section), section, 0.0)
+    out[inside] = map_coordinates(filled, [py[inside] - y0, px[inside] - x0], order=1, mode="nearest")
+    return out
 
 
 def rgb_cutout(band_images: Mapping[str, BandImage], bands: Sequence[str], display: RGBDisplayConfig, coord: SkyCoord, cutout_size_arcsec: float) -> np.ndarray:
-    cutouts = {str(b): extract_band_cutout(band_images[str(b)], coord, cutout_size_arcsec) for b in bands}
+    reference = band_images[rgb_reference_band(bands)]
+    cutouts = {str(b): extract_band_cutout_on_grid(band_images[str(b)], reference, coord, cutout_size_arcsec) for b in bands}
     return make_natural_rgb(cutouts, bands=bands, display=display)
 
 
@@ -260,7 +331,7 @@ def downsample_rgb(rgb: np.ndarray, max_side_pixels: int | None) -> np.ndarray:
 def load_cluster_imaging(config, model_config: Any, run_name: str) -> tuple[dict[str, BandImage], tuple[str, ...], RGBDisplayConfig, str]:
     """Band images, bands, RGB display and cluster name from an ImageCatalogCutoutConfig."""
     cluster = cluster_from_config(model_config, run_name)
-    bands = tuple(config.bands) if config.bands else tuple(DEFAULT_HFF_RGB_BANDS[:3])
+    bands = tuple(config.bands) if config.bands else tuple(DEFAULT_HFF_RGB_BANDS)
     paths = find_rgb_band_paths(Path(str(config.image_dir)), cluster=cluster, bands=bands, image_scale=str(config.image_scale))
     images = load_band_images(paths, bands)
     rgb = config.rgb

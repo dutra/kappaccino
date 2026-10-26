@@ -113,7 +113,7 @@ def write_outputs(config: LensClusterSolverConfig, state: ModelState, evaluator:
         else:
             render_cluster_mass_figure(evaluator, best, image_df, recovery["image_recovery_extra_images"], imaging,
                                        z_source=z_crit, kappa_true_fits=config.truth.kappa_true_fits,
-                                       figure_path=plots.figure_path(figures, "image_catalog_family_cluster_mass.pdf", prefix),
+                                       figure_path=plots.figure_path(figures, f"image_catalog_family_cluster_mass{config.image_catalog.figure_suffix}.pdf", prefix),
                                        tables_dir=tables, fits_dir=paths.fits)
             log(f"[outputs] cluster mass figure rendered from {imaging[3]} imaging")
     (tables / "run_summary.json").write_text(json.dumps(summary, indent=2, default=float))

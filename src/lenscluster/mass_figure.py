@@ -100,8 +100,12 @@ def grid_pixels(geometry: dict[str, Any], x: Any, y: Any) -> tuple[np.ndarray, n
             (np.asarray(y) - geometry["ylim"][0]) / np.diff(geometry["ylim"])[0] * n - 0.5)
 
 
-def aligned_rgb(rgb: np.ndarray, image: cutouts.BandImage, geometry: dict[str, Any], resolution: int = 1600) -> np.ndarray:
-    """Reproject the displayed RGB cutout onto the solver-aligned grid."""
+def aligned_rgb(rgb: np.ndarray, image: cutouts.BandImage, geometry: dict[str, Any], resolution: int | None = None,
+                max_resolution: int = 3200) -> np.ndarray:
+    """Reproject the displayed RGB cutout onto the solver-aligned grid, sampled at the imaging's own pixel scale (capped)
+    so the figure keeps the mosaic's resolution."""
+    if resolution is None:
+        resolution = int(min(max_resolution, max(512, round(geometry["size"] / image.pixel_scale_arcsec))))
     xedge, yedge = np.linspace(*geometry["xlim"], resolution + 1), np.linspace(*geometry["ylim"], resolution + 1)
     x, y = np.meshgrid((xedge[:-1] + xedge[1:]) / 2, (yedge[:-1] + yedge[1:]) / 2)
     ra, dec = cutouts.arcsec_to_radec(x, y, geometry["reference"])
@@ -164,8 +168,8 @@ def convergence_maps(evaluator: Evaluator, theta: np.ndarray, geometry: dict[str
 
 
 def overview_axes(fig, ax, images, bands, display, display_image, catalog, extra, geometry, *, arc_directions=None,
-                  max_side_pixels: int | None = 2400) -> None:
-    """RGB overview with observed and model image markers, scale bar and compass on the solver-aligned grid."""
+                  max_side_pixels: int | None = 3200) -> None:
+    """RGB overview with recovery-status circles, scale bar and compass on the solver-aligned grid."""
     rgb = cutouts.rgb_cutout(images, bands, display, geometry["center"], geometry["size"])
     rgb = cutouts.downsample_rgb(aligned_rgb(rgb, display_image, geometry), max_side_pixels)
     n = geometry["resolution"]
@@ -176,11 +180,9 @@ def overview_axes(fig, ax, images, bands, display, display_image, catalog, extra
     observed = np.column_stack(grid_pixels(geometry, catalog["x_obs_arcsec"].to_numpy(float), catalog["y_obs_arcsec"].to_numpy(float)))
     model = np.column_stack(grid_pixels(geometry, catalog["x_model_arcsec"].to_numpy(float), catalog["y_model_arcsec"].to_numpy(float)))
     valid = np.isfinite(model).all(axis=1)
-    cyan, model_color = "#66D9EF", "#F08DB8"
     for obs, pred in zip(observed[valid], model[valid]):
         ax.plot([obs[0], pred[0]], [obs[1], pred[1]], color="white", lw=0.65, alpha=0.9, zorder=4)
-    ax.scatter(*observed.T, s=42, facecolors="none", edgecolors=cyan, linewidths=0.85, zorder=5)
-    ax.scatter(*model[valid].T, s=23, marker="+", color=model_color, linewidths=0.85, zorder=6)
+    ax.scatter(*observed[valid].T, s=42, facecolors="none", edgecolors="tab:blue", linewidths=0.85, zorder=5)
     if arc_directions is not None:
         xy = catalog[["x_obs_arcsec", "y_obs_arcsec"]].to_numpy(float)
         directions = arc_directions[["e_arc_x", "e_arc_y"]].to_numpy(float)
@@ -192,10 +194,10 @@ def overview_axes(fig, ax, images, bands, display, display_image, catalog, extra
             ax.plot(px, py, color=ARC_DIRECTION_COLOR, lw=.8, alpha=.9,
                     solid_capstyle="round", zorder=8)
     if (~valid).any():
-        ax.scatter(*observed[~valid].T, s=45, marker="x", color="#FF6677", linewidths=1.0, zorder=7)
+        ax.scatter(*observed[~valid].T, s=42, facecolors="none", edgecolors="tab:red", linewidths=0.85, zorder=7)
     if extra is not None and not extra.empty:
         extras = np.column_stack(grid_pixels(geometry, extra["x_model_arcsec"].to_numpy(float), extra["y_model_arcsec"].to_numpy(float)))
-        ax.scatter(*extras.T, s=30, marker="x", color="#CC99FF", linewidths=0.9, zorder=6)
+        ax.scatter(*extras.T, s=42, facecolors="none", edgecolors="tab:purple", linewidths=0.85, zorder=6)
     bar = 10.0 / abs(np.diff(geometry["xlim"])[0]) * n
     x0, y0 = 0.06 * n, 0.055 * n
     ax.plot([x0, x0 + bar], [y0, y0], color="white", lw=2.0, solid_capstyle="butt")
@@ -209,8 +211,11 @@ def overview_axes(fig, ax, images, bands, display, display_image, catalog, extra
         end = compass + direction * 0.055 * n
         ax.annotate("", end, compass, arrowprops=dict(arrowstyle="->", color="white", lw=1.0))
         ax.text(*(end + direction * 0.018 * n), label, color="white", fontsize=9, ha="center", va="center")
-    handles = [Line2D([], [], marker="o", ls="none", mfc="none", mec=cyan, ms=6, label="Observed image"),
-               Line2D([], [], marker="+", ls="none", color=model_color, ms=6, label="Model image")]
+    handles = [Line2D([], [], marker="o", ls="none", mfc="none", mec="tab:blue", ms=6, label="Recovered image")]
+    if (~valid).any():
+        handles.append(Line2D([], [], marker="o", ls="none", mfc="none", mec="tab:red", ms=6, label="Missed image"))
+    if extra is not None and not extra.empty:
+        handles.append(Line2D([], [], marker="o", ls="none", mfc="none", mec="tab:purple", ms=6, label="Extra image"))
     if arc_directions is not None:
         handles.append(Line2D([], [], color=ARC_DIRECTION_COLOR, lw=.8, alpha=.9,
                               label="Image stretch"))
@@ -222,8 +227,7 @@ def render_cluster_mass_figure(evaluator: Evaluator, theta: np.ndarray, catalog:
                                z_source: float, kappa_true_fits: str | Path | None, figure_path: Path, tables_dir: Path, fits_dir: Path) -> dict[str, Any]:
     """Write the overview-plus-mass-panels figure, the strip profiles and the convergence FITS. Returns provenance."""
     images, bands, display, cluster = imaging
-    reference_band = cutouts.DEFAULT_HFF_RGB_REFERENCE_BAND if cutouts.DEFAULT_HFF_RGB_REFERENCE_BAND in images else bands[-1]
-    display_image = images[reference_band]
+    display_image = images[cutouts.rgb_reference_band(bands)]
     geometry = overview_geometry(display_image, catalog, extra, evaluator.state.reference)
     arc_directions = arc_direction_table(evaluator, theta, catalog)
     model, truth, physical = convergence_maps(evaluator, theta, geometry, z_source, kappa_true_fits)

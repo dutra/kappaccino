@@ -126,10 +126,13 @@ def image_recovery_tables(state: ModelState, evaluator: Evaluator, posterior: Po
 
 
 def fit_summary(state: ModelState, image_df: pd.DataFrame, count_df: pd.DataFrame) -> dict[str, Any]:
-    """Headline chi-square and recovery numbers from the best-fit image table."""
+    """Headline chi-square and recovery numbers from the best-fit image table.  The degrees of freedom follow the
+    lenstool convention, 2 N_images - 2 N_families - N_global, where the global parameters are the halo, relation and
+    error-model parameters: the member deviations are prior-dominated and add nothing to the effective count."""
     n_images = int(sum(f.n_images for f in state.family_data))
-    k = int(sum(spec.component_family != "source_position" for spec in state.parameter_specs) + 2 * len(state.family_data))
-    out: dict[str, Any] = {"observed_image_count": n_images, "n_effective_parameters": k}
+    n_global = int(sum(spec.component_family not in {"source_position", "member_scatter_offset"} for spec in state.parameter_specs))
+    k = n_global + 2 * len(state.family_data)
+    out: dict[str, Any] = {"observed_image_count": n_images, "n_effective_parameters": k, "n_global_parameters": n_global}
     if image_df.empty:
         return out
     recovered = image_df["image_recovery_status"].astype(str) == "recovered"
@@ -139,8 +142,10 @@ def fit_summary(state: ModelState, image_df: pd.DataFrame, count_df: pd.DataFram
     chi2 = float(np.sum((residual[valid] / sigma[valid]) ** 2))
     n_data = int(2 * valid.sum())
     out.update(recovered_image_count=int(valid.sum()), missing_image_count=int(n_images - valid.sum()),
+               extra_image_count=int(count_df["extra_image_count"].sum()) if not count_df.empty else 0,
                image_rms_arcsec=float(np.sqrt(np.mean(residual[valid] ** 2))) if valid.any() else None,
                image_median_residual_arcsec=float(np.median(residual[valid])) if valid.any() else None,
+               image_max_residual_arcsec=float(np.max(residual[valid])) if valid.any() else None,
                chi_square=chi2, n_data=n_data, dof=int(n_data - k), reduced_chi_square=chi2 / (n_data - k) if n_data > k else None,
                families_fully_recovered=int((~count_df["multiplicity_failed"].astype(bool)).sum()) if not count_df.empty else 0)
     return out

@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import random
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -75,6 +75,7 @@ class InitResult:
     search: dict[str, Any]
     theta: np.ndarray
     resumed: bool
+    elapsed_seconds: float = 0.0
 
 
 @dataclass
@@ -86,6 +87,8 @@ class RunResult:
     posterior: PosteriorResults
     audit: dict[str, Any]
     resumed: bool
+    summary: dict[str, Any] = field(default_factory=dict)      # what write_outputs returned (fit numbers under "fit")
+    timing: dict[str, float] = field(default_factory=dict)     # seconds: init, sampling, outputs, final, total
 
 
 class RunLog:
@@ -119,8 +122,10 @@ def _scaling_value(state: ModelState, physical: np.ndarray, field: str) -> float
 
 def classify(state: ModelState, evaluator: Evaluator, theta: np.ndarray, config: LensClusterSolverConfig, *,
              reference_cut_kpc: float | None, beta_radius: float | None, log) -> ModelState:
-    """Classify members at ``theta`` with conservative cut radii: the larger of the given (current-model) scaling
-    values and the prior upper quantiles of cutkpc and beta, times ``cut_radius_inflation``."""
+    """Classify members at ``theta`` with a conservative cut radius: the larger of ``cut_radius_inflation`` times the
+    current-model value and the prior upper quantile of cutkpc (when a quantile is configured), with beta spanning the
+    current value and the prior quantiles.  Either route leaves the sampled r_cut* room to grow before a far-field member
+    reaches the guard; they are not multiplied."""
     physical = np.asarray(evaluator.physical(jnp.asarray(theta)))
     if reference_cut_kpc is None:
         reference_cut_kpc = max(float(p["cutkpc_nominal"]) for p in state.potfiles) if state.potfiles else 0.0
@@ -234,6 +239,13 @@ def init_verdict(search: dict[str, Any], *, fit: dict[str, Any] | None) -> str:
 
 def run_init(config: LensClusterSolverConfig) -> InitResult:
     """Init stage: provisional classification, multi-start MAP, final classification at the MAP, saved start."""
+    started = time.perf_counter()
+    result = _run_init(config)
+    result.elapsed_seconds = time.perf_counter() - started
+    return result
+
+
+def _run_init(config: LensClusterSolverConfig) -> InitResult:
     config = config.validate()
     paths = run_paths(config).init
     for directory in (paths.artifacts, paths.tables, paths.logs):
@@ -362,21 +374,24 @@ def run_final(config: LensClusterSolverConfig, init: InitResult) -> RunResult:
             log("[final] complete posterior found; loading artifacts")
             posterior = artifacts.load_posterior(stage.artifacts)
             audit = json.loads((stage.artifacts / artifacts.AUDIT_FILE).read_text())
-            if not runtime.skip_plots:
-                write_outputs(config, state, evaluator, posterior, audit, stage, log=log)
-            return RunResult(paths, init, state, evaluator, posterior, audit, resumed=True)
+            outputs_started = time.perf_counter()
+            summary = write_outputs(config, state, evaluator, posterior, audit, stage, log=log) if not runtime.skip_plots else {}
+            timing = {"sampling": 0.0, "outputs": time.perf_counter() - outputs_started}
+            return RunResult(paths, init, state, evaluator, posterior, audit, resumed=True, summary=summary, timing=timing)
 
         artifacts.save_config(stage.artifacts, config)
         starts = chain_starts(init.search, runtime.chains, config.search.max_chain_modes)
         sampling = config.sampling
         log(f"[final] NUTS from {len({tuple(s) for s in starts.tolist()})} distinct start(s), chains={runtime.chains} "
             f"warmup={sampling.warmup} samples={sampling.samples}")
+        sampling_started = time.perf_counter()
         posterior = run_nuts(state, evaluator, starts, warmup=sampling.warmup, samples=sampling.samples, chains=runtime.chains,
                              chain_method=runtime.nuts_chain_method, max_tree_depth=sampling.max_tree_depth,
                              target_accept=sampling.target_accept, initial_step_size=sampling.initial_step_size,
                              seed=runtime.seed, thin=sampling.thin, print_summary=runtime.numpyro_print_summary,
                              mass_matrix=sampling.mass_matrix, log=log)
         artifacts.save_posterior(stage.artifacts, posterior)
+        sampling_seconds = time.perf_counter() - sampling_started
 
         audit = audit_posterior(state, evaluator, posterior.samples, tolerance=config.members.template_tolerance,
                                 guard_cut_radii=config.members.far_field_cut_radii)
@@ -395,9 +410,10 @@ def run_final(config: LensClusterSolverConfig, init: InitResult) -> RunResult:
                    "divergences": int(posterior.diverging.sum()), "mean_steps": float(posterior.num_steps.mean()),
                    "audit": audit["approximation_validation"]}
         artifacts.write_json(stage.artifacts / artifacts.SUMMARY_FILE, summary)
-        if not runtime.skip_plots:
-            write_outputs(config, state, evaluator, posterior, audit, stage, log=log)
-        return RunResult(paths, init, state, evaluator, posterior, audit, resumed=False)
+        outputs_started = time.perf_counter()
+        outputs = write_outputs(config, state, evaluator, posterior, audit, stage, log=log) if not runtime.skip_plots else {}
+        timing = {"sampling": sampling_seconds, "outputs": time.perf_counter() - outputs_started}
+        return RunResult(paths, init, state, evaluator, posterior, audit, resumed=False, summary=outputs, timing=timing)
     finally:
         log.close()
 
@@ -410,10 +426,22 @@ def run(config: LensClusterSolverConfig, stage: str = "both") -> RunResult | Ini
         paths = run_paths(config).init
         if not artifacts.is_init_complete(paths.artifacts):
             raise FileNotFoundError(f"The final stage needs a completed init stage under {paths.artifacts}")
+    started = time.perf_counter()
     init = run_init(config)
     if stage == "init":
         return init
-    return run_final(config, init)
+    result = run_final(config, init)
+    result.timing.update(init=init.elapsed_seconds, total=time.perf_counter() - started)
+    from .results_tex import write_run_results
+    # Preserve original full-run timing when only reloading/replotting a run.
+    if not result.resumed and not init.resumed:
+        artifacts.write_json(result.paths.final.tables / "runtime.json", result.timing)
+    write_run_results(result.paths.final.root, name=config.paths.figure_prefix)
+    table = run_summary_table(result, config)
+    (result.paths.final.tables / "run_summary.txt").write_text(table + "\n")
+    if not config.runtime.quiet:
+        print(table, flush=True)
+    return result
 
 
 def dry_run(config: LensClusterSolverConfig) -> dict[str, Any]:

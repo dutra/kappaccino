@@ -60,6 +60,8 @@ def test_single_stage_end_to_end(synthetic_config):
     # The init stage alone resumes too; a changed sampling setting under the same run name is refused
     # rather than silently overwriting the saved posterior.
     assert pipeline.run(config, stage="init").resumed
+    table = (result.paths.final.tables / "run_summary.txt").read_text()
+    assert "Run summary" in table and "recovered / observed" in table and "total" in table
     changed = replace(config, sampling=SamplingConfig(warmup=10, samples=12, max_tree_depth=4))
     with pytest.raises(ValueError, match="different configuration"):
         pipeline.run(changed)

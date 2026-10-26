@@ -24,7 +24,7 @@ from .truth import draw_truth, parameter_truth, truth_from_json
 from .writers import MockPaths, write_mock
 
 RECOVERY_FILE = "recovery.json"
-CONVERGENCE_RHAT = 1.05          # a realization enters the aggregates only if max R-hat < this ...
+CONVERGENCE_RHAT = 1.01          # a realization enters the aggregates only if max R-hat < this ...
 CONVERGENCE_MIN_NEFF = 50.0      # ... and the smallest effective sample size is at least this
 
 

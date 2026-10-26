@@ -71,7 +71,7 @@ class Campaign:
 
 def load_campaign(root: str | Path, *, converged_only: bool = True) -> Campaign:
     """The campaign's recovery tables.  With ``converged_only`` (the default) realizations whose sampler did not converge
-    (max R-hat >= 1.05 or min n_eff < 50, the verdict written in recovery.json) are left out of every table except the
+    (max R-hat >= 1.01 or min n_eff < 50, recomputed from saved diagnostics) are left out of every table except the
     summary, which keeps all of them with their ``converged`` flag and reasons."""
     root = Path(root)
     files = sorted(root.glob("seed_*/recovery/" + RECOVERY_FILE))
@@ -81,10 +81,7 @@ def load_campaign(root: str | Path, *, converged_only: bool = True) -> Campaign:
     for path in files:
         payload = json.loads(path.read_text())
         seed = int(payload["seed"])
-        if "converged" in payload:
-            converged, reasons = bool(payload["converged"]), list(payload.get("convergence_reasons", []))
-        else:
-            converged, reasons = convergence_verdict({"max_r_hat": payload.get("max_r_hat"), "min_n_eff": payload.get("min_n_eff")})
+        converged, reasons = convergence_verdict({"max_r_hat": payload.get("max_r_hat"), "min_n_eff": payload.get("min_n_eff")})
         summary.append({"seed": seed, "mode": payload.get("mode"), "converged": converged, "convergence_reasons": "; ".join(reasons),
                         "max_r_hat": payload.get("max_r_hat"), "min_n_eff": payload.get("min_n_eff"),
                         "divergences": payload.get("divergences"), "audit": payload.get("audit"), "coverage_68": payload.get("coverage_68"),
@@ -297,7 +294,7 @@ def plot_magnification_recovery(campaign: Campaign, path: Path) -> Path | None:
     stats = binned_magnification_summary(df)
     if not stats.empty:
         stats.to_csv(path.with_name(path.stem + "_bins.csv"), index=False)
-        shown = stats[stats.n_mocks >= 2]
+        shown = stats[(stats.n_images > 7) & (stats.n_mocks >= 2)]
         if not shown.empty:
             ax.errorbar(shown.truth_mean, shown.recovered_mean, yerr=shown.recovered_sem,
                         fmt="o", color="tab:orange", markersize=4, elinewidth=1,
@@ -356,13 +353,20 @@ def plot_image_residual_distribution(campaign: Campaign, path: Path, *, bins: in
         return None
     x_max = float(np.ceil(np.quantile(residual[recovered], 0.99) * 1.10 / 0.05) * 0.05)
     edges = np.linspace(0.0, max(x_max, 1e-6), bins + 1)
-    centers = 0.5 * (edges[:-1] + edges[1:])
-    counts = np.stack([np.histogram(residual[recovered & (df["seed"] == seed).to_numpy() & (df["draw_index"] == draw).to_numpy()], bins=edges)[0]
-                       for seed, draw in df.loc[recovered, ["seed", "draw_index"]].drop_duplicates().itertuples(index=False)])
+    groups = [residual[recovered & (df["seed"] == seed).to_numpy() & (df["draw_index"] == draw).to_numpy()]
+              for seed, draw in df.loc[recovered, ["seed", "draw_index"]].drop_duplicates().itertuples(index=False)]
+    counts = np.stack([np.histogram(values, bins=edges)[0] for values in groups])
     h16, h50, h84 = np.percentile(counts, [16, 50, 84], axis=0)
+    rms = float(np.median([np.sqrt(np.mean(values ** 2)) for values in groups]))
+    median = float(np.median([np.median(values) for values in groups]))
     fig, ax = plt.subplots(figsize=(3.5, 2.6))
-    ax.fill_between(centers, h16, h84, color=COLOR, alpha=0.14, step="mid", linewidth=0.0, label="16–84%")
-    ax.step(centers, h50, where="mid", color=COLOR, linewidth=1.6, label="Median")
+    ax.stairs(h84, edges, baseline=h16, fill=True, color=COLOR, alpha=0.08,
+              linewidth=0.0, zorder=1)
+    ax.stairs(h50, edges, color=COLOR, linewidth=1.5, label="Median", zorder=3)
+    ax.axvline(rms, color="#ba5a2a", linestyle="--", linewidth=1.3,
+               label="RMS", zorder=4)
+    ax.axvline(median, color="#303030", linestyle=":", linewidth=1.3,
+               label="Median", zorder=4)
     ax.set_ylabel("Number of images")
     ax.set_xlabel("Image-position residual (arcsec)")
     ax.set_xlim(0.0, edges[-1])
@@ -370,7 +374,7 @@ def plot_image_residual_distribution(campaign: Campaign, path: Path, *, bins: in
     ax.yaxis.set_major_locator(MaxNLocator(4, integer=True))
     ax.xaxis.set_major_locator(MaxNLocator(4))
     _polish(ax)
-    ax.legend(frameon=False, loc="upper right")
+    ax.legend(frameon=False, loc="upper right", bbox_to_anchor=(1, .87), fontsize=8)
     fig.tight_layout()
     return _save(fig, path)
 

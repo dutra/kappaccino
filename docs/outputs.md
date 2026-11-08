@@ -1,5 +1,7 @@
 # Outputs
 
+This page lists the files a run writes; {doc}`posterior` defines each posterior parameter and derived quantity.
+
 A run writes everything under its run root, `<output_dir>/<run_name>/` from
 {class}`~lenscluster.config.RunPathsConfig`. Figure names start with `RunPathsConfig.figure_prefix`, for example
 `m0416_critical_curves.pdf`.

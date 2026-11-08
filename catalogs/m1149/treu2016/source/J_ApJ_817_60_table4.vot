@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VOTABLE version="1.4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns="http://www.ivoa.net/xml/VOTable/v1.3"
+  xsi:schemaLocation="http://www.ivoa.net/xml/VOTable/v1.3 http://www.ivoa.net/xml/VOTable/v1.3">
+ <DESCRIPTION>
+   VizieR Astronomical Server vizier.cfa.harvard.edu
+    Date: 2026-11-08T19:26:11 [V7.6.1]
+   Explanations and Statistics of UCDs:			See LINK below
+   In case of problem, please report to:	cds-question@unistra.fr
+ </DESCRIPTION>
+<!-- VOTable description at http://www.ivoa.net/Documents/latest/VOT.html -->
+<INFO name="service_protocol" value="ASU">  IVOID of the protocol through which the data was retrieved</INFO>
+<INFO name="request_date" value="2026-11-08T19:26:11">  Query execution date</INFO>
+<INFO name="request" value="https://vizier.cfa.harvard.edu/viz-bin/votable?-source=J/ApJ/817/60/table4&amp;-out.all&amp;-out.max=unlimited">  Full request URL</INFO>
+<INFO name="contact" value="cds-question@unistra.fr">  Email or URL to contact publisher</INFO>
+<INFO name="server_software" value="VizieR/7.6.1">  Software version</INFO>
+<INFO name="publisher" value="CDS">  Data centre that produced the VOTable</INFO>
+
+<!--
+Execution Reports
+ -->
+
+<RESOURCE ID="yCat_18170060" name="J/ApJ/817/60" type="results">
+  <DESCRIPTION>Multiply imaged supernova Refsdal (Treu+, 2016)</DESCRIPTION>  <INFO name="ivoid" value="ivo://cds.vizier/j/apj/817/60">    IVOID of underlying data collection  </INFO>
+  <INFO name="data_ivoid" value="ivo://cds.vizier/j/apj/817/60">    IVOID of underlying data collection  </INFO>
+  <INFO name="creator" value="Treu T.">    First author or institution  </INFO>
+  <INFO name="cites" value="bibcode:2016ApJ...817...60T">    Article or Data origin sources  </INFO>
+  <INFO name="journal" value="ApJ">    Journal name  </INFO>
+  <INFO name="original_date" value="2016">    Year of the article publication  </INFO>
+  <INFO name="reference_url" value="https://cdsarc.cds.unistra.fr/viz-bin/cat/J/ApJ/817/60">    Dataset landing page  </INFO>
+  <INFO name="citation" value="doi:10.26093/cds/vizier.18170060">    Dataset identifier that can be used for citation  </INFO>
+  <INFO name="publication_date" value="2021-01-22">    Date of first publication in the data centre  </INFO>
+  <INFO name="rights_uri" value="https://cds.unistra.fr/vizier-org/licences_vizier.html">    Licence URI  </INFO>
+
+  <COOSYS ID="J2000" system="eq_FK5" equinox="J2000"/>
+  <TABLE ID="J_ApJ_817_60_table4" name="J/ApJ/817/60/table4">
+    <DESCRIPTION>Knots in the host galaxy of SN Refsdal</DESCRIPTION>
+    <!-- Definitions of GROUPs and FIELDs -->
+
+<!-- +++No column could be found to attach a LINK in table: J/ApJ/817/60/table4 -->
+    <FIELD name="recno" ucd="meta.record" datatype="int" width="8"><!-- ucd="RECORD" -->
+      <DESCRIPTION>Record number assigned by the VizieR team. Should Not be used for identification.</DESCRIPTION>
+      <LINK href="http://vizier.cfa.harvard.edu/viz-bin/VizieR-5?-info=XML&amp;-out.add=.&amp;-source=J/ApJ/817/60/table4&amp;recno=${recno}"/>
+    </FIELD>
+    <FIELD name="Knot" ucd="meta.id;meta.main" datatype="char" arraysize="6"><!-- ucd="ID_MAIN" -->
+      <DESCRIPTION>Identifier (1)</DESCRIPTION>
+    </FIELD>
+    <FIELD name="RAJ2000" ucd="pos.eq.ra;meta.main" ref="J2000" datatype="double" width="9" precision="5" unit="deg"><!-- ucd="POS_EQ_RA_MAIN" -->
+      <DESCRIPTION>[177.39/177.41] Right ascension (J2000)</DESCRIPTION>
+    </FIELD>
+    <FIELD name="DEJ2000" ucd="pos.eq.dec;meta.main" ref="J2000" datatype="double" width="10" precision="6" unit="deg"><!-- ucd="POS_EQ_DEC_MAIN" -->
+      <DESCRIPTION>[22.39/22.41] Declination (J2000)</DESCRIPTION>
+    </FIELD>
+    <FIELD name="S09" ucd="meta.id.cross" datatype="short" width="2"><!-- ucd="ID_CROSSID" -->
+      <DESCRIPTION>[2/19]? S09 identifier (2)</DESCRIPTION>
+      <VALUES null="-32768" />
+    </FIELD>
+    <FIELD name="S16" ucd="meta.id.cross" datatype="float" width="4" precision="1"><!-- ucd="ID_CROSSID" -->
+      <DESCRIPTION>[1.1/41.3]? S16 identifier (2)</DESCRIPTION>
+      <VALUES null="NaN" />
+    </FIELD>
+    <FIELD name="D15" ucd="meta.id.cross" datatype="char" arraysize="6"><!-- ucd="ID_CROSSID" -->
+      <DESCRIPTION>D15 identifier (2)</DESCRIPTION>
+    </FIELD>
+    <FIELD name="Note" ucd="meta.note" datatype="char" arraysize="3"><!-- ucd="NOTE" -->
+      <DESCRIPTION>Note(s) (3)</DESCRIPTION>
+      <LINK href="http://vizier.cfa.harvard.edu/viz-bin/VizieR?-6N&amp;-info=XML&amp;-out.add=.&amp;&amp;lt;&amp;quot;Note&amp;quot;&amp;catid=18170060&amp;notid=9&amp;-out.emph=${Note}"/>
+    </FIELD>
+<DATA><TABLEDATA>
+<TR><TD>1</TD><TD>1.1.1</TD><TD>177.39702</TD><TD>+22.396003</TD><TD>2</TD><TD>1.1</TD><TD>1.1.1</TD><TD>1</TD></TR>
+<TR><TD>2</TD><TD>1.1.2</TD><TD>177.39942</TD><TD>+22.397439</TD><TD>2</TD><TD>1.2</TD><TD>1.2.1</TD><TD>1</TD></TR>
+<TR><TD>3</TD><TD>1.1.3</TD><TD>177.40341</TD><TD>+22.402444</TD><TD>2</TD><TD>1.3</TD><TD>1.3.1</TD><TD>1</TD></TR>
+<TR><TD>4</TD><TD>1.1.5</TD><TD>177.39986</TD><TD>+22.397133</TD><TD></TD><TD></TD><TD>1.5.1</TD><TD>1,2</TD></TR>
+<TR><TD>5</TD><TD>1.2.1</TD><TD>177.39661</TD><TD>+22.396308</TD><TD>19</TD><TD>23.1</TD><TD>1.1.8</TD><TD></TD></TR>
+<TR><TD>6</TD><TD>1.2.2</TD><TD>177.39899</TD><TD>+22.397867</TD><TD>19</TD><TD>23.2</TD><TD>1.2.8</TD><TD></TD></TR>
+<TR><TD>7</TD><TD>1.2.3</TD><TD>177.40303</TD><TD>+22.402681</TD><TD>19</TD><TD>23.3</TD><TD>1.3.8</TD><TD></TD></TR>
+<TR><TD>8</TD><TD>1.2.4</TD><TD>177.39777</TD><TD>+22.398789</TD><TD>19</TD><TD>23.4</TD><TD>1.4.8a</TD><TD></TD></TR>
+<TR><TD>9</TD><TD>1.2.6</TD><TD>177.39867</TD><TD>+22.398242</TD><TD></TD><TD></TD><TD>1.4.8b</TD><TD></TD></TR>
+<TR><TD>10</TD><TD>1.3.1</TD><TD>177.39687</TD><TD>+22.396219</TD><TD>16</TD><TD>31.1</TD><TD>1.1.15</TD><TD></TD></TR>
+<TR><TD>11</TD><TD>1.3.2</TD><TD>177.39917</TD><TD>+22.397600</TD><TD>16</TD><TD>31.2</TD><TD>1.2.15</TD><TD></TD></TR>
+<TR><TD>12</TD><TD>1.3.3</TD><TD>177.40328</TD><TD>+22.402594</TD><TD>16</TD><TD>31.3</TD><TD>1.3.15</TD><TD></TD></TR>
+<TR><TD>13</TD><TD>1.4.1</TD><TD>177.39702</TD><TD>+22.396214</TD><TD>11</TD><TD>32.1</TD><TD></TD><TD></TD></TR>
+<TR><TD>14</TD><TD>1.4.2</TD><TD>177.39923</TD><TD>+22.397483</TD><TD>11</TD><TD>32.2</TD><TD></TD><TD></TD></TR>
+<TR><TD>15</TD><TD>1.4.3</TD><TD>177.40339</TD><TD>+22.402558</TD><TD>11</TD><TD>32.3</TD><TD></TD><TD></TD></TR>
+<TR><TD>16</TD><TD>1.5.1</TD><TD>177.39726</TD><TD>+22.396208</TD><TD>18</TD><TD>33.1</TD><TD></TD><TD></TD></TR>
+<TR><TD>17</TD><TD>1.5.2</TD><TD>177.39933</TD><TD>+22.397303</TD><TD>18</TD><TD>33.2</TD><TD></TD><TD></TD></TR>
+<TR><TD>18</TD><TD>1.5.3</TD><TD>177.40356</TD><TD>+22.402522</TD><TD>18</TD><TD>33.3</TD><TD></TD><TD></TD></TR>
+<TR><TD>19</TD><TD>1.6.1</TD><TD>177.39737</TD><TD>+22.396164</TD><TD></TD><TD></TD><TD>1.1.13</TD><TD></TD></TR>
+<TR><TD>20</TD><TD>1.6.2</TD><TD>177.39945</TD><TD>+22.397236</TD><TD></TD><TD></TD><TD>1.2.13</TD><TD></TD></TR>
+<TR><TD>21</TD><TD>1.6.3</TD><TD>177.40360</TD><TD>+22.402489</TD><TD></TD><TD></TD><TD>1.3.13</TD><TD></TD></TR>
+<TR><TD>22</TD><TD>1.7.1</TD><TD>177.39757</TD><TD>+22.396114</TD><TD></TD><TD>40.1</TD><TD></TD><TD></TD></TR>
+<TR><TD>23</TD><TD>1.7.2</TD><TD>177.39974</TD><TD>+22.396933</TD><TD></TD><TD>40.2</TD><TD></TD><TD></TD></TR>
+<TR><TD>24</TD><TD>1.7.3</TD><TD>177.40370</TD><TD>+22.402406</TD><TD></TD><TD>40.3</TD><TD></TD><TD></TD></TR>
+<TR><TD>25</TD><TD>1.8.1</TD><TD>177.39795</TD><TD>+22.396014</TD><TD></TD><TD></TD><TD></TD><TD></TD></TR>
+<TR><TD>26</TD><TD>1.8.2</TD><TD>177.39981</TD><TD>+22.396750</TD><TD></TD><TD></TD><TD></TD><TD></TD></TR>
+<TR><TD>27</TD><TD>1.8.3</TD><TD>177.40380</TD><TD>+22.402311</TD><TD></TD><TD></TD><TD></TD><TD></TD></TR>
+<TR><TD>28</TD><TD>1.9.1</TD><TD>177.39803</TD><TD>+22.395939</TD><TD></TD><TD></TD><TD>1.1.9</TD><TD></TD></TR>
+<TR><TD>29</TD><TD>1.9.2</TD><TD>177.39973</TD><TD>+22.396983</TD><TD></TD><TD></TD><TD>1.2.9</TD><TD></TD></TR>
+<TR><TD>30</TD><TD>1.9.3</TD><TD>177.40377</TD><TD>+22.402250</TD><TD></TD><TD></TD><TD>1.3.9</TD><TD></TD></TR>
+<TR><TD>31</TD><TD>1.10.1</TD><TD>177.39809</TD><TD>+22.395856</TD><TD></TD><TD></TD><TD></TD><TD></TD></TR>
+<TR><TD>32</TD><TD>1.10.2</TD><TD>177.39997</TD><TD>+22.396708</TD><TD></TD><TD>36.2</TD><TD></TD><TD></TD></TR>
+<TR><TD>33</TD><TD>1.10.3</TD><TD>177.40380</TD><TD>+22.402183</TD><TD></TD><TD>36.3</TD><TD></TD><TD></TD></TR>
+<TR><TD>34</TD><TD>1.11.2</TD><TD>177.40010</TD><TD>+22.396661</TD><TD></TD><TD></TD><TD>1.2.3</TD><TD></TD></TR>
+<TR><TD>35</TD><TD>1.11.3</TD><TD>177.40377</TD><TD>+22.402047</TD><TD></TD><TD></TD><TD>1.3.3</TD><TD></TD></TR>
+<TR><TD>36</TD><TD>1.12.1</TD><TD>177.39716</TD><TD>+22.395211</TD><TD></TD><TD></TD><TD>1.1.14</TD><TD></TD></TR>
+<TR><TD>37</TD><TD>1.12.2</TD><TD>177.40032</TD><TD>+22.396925</TD><TD></TD><TD></TD><TD>1.2.14</TD><TD></TD></TR>
+<TR><TD>38</TD><TD>1.12.3</TD><TD>177.40360</TD><TD>+22.401878</TD><TD></TD><TD></TD><TD>1.3.14</TD><TD></TD></TR>
+<TR><TD>39</TD><TD>1.13.1</TD><TD>177.39697</TD><TD>+22.396639</TD><TD>7</TD><TD>24.1</TD><TD>1.1.19</TD><TD></TD></TR>
+<TR><TD>40</TD><TD>1.13.2</TD><TD>177.39882</TD><TD>+22.397711</TD><TD>7</TD><TD>24.2</TD><TD>1.2.19</TD><TD></TD></TR>
+<TR><TD>41</TD><TD>1.13.3</TD><TD>177.40329</TD><TD>+22.402828</TD><TD>7</TD><TD>24.3</TD><TD>1.3.19</TD><TD></TD></TR>
+<TR><TD>42</TD><TD>1.13.4</TD><TD>177.39791</TD><TD>+22.398433</TD><TD>7</TD><TD>24.4</TD><TD>1.4.19</TD><TD></TD></TR>
+<TR><TD>43</TD><TD>1.13.6</TD><TD>177.39852</TD><TD>+22.398061</TD><TD></TD><TD></TD><TD></TD><TD>3</TD></TR>
+<TR><TD>44</TD><TD>1.14.1</TD><TD>177.39712</TD><TD>+22.396725</TD><TD>6</TD><TD>25.1</TD><TD>1.1.7</TD><TD></TD></TR>
+<TR><TD>45</TD><TD>1.14.2</TD><TD>177.39878</TD><TD>+22.397633</TD><TD>6</TD><TD>25.2</TD><TD>1.2.7</TD><TD></TD></TR>
+<TR><TD>46</TD><TD>1.14.3</TD><TD>177.40338</TD><TD>+22.402872</TD><TD>6</TD><TD>25.3</TD><TD>1.3.7</TD><TD></TD></TR>
+<TR><TD>47</TD><TD>1.14.4</TD><TD>177.39810</TD><TD>+22.398256</TD><TD></TD><TD>25.4</TD><TD>1.4.7</TD><TD></TD></TR>
+<TR><TD>48</TD><TD>1.15.1</TD><TD>177.39717</TD><TD>+22.396506</TD><TD></TD><TD>41.1</TD><TD>1.1.20</TD><TD></TD></TR>
+<TR><TD>49</TD><TD>1.15.2</TD><TD>177.39894</TD><TD>+22.397514</TD><TD></TD><TD>41.2</TD><TD>1.2.20</TD><TD></TD></TR>
+<TR><TD>50</TD><TD>1.15.3</TD><TD>177.40344</TD><TD>+22.402753</TD><TD></TD><TD>41.3</TD><TD>1.3.20</TD><TD></TD></TR>
+<TR><TD>51</TD><TD>1.16.1</TD><TD>177.39745</TD><TD>+22.396400</TD><TD>4</TD><TD>26.1</TD><TD>1.1.6</TD><TD></TD></TR>
+<TR><TD>52</TD><TD>1.16.2</TD><TD>177.39915</TD><TD>+22.397228</TD><TD>4</TD><TD>26.2</TD><TD>1.2.6</TD><TD></TD></TR>
+<TR><TD>53</TD><TD>1.16.3</TD><TD>177.40360</TD><TD>+22.402656</TD><TD>4</TD><TD>26.3</TD><TD>1.3.6</TD><TD></TD></TR>
+<TR><TD>54</TD><TD>1.17.1</TD><TD>177.39815</TD><TD>+22.396347</TD><TD>3</TD><TD>11.1</TD><TD>1.1.5</TD><TD></TD></TR>
+<TR><TD>55</TD><TD>1.17.2</TD><TD>177.39927</TD><TD>+22.396831</TD><TD>3</TD><TD>11.2</TD><TD>1.2.5</TD><TD></TD></TR>
+<TR><TD>56</TD><TD>1.17.3</TD><TD>177.40384</TD><TD>+22.402564</TD><TD>3</TD><TD>11.3</TD><TD>1.3.5</TD><TD></TD></TR>
+<TR><TD>57</TD><TD>1.18.1</TD><TD>177.39850</TD><TD>+22.396100</TD><TD></TD><TD></TD><TD>1.1.11</TD><TD></TD></TR>
+<TR><TD>58</TD><TD>1.18.2</TD><TD>177.39947</TD><TD>+22.396592</TD><TD></TD><TD></TD><TD>1.2.11</TD><TD></TD></TR>
+<TR><TD>59</TD><TD>1.18.3</TD><TD>177.40394</TD><TD>+22.402408</TD><TD></TD><TD></TD><TD>1.3.11</TD><TD></TD></TR>
+<TR><TD>60</TD><TD>1.19.1</TD><TD>177.39689</TD><TD>+22.395761</TD><TD></TD><TD>21.1</TD><TD>1.1.17</TD><TD></TD></TR>
+<TR><TD>61</TD><TD>1.19.2</TD><TD>177.39954</TD><TD>+22.397486</TD><TD></TD><TD>21.2</TD><TD>1.2.17</TD><TD></TD></TR>
+<TR><TD>62</TD><TD>1.19.3</TD><TD>177.40337</TD><TD>+22.402292</TD><TD></TD><TD>21.3</TD><TD>1.3.17</TD><TD></TD></TR>
+<TR><TD>63</TD><TD>1.19.5</TD><TD>177.39997</TD><TD>+22.397106</TD><TD></TD><TD>21.4</TD><TD>1.5.17</TD><TD></TD></TR>
+<TR><TD>64</TD><TD>1.20.1</TD><TD>177.39708</TD><TD>+22.395728</TD><TD></TD><TD>27.1</TD><TD>1.1.16</TD><TD></TD></TR>
+<TR><TD>65</TD><TD>1.20.2</TD><TD>177.39963</TD><TD>+22.397361</TD><TD></TD><TD></TD><TD>1.2.16</TD><TD></TD></TR>
+<TR><TD>66</TD><TD>1.20.3</TD><TD>177.40353</TD><TD>+22.402233</TD><TD></TD><TD>27.3</TD><TD>1.3.16</TD><TD></TD></TR>
+<TR><TD>67</TD><TD>1.20.5</TD><TD>177.40000</TD><TD>+22.396981</TD><TD></TD><TD>27.2</TD><TD>1.5.16</TD><TD></TD></TR>
+<TR><TD>68</TD><TD>1.21.1</TD><TD>177.39694</TD><TD>+22.395406</TD><TD></TD><TD></TD><TD>1.1.18</TD><TD></TD></TR>
+<TR><TD>69</TD><TD>1.21.3</TD><TD>177.40341</TD><TD>+22.402006</TD><TD></TD><TD></TD><TD>1.3.18</TD><TD></TD></TR>
+<TR><TD>70</TD><TD>1.21.5</TD><TD>177.40018</TD><TD>+22.397042</TD><TD></TD><TD></TD><TD>1.5.18</TD><TD></TD></TR>
+<TR><TD>71</TD><TD>1.22.1</TD><TD>177.39677</TD><TD>+22.395487</TD><TD></TD><TD></TD><TD></TD><TD></TD></TR>
+<TR><TD>72</TD><TD>1.22.2</TD><TD>177.39968</TD><TD>+22.397495</TD><TD></TD><TD></TD><TD></TD><TD></TD></TR>
+<TR><TD>73</TD><TD>1.22.3</TD><TD>177.40328</TD><TD>+22.402098</TD><TD></TD><TD></TD><TD></TD><TD></TD></TR>
+<TR><TD>74</TD><TD>1.22.5</TD><TD>177.40008</TD><TD>+22.397139</TD><TD></TD><TD></TD><TD></TD><TD></TD></TR>
+<TR><TD>75</TD><TD>1.23.1</TD><TD>177.39672</TD><TD>+22.395381</TD><TD>15</TD><TD>22.1</TD><TD>1.1.2</TD><TD></TD></TR>
+<TR><TD>76</TD><TD>1.23.2</TD><TD>177.39977</TD><TD>+22.397497</TD><TD>15</TD><TD>22.2</TD><TD>1.2.2</TD><TD></TD></TR>
+<TR><TD>77</TD><TD>1.23.3</TD><TD>177.40324</TD><TD>+22.402011</TD><TD>15</TD><TD>22.3</TD><TD>1.3.2</TD><TD></TD></TR>
+<TR><TD>78</TD><TD>1.23.5</TD><TD>177.40013</TD><TD>+22.397200</TD><TD></TD><TD>22.2</TD><TD>1.5.2</TD><TD></TD></TR>
+<TR><TD>79</TD><TD>1.24.1</TD><TD>177.39650</TD><TD>+22.395589</TD><TD></TD><TD>28.1</TD><TD>1.1.4</TD><TD></TD></TR>
+<TR><TD>80</TD><TD>1.24.2</TD><TD>177.39953</TD><TD>+22.397753</TD><TD></TD><TD>28.2</TD><TD>1.2.4</TD><TD></TD></TR>
+<TR><TD>81</TD><TD>1.24.3</TD><TD>177.40301</TD><TD>+22.402203</TD><TD></TD><TD>28.3</TD><TD>1.3.4</TD><TD></TD></TR>
+<TR><TD>82</TD><TD>1.25.1</TD><TD>177.39657</TD><TD>+22.395933</TD><TD></TD><TD></TD><TD>1.1.21</TD><TD></TD></TR>
+<TR><TD>83</TD><TD>1.25.3</TD><TD>177.40304</TD><TD>+22.402456</TD><TD></TD><TD></TD><TD>1.3.21</TD><TD></TD></TR>
+<TR><TD>84</TD><TD>1.27.1</TD><TD>177.39831</TD><TD>+22.396285</TD><TD></TD><TD>37.1</TD><TD></TD><TD></TD></TR>
+<TR><TD>85</TD><TD>1.27.2</TD><TD>177.39933</TD><TD>+22.396725</TD><TD></TD><TD>37.2</TD><TD></TD><TD></TD></TR>
+<TR><TD>86</TD><TD>1.26.1</TD><TD>177.39633</TD><TD>+22.396011</TD><TD></TD><TD></TD><TD>1.1.12</TD><TD></TD></TR>
+<TR><TD>87</TD><TD>1.26.3</TD><TD>177.40283</TD><TD>+22.402600</TD><TD></TD><TD></TD><TD>1.3.12</TD><TD></TD></TR>
+<TR><TD>88</TD><TD>1.28.1</TD><TD>177.39860</TD><TD>+22.396166</TD><TD></TD><TD>38.1</TD><TD></TD><TD></TD></TR>
+<TR><TD>89</TD><TD>1.28.2</TD><TD>177.39942</TD><TD>+22.396559</TD><TD></TD><TD>38.2</TD><TD></TD><TD></TD></TR>
+<TR><TD>90</TD><TD>1.29.1</TD><TD>177.39858</TD><TD>+22.395860</TD><TD></TD><TD>39.1</TD><TD></TD><TD></TD></TR>
+<TR><TD>91</TD><TD>1.29.2</TD><TD>177.39976</TD><TD>+22.396490</TD><TD></TD><TD>39.2</TD><TD></TD><TD></TD></TR>
+<TR><TD>92</TD><TD>1.30.1</TD><TD>177.39817</TD><TD>+22.395465</TD><TD></TD><TD>35.1</TD><TD></TD><TD></TD></TR>
+<TR><TD>93</TD><TD>1.30.2</TD><TD>177.39801</TD><TD>+22.395230</TD><TD></TD><TD>35.2</TD><TD></TD><TD></TD></TR>
+<TR><TD>94</TD><TD>1.30.3</TD><TD>177.39730</TD><TD>+22.395364</TD><TD></TD><TD>35.3</TD><TD></TD><TD></TD></TR>
+<TR><TD>95</TD><TD>1.30.4</TD><TD>177.39788</TD><TD>+22.395721</TD><TD></TD><TD>35.4</TD><TD></TD><TD></TD></TR>
+<TR><TD>96</TD><TD>SN1</TD><TD>177.39823</TD><TD>+22.395631</TD><TD></TD><TD>30.1</TD><TD>1.1.3a</TD><TD></TD></TR>
+<TR><TD>97</TD><TD>SN2</TD><TD>177.39772</TD><TD>+22.395783</TD><TD></TD><TD>30.2</TD><TD>1.1.3b</TD><TD></TD></TR>
+<TR><TD>98</TD><TD>SN3</TD><TD>177.39737</TD><TD>+22.395539</TD><TD></TD><TD>30.3</TD><TD>1.1.3c</TD><TD></TD></TR>
+<TR><TD>99</TD><TD>SN4</TD><TD>177.39781</TD><TD>+22.395189</TD><TD></TD><TD>30.4</TD><TD>1.1.3d</TD><TD></TD></TR>
+</TABLEDATA></DATA>
+</TABLE>
+<INFO name="matches" value="99">matching records</INFO>
+</RESOURCE>
+</VOTABLE>

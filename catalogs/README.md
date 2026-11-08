@@ -18,22 +18,26 @@ catalogs/<cluster>/<source>/
 | `m0416/canucs2025/` | M0416_CANUCS2025 (default) | images.yaml (knots, parities) | members.yaml (DR1 light shapes, Granata 2026 kinematics) | Rihtarsic et al. 2025 MAST release: `source/hlsp_canucs_*lenstool-*` and `allmultim`; `image_f200w_photometry.*` is our F200W photometry of the images |
 | `m0416/bergamini2023/` | M0416_BERGAMINI2023 | images.yaml | members.cat | Bergamini et al. 2023 (2022 release): `source/obs_arcs.cat`, the par files; members.cat was `CM_cat_MACSJ0416.cat` |
 | `m0416/diego2024/` | (comparison only) | images.yaml (every rank), images.ecsv / .fits | | Diego et al. 2024 PEARLS Table B.1, `raw/` and the earlier BUFFALO/Flashlights table; images.yaml by `scripts/convert_diego2024_catalog.py` |
-| `m0416/master/` | (not an entry yet) | images.yaml, images_gold.yaml | members.yaml | built from the three folders above, see below |
+| `m0416/master/` | (not an entry yet) | images.yaml | members.yaml | built from the three folders above, see below |
 | `as1063/bergamini2019/` | AS1063 | images.yaml | members.cat | Bergamini et al. 2019 RXC J2248: `source/obs_arcs.dat`, the par files |
 | `as1063/diego2026/` | AS1063_JWST | images.yaml | members.yaml (Beauchesne 2025) | Diego et al. 2026 Table 1 (`raw/`), `image_mapping.json`, `validation.json` |
 | `as1063/caminha2016/` | (not an entry) | images.yaml | members.yaml (no BCG) | Caminha et al. 2016, model v2.0: `source/A1063_obs_arcs_v11.dat`, `members_95_160_nonan_cuts.cat`, par, region files; systems 50 and 51 have z = 0 (free in Lenstool) |
-| `as1063/master/` | (not an entry yet) | images.yaml, images_gold.yaml | members.yaml | built from the three folders above, see below |
+| `as1063/master/` | (not an entry yet) | images.yaml | members.yaml | built from the three folders above, see below |
 | `a2744/bergamini2023b/` | (not an entry yet) | images.yaml (knots; 10 systems free z) | | Bergamini et al. 2023, ApJ 952, 84 (GLASS-JWST) Table 2, VizieR |
 | `a2744/bergamini2023a/` | (not an entry) | images.yaml | members.yaml (225, F160W) | Bergamini et al. 2023, A&A 670, A60 Tables A1, B1, VizieR |
 | `a2744/furtak2023/` | (not an entry) | images.yaml | members.yaml (419 with F814W) | UNCOVER lens model release v2.0 (Furtak et al. 2023) |
 | `a2744/mahler2018/` | (not an entry) | images.yaml | | Mahler et al. 2018, MNRAS 473, 663 Table A1, VizieR |
-| `a2744/master/` | (not an entry yet) | images.yaml, images_gold.yaml | members.yaml | built from the four folders above, base bergamini2023b |
+| `a2744/master/` | (not an entry yet) | images.yaml | members.yaml | built from the four folders above, base bergamini2023b |
 | `m0717/limousin2016/` | (not an entry) | images.yaml (41 systems with model z) | members.yaml (90) | CATS v4.1 release of Limousin et al. 2016, MAST |
 | `m0717/kawamata2016/` | (not an entry) | images.yaml | | Kawamata et al. 2016, ApJ 819, 114 Table 8, VizieR |
-| `m0717/master/` | (not an entry yet) | images.yaml, images_gold.yaml | members.yaml | built from the two folders above, base limousin2016 |
+| `m0717/master/` | (not an entry yet) | images.yaml | members.yaml | built from the two folders above, base limousin2016 |
 | `a370/gledhill2024/` | (not an entry) | images.yaml (knots) | members.yaml (277, band unstated) | CANUCS DR1 Lenstool files of Gledhill et al. 2024, MAST |
 | `a370/lagattuta2019/` | (not an entry) | images.yaml (classes) | members.yaml (120, with shapes) | Lagattuta et al. 2019 Table 1 (VizieR) and their potfile (MUSE atlas) |
-| `a370/master/` | (not an entry yet) | images.yaml, images_gold.yaml | members.yaml | built from the two folders above, base gledhill2024 |
+| `a370/master/` | (not an entry yet) | images.yaml | members.yaml | built from the two folders above, base gledhill2024 |
+| `m1149/treu2016/` | (not an entry) | images.yaml (Refsdal host knots, SN) | | Treu et al. 2016 Tables 3, 4 (VizieR) |
+| `m1149/grillo2016/` | (not an entry) | images.yaml | members.yaml (300, spectra flagged) | Grillo et al. 2016 Tables 2, 6 (VizieR; RA rebuilt from offsets) |
+| `m1149/canucs/` | (not an entry) | | members.yaml (306) | CANUCS DR1 member file (no image catalog until v2) |
+| `m1149/master/` | (not an entry yet) | images.yaml | members.yaml | built from the three folders above, base treu2016 |
 
 Hera and Ares positions are offsets about (0, 0) in degrees (the par files' `reference 3 0 0`), not sky coordinates.
 Positions of the real clusters are ICRS RA/Dec; the CANUCS catalog is in the frame of the CANUCS lenstool input,
@@ -130,3 +134,6 @@ to `results/`, not here.
   redshifts (the CATS best fit, Kawamata's zmodel) and rank silver or bronze. The fixed CATS redshifts of systems 6 and
   68 have no spectroscopic support in Kawamata et al. 2016 (see `m0717/limousin2016/README.md`); check them against
   Limousin et al. 2016, Table A.1.
+- **M1149 independence.** Grillo et al. 2016 use the Treu et al. 2016 community list, so no M1149 system is confirmed
+  by two independent papers (no diamond tier; 9 gold). The curated Schuldt et al. 2024 list (106 images) is not public
+  in machine-readable form and the CANUCS image catalog is due with its v2; add either when available.

@@ -22,22 +22,26 @@ catalogs/<cluster>/<source>/
 | `m0416/canucs2025/` | images.yaml (knots, parities) | members.yaml (DR1 light shapes, Granata 2026 kinematics) | Rihtarsic et al. 2025 |
 | `m0416/bergamini2023/` | images.yaml | members.cat | Bergamini et al. 2023 |
 | `m0416/diego2024/` | images.yaml, images.ecsv / .fits | | Diego et al. 2024 (PEARLS) |
-| `m0416/master/` | images.yaml, images_gold.yaml | members.yaml | our merge of the three M0416 catalogs |
+| `m0416/master/` | images.yaml | members.yaml | our merge of the three M0416 catalogs |
 | `as1063/bergamini2019/` | images.yaml | members.cat | Bergamini et al. 2019 |
 | `as1063/diego2026/` | images.yaml | members.yaml (Beauchesne 2025) | Diego et al. 2026 |
 | `as1063/caminha2016/` | images.yaml | members.yaml | Caminha et al. 2016 |
-| `as1063/master/` | images.yaml, images_gold.yaml | members.yaml | our merge of the three AS1063 catalogs |
+| `as1063/master/` | images.yaml | members.yaml | our merge of the three AS1063 catalogs |
 | `a2744/bergamini2023b/` | images.yaml | | Bergamini et al. 2023 (ApJ 952) |
 | `a2744/bergamini2023a/` | images.yaml | members.yaml | Bergamini et al. 2023 (A&A 670) |
 | `a2744/furtak2023/` | images.yaml | members.yaml | Furtak et al. 2023 (UNCOVER v2.0) |
 | `a2744/mahler2018/` | images.yaml | | Mahler et al. 2018 |
-| `a2744/master/` | images.yaml, images_gold.yaml | members.yaml | our merge of the four A2744 catalogs |
+| `a2744/master/` | images.yaml | members.yaml | our merge of the four A2744 catalogs |
 | `m0717/limousin2016/` | images.yaml | members.yaml | Limousin et al. 2016 (CATS v4.1) |
 | `m0717/kawamata2016/` | images.yaml | | Kawamata et al. 2016 |
-| `m0717/master/` | images.yaml, images_gold.yaml | members.yaml | our merge of the two M0717 catalogs |
+| `m0717/master/` | images.yaml | members.yaml | our merge of the two M0717 catalogs |
 | `a370/gledhill2024/` | images.yaml | members.yaml | Gledhill et al. 2024 (CANUCS) |
 | `a370/lagattuta2019/` | images.yaml | members.yaml | Lagattuta et al. 2019 |
-| `a370/master/` | images.yaml, images_gold.yaml | members.yaml | our merge of the two A370 catalogs |
+| `a370/master/` | images.yaml | members.yaml | our merge of the two A370 catalogs |
+| `m1149/treu2016/` | images.yaml | | Treu et al. 2016 |
+| `m1149/grillo2016/` | images.yaml | members.yaml | Grillo et al. 2016 |
+| `m1149/canucs/` | | members.yaml | CANUCS DR1 |
+| `m1149/master/` | images.yaml | members.yaml | our merge of the M1149 catalogs |
 
 Positions of the real clusters are ICRS RA/Dec in degrees. Hera and Ares positions are offsets about (0, 0) in degrees
 (the Lenstool `reference 3 0 0` convention), not sky coordinates. `catalogs/README.md` records the astrometric frames

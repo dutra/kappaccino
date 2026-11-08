@@ -42,10 +42,11 @@ candidates, with prior reliability x quality x ``candidate`` (0.5).  Nothing is 
 trusted families and, with a ``PartitionConfig`` without ``catalog_path``, the uncertain images of the slot mixture.
 
 Members.  ``p_member`` of a member: 1 with a spectroscopic z within ``member_dz`` of ``z_cluster`` (from any paper),
-a role bcg or kinematics; ``interloper`` with a spectroscopic z outside it (kept, not removed); otherwise ``two_papers``
-when at least two independent papers list it, else ``one_paper``.  Members only another paper lists enter when that
-paper gives the base member band (``member_band`` names the band of a Lenstool .cat file); the others are listed in
-crossmatch.yaml.
+a role bcg, kinematics, or a p_member of 1 in a paper's own list (spectra); ``interloper`` with a spectroscopic z
+outside it (kept, not removed); otherwise ``two_papers`` when at least two independent papers list it, else
+``one_paper``.  Members only another paper lists enter when that paper gives the base member band (``member_band``
+names the band of a Lenstool .cat file); the others are listed in crossmatch.yaml.  A paper may give members only
+(no ``images``).
 
 decisions.yaml is a list of entries, each with a ``reason``:
 
@@ -93,10 +94,10 @@ class Paper:
         self.z_kind = spec.get("z_kind", "unknown")
         self.quality_map = list((spec.get("quality") or {}).items())
         self.quality_default = float(spec.get("quality_default", 1.0))
-        self.images_path = (root / spec["images"]).resolve()
+        self.images_path = (root / spec["images"]).resolve() if spec.get("images") else None   # None: a member list only
         self.members_path = (root / spec["members"]).resolve() if spec.get("members") else None
         self.member_band = spec.get("member_band")   # the band of a Lenstool .cat member file, which does not say
-        document = yaml.safe_load(self.images_path.read_text(encoding="utf-8"))
+        document = yaml.safe_load(self.images_path.read_text(encoding="utf-8")) if self.images_path else {"systems": {}}
         self.defaults = document.get("defaults", {})
         self.systems = OrderedDict((str(k), v) for k, v in document["systems"].items())
         rows = []
@@ -110,7 +111,7 @@ class Paper:
                     rows.append((system, str(knot), str(image), float(ra), float(dec), "; ".join(filter(None, [image_notes, notes]))))
         self.rows = rows
         self.index = {(r[0], r[1], r[2]): i for i, r in enumerate(rows)}
-        self.x, self.y = radec_to_offsets_arcsec(np.array([r[3] for r in rows]), np.array([r[4] for r in rows]), *reference)
+        self.x, self.y = radec_to_offsets_arcsec(np.array([r[3] for r in rows], dtype=float), np.array([r[4] for r in rows], dtype=float), *reference)
         self.offset = (0.0, 0.0)
 
     def z_of(self, system: str) -> tuple[float, str]:
@@ -203,7 +204,7 @@ def build(master_dir: Path) -> None:
 
     frames = {base_name: {"applied_arcsec": [0.0, 0.0], "note": "base frame"}}
     for name in names:
-        if name != base_name:
+        if name != base_name and papers[name].rows:
             frames[name] = measure_offset(papers[name], base, radius)
 
     # positions matched across every pair of papers, then systems linked through them
@@ -472,6 +473,9 @@ def write_members(master_dir: Path, config: dict, papers: dict, base: Paper, ref
         spec = [float(tables[n]["catalog_z"].iloc[i]) for n, i in group
                 if tables[n]["catalog_z_kind"].iloc[i] == "spec" and np.isfinite(tables[n]["catalog_z"].iloc[i])]
         certain = any(tables[n]["catalog_role"].iloc[i] == "bcg" or len(tables[n]["catalog_kinematics"].iloc[i]) for n, i in group)
+        stated = [float(tables[n]["catalog_p_member"].iloc[i]) for n, i in group if np.isfinite(tables[n]["catalog_p_member"].iloc[i])]
+        if stated and max(stated) >= 1.0 and not spec:
+            return 1.0, None, listing, "a paper states it (spectra)"
         if spec:
             z = spec[0]
             inside = abs(z - z_cluster) <= member_dz * (1 + z_cluster)

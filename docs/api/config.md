@@ -25,12 +25,6 @@ Lens model
 .. autoclass:: lenscluster.config.IndependentMemberHaloConfig
 .. autoclass:: lenscluster.config.ImageConstraintsConfig
 
-Priors
-------
-
-.. automodule:: lenscluster.priors
-   :members: truncated_lognormal, lognormal_from_moments, cut_excess_from_moments, ellipticity_box, shear_box, to_dict
-
 Members and scaling relation
 ----------------------------
 
@@ -53,10 +47,5 @@ Diagnostics and figures
 .. autoclass:: lenscluster.config.RGBDisplayConfig
 ```
 
-## From a Lenstool `.par` file
-
-```{eval-rst}
-.. autofunction:: lenscluster.lenstool_par.config_from_lenstool_par
-.. autofunction:: lenscluster.lenstool_par.read_lenstool_par
-.. autofunction:: lenscluster.lenstool_par.prior_from_limit
-```
+Priors are `numpyro.distributions` objects; see {doc}`priors`. A configuration can also be read from a Lenstool parameter
+file ({doc}`lenstool`).

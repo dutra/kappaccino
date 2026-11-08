@@ -48,8 +48,32 @@ def _number(token: str) -> float | str:
 
 
 def read_lenstool_par(path: str | Path) -> list[tuple[str, str | None, dict[str, list]]]:
-    """The blocks of a ``.par`` file in order: (block name, block id or None, {key: values}).  Comments (``#``) and
-    blank lines are dropped; a repeated key keeps its last value, as in Lenstool."""
+    """Parse a Lenstool ``.par`` file into its blocks, in file order.
+
+    Comments (``#`` to end of line) and blank lines are dropped. A block starts
+    with a line ``name [id]`` and ends with ``end``; reading stops at ``fini``. A
+    repeated key keeps its last value, as in Lenstool. The keys ``ellipticity``,
+    ``profile`` and ``zlens`` are renamed to ``ellipticite``, ``profil`` and
+    ``z_lens``.
+
+    Parameters
+    ----------
+    path : str or pathlib.Path
+        The ``.par`` file to read.
+
+    Returns
+    -------
+    list of tuple
+        One ``(name, block_id, values)`` per block: ``name`` (str, e.g.
+        ``"potentiel"``), ``block_id`` (str, the rest of the opening line, or
+        None if empty) and ``values`` (dict mapping each key to its list of
+        tokens, numeric tokens as float and others as str).
+
+    Raises
+    ------
+    ValueError
+        If the last block has no ``end`` line.
+    """
     path = Path(path)
     blocks: list[tuple[str, str | None, dict[str, list]]] = []
     current: dict[str, list] | None = None
@@ -72,7 +96,25 @@ def read_lenstool_par(path: str | Path) -> list[tuple[str, str | None, dict[str,
 
 
 def limit_bounds(values: list, *, scale: float = 1.0) -> tuple[float, float]:
-    """The bounds of a Lenstool limit entry (infinite where it has none); ``scale`` multiplies them."""
+    """Return the bounds of a Lenstool ``limit`` entry.
+
+    Parameters
+    ----------
+    values : list
+        The entry's tokens, flag first: ``[1, low, high]`` (uniform),
+        ``[3, mean, std]`` (normal), ``[9, mean, std, low[, high]]`` (truncated
+        normal), or ``[0, ...]`` (fixed).
+    scale : float, optional
+        Factor applied to every number, e.g. kpc per arcsec to turn radii in
+        arcsec into kpc. Default 1.0.
+
+    Returns
+    -------
+    tuple of float
+        ``(low, high)`` times ``scale``, in the units of the entry: the
+        uniform range for flag 1, the truncation range for flag 9 (``high`` is
+        ``inf`` when absent), and ``(-inf, inf)`` for any other flag.
+    """
     flag, numbers = int(values[0]), [float(v) * scale for v in values[1:]]
     if flag == 1:
         return numbers[0], numbers[1]
@@ -83,10 +125,45 @@ def limit_bounds(values: list, *, scale: float = 1.0) -> tuple[float, float]:
 
 def prior_from_limit(values: list, *, scale: float = 1.0, log: bool = False, floor: float = SAFE_RADIUS_MARGIN_KPC,
                      normal_bounds: tuple[float, float | None] | None = None):
-    """A Lenstool limit entry as a numpyro prior (None for flag 0, fixed); ``scale`` multiplies every value (arcsec to
-    kpc for radii).  ``log``: a positive quantity sampled in log, so a uniform limit is log-uniform and a (truncated)
-    normal one the log-normal with that mean and width, bounded below by ``floor`` (or by ``normal_bounds`` for a
-    flag-3 limit, which has none; (None, None) leaves it untruncated)."""
+    """Convert a Lenstool ``limit`` entry into a NumPyro prior.
+
+    With ``log=False`` the prior is in the entry's coordinate: flag 1 gives
+    ``dist.Uniform(low, high)``, flag 3 ``dist.Normal(mean, std)``, flag 9
+    ``dist.TruncatedNormal(mean, std, low, high)``. With ``log=True`` (a positive
+    quantity sampled in ln): flag 1 gives ``dist.LogUniform(max(low, floor),
+    high)``; flags 3 and 9 give :func:`~lenscluster.priors.lognormal_from_moments`
+    with that mean and standard deviation, truncated to ``[max(low, floor),
+    high]`` for flag 9 and to ``normal_bounds`` (default ``(floor, None)``) for
+    flag 3, whose entry has no bounds.
+
+    Parameters
+    ----------
+    values : list
+        The entry's tokens, flag first (see :func:`limit_bounds`).
+    scale : float, optional
+        Factor applied to every number including the width, e.g. kpc per arcsec
+        for a radius given in arcsec. Default 1.0.
+    log : bool, optional
+        Sample the quantity in ln (radii, velocity dispersions). Default False.
+    floor : float, optional
+        Smallest lower bound of a log prior, in the units of the scaled entry.
+        Default ``SAFE_RADIUS_MARGIN_KPC`` (``1e-3`` kpc).
+    normal_bounds : tuple or None, optional
+        ``(low, high)`` truncation of a log prior from a flag-3 entry, in the
+        units of the scaled entry; either may be None for no bound on that side,
+        so ``(None, None)`` leaves it untruncated. None (default) means
+        ``(floor, None)``. Ignored unless ``log`` and flag 3.
+
+    Returns
+    -------
+    numpyro.distributions.Distribution or None
+        The physical prior, or None for flag 0 (the field stays fixed).
+
+    Raises
+    ------
+    ValueError
+        If the flag is not 0, 1, 3 or 9.
+    """
     flag, numbers = int(values[0]), [float(v) * scale for v in values[1:]]
     if flag == 0:
         return None
@@ -230,11 +307,57 @@ def _population(block: dict[str, list], catalog: Path, kpc_per_arcsec) -> tuple[
 
 def config_from_lenstool_par(path: str | Path, *, image_catalog: str | Path | None = None, member_catalog: str | Path | None = None,
                              output_dir: str | Path = "results", run_name: str | None = None) -> LensClusterSolverConfig:
-    """A ``LensClusterSolverConfig`` for the lens model of a Lenstool ``.par`` file (see the module docstring).
+    """Build a solver configuration from the lens model of a Lenstool ``.par`` file.
 
-    ``image_catalog``: the YAML multiple-image catalog (default: the file's ``multfile`` when it is YAML).
-    ``member_catalog``: the member catalog (default: the potfile's ``filein``, next to the ``.par`` file).
-    ``run_name`` defaults to the file's stem; the run directory is ``output_dir/run_name``."""
+    Reads the blocks listed in the module docstring and returns a
+    :class:`~lenscluster.config.LensClusterSolverConfig` with library defaults
+    elsewhere. Each ``potentiel`` block (``profil 81`` dPIE or ``profil 14``
+    external shear) takes its priors from the ``limit`` block with the same id; a
+    start value outside its limit is moved inside it. Radii given in arcsec are
+    converted to kpc with the ``.par`` cosmology at the halo redshift. At most one
+    ``potfile`` block is read. The member catalog must exist; the image catalog
+    is only recorded by path and is read later by the run.
+
+    Parameters
+    ----------
+    path : str or pathlib.Path
+        The Lenstool ``.par`` file.
+    image_catalog : str or pathlib.Path or None, optional
+        The YAML multiple-image catalog (see :mod:`lenscluster.image_catalog`).
+        None (default) uses the ``image`` block's ``multfile``, resolved relative
+        to the ``.par`` file's directory, when it ends in ``.yaml`` or ``.yml``.
+    member_catalog : str or pathlib.Path or None, optional
+        The cluster-member catalog (see :mod:`lenscluster.member_catalog`).
+        None (default) uses the ``potfile`` block's ``filein``, resolved relative
+        to the ``.par`` file's directory. Unused without a ``potfile`` block.
+    output_dir : str or pathlib.Path, optional
+        Parent directory of the run directory. Default ``"results"``.
+    run_name : str or None, optional
+        Name of the run directory ``output_dir/run_name``. None (default) uses
+        the ``.par`` file's stem. The figure prefix is always the file's stem.
+
+    Returns
+    -------
+    LensClusterSolverConfig
+        The configuration: reference frame (``runmode reference``; default
+        reference 3 at (0, 0) degrees), cosmology (``H0`` in km s^-1 Mpc^-1,
+        default 70; ``omega`` default 0.3; ``lambda``; ``wX`` default -1), the
+        halos, the member population with its scaling relation (the ``vdslope``
+        and ``slope`` limits as priors on alpha = 1 / vdslope and
+        beta = 2 / slope), and the image constraints with ``sigposArcsec`` as
+        the instrumental position error in arcsec (default 0.1 arcsec).
+
+    Raises
+    ------
+    ValueError
+        If no YAML image catalog is given or found, a ``potentiel`` has an
+        unsupported ``profil`` or lacks a required key, an ellipticity (or
+        shear) and its angle are not both limited with flag 1, a limit flag is
+        unsupported, there is more than one ``potfile``, or the ``potfile`` has
+        no ``filein`` and ``member_catalog`` is None.
+    FileNotFoundError
+        If the member catalog does not exist.
+    """
     from .jax_cosmology import kpc_per_arcsec_from_config
 
     path = Path(path)

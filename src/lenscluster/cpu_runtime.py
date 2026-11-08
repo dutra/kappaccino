@@ -22,6 +22,37 @@ _THREADPOOL_LIMITER = None
 
 @dataclass(frozen=True)
 class CPUPlan:
+    """The CPU layout chosen for one run, as returned by :func:`resolve_cpu_plan`.
+
+    Parameters
+    ----------
+    chains : int
+        Number of NUTS chains in the run.
+    chain_method : str
+        NumPyro chain method: ``"parallel"``, ``"sequential"``, or ``"vectorized"``.
+    threads_per_chain : int or None
+        Requested logical CPUs per concurrently running chain. None means the run is
+        not pinned and may use every CPU in the process affinity mask.
+    jax_cpu_devices : int
+        Number of JAX CPU devices to expose (``JAX_NUM_CPU_DEVICES``): ``chains``
+        for ``"parallel"``, otherwise 1.
+    available_cpu_ids : tuple of int
+        Logical CPU ids the process was allowed to use before pinning (the Linux
+        affinity mask, or ``range(os.cpu_count())`` where affinity is unsupported).
+    selected_cpu_ids : tuple of int
+        Logical CPU ids the run is pinned to. Equal to ``available_cpu_ids`` when
+        ``threads_per_chain`` is None; otherwise
+        ``min(len(available_cpu_ids), concurrent_chains * threads_per_chain)`` CPUs,
+        one logical CPU per physical core first, least busy cores first.
+    affinity_supported : bool
+        Whether the platform can pin the process to CPUs (Linux: True; macOS and
+        Windows: False).
+    blas_threads : int or None
+        Thread limit applied to BLAS/OpenMP/NumExpr pools: 1 when the run is pinned
+        or runs more than one parallel chain, otherwise None (libraries keep their
+        own defaults).
+    """
+
     chains: int
     chain_method: str
     threads_per_chain: int | None
@@ -32,6 +63,13 @@ class CPUPlan:
     blas_threads: int | None
 
     def to_dict(self):
+        """Return the plan as a plain dict with one key per field.
+
+        Returns
+        -------
+        dict
+            Field name to value, as produced by :func:`dataclasses.asdict`.
+        """
         return asdict(self)
 
 
@@ -133,11 +171,50 @@ def threads_per_chain_if_supported(threads_per_chain):
 
 
 def resolve_cpu_plan(chains, chain_method="parallel", threads_per_chain=None, *, avoid=None, load=None):
-    """Choose the CPUs of this run.  XLA sizes its thread pool from the affinity mask, so with ``threads_per_chain``
-    the run is pinned to concurrent * threads_per_chain physical cores.  Those are the least busy cores at launch
-    (``load``: busy fraction per CPU, by default sampled from /proc/stat), excluding cores already claimed by other
-    solver runs (``avoid``; by default read from /proc), so that several fits and other programs share the machine
-    without stacking on the same cores."""
+    """Choose the CPUs of a run without changing the process.
+
+    XLA sizes its thread pool from the affinity mask, so with ``threads_per_chain``
+    the run is pinned to ``concurrent * threads_per_chain`` logical CPUs, where
+    ``concurrent`` is 1 for ``"sequential"`` and ``chains`` otherwise. One logical
+    CPU per physical core is taken before any SMT sibling, least busy cores first
+    (a core is as busy as its busiest logical CPU), skipping CPUs already claimed by
+    other solver runs. If too few unclaimed cores remain, claimed CPUs are shared.
+    Once :func:`configure_cpu_runtime` has applied a plan, a repeated request with
+    the same ``(chains, chain_method, threads_per_chain)`` returns that plan
+    unchanged.
+
+    Parameters
+    ----------
+    chains : int
+        Number of NUTS chains; must be a positive integer.
+    chain_method : str, optional
+        NumPyro chain method. ``"parallel"`` (default) runs the chains concurrently,
+        one JAX CPU device per chain; ``"vectorized"`` runs them concurrently on one
+        device; ``"sequential"`` runs one chain at a time on one device.
+    threads_per_chain : int or None, optional
+        Logical CPUs per concurrently running chain; must be a positive integer.
+        None (default) selects every available CPU and pins nothing.
+    avoid : iterable of int or None, optional
+        Logical CPU ids to treat as claimed by other runs. None (default) reads
+        them from ``/proc`` (processes whose command line contains ``run.xsh`` or
+        ``lenscluster`` and that are pinned to a subset of CPUs). Used only when
+        ``threads_per_chain`` is set.
+    load : mapping of int to float or None, optional
+        Busy fraction (dimensionless, 0 to 1) of each logical CPU. None (default)
+        samples ``/proc/stat`` over 0.25 seconds (Linux; empty elsewhere, so all
+        CPUs count as idle). Used only when ``threads_per_chain`` is set.
+
+    Returns
+    -------
+    CPUPlan
+        The chosen layout. Nothing is applied; see :func:`configure_cpu_runtime`.
+
+    Raises
+    ------
+    ValueError
+        If ``chains`` or ``threads_per_chain`` is not a positive integer, or
+        ``chain_method`` is not one of the three allowed values.
+    """
     chains = _positive_integer("chains", chains)
     if chain_method not in {"parallel", "sequential", "vectorized"}:
         raise ValueError("Unsupported NUTS chain method for CPU setup.")
@@ -177,10 +254,45 @@ def resolve_cpu_plan(chains, chain_method="parallel", threads_per_chain=None, *,
 
 
 def configure_cpu_runtime(chains, chain_method="parallel", threads_per_chain=None):
-    """Apply once before backend initialization; spawned stages inherit it.
+    """Resolve and apply the CPU plan of this process before JAX initializes.
 
-    Existing JAX backends cannot resize their pools. Reject late configuration
-    instead of silently presenting ineffective environment settings as tuning.
+    Call once per process, before any JAX computation (including building a
+    config, which evaluates cosmology). It pins the process with
+    ``os.sched_setaffinity`` when ``threads_per_chain`` is set, sets the BLAS/OpenMP
+    thread variables (``OMP_NUM_THREADS``, ``OPENBLAS_NUM_THREADS``,
+    ``MKL_NUM_THREADS``, ``BLIS_NUM_THREADS``, ``VECLIB_MAXIMUM_THREADS``,
+    ``NUMEXPR_NUM_THREADS``) and limits already loaded libraries through
+    ``threadpoolctl`` when ``plan.blas_threads`` is set, and sets
+    ``JAX_NUM_CPU_DEVICES`` (and ``jax_num_cpu_devices`` if JAX is imported).
+    Spawned stages inherit these settings. Existing JAX backends cannot resize
+    their pools, so late configuration is rejected rather than silently ignored.
+
+    Parameters
+    ----------
+    chains : int
+        Number of NUTS chains; must be a positive integer.
+    chain_method : str, optional
+        ``"parallel"`` (default), ``"sequential"``, or ``"vectorized"``; see
+        :func:`resolve_cpu_plan`.
+    threads_per_chain : int or None, optional
+        Logical CPUs per concurrently running chain. None (default) pins nothing.
+        Requires CPU affinity support (Linux); use
+        :func:`threads_per_chain_if_supported` for scripts shared with macOS.
+
+    Returns
+    -------
+    CPUPlan
+        The applied plan. Calling again with the same arguments returns it
+        without reapplying.
+
+    Raises
+    ------
+    RuntimeError
+        If a different plan is already applied in this process, if the JAX
+        backend is already initialized, or if ``threads_per_chain`` is set on a
+        platform without CPU affinity support.
+    ValueError
+        If the arguments are invalid (see :func:`resolve_cpu_plan`).
     """
     global _ACTIVE_PLAN, _THREADPOOL_LIMITER
     plan = resolve_cpu_plan(chains, chain_method, threads_per_chain)

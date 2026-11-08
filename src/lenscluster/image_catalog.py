@@ -27,8 +27,8 @@ A system is one background source at one redshift.  Each image of it has either 
 Fields.  System: ``z`` (required), ``reliability`` (0 to 1, default 1), ``knots`` (list of names), ``images``,
 ``notes``.  Image: ``ra``/``dec`` (degrees, ICRS) or ``knots``; ``parity`` (-1, 0 or +1, 0 = unknown); ``sigma``
 (astrometric error in arcsec, the default for its knots); ``notes``.  Position (an image without knots, or one knot):
-``ra``, ``dec``, ``sigma``, ``shape`` ([a, b, theta]), ``mag``, ``mag_err``, ``bands`` ({band: [mag, err]} or
-{band: {mag, err, detected, use}}), ``notes``.  A knot may also be written ``[ra, dec]`` or ``[ra, dec, sigma]``.
+``ra``, ``dec``, ``sigma``, ``shape`` ([a, b, theta]: semi-axes, of which the ratio b/a is used, and position angle in
+degrees), ``mag``, ``mag_err`` (mag), ``bands`` ({band: [mag, err]} or {band: {mag, err, detected, use}}), ``notes``.  A knot may also be written ``[ra, dec]`` or ``[ra, dec, sigma]``.
 ``defaults`` sets ``sigma``, ``shape``, ``mag``, ``mag_err`` and ``reliability`` for every entry that omits them;
 an astrometric error missing everywhere takes the configured ``sigma_inst_arcsec``.
 
@@ -65,16 +65,63 @@ COLUMNS = ["image_label", "family_id", "image_id", "system_id", "knot_id", "ra",
 
 
 class CatalogError(ValueError):
-    """A malformed image catalog; the message names the file and the entry."""
+    """A malformed image or member catalog.
+
+    Subclass of ``ValueError``. The message names the file and the entry (for
+    example ``images.yaml: systems.1.images.a.sigma must be positive``).
+    """
 
 
 # ----------------------------------------------------------------------------- reading
 def load_image_catalog(path: str | Path, *, sigma_inst_arcsec: float, sigma_floor_arcsec: float = 0.0) -> pd.DataFrame:
-    """One row per (system, knot, image) with the columns the solver uses (``COLUMNS``) plus ``mag_<band>``,
-    ``mag_err_<band>``, ``detected_<band>`` and ``use_for_catalog_<band>`` for every band any entry lists.
+    """Read a YAML multiple-image catalog into one row per (system, knot, image).
 
-    ``sigma_inst_arcsec`` is the astrometric error of entries that give none, here or in ``defaults``; every error is
-    raised to at least ``sigma_floor_arcsec``."""
+    Parameters
+    ----------
+    path : str or pathlib.Path
+        The catalog file; must end in ``.yaml`` or ``.yml`` and follow the
+        format in the module docstring.
+    sigma_inst_arcsec : float
+        Astrometric error in arcsec of every entry that gives none, either itself
+        or through ``defaults``; must be finite and positive.
+    sigma_floor_arcsec : float, optional
+        Lower limit in arcsec applied to every astrometric error after reading;
+        must be finite and nonnegative. Default 0.0 (no floor).
+
+    Returns
+    -------
+    pandas.DataFrame
+        One row per image of each family, in file order, with the columns of
+        ``COLUMNS``:
+
+        * ``image_label`` (str): ``"<family_id>.<image_id>"``, e.g. ``"D1A.a"``;
+        * ``family_id`` (str): system name plus knot name; ``image_id``,
+          ``system_id``, ``knot_id`` (str; ``knot_id`` is ``""`` for an image
+          without knots);
+        * ``ra``, ``dec`` (degrees, ICRS);
+        * ``catalog_z`` (source redshift); ``family_reliability`` (0 to 1);
+        * ``sigma_inst_arcsec`` (astrometric error, arcsec, at least
+          ``sigma_floor_arcsec``);
+        * ``parity`` (int: -1, +1, or 0 when unknown);
+        * ``catalog_a``, ``catalog_b``, ``catalog_theta`` (shape semi-axes and
+          position angle in degrees; NaN without a shape);
+        * ``catalog_mag``, ``catalog_mag_err`` (mag; NaN when absent);
+        * ``catalog_source`` (str): the path read.
+
+        These are followed, sorted by name, by ``mag_<band>``,
+        ``mag_err_<band>`` (mag; NaN where an entry omits the band),
+        ``detected_<band>`` and ``use_for_catalog_<band>`` (bool; missing values
+        where not given) for every band any entry lists.
+
+    Raises
+    ------
+    CatalogError
+        If the path is not a YAML file, the sigma arguments are invalid, the
+        YAML does not parse, or an entry breaks the format (unknown keys, bad
+        names or numbers, undeclared or unused knots, colliding family names).
+    OSError
+        If the file cannot be read.
+    """
     path = Path(path)
     if path.suffix.lower() not in {".yaml", ".yml"}:
         raise CatalogError(f"{path}: image catalogs are YAML files (.yaml); convert a Lenstool catalog with "
@@ -311,8 +358,38 @@ def _flowed(system: dict) -> dict:
 
 def write_image_catalog(path: str | Path, systems: dict[str, dict], *, defaults: dict | None = None,
                         header: str | None = None) -> Path:
-    """Write ``systems`` ({name: {z, images, ...}}, the structure ``load_image_catalog`` reads) as a catalog file.
-    ``header`` becomes comment lines at the top.  The file is read back and checked before this returns."""
+    """Write a multiple-image catalog as YAML and validate it by reading it back.
+
+    Systems and images are written in block style, each image (or knot) on one
+    line; names are quoted when YAML would otherwise read them as numbers or
+    booleans.
+
+    Parameters
+    ----------
+    path : str or pathlib.Path
+        The file to write (overwritten if it exists); use a ``.yaml`` suffix.
+    systems : dict
+        ``{system name: {"z": ..., "images": {...}, ...}}``, the structure of
+        the ``systems`` mapping described in the module docstring (positions in
+        degrees, ``sigma`` in arcsec, magnitudes in mag).
+    defaults : dict or None, optional
+        The ``defaults`` mapping (keys ``sigma``, ``shape``, ``mag``,
+        ``mag_err``, ``reliability``). None or empty (default) writes none.
+    header : str or None, optional
+        Text written as ``#`` comment lines at the top of the file. None
+        (default) writes no header.
+
+    Returns
+    -------
+    pathlib.Path
+        ``path``.
+
+    Raises
+    ------
+    CatalogError
+        If the written file does not read back as a valid catalog (the file is
+        left on disk).
+    """
     path = Path(path)
     document: dict[str, Any] = {"format": FORMAT}
     if defaults:

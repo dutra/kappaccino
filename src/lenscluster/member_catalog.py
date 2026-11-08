@@ -61,10 +61,69 @@ ROUND = (1.0, 1.0, 0.0)
 
 
 def load_member_catalog(path: str | Path, reference: tuple[int, float, float], *, band: str | None = None) -> pd.DataFrame:
-    """One row per member with ``OUTPUT_COLUMNS`` plus ``mag_<band>`` for every band a YAML entry lists.
-    ``reference`` is the model's (kind, ra0, dec0), used by ``.cat`` files in offsets; ``band`` overrides the YAML
-    file's relation band.  ``catalog_kinematics`` holds a list of measurements per member, each with its source's
-    reference, quantity and aperture."""
+    """Read a cluster-member catalog (YAML or Lenstool ``.cat``) into one row per member.
+
+    The format is chosen by suffix: ``.yaml`` / ``.yml`` is read as the YAML
+    format of the module docstring, anything else as Lenstool potfile columns.
+
+    Parameters
+    ----------
+    path : str or pathlib.Path
+        The member catalog.
+    reference : tuple of (int, float, float)
+        The model's reference frame ``(kind, ra0, dec0)``, with ``ra0`` and
+        ``dec0`` in degrees. Used only by a ``.cat`` file with ``#REFERENCE 3``,
+        whose x, y are arcsec offsets from ``(ra0, dec0)``; ``kind`` is not used
+        (the file's own ``#REFERENCE`` line sets its frame).
+    band : str or None, optional
+        Band whose magnitude fills ``catalog_mag`` (the scaling-relation band),
+        overriding the YAML file's ``band``. None (default) uses the file's
+        ``band``. Must be None for a ``.cat`` file.
+
+    Returns
+    -------
+    pandas.DataFrame
+        One row per member with the columns of ``OUTPUT_COLUMNS``:
+
+        * ``id`` (str): member name;
+        * ``catalog_reference`` (int): 0 for YAML; the ``#REFERENCE`` kind (0 or
+          3) for ``.cat``;
+        * ``catalog_source`` (str): the path read;
+        * ``ra``, ``dec`` (degrees, ICRS);
+        * ``catalog_a``, ``catalog_b``, ``catalog_theta``: light shape
+          semi-axes and position angle in degrees (YAML default round,
+          ``(1, 1, 0)``);
+        * ``catalog_mag`` (mag in the relation band);
+        * ``catalog_z`` (redshift; NaN if none); ``catalog_z_kind`` (``"spec"``,
+          ``"phot"``, or ``""`` when not stated);
+        * ``catalog_lum``, ``catalog_color`` (``.cat`` columns; NaN for YAML);
+        * ``catalog_band`` (str; ``""`` for ``.cat``);
+        * ``catalog_role`` (``"member"`` or ``"bcg"``);
+        * ``catalog_treatment`` (``"relation"``, ``"independent"`` or
+          ``"exclude"``; see the module docstring);
+        * ``catalog_keep`` (bool): True if ``keep`` is set or the member has
+          kinematics;
+        * ``catalog_kinematics`` (list of dict per member): each measurement's
+          ``source``, ``reference``, ``quantity``, ``aperture_arcsec``
+          (arcsec; NaN if none), ``sigma`` and ``err`` (km s^-1) and ``sn``
+          (NaN if none); empty for ``.cat``;
+        * ``catalog_notes`` (str).
+
+        A YAML catalog adds ``mag_<band>`` (mag) for every band any member
+        lists. A ``.cat`` file keeps the first row of a repeated id.
+
+    Raises
+    ------
+    CatalogError
+        If a YAML catalog breaks the format (missing ``band`` or ``members``,
+        repeated keys, unknown keys, a member without the relation-band
+        magnitude, an unknown kinematics source, invalid values), or ``band`` is
+        given for a ``.cat`` file.
+    ValueError
+        If a ``.cat`` file has no ``#REFERENCE`` line, an unsupported reference
+        kind (not 0 or 3), or rows without the nine columns
+        ``id x y a b theta mag lum color``.
+    """
     path = Path(path)
     if path.suffix.lower() in {".yaml", ".yml"}:
         return _load_yaml(path, band)
@@ -202,9 +261,43 @@ def _member(name: Any, entry: Any, where: str, band: str, sources: dict[str, dic
 
 def write_member_catalog(path: str | Path, members: dict[str, dict], *, band: str, kinematics_sources: dict[str, dict] | None = None,
                          header: str | None = None) -> Path:
-    """Write ``members`` ({name: {ra, dec, mag, ...}}, the structure ``load_member_catalog`` reads) as a YAML catalog.
-    Plain members go on one line each; members with a role, treatment, keep flag, kinematics or notes in block style.
-    ``header`` becomes comment lines at the top.  The file is read back and checked before this returns."""
+    """Write a cluster-member catalog as YAML and validate it by reading it back.
+
+    Plain members are written on one line each; members with a ``role``,
+    ``treatment``, ``keep`` flag, ``kinematics`` or ``notes`` in block style.
+    Names are quoted so YAML reads them as strings.
+
+    Parameters
+    ----------
+    path : str or pathlib.Path
+        The file to write (overwritten if it exists); use a ``.yaml`` suffix.
+    members : dict
+        ``{name: {"ra": ..., "dec": ..., "mag": {band: mag}, ...}}``, the
+        structure of the ``members`` mapping described in the module docstring
+        (positions in degrees, magnitudes in mag, kinematic ``sigma`` and
+        ``err`` in km s^-1).
+    band : str
+        The scaling-relation band written as the top-level ``band``; every
+        member must have a magnitude in it.
+    kinematics_sources : dict or None, optional
+        ``{source name: {"reference": ..., "quantity": ..., "aperture_arcsec":
+        ...}}`` written as ``kinematics_sources``. None or empty (default)
+        writes none.
+    header : str or None, optional
+        Text written as ``#`` comment lines at the top of the file. None
+        (default) writes no header.
+
+    Returns
+    -------
+    pathlib.Path
+        ``path``.
+
+    Raises
+    ------
+    CatalogError
+        If the written file does not read back as a valid catalog (the file is
+        left on disk).
+    """
     path = Path(path)
     document: dict[str, Any] = {"band": band}
     if kinematics_sources:

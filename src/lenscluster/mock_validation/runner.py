@@ -298,8 +298,37 @@ def _json_default(value: Any) -> Any:
 
 
 def rescore_mock_validation(config: MockValidationConfig, *, log=print) -> list[Path]:
-    """Recompute the recovery tables of every finished realization from its saved posterior, without refitting (for a
-    change in how the truth or the recovery is scored)."""
+    """Recompute the recovery tables of every finished realization from its saved posterior, without refitting.
+
+    Use it after a change in how the truth or the recovery is scored.  For each seed ``runtime.seed + i`` of the
+    campaign, a realization is rescored when its mock is complete and its solver run has a complete final posterior;
+    seeds without a complete mock are skipped silently, seeds without a posterior are skipped with a log message.  The
+    solver's initialization is rebuilt (resuming from its saved start point) and the saved posterior reloaded.
+
+    Parameters
+    ----------
+    config : MockValidationConfig
+        The campaign configuration that produced the runs (validated here).
+    log : callable, optional
+        Function called with each progress message (a ``str``).  Default ``print``.
+
+    Returns
+    -------
+    list of Path
+        The ``seed_<seed>/recovery`` directories that were rewritten.
+
+    Raises
+    ------
+    ValueError
+        If the configuration is invalid.
+
+    Notes
+    -----
+    Files written, relative to the campaign root ``<output_dir>/<campaign_name>/<run_name>``, per rescored seed
+    (zero-padded to eight digits): ``seed_<seed>/recovery/recovery.json``, ``parameter_recovery.csv``,
+    ``magnification_recovery.csv`` and ``m2d_aperture_recovery.csv`` in the same directory.  Aggregate plots are not
+    refreshed; call ``write_aggregate_plots`` afterwards.
+    """
     from .. import artifacts
     config = config.validate()
     root = campaign_root(config)
@@ -351,9 +380,44 @@ def _fisher_for_seed(config: MockValidationConfig, paths: MockPaths, seed: int, 
 
 
 def fisher_precheck(config: MockValidationConfig, *, log=print) -> pd.DataFrame:
-    """Generate (or reuse) every realization's mock and forecast how well the GP hyperparameters are constrained, without
-    running the solver.  Writes fisher.json per mock and fisher_precheck.csv (one row per seed and hyperparameter) in the
-    campaign directory; returns that table."""
+    """Generate (or reuse) every realization's mock and forecast how well the GP hyperparameters are constrained,
+    without running the solver.
+
+    For each seed the restricted Fisher matrix of the solver's GP error-model hyperparameters (``sigma_alpha``,
+    ``knee`` and ``gamma`` of the mass field when injected, ``sigma_shared`` and ``ell`` of the image-plane GP when
+    injected, and ``sigma_white``) is evaluated at the truth with the lens held at the truth, so it is an upper bound on
+    what the data constrain (see ``lenscluster.mock_validation.fisher``).  A mock is reused when ``runtime.resume`` is
+    True and it is complete, otherwise generated.  Seeds whose solver likelihood is not the knee GP
+    (``likelihood_mode="gp_image_plane"`` with ``gp_kernel="knee"``) are skipped with a log message.
+
+    Parameters
+    ----------
+    config : MockValidationConfig
+        The campaign configuration (validated here).
+    log : callable, optional
+        Function called with each progress message (a ``str``).  Default ``print``.
+
+    Returns
+    -------
+    pandas.DataFrame
+        One row per seed and hyperparameter, with columns ``parameter`` (``images.<name>``), ``units`` (``"ln"`` or
+        ``"linear"``), ``truth``, ``prior_sigma``, ``fisher_sigma`` (data only), ``forecast_sigma`` (data plus prior),
+        ``prior_contraction`` (dimensionless), ``seed``, ``n_images``, ``n_families`` and image-pair counts per
+        separation bin (``pairs all <bin>`` and ``pairs system <bin>``, bins in arcsec).  Widths are in the units of
+        ``units``.  Empty if no seed was forecast.
+
+    Raises
+    ------
+    ValueError
+        If the configuration is invalid.
+
+    Notes
+    -----
+    Files written, relative to the campaign root ``<output_dir>/<campaign_name>/<run_name>``: ``campaign_config.json``;
+    per seed (zero-padded to eight digits) the mock files ``seed_<seed>/mock/images.yaml``, ``members.cat`` (when there
+    are modelled members), ``truth.json`` and ``mock_images.json`` when generated, and ``seed_<seed>/mock/fisher.json``;
+    and ``fisher_precheck.csv`` (the returned table) when it is not empty.
+    """
     config = config.validate()
     root = campaign_root(config)
     root.mkdir(parents=True, exist_ok=True)
@@ -403,7 +467,45 @@ def _refresh_aggregate_plots(root: Path, *, log=print) -> None:
 
 
 def run_mock_validation(config: MockValidationConfig, *, log=print) -> list[Path]:
-    """Run every realization of the campaign; returns the recovery directories."""
+    """Run every realization of the campaign: generate the mock, fit it with the solver, and score the recovery.
+
+    Realization ``i`` uses seed ``runtime.seed + i``.  With ``runtime.resume`` a realization that already has
+    ``recovery/recovery.json`` is skipped and a complete mock is reused.  The solver model is built from each
+    realization's truth according to ``mock.mode`` (``solver_config_for_mock``).  Before fitting, the hyperparameter
+    Fisher forecast is computed if ``fisher.json`` is missing (skipped when the likelihood is not the knee GP).  After
+    each fitted realization the aggregate plots are refreshed over all completed realizations; a plotting error is
+    logged and does not stop the campaign.
+
+    Parameters
+    ----------
+    config : MockValidationConfig
+        The campaign configuration (validated here).
+    log : callable, optional
+        Function called with each progress message (a ``str``).  Default ``print``.
+
+    Returns
+    -------
+    list of Path
+        The ``seed_<seed>/recovery`` directory of every realization completed or found complete.
+
+    Raises
+    ------
+    ValueError
+        If the configuration is invalid.
+
+    Notes
+    -----
+    Files written, relative to the campaign root ``<output_dir>/<campaign_name>/<run_name>``, with ``<seed>``
+    zero-padded to eight digits:
+
+    * ``campaign_config.json``: the configuration (``MockValidationConfig.to_json_dict``);
+    * ``seed_<seed>/mock/``: ``images.yaml`` (image catalog), ``members.cat`` (modelled members, when any),
+      ``truth.json``, ``mock_images.json`` and ``fisher.json``;
+    * ``seed_<seed>/solver/``: the solver run's outputs;
+    * ``seed_<seed>/recovery/``: ``recovery.json``, ``parameter_recovery.csv``, ``magnification_recovery.csv`` and
+      ``m2d_aperture_recovery.csv``;
+    * ``aggregate_plots/``: the campaign tables and figures (``write_aggregate_plots``).
+    """
     config = config.validate()
     root = campaign_root(config)
     root.mkdir(parents=True, exist_ok=True)

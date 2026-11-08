@@ -96,11 +96,17 @@ def test_enumerated_members_are_summed_exactly(synthetic_config, likelihood):
     assert posterior.shape == (2,) and np.all((posterior >= 0) & (posterior <= 1))
 
 
-def test_enumeration_keeps_the_members_nearest_the_images(synthetic_config):
-    _, evaluator = _evaluator(_marginalize(synthetic_config, membership_max_enumerated=1))
-    nearest = np.asarray(evaluator.geometry.separation).min(axis=1)
-    assert evaluator.membership_enumerated_positions.tolist() == [int(np.argmin(nearest[EXACT]))]
-    assert len(evaluator.membership_configurations) == 2
+def test_enumeration_follows_the_classification_score(synthetic_config):
+    state = with_member_classes(build_state(_marginalize(synthetic_config, membership_max_enumerated=1)), EXACT)
+    _, nearest_first = state, Evaluator(state)
+    nearest = np.asarray(nearest_first.geometry.separation).min(axis=1)
+    assert nearest_first.membership_enumerated_positions.tolist() == [int(np.argmin(nearest[EXACT]))]   # no classification
+    ids = state.members.member_ids
+    lower = int(np.argmax(nearest[EXACT]))                                  # the farther exact member scores highest
+    rankings = [{"member": ids[i], "score": 5.0 if i == lower else 2.0} for i in EXACT]
+    ranked = Evaluator(with_member_classes(state, EXACT, {"rankings": rankings}))
+    assert ranked.membership_enumerated_positions.tolist() == [lower]
+    assert len(ranked.membership_configurations) == 2
 
 
 def test_expected_mass_and_deflection_covariance(synthetic_config):

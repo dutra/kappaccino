@@ -467,7 +467,8 @@ class Evaluator:
     # ------------------------------------------------------------------ membership
     def _setup_membership(self) -> None:
         """Uncertain members (``MemberConfig.membership="marginalize"``, prior :math:`p_i < 1`): the enumerated ones (exact
-        members, nearest the images first, at most ``membership_max_enumerated``) whose indicators the likelihood sums
+        members, highest classification score first as for ``MemberConfig.top_exact``, at most
+        ``membership_max_enumerated``) whose indicators the likelihood sums
         exactly, the marginalized rest (expected mass plus deflection covariance), and every indicator configuration of
         the enumerated members as rows of 0/1, shape (2^K, K)."""
         members = self.state.members
@@ -480,8 +481,15 @@ class Evaluator:
         self.membership_calibration_index = int(getattr(members, "membership_calibration_param_index", -1)) if active else -1
         self.membership_uncertain_positions = uncertain.astype(np.int32)
         candidates = np.intersect1d(uncertain, self.exact_positions)
-        nearest = np.asarray(self.geometry.separation).min(axis=1) if n else np.zeros(0)
-        candidates = candidates[np.argsort(nearest[candidates], kind="stable")]
+        # The classification's score (classification.py: truncation and whitened far-field error, the ranking top_exact
+        # uses); a state built without a classification ranks by distance to the nearest image instead.
+        scores = {r["member"]: (np.inf if r.get("score") is None else float(r["score"]))
+                  for r in dict(members.classification or {}).get("rankings", [])}
+        if scores:
+            key = np.asarray([-scores.get(members.member_ids[i], -np.inf) for i in range(n)])
+        else:
+            key = np.asarray(self.geometry.separation).min(axis=1) if n else np.zeros(0)
+        candidates = candidates[np.argsort(key[candidates], kind="stable")]
         limit = int(getattr(members, "membership_max_enumerated", 4))
         self.membership_enumerated_positions = np.sort(candidates[:limit]).astype(np.int32)
         self.membership_marginal_positions = np.setdiff1d(uncertain, self.membership_enumerated_positions).astype(np.int32)

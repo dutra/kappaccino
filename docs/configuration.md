@@ -205,8 +205,9 @@ config = replace(config, members=replace(
   `spec`, kinematics, or role `bcg`). Default 1, so only members with a catalog `p_member` below 1 are uncertain.
 
 `membership_max_enumerated`
-: The most uncertain exact members, nearest the images first, whose indicators are summed exactly. The rest enter with
-  their expected mass and a deflection covariance. Default 4.
+: The most uncertain exact members whose indicators are summed exactly, taken in the order of the member
+  classification's score (the ranking `top_exact` uses). The rest enter with their expected mass and a deflection
+  covariance. Default 4.
 
 `membership_calibration_prior`
 : Prior of a shared shift $\delta$ of the log-odds, $\mathrm{logit}\,p_i' = \mathrm{logit}\,p_i + \delta$, sampled as

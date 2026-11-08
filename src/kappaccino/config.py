@@ -894,7 +894,7 @@ class MemberConfig:
     membership : str, optional
         ``"fixed"`` (every catalog member is a member; the catalog ``p_member`` is ignored) or ``"marginalize"``: each
         member :math:`i` has a membership indicator :math:`z_i \\sim \\mathrm{Bernoulli}(p_i)` that the likelihood sums
-        over.  Uncertain exact members (at most ``membership_max_enumerated``, nearest the images first) are enumerated
+        over.  Uncertain exact members (at most ``membership_max_enumerated``, highest classification score first) are enumerated
         exactly, so the images update their membership; every other uncertain member enters with its expected mass
         :math:`p_i` and the deflection covariance :math:`p_i(1-p_i)\\,\\alpha_i\\alpha_i^T` (docs: Likelihoods,
         Uncertain membership).  Default ``"fixed"``.

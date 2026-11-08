@@ -166,8 +166,11 @@ modeled as before. The sum has $2^N$ terms and does not factor over members, bec
 so it is split by how much a member can matter.
 
 Enumerated members
-: The uncertain exact members nearest the images, at most `membership_max_enumerated` (default 4). These can decide
-  an image's position, so their $2^K$ configurations are summed exactly (the target is a `logsumexp` over the
+: Uncertain members that the member classification already made exact (see {doc}`configuration`, Exact and
+  far-field members), at most `membership_max_enumerated` (default 4). When there are more, the ones with the
+  highest classification score are enumerated, as for `top_exact`. The score is the larger of the truncation term
+  and the whitened far-field error over `template_tolerance`, so it measures how much the member matters at the
+  images relative to their errors. These members can decide an image's position, so their $2^K$ configurations are summed exactly (the target is a `logsumexp` over the
   configurations). NUTS samples only the continuous parameters, and each draw gives the configuration weights, whose
   average over the draws is the posterior membership probability.
 

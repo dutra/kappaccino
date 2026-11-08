@@ -1,0 +1,441 @@
+# Built on 2026-11-08 by scripts/build_master_catalog.py; do not edit.
+cluster: m1149
+built: '2026-11-08'
+base: treu2016
+match_radius_arcsec: 0.5
+dz_max: 0.01
+reliability_scale: {diamond: 1.0, gold: 0.9, silver: 0.7, bronze: 0.4, copper: 0.15, high: 0.8, mid: 0.5, candidate: 0.5, trusted: 0.8}
+frames:
+  treu2016:
+    applied_arcsec: [0.0, 0.0]
+    note: base frame
+  grillo2016:
+    applied_arcsec: [-0.0068, 0.0004]
+    n_matches: 26
+    median_residual_arcsec: 0.0269
+counts: {master_systems: 36, diamond: 0, gold: 9, silver: 0, bronze: 8, copper: 19, images: 103, candidate_images: 0, free_z_systems: 23, conflicts: 0}
+systems:
+  '1':
+    from: treu2016
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
+    papers:
+      treu2016: ['1']
+    z:
+      treu2016:1: [1.4880000352859497, spec]
+    independent_papers: 1
+  SN:
+    from: treu2016
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
+    papers:
+      treu2016: [SN]
+    z:
+      treu2016:SN: [1.4880000352859497, spec]
+    independent_papers: 1
+  '2':
+    from: treu2016
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
+    papers:
+      treu2016: ['2']
+      grillo2016: ['2']
+    z:
+      treu2016:2: [1.891, spec]
+      grillo2016:2: [1.892, spec]
+    independent_papers: 1
+  '3':
+    from: treu2016
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
+    papers:
+      treu2016: ['3']
+      grillo2016: ['3']
+    z:
+      treu2016:3: [3.129, spec]
+      grillo2016:3: [3.13, spec]
+    independent_papers: 1
+  '4':
+    from: treu2016
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
+    papers:
+      treu2016: ['4']
+      grillo2016: ['4']
+    z:
+      treu2016:4: [2.949, spec]
+      grillo2016:4: [2.949, spec]
+    independent_papers: 1
+  '5':
+    from: treu2016
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
+    papers:
+      treu2016: ['5']
+      grillo2016: ['5']
+    z:
+      treu2016:5: [2.8, spec]
+      grillo2016:5: [2.8, spec]
+    independent_papers: 1
+  '6':
+    from: treu2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: free
+    papers:
+      treu2016: ['6']
+      grillo2016: ['6']
+    z:
+      treu2016:6: [0.0, free]
+      grillo2016:6: [0.0, free]
+    independent_papers: 1
+  '7':
+    from: treu2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: free
+    papers:
+      treu2016: ['7']
+      grillo2016: ['7']
+    z:
+      treu2016:7: [0.0, free]
+      grillo2016:7: [0.0, free]
+    independent_papers: 1
+  '8':
+    from: treu2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: free
+    papers:
+      treu2016: ['8']
+      grillo2016: ['8']
+    z:
+      treu2016:8: [0.0, free]
+      grillo2016:8: [0.0, free]
+    independent_papers: 1
+  R26:
+    from: treu2016
+    tier: copper
+    reliability: 0.15
+    quality: 0.1
+    z_kind: spec
+    papers:
+      treu2016: [R26]
+    z:
+      treu2016:R26: [2.78, spec]
+    independent_papers: 1
+  R27:
+    from: treu2016
+    tier: copper
+    reliability: 0.15
+    quality: 0.1
+    z_kind: free
+    papers:
+      treu2016: [R27]
+    z:
+      treu2016:R27: [0.0, free]
+    independent_papers: 1
+  '9':
+    from: treu2016
+    tier: copper
+    reliability: 0.15
+    quality: 0.4
+    z_kind: free
+    papers:
+      treu2016: ['9']
+    z:
+      treu2016:9: [0.0, free]
+    independent_papers: 1
+  '10':
+    from: treu2016
+    tier: copper
+    reliability: 0.15
+    quality: 0.4
+    z_kind: free
+    papers:
+      treu2016: ['10']
+    z:
+      treu2016:10: [0.0, free]
+    independent_papers: 1
+  '12':
+    from: treu2016
+    tier: copper
+    reliability: 0.15
+    quality: 0.1
+    z_kind: spec
+    papers:
+      treu2016: ['12']
+    z:
+      treu2016:12: [0.929, spec]
+    independent_papers: 1
+  '13':
+    from: treu2016
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
+    papers:
+      treu2016: ['13']
+      grillo2016: ['13']
+    z:
+      treu2016:13: [1.24, spec]
+      grillo2016:13: [1.24, spec]
+    independent_papers: 1
+  '14':
+    from: treu2016
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
+    papers:
+      treu2016: ['14']
+      grillo2016: ['14']
+    z:
+      treu2016:14: [3.703, spec]
+      grillo2016:14: [3.703, spec]
+    independent_papers: 1
+  '110':
+    from: treu2016
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
+    papers:
+      treu2016: ['110']
+      grillo2016: ['110']
+    z:
+      treu2016:110: [3.214, spec]
+      grillo2016:110: [3.216, spec]
+    independent_papers: 1
+  '21':
+    from: treu2016
+    tier: bronze
+    reliability: 0.4
+    quality: 0.7
+    z_kind: free
+    papers:
+      treu2016: ['21']
+    z:
+      treu2016:21: [0.0, free]
+    independent_papers: 1
+  '22':
+    from: treu2016
+    tier: copper
+    reliability: 0.15
+    quality: 0.4
+    z_kind: free
+    papers:
+      treu2016: ['22']
+    z:
+      treu2016:22: [0.0, free]
+    independent_papers: 1
+  '23':
+    from: treu2016
+    tier: copper
+    reliability: 0.15
+    quality: 0.4
+    z_kind: free
+    papers:
+      treu2016: ['23']
+    z:
+      treu2016:23: [0.0, free]
+    independent_papers: 1
+  '24':
+    from: treu2016
+    tier: copper
+    reliability: 0.15
+    quality: 0.4
+    z_kind: free
+    papers:
+      treu2016: ['24']
+    z:
+      treu2016:24: [0.0, free]
+    independent_papers: 1
+  '25':
+    from: treu2016
+    tier: copper
+    reliability: 0.15
+    quality: 0.4
+    z_kind: free
+    papers:
+      treu2016: ['25']
+    z:
+      treu2016:25: [0.0, free]
+    independent_papers: 1
+  '26':
+    from: treu2016
+    tier: bronze
+    reliability: 0.4
+    quality: 0.7
+    z_kind: free
+    papers:
+      treu2016: ['26']
+    z:
+      treu2016:26: [0.0, free]
+    independent_papers: 1
+  '27':
+    from: treu2016
+    tier: bronze
+    reliability: 0.4
+    quality: 0.7
+    z_kind: free
+    papers:
+      treu2016: ['27']
+    z:
+      treu2016:27: [0.0, free]
+    independent_papers: 1
+  '28':
+    from: treu2016
+    tier: copper
+    reliability: 0.15
+    quality: 0.4
+    z_kind: free
+    papers:
+      treu2016: ['28']
+    z:
+      treu2016:28: [0.0, free]
+    independent_papers: 1
+  '200':
+    from: treu2016
+    tier: copper
+    reliability: 0.15
+    quality: 0.4
+    z_kind: spec
+    papers:
+      treu2016: ['200']
+    z:
+      treu2016:200: [2.32, spec]
+    independent_papers: 1
+  '201':
+    from: treu2016
+    tier: copper
+    reliability: 0.15
+    quality: 0.4
+    z_kind: free
+    papers:
+      treu2016: ['201']
+    z:
+      treu2016:201: [0.0, free]
+    independent_papers: 1
+  '202':
+    from: treu2016
+    tier: copper
+    reliability: 0.15
+    quality: 0.4
+    z_kind: free
+    papers:
+      treu2016: ['202']
+    z:
+      treu2016:202: [0.0, free]
+    independent_papers: 1
+  '203':
+    from: treu2016
+    tier: bronze
+    reliability: 0.4
+    quality: 0.7
+    z_kind: free
+    papers:
+      treu2016: ['203']
+    z:
+      treu2016:203: [0.0, free]
+    independent_papers: 1
+  '204':
+    from: treu2016
+    tier: bronze
+    reliability: 0.4
+    quality: 0.7
+    z_kind: free
+    papers:
+      treu2016: ['204']
+    z:
+      treu2016:204: [0.0, free]
+    independent_papers: 1
+  '205':
+    from: treu2016
+    tier: copper
+    reliability: 0.15
+    quality: 0.4
+    z_kind: free
+    papers:
+      treu2016: ['205']
+    z:
+      treu2016:205: [0.0, free]
+    independent_papers: 1
+  '206':
+    from: treu2016
+    tier: copper
+    reliability: 0.15
+    quality: 0.4
+    z_kind: free
+    papers:
+      treu2016: ['206']
+    z:
+      treu2016:206: [0.0, free]
+    independent_papers: 1
+  '207':
+    from: treu2016
+    tier: copper
+    reliability: 0.15
+    quality: 0.4
+    z_kind: free
+    papers:
+      treu2016: ['207']
+    z:
+      treu2016:207: [0.0, free]
+    independent_papers: 1
+  '208':
+    from: treu2016
+    tier: copper
+    reliability: 0.15
+    quality: 0.4
+    z_kind: free
+    papers:
+      treu2016: ['208']
+    z:
+      treu2016:208: [0.0, free]
+    independent_papers: 1
+  '209':
+    from: treu2016
+    tier: copper
+    reliability: 0.15
+    quality: 0.4
+    z_kind: free
+    papers:
+      treu2016: ['209']
+    z:
+      treu2016:209: [0.0, free]
+    independent_papers: 1
+  '210':
+    from: treu2016
+    tier: copper
+    reliability: 0.15
+    quality: 0.4
+    z_kind: spec
+    papers:
+      treu2016: ['210']
+    z:
+      treu2016:210: [0.702, spec]
+    independent_papers: 1
+excluded: {}
+conflicts: []
+free_z: ['6', '7', '8', R27, '9', '10', '21', '22', '23', '24', '25', '26', '27', '28', '201', '202', '203', '204', '205', '206', '207', '208', '209']
+candidate_images: []
+members:
+  counts: {grillo2016: 300, canucs: 306}
+  other_band: {}
+  p_member: {'1': 164, '0.9': 135, '0.7': 11}

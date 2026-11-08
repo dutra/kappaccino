@@ -26,3 +26,12 @@ mcmc_convergence.png
 
 confidence_levels.png
     Confidence levels of all free parameters in the strong lens modelling. The contours correspond to 68%, 95% and 99.7%.
+
+
+Converted on 2026-11-08 (kappaccino):
+images.yaml    from A1063_obs_arcs_v11.dat by scripts/convert_lenstool_catalog.py: 22 systems, 60 images.  The commented
+               rows (#3b, #11a-c, ...) are images the authors left out and are not converted.  Systems 50 and 51 have
+               z = 0, Lenstool's free redshift: they cannot be fitted as they are.
+members.yaml   from members_95_160_nonan_cuts.cat by scripts/convert_member_catalog.py: 139 members.  The BCG (1809) is
+               commented in the file, being modelled by its own halo, so it is not in members.yaml.
+Bergamini et al. 2019 (../bergamini2019) reuses these positions without systems 50 and 51.

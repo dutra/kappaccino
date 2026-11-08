@@ -1,0 +1,824 @@
+# Diego et al. 2024, A&A 690, A114 (PEARLS), Table B.1, converted from catalogs/m0416/diego2024/images.ecsv on 2026-11-08 by scripts/convert_diego2024_catalog.py.
+# Every row, published labels.  z: 77 systems spectroscopic, the rest the lens-model zgeom (see each system's notes).
+# Image notes give the published rank (A best to D).  Positions J2000 degrees as published; no errors or photometry.
+format: lenscluster-images/1
+systems:
+  '1':
+    z: 0.9397
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.036575, dec: -24.067059, notes: rank A}
+      b: {ra: 64.036919, dec: -24.06749, notes: rank A}
+      c: {ra: 64.040962, dec: -24.071217, notes: rank A}
+  '2':
+    z: 1.0054
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.039337, dec: -24.070425, notes: rank A}
+      b: {ra: 64.038368, dec: -24.069754, notes: rank A}
+      c: {ra: 64.034309, dec: -24.06605, notes: rank A}
+  '3':
+    z: 1.1472
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.033348, dec: -24.067499, notes: rank A}
+      b: {ra: 64.040443, dec: -24.073088, notes: rank A}
+      c: {ra: 64.035667, dec: -24.069759, notes: rank C}
+  '4':
+    z: 1.6333
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.026321, dec: -24.074366, notes: rank A}
+      b: {ra: 64.031113, dec: -24.078981, notes: rank A}
+      c: {ra: 64.035912, dec: -24.08135, notes: rank A}
+  '5':
+    z: 1.8178
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.023895, dec: -24.077621, notes: rank A}
+      b: {ra: 64.030571, dec: -24.082706, notes: rank A}
+      c: {ra: 64.032509, dec: -24.083782, notes: rank A}
+  '6':
+    z: 1.895
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.041161, dec: -24.061836, notes: rank A}
+      b: {ra: 64.043152, dec: -24.06312, notes: rank A}
+      c: {ra: 64.047531, dec: -24.068851, notes: rank A}
+  '7':
+    z: 1.896
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.040871, dec: -24.061646, notes: rank A}
+      b: {ra: 64.043541, dec: -24.063534, notes: rank A}
+      c: {ra: 64.04744, dec: -24.068699, notes: rank A}
+  '8':
+    z: 1.953
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.029121, dec: -24.06678, notes: rank A}
+      b: {ra: 64.037506, dec: -24.073175, notes: rank A}
+      c: {ra: 64.03862, dec: -24.073906, notes: rank A}
+  '9':
+    z: 1.9656
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.024155, dec: -24.080921, notes: rank A}
+      b: {ra: 64.028412, dec: -24.084572, notes: rank A}
+      c: {ra: 64.031693, dec: -24.085789, notes: rank A}
+  '10':
+    z: 1.9894
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.030846, dec: -24.067158, notes: rank A}
+      b: {ra: 64.035332, dec: -24.07102, notes: rank A}
+      c: {ra: 64.041878, dec: -24.07576, notes: rank A}
+  '11':
+    z: 2.0881
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.039871, dec: -24.06312, notes: rank A}
+      b: {ra: 64.040741, dec: -24.063623, notes: rank A}
+      c: {ra: 64.047173, dec: -24.071136, notes: rank A}
+  '12':
+    z: 2.091
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.036674, dec: -24.066154, notes: rank A}
+      b: {ra: 64.036919, dec: -24.066378, notes: rank A}
+      c: {ra: 64.04615, dec: -24.075211, notes: rank B}
+  '13':
+    z: 2.0943
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.034409, dec: -24.063763, notes: rank A}
+      b: {ra: 64.03965, dec: -24.06666, notes: rank A}
+      c: {ra: 64.044632, dec: -24.072124, notes: rank A}
+  '14':
+    z: 2.0948
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.032478, dec: -24.068443, notes: rank A}
+      b: {ra: 64.03273, dec: -24.068697, notes: rank A}
+      c: {ra: 64.033592, dec: -24.069477, notes: rank A}
+      d: {ra: 64.043633, dec: -24.076994, notes: rank A}
+  '15':
+    z: 2.1067
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.042274, dec: -24.060577, notes: rank A}
+      b: {ra: 64.047539, dec: -24.066078, notes: rank A}
+      c: {ra: 64.048187, dec: -24.066992, notes: rank A}
+  '16':
+    z: 2.2182
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.023552, dec: -24.081749, notes: rank A}
+      b: {ra: 64.028671, dec: -24.086002, notes: rank A}
+      c: {ra: 64.0299, dec: -24.086395, notes: rank A}
+  '17':
+    z: 2.221
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.025124, dec: -24.08334, notes: rank A}
+      b: {ra: 64.026176, dec: -24.08428, notes: rank A}
+      c: {ra: 64.030945, dec: -24.086756, notes: rank A}
+  '18':
+    z: 2.23
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.026718, dec: -24.074705, notes: rank A}
+      b: {ra: 64.030228, dec: -24.078606, notes: rank A}
+      c: {ra: 64.038177, dec: -24.082342, notes: rank A}
+  '19':
+    z: 2.243
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.040993, dec: -24.062986, notes: rank A}
+      b: {ra: 64.041161, dec: -24.063095, notes: rank A}
+      c: {ra: 64.047653, dec: -24.07081, notes: rank B}
+  '20':
+    z: 2.28
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.025841, dec: -24.072264, notes: rank A}
+      b: {ra: 64.032974, dec: -24.077028, notes: rank A}
+      c: {ra: 64.037712, dec: -24.080503, notes: rank A}
+  '21':
+    z: 2.281
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.034332, dec: -24.063032, notes: rank A}
+      b: {ra: 64.04055, dec: -24.06636, notes: rank A}
+      c: {ra: 64.044701, dec: -24.07152, notes: rank A}
+  '22':
+    z: 2.2982
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.026131, dec: -24.077278, notes: rank A}
+      b: {ra: 64.028481, dec: -24.079771, notes: rank A}
+      c: {ra: 64.036781, dec: -24.083941, notes: rank A}
+  '23':
+    z: 2.334
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.026939, dec: -24.075771, notes: rank A}
+      b: {ra: 64.029526, dec: -24.078621, notes: rank A}
+      c: {ra: 64.038307, dec: -24.083006, notes: rank A}
+  '24':
+    z: 2.5425
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.024704, dec: -24.071487, notes: rank A}
+      b: {ra: 64.032715, dec: -24.078537, notes: rank A}
+      c: {ra: 64.035736, dec: -24.079952, notes: rank A}
+  '25':
+    z: 2.922
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.036278, dec: -24.060682, notes: rank A}
+      b: {ra: 64.044838, dec: -24.066723, notes: rank A}
+      c: {ra: 64.046104, dec: -24.068829, notes: rank A}
+  '26':
+    z: 2.9259
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.026299, dec: -24.076046, notes: rank A}
+      b: {ra: 64.028923, dec: -24.079155, notes: rank A}
+      c: {ra: 64.038338, dec: -24.083937, notes: rank B}
+  '27':
+    z: 2.9911
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.037872, dec: -24.068842, notes: rank A}
+      b: {ra: 64.043831, dec: -24.073641, notes: rank A}
+      c: {ra: 64.032242, dec: -24.064041, notes: rank C}
+  '28':
+    z: 3.075
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.028976, dec: -24.075569, notes: rank A}
+      b: {ra: 64.029701, dec: -24.07621, notes: rank A}
+  '29':
+    z: 3.0773
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.025269, dec: -24.073608, notes: rank A}
+      b: {ra: 64.030563, dec: -24.079248, notes: rank A}
+      c: {ra: 64.037796, dec: -24.082417, notes: rank A}
+  '30':
+    z: 3.1103
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.02552, dec: -24.073679, notes: rank A}
+      b: {ra: 64.030449, dec: -24.079046, notes: rank A}
+      c: {ra: 64.038147, dec: -24.082426, notes: rank A}
+  '31':
+    z: 3.2175
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.027649, dec: -24.072704, notes: rank A}
+      b: {ra: 64.032234, dec: -24.075134, notes: rank A}
+      c: {ra: 64.040428, dec: -24.081505, notes: rank A}
+  '32':
+    z: 3.2195
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.026863, dec: -24.069242, notes: rank A}
+      b: {ra: 64.034866, dec: -24.074615, notes: rank A}
+      c: {ra: 64.039764, dec: -24.078896, notes: rank A}
+  '33':
+    z: 3.2215
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.034569, dec: -24.066988, notes: rank A}
+      b: {ra: 64.034264, dec: -24.066517, notes: rank A}
+      c: {ra: 64.034042, dec: -24.06694, notes: rank A}
+      d: {ra: 64.046127, dec: -24.076797, notes: rank A}
+      e: {ra: 64.034081, dec: -24.066479, notes: rank A}
+  '34':
+    z: 3.2355
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.046532, dec: -24.060431, notes: rank A}
+      b: {ra: 64.047035, dec: -24.060827, notes: rank A}
+      c: {ra: 64.049156, dec: -24.062895, notes: rank A}
+  '35':
+    z: 3.2526
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.038429, dec: -24.084162, notes: rank A}
+      b: {ra: 64.026405, dec: -24.076729, notes: rank A}
+      c: {ra: 64.028404, dec: -24.079033, notes: rank A}
+  '36':
+    z: 3.2882
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.040154, dec: -24.066771, notes: rank A}
+      b: {ra: 64.045181, dec: -24.072372, notes: rank A}
+  '37':
+    z: 3.2883
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.04007, dec: -24.066681, notes: rank A}
+      b: {ra: 64.045425, dec: -24.072557, notes: rank A}
+  '38':
+    z: 3.2885
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.041634, dec: -24.060032, notes: rank A}
+      b: {ra: 64.045334, dec: -24.062792, notes: rank A}
+      c: {ra: 64.049309, dec: -24.068213, notes: rank A}
+  '39':
+    z: 3.291
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.023926, dec: -24.075027, notes: rank A}
+      b: {ra: 64.030174, dec: -24.080952, notes: rank A}
+      c: {ra: 64.035744, dec: -24.083611, notes: rank A}
+  '40':
+    z: 3.292
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.045586, dec: -24.072701, notes: rank A}
+      b: {ra: 64.040001, dec: -24.066645, notes: rank A}
+  '41':
+    z: 3.2922
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.046913, dec: -24.075411, notes: rank A}
+      b: {ra: 64.035301, dec: -24.064764, notes: rank A}
+      c: {ra: 64.038589, dec: -24.065998, notes: rank A}
+  '42':
+    z: 3.4406
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.022774, dec: -24.074625, notes: rank A}
+      b: {ra: 64.031319, dec: -24.081928, notes: rank A}
+      c: {ra: 64.033714, dec: -24.08322, notes: rank A}
+  '43':
+    z: 3.4909
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.025024, dec: -24.07505, notes: rank A}
+      b: {ra: 64.029488, dec: -24.079918, notes: rank A}
+      c: {ra: 64.037552, dec: -24.083683, notes: rank A}
+  '44':
+    z: 3.6065
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.03775, dec: -24.060776, notes: rank A}
+      b: {ra: 64.043709, dec: -24.064419, notes: rank A}
+      c: {ra: 64.047882, dec: -24.070196, notes: rank A}
+  '45':
+    z: 3.7153
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.023621, dec: -24.073181, notes: rank A}
+      b: {ra: 64.031158, dec: -24.080338, notes: rank A}
+      c: {ra: 64.03595, dec: -24.0826, notes: rank A}
+  '46':
+    z: 3.871
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.026932, dec: -24.069977, notes: rank A}
+      b: {ra: 64.034012, dec: -24.074596, notes: rank A}
+      c: {ra: 64.04026, dec: -24.079895, notes: rank A}
+  '47':
+    z: 3.9228
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.023819, dec: -24.078503, notes: rank A}
+      b: {ra: 64.027702, dec: -24.082638, notes: rank A}
+      c: {ra: 64.035065, dec: -24.08568, notes: rank B}
+  '48':
+    z: 3.923
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.027199, dec: -24.073603, notes: rank A}
+      b: {ra: 64.031067, dec: -24.077208, notes: rank A}
+  '49':
+    z: 3.968
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.027245, dec: -24.068253, notes: rank A}
+      b: {ra: 64.035187, dec: -24.073887, notes: rank A}
+      c: {ra: 64.040565, dec: -24.078417, notes: rank A}
+  '50':
+    z: 4.069
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.031136, dec: -24.064331, notes: rank A}
+      b: {ra: 64.037308, dec: -24.069706, notes: rank A}
+      c: {ra: 64.043991, dec: -24.075085, notes: rank A}
+  '51':
+    z: 4.0707
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.03376, dec: -24.065819, notes: rank A}
+      b: {ra: 64.035835, dec: -24.067743, notes: rank A}
+      c: {ra: 64.046516, dec: -24.076773, notes: rank A}
+  '52':
+    z: 4.1032
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.026611, dec: -24.070532, notes: rank A}
+      b: {ra: 64.03376, dec: -24.074852, notes: rank A}
+      c: {ra: 64.040154, dec: -24.080339, notes: rank A}
+  '53':
+    z: 4.1138
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.037743, dec: -24.06106, notes: rank A}
+      b: {ra: 64.042961, dec: -24.063931, notes: rank A}
+      c: {ra: 64.048248, dec: -24.070921, notes: rank A}
+  '54':
+    z: 4.115
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.037834, dec: -24.059858, notes: rank A}
+      b: {ra: 64.045944, dec: -24.065847, notes: rank A}
+      c: {ra: 64.047768, dec: -24.068672, notes: rank A}
+  '55':
+    z: 4.1218
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.023491, dec: -24.07616, notes: rank A}
+      b: {ra: 64.029312, dec: -24.081839, notes: rank A}
+      c: {ra: 64.035568, dec: -24.084707, notes: rank A}
+  '56':
+    z: 4.298
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.039207, dec: -24.06983, notes: rank A}
+      b: {ra: 64.042809, dec: -24.072178, notes: rank A}
+      c: {ra: 64.030678, dec: -24.063269, notes: rank C}
+  '57':
+    z: 4.299
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.036659, dec: -24.063314, notes: rank A}
+      b: {ra: 64.039703, dec: -24.064278, notes: rank A}
+      c: {ra: 64.04808, dec: -24.074223, notes: rank A}
+  '58':
+    z: 4.5018
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.025612, dec: -24.071329, notes: rank A}
+      b: {ra: 64.033104, dec: -24.076052, notes: rank A}
+      c: {ra: 64.03933, dec: -24.081331, notes: rank A}
+  '59':
+    z: 4.53
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.024651, dec: -24.077213, notes: rank B}
+      b: {ra: 64.028671, dec: -24.081221, notes: rank B}
+      c: {ra: 64.037582, dec: -24.08573, notes: rank C}
+  '60':
+    z: 4.609
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.036697, dec: -24.068043, notes: rank A}
+      b: {ra: 64.046585, dec: -24.076204, notes: rank A}
+      c: {ra: 64.033569, dec: -24.065058, notes: rank C}
+  '61':
+    z: 5.0996
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.040672, dec: -24.059166, notes: rank A}
+      b: {ra: 64.046875, dec: -24.063866, notes: rank A}
+      c: {ra: 64.049652, dec: -24.068056, notes: rank A}
+  '62':
+    z: 5.106
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.029366, dec: -24.073355, notes: rank A}
+      b: {ra: 64.030869, dec: -24.074207, notes: rank A}
+      c: {ra: 64.042152, dec: -24.082333, notes: rank B}
+  '63':
+    z: 5.106
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.026344, dec: -24.068735, notes: rank A}
+      b: {ra: 64.034988, dec: -24.074608, notes: rank A}
+      c: {ra: 64.040131, dec: -24.079134, notes: rank A}
+  '64':
+    z: 5.365
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.023064, dec: -24.077299, notes: rank A}
+      b: {ra: 64.028481, dec: -24.083029, notes: rank A}
+      c: {ra: 64.035126, dec: -24.085533, notes: rank A}
+  '65':
+    z: 5.638
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.022209, dec: -24.077309, notes: rank A}
+      b: {ra: 64.028748, dec: -24.084246, notes: rank A}
+      c: {ra: 64.033806, dec: -24.08573, notes: rank A}
+  '66':
+    z: 5.9729
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.030907, dec: -24.083735, notes: rank A}
+      b: {ra: 64.032112, dec: -24.084261, notes: rank A}
+  '67':
+    z: 5.998
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.03994, dec: -24.066923, notes: rank A}
+      b: {ra: 64.046043, dec: -24.07407, notes: rank A}
+  '68':
+    z: 6.0665
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.036499, dec: -24.062275, notes: rank A}
+      b: {ra: 64.041115, dec: -24.064133, notes: rank A}
+      c: {ra: 64.048477, dec: -24.073648, notes: rank A}
+  '69':
+    z: 6.1452
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.043648, dec: -24.059034, notes: rank A}
+      b: {ra: 64.047913, dec: -24.06209, notes: rank A}
+      c: {ra: 64.050941, dec: -24.066565, notes: rank A}
+  '70':
+    z: 6.145
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.050858, dec: -24.066435, notes: rank A}
+      b: {ra: 64.043488, dec: -24.058945, notes: rank A}
+      c: {ra: 64.048248, dec: -24.062433, notes: rank A}
+  '71':
+    z: 6.147
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.038963, dec: -24.06068, notes: rank A}
+      b: {ra: 64.043365, dec: -24.062984, notes: rank A}
+      c: {ra: 64.04937, dec: -24.071024, notes: rank C}
+  '72':
+    z: 6.149
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.051147, dec: -24.066538, notes: rank A}
+      b: {ra: 64.047218, dec: -24.061197, notes: rank A}
+      c: {ra: 64.044563, dec: -24.059338, notes: rank A}
+  '73':
+    z: 6.149
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.041496, dec: -24.06263, notes: rank A}
+      b: {ra: 64.040092, dec: -24.061878, notes: rank A}
+      c: {ra: 64.049477, dec: -24.072273, notes: rank C}
+  '74':
+    z: 6.149
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.050758, dec: -24.065859, notes: rank A}
+      b: {ra: 64.049301, dec: -24.063375, notes: rank A}
+  '75':
+    z: 6.629
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.045898, dec: -24.0602, notes: rank A}
+      b: {ra: 64.045601, dec: -24.060043, notes: rank A}
+  '76':
+    z: 1.99
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.030846, dec: -24.067251, notes: rank A}
+      b: {ra: 64.03524, dec: -24.071032, notes: rank A}
+      c: {ra: 64.041916, dec: -24.075859, notes: rank A}
+  '77':
+    z: 3.2215
+    notes: spectroscopic z
+    images:
+      a: {ra: 64.034386, dec: -24.066576, notes: rank A}
+      b: {ra: 64.034546, dec: -24.066895, notes: rank A}
+      c: {ra: 64.034004, dec: -24.066929, notes: rank A}
+      d: {ra: 64.04615, dec: -24.076826, notes: rank A}
+  '78':
+    z: 2.458
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.037956, dec: -24.07445, notes: rank B}
+      b: {ra: 64.038078, dec: -24.07456, notes: rank B}
+      c: {ra: 64.027893, dec: -24.06707, notes: rank B}
+  '79':
+    z: 1.524
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.036247, dec: -24.074194, notes: rank B}
+      b: {ra: 64.037827, dec: -24.075367, notes: rank B}
+      c: {ra: 64.028877, dec: -24.069141, notes: rank C}
+  '80':
+    z: 3.269
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.043884, dec: -24.072388, notes: rank B}
+      b: {ra: 64.039352, dec: -24.067961, notes: rank B}
+      c: {ra: 64.032013, dec: -24.063265, notes: rank B}
+  '81':
+    z: 11.299
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.032738, dec: -24.081612, notes: rank B}
+      b: {ra: 64.033119, dec: -24.081804, notes: rank B}
+      c: {ra: 64.022079, dec: -24.071712, notes: rank C}
+  '82':
+    z: 1.98
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.027115, dec: -24.078629, notes: rank B}
+      b: {ra: 64.02758, dec: -24.079121, notes: rank B}
+      c: {ra: 64.03653, dec: -24.084009, notes: rank C}
+  '83':
+    z: 11.669
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.02684, dec: -24.075186, notes: rank B}
+      b: {ra: 64.029076, dec: -24.077995, notes: rank B}
+      c: {ra: 64.041054, dec: -24.084436, notes: rank C}
+  '84':
+    z: 1.114
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.036873, dec: -24.071026, notes: rank B}
+      b: {ra: 64.037666, dec: -24.071342, notes: rank B}
+  '85':
+    z: 1.87
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.024178, dec: -24.081656, notes: rank B}
+      b: {ra: 64.030502, dec: -24.085911, notes: rank B}
+      c: {ra: 64.029388, dec: -24.08551, notes: rank C}
+  '86':
+    z: 1.248
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.025436, dec: -24.080927, notes: rank B}
+      b: {ra: 64.026184, dec: -24.081728, notes: rank B}
+      c: {ra: 64.030518, dec: -24.08461, notes: rank C}
+  '87':
+    z: 2.961
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.028076, dec: -24.06727, notes: rank B}
+      b: {ra: 64.036201, dec: -24.073383, notes: rank B}
+      c: {ra: 64.040428, dec: -24.076496, notes: rank B}
+  '88':
+    z: 3.644
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.025635, dec: -24.076721, notes: rank B}
+      b: {ra: 64.028183, dec: -24.079634, notes: rank B}
+      c: {ra: 64.038002, dec: -24.084518, notes: rank C}
+  '89':
+    z: 2.964
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.028015, dec: -24.07089, notes: rank B}
+      b: {ra: 64.033173, dec: -24.074184, notes: rank B}
+      c: {ra: 64.040741, dec: -24.080198, notes: rank B}
+  '90':
+    z: 2.952
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.028214, dec: -24.070808, notes: rank B}
+      b: {ra: 64.033134, dec: -24.07398, notes: rank B}
+      c: {ra: 64.040901, dec: -24.080122, notes: rank B}
+  '91':
+    z: 2.976
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.027756, dec: -24.070908, notes: rank B}
+      b: {ra: 64.033272, dec: -24.074343, notes: rank B}
+      c: {ra: 64.04052, dec: -24.080225, notes: rank B}
+  '92':
+    z: 3.071
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.027428, dec: -24.07086, notes: rank B}
+      b: {ra: 64.040314, dec: -24.080204, notes: rank B}
+  '93':
+    z: 1.708
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.045799, dec: -24.064848, notes: rank B}
+      b: {ra: 64.047104, dec: -24.066744, notes: rank B}
+      c: {ra: 64.041931, dec: -24.061298, notes: rank C}
+  '94':
+    z: 1.265
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.038376, dec: -24.07242, notes: rank B}
+      b: {ra: 64.038704, dec: -24.07259, notes: rank B}
+      c: {ra: 64.031525, dec: -24.066914, notes: rank C}
+  '95':
+    z: 2.359
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.037231, dec: -24.062462, notes: rank B}
+      b: {ra: 64.041443, dec: -24.064547, notes: rank B}
+      c: {ra: 64.046837, dec: -24.071337, notes: rank B}
+  '96':
+    z: 2.059
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.043442, dec: -24.067177, notes: rank B}
+      b: {ra: 64.044884, dec: -24.068945, notes: rank B}
+  '97':
+    z: 6.731
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.03756, dec: -24.061295, notes: rank B}
+      b: {ra: 64.042343, dec: -24.063738, notes: rank B}
+      c: {ra: 64.048927, dec: -24.071964, notes: rank B}
+  '98':
+    z: 2.318
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.033585, dec: -24.071421, notes: rank B}
+      b: {ra: 64.0308, dec: -24.068945, notes: rank B}
+      c: {ra: 64.042534, dec: -24.077715, notes: rank B}
+  '99':
+    z: 2.255
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.040581, dec: -24.075516, notes: rank B}
+      b: {ra: 64.03614, dec: -24.072449, notes: rank B}
+      c: {ra: 64.029343, dec: -24.067066, notes: rank C}
+  '100':
+    z: 6.674
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.041115, dec: -24.078957, notes: rank B}
+      b: {ra: 64.03492, dec: -24.073774, notes: rank C}
+      c: {ra: 64.026932, dec: -24.068048, notes: rank B}
+  '101':
+    z: 1.262
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.037834, dec: -24.073202, notes: rank B}
+      b: {ra: 64.037445, dec: -24.072962, notes: rank B}
+      c: {ra: 64.030815, dec: -24.067913, notes: rank C}
+  '102':
+    z: 2.623
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.033752, dec: -24.066456, notes: rank B}
+      b: {ra: 64.04541, dec: -24.07634, notes: rank B}
+      c: {ra: 64.035576, dec: -24.068159, notes: rank C}
+  '103':
+    z: 1.851
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.029175, dec: -24.06769, notes: rank B}
+      b: {ra: 64.035934, dec: -24.072861, notes: rank B}
+      c: {ra: 64.040009, dec: -24.075634, notes: rank B}
+  '104':
+    z: 2.003
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.043694, dec: -24.067207, notes: rank B}
+      b: {ra: 64.044983, dec: -24.068687, notes: rank B}
+      c: {ra: 64.036156, dec: -24.061491, notes: rank C}
+  '105':
+    z: 3.207
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.03363, dec: -24.066181, notes: rank B}
+      b: {ra: 64.045914, dec: -24.076571, notes: rank B}
+  '106':
+    z: 2.716
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.0336, dec: -24.066488, notes: rank B}
+      b: {ra: 64.035408, dec: -24.068256, notes: rank B}
+      c: {ra: 64.045441, dec: -24.076439, notes: rank B}
+  '107':
+    z: 0.907
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.035553, dec: -24.066431, notes: rank B}
+      b: {ra: 64.039993, dec: -24.070284, notes: rank B}
+      c: {ra: 64.037453, dec: -24.068464, notes: rank C}
+  '108':
+    z: 4.137
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.027473, dec: -24.07744, notes: rank C}
+      b: {ra: 64.027969, dec: -24.077969, notes: rank C}
+  '109':
+    z: 2.173
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.03199, dec: -24.085476, notes: rank C}
+      b: {ra: 64.028961, dec: -24.084475, notes: rank C}
+      c: {ra: 64.023598, dec: -24.079748, notes: rank C}
+  '110':
+    z: 1.414
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.03553, dec: -24.067764, notes: rank C}
+      b: {ra: 64.035255, dec: -24.067951, notes: rank C}
+  '111':
+    z: 1.46
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.03569, dec: -24.067989, notes: rank C}
+      b: {ra: 64.035553, dec: -24.068079, notes: rank C}
+  '112':
+    z: 1.541
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.033035, dec: -24.06411, notes: rank C}
+      b: {ra: 64.041008, dec: -24.070484, notes: rank C}
+      c: {ra: 64.041237, dec: -24.070604, notes: rank C}
+  '113':
+    z: 10.697
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.035179, dec: -24.089832, notes: rank D}
+      b: {ra: 64.03569, dec: -24.089853, notes: rank D}
+      c: {ra: 64.036652, dec: -24.089678, notes: rank D}
+  '114':
+    z: 16.671
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.022339, dec: -24.082636, notes: rank D}
+      b: {ra: 64.022301, dec: -24.082575, notes: rank D}
+      c: {ra: 64.02227, dec: -24.082546, notes: rank D}
+  '115':
+    z: 2.622
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.04493, dec: -24.061071, notes: rank B}
+      b: {ra: 64.045525, dec: -24.061422, notes: rank B}
+      c: {ra: 64.049713, dec: -24.066822, notes: rank C}
+      d: {ra: 64.048317, dec: -24.06452, notes: rank C}
+  '116':
+    z: 16.694
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.036842, dec: -24.077229, notes: rank C}
+      b: {ra: 64.03727, dec: -24.077747, notes: rank C}
+  '117':
+    z: 10.599
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.041512, dec: -24.058384, notes: rank C}
+      b: {ra: 64.049667, dec: -24.064619, notes: rank C}
+      c: {ra: 64.050392, dec: -24.06642, notes: rank C}
+  '118':
+    z: 2.742
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.029228, dec: -24.07589, notes: rank B}
+      b: {ra: 64.029411, dec: -24.076067, notes: rank B}
+  '119':
+    z: 2.678
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 64.025459, dec: -24.081047, notes: rank B}
+      b: {ra: 64.025673, dec: -24.081308, notes: rank B}

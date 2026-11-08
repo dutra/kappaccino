@@ -15,7 +15,9 @@ p(c | theta) = (1 - f) N(c | theta, S + s^2 I) + f N(c | theta, S + s_broad^2 I)
 is the predictive given the family's own members (closed form, independent of the lens).  E_i is the evidence of the
 image as its own source: the same terms integrated over a source drawn from the priors (``lens_evidence``,
 ``catalog_evidence``; a redshift-grid quadrature).  The weights pi are fixed: pi_0 for an unrelated source, the rest
-shared equally by the slots.
+shared equally by the slots, except that an image claimed by a family with a prior p (the image catalog's ``prior``,
+or ``claimed_family`` / ``association_prior`` in the uncertain-image table) puts p on that family's slot (trusted, or
+the new slot seeded on the images claimed by the same family) and shares 1 - p among the others.
 
 Expanding the product of sums and integrating each slot's parameters over its prior gives the sum over every
 partition of the uncertain images of p(Z) prod_F E_F: the same model as summing over partitions, with the sources
@@ -74,7 +76,7 @@ class SlotModel:
     singleton_catalog : numpy.ndarray
         Catalog evidence of each image as its own source on the redshift grid, shape (image, grid).
     log_weights : numpy.ndarray
-        log pi of label 0, the trusted slots, then the new slots, shape (1 + family + slot,).
+        log pi of label 0, the trusted slots, then the new slots, per image, shape (image, 1 + family + slot).
     param_start : int
         Index of the first slot parameter in the latent vector; each new slot has 3 + color parameters
         (u_x, u_y, v, w_1..w_d).
@@ -258,11 +260,11 @@ def population_log_density(population: GaussianMixture, x: jnp.ndarray) -> jnp.n
 # ------------------------------------------------------------------ inputs
 def load_uncertain_images(path, state: ModelState, *, sigma_inst_arcsec: float) -> pd.DataFrame:
     """The uncertain-image table with ``x_obs``/``y_obs`` in the state frame (arcsec, x positive west),
-    ``sigma_inst_arcsec`` and ``parity``."""
-    table = pd.read_csv(Path(path))
+    ``sigma_inst_arcsec`` and ``parity``; ``path`` is a CSV file or a table already read."""
+    table = path if isinstance(path, pd.DataFrame) else pd.read_csv(Path(path))
     missing = {"image_label", "ra", "dec"} - set(table.columns)
     if missing:
-        raise ValueError(f"{path}: missing columns {sorted(missing)}")
+        raise ValueError(f"{path if not isinstance(path, pd.DataFrame) else 'uncertain images'}: missing columns {sorted(missing)}")
     from ..io.sky import radec_to_offsets_arcsec
     _, ra0, dec0 = state.reference
     table = table.copy()
@@ -282,9 +284,74 @@ def trusted_catalog_table(config, state: ModelState) -> pd.DataFrame:
     constraints = config.model.image_constraints
     table = load_image_catalog(constraints.catalog_path, sigma_inst_arcsec=constraints.sigma_inst_arcsec,
                                sigma_floor_arcsec=constraints.sigma_floor_arcsec)
-    table = table[table["family_id"].astype(str).isin(set(state.images.family_ids))].copy()
+    table = table[table["image_label"].astype(str).isin(set(state.images.image_labels))].copy()
     table["catalog_z_sigma"] = TRUSTED_Z_SIGMA
     return table.reset_index(drop=True)
+
+
+def catalog_uncertain_images(config, state: ModelState) -> pd.DataFrame:
+    """The images of the image catalog the run does not trust (below ``trusted_prior_min``, in a family without a
+    positive redshift or left with one image), as an uncertain-image table claimed by their own families."""
+    from ..io.image_catalog import load_image_catalog
+    constraints = config.model.image_constraints
+    table = load_image_catalog(constraints.catalog_path, sigma_inst_arcsec=constraints.sigma_inst_arcsec,
+                               sigma_floor_arcsec=constraints.sigma_floor_arcsec)
+    table = table[~table["image_label"].astype(str).isin(set(state.images.image_labels))].copy()
+    table["sigma_arcsec"] = table["sigma_inst_arcsec"]
+    table["catalog_z"] = table["catalog_z"].where(table["catalog_z"] > 0.0)
+    table["catalog_z_sigma"] = table["catalog_z_err"]
+    table["claimed_family"] = table["family_id"].astype(str)
+    return table.reset_index(drop=True)
+
+
+def claimed_groups(table: pd.DataFrame, trusted_ids) -> list[tuple[int, ...]]:
+    """Groups of two or more uncertain images claimed by the same family that is not trusted: one new slot each."""
+    if "claimed_family" not in table:
+        return []
+    trusted = set(map(str, trusted_ids))
+    groups: dict[str, list[int]] = {}
+    for i, family in enumerate(table["claimed_family"].fillna("").astype(str)):
+        if family and family not in trusted:
+            groups.setdefault(family, []).append(i)
+    return [tuple(g) for g in groups.values() if len(g) > 1]
+
+
+def claim_columns(table: pd.DataFrame, trusted_ids, claimed: list[tuple[int, ...]]) -> np.ndarray:
+    """Column of each uncertain image's claimed option in the weight matrix (1 + trusted + new slots), -1 for none:
+    its trusted family, or the new slot seeded on its claimed group."""
+    columns = np.full(len(table), -1)
+    if "claimed_family" not in table:
+        return columns
+    trusted = {str(f): k for k, f in enumerate(trusted_ids)}
+    for i, family in enumerate(table["claimed_family"].fillna("").astype(str)):
+        if family in trusted:
+            columns[i] = 1 + trusted[family]
+    for k, group in enumerate(claimed):
+        columns[list(group)] = 1 + len(trusted) + k
+    return columns
+
+
+def association_priors(table: pd.DataFrame) -> np.ndarray:
+    return (pd.to_numeric(table["association_prior"], errors="coerce").to_numpy(dtype=float) if "association_prior" in table
+            else np.full(len(table), np.nan))
+
+
+def association_log_weights(weights: np.ndarray, columns: np.ndarray, priors: np.ndarray, *, floor: float = 1.0e-6) -> np.ndarray:
+    """Per-image log weights over the options (unrelated, trusted slots, new slots), shape (image, option).
+
+    An image with a claimed option (``columns`` >= 0) and a finite prior p puts p on it and shares 1 - p among the
+    other options in proportion to ``weights``; any other image keeps ``weights``.
+    """
+    weights = np.asarray(weights, dtype=float)
+    out = np.broadcast_to(weights, (len(columns), weights.size)).copy()
+    for i, (column, p) in enumerate(zip(columns, priors)):
+        if column < 0 or not np.isfinite(p):
+            continue
+        p = float(np.clip(p, floor, 1.0 - floor))
+        rest = weights.sum() - weights[column]
+        out[i] = weights * (1.0 - p) / rest
+        out[i, column] = p
+    return np.log(out)
 
 
 def default_redshift_grid(images: pd.DataFrame, z_lens: float, *, points: int = 12) -> np.ndarray:
@@ -339,7 +406,8 @@ def add_slots(config, state: ModelState, evaluator, theta: np.ndarray, *, log=pr
     """
     from ..likelihood.evaluator import Evaluator
     partition = config.partition
-    table = load_uncertain_images(partition.catalog_path, state, sigma_inst_arcsec=partition.sigma_inst_arcsec)
+    source = partition.catalog_path if partition.catalog_path is not None else catalog_uncertain_images(config, state)
+    table = load_uncertain_images(source, state, sigma_inst_arcsec=partition.sigma_inst_arcsec)
     trusted = trusted_catalog_table(config, state)
     z_lens = float(state.z_lens)
     z_grid = (np.linspace(*partition.redshift_grid[:2], int(partition.redshift_grid[2])) if partition.redshift_grid is not None
@@ -394,6 +462,9 @@ def add_slots(config, state: ModelState, evaluator, theta: np.ndarray, *, log=pr
         return catalog_log_evidence(data, rows[pairs], np.ones(pairs.shape, dtype=bool), z_grid, population, **settings)
 
     groups = initial_slots(group_evidence, n, pair_catalog, unrelated, trusted_best, gain_threshold=float(partition.slot_gain_threshold))
+    claimed = claimed_groups(table, state.images.family_ids) if partition.association_weight else []
+    taken = {i for g in claimed for i in g}
+    groups = claimed + [g for g in (tuple(i for i in group if i not in taken) for group in groups) if len(g) > 1]
     anchor, scale, log_dz, color_center = [], [], [], []
     for group in groups:
         index = jnp.asarray(np.asarray(group, dtype=np.int32)[None])
@@ -410,13 +481,16 @@ def add_slots(config, state: ModelState, evaluator, theta: np.ndarray, *, log=pr
     n_slots = len(groups)
     weights = np.full(1 + len(state.images.family_ids) + n_slots, (1.0 - partition.unrelated_fraction) / max(len(state.images.family_ids) + n_slots, 1))
     weights[0] = partition.unrelated_fraction
+    log_weights = np.log(np.broadcast_to(weights, (n, weights.size)))
+    if partition.association_weight:
+        log_weights = association_log_weights(weights, claim_columns(table, state.images.family_ids, claimed), association_priors(table))
     color_precision, color_logdet = [], []
     for s in (settings["color_scatter"], settings["outlier_scatter"]):
         cov = data.color_covariance[rows] + s ** 2 * np.eye(d)
         color_precision.append(np.linalg.inv(cov) if d else np.zeros((n, 0, 0)))
         color_logdet.append(np.linalg.slogdet(cov)[1] if d else np.zeros(n))
     model = SlotModel(images=images, labels=tuple(table["image_label"]), trusted_ids=tuple(state.images.family_ids), trusted_ratio=trusted_ratio,
-                      trusted_catalog=trusted_catalog, singleton_catalog=singleton_catalog, log_weights=np.log(weights),
+                      trusted_catalog=trusted_catalog, singleton_catalog=singleton_catalog, log_weights=log_weights,
                       param_start=state.n_parameters, anchor=np.asarray(anchor).reshape(n_slots, 2), scale=np.asarray(scale).reshape(n_slots, 2),
                       log_dz_center=np.asarray(log_dz, dtype=float), color_center=np.asarray(color_center).reshape(n_slots, d), z_lens=z_lens,
                       z_table=z_table, factor_table=factor_table, z_mean=data.z_mean[rows], z_sigma=data.z_sigma[rows], colors=data.colors[rows],

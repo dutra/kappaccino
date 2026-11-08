@@ -158,6 +158,10 @@ def declared_model_inputs(model_config: LensModelConfig, scaling: Any = None) ->
                                    sigma_floor_arcsec=constraints.sigma_floor_arcsec)
     if images_df.empty:
         raise ValueError("No multiple-image constraints found in the image catalog.")
+    # images below the trusted prior leave their families (the slot mixture can take them as uncertain images)
+    images_df = images_df[images_df["association_prior"] >= float(constraints.trusted_prior_min)].reset_index(drop=True)
+    if images_df.empty:
+        raise ValueError(f"No image of the catalog has a prior >= trusted_prior_min = {constraints.trusted_prior_min}.")
 
     potentials: list[dict[str, Any]] = []
     for halo in model_config.large_halos:

@@ -1,0 +1,1080 @@
+# Built on 2026-11-08 by scripts/build_master_catalog.py; do not edit.
+cluster: a2744
+built: '2026-11-08'
+base: bergamini2023b
+match_radius_arcsec: 0.5
+dz_max: 0.01
+reliability_scale: {diamond: 1.0, gold: 0.9, silver: 0.7, bronze: 0.4, copper: 0.15, high: 0.8, mid: 0.5, candidate: 0.5, trusted: 0.8}
+frames:
+  bergamini2023b:
+    applied_arcsec: [0.0, 0.0]
+    note: base frame
+  bergamini2023a:
+    applied_arcsec: [-0.0373, -0.0756]
+    n_matches: 88
+    median_residual_arcsec: 0.0072
+  furtak2023:
+    applied_arcsec: [-0.0316, -0.0716]
+    n_matches: 128
+    median_residual_arcsec: 0.012
+  mahler2018:
+    applied_arcsec: [-0.023, -0.0972]
+    n_matches: 75
+    median_residual_arcsec: 0.0273
+counts: {master_systems: 75, diamond: 24, gold: 19, silver: 3, bronze: 21, copper: 8, images: 245, candidate_images: 22, free_z_systems: 4, conflicts: 0}
+systems:
+  '1':
+    from: bergamini2023b
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
+    papers:
+      bergamini2023b: ['1']
+      bergamini2023a: ['1']
+      furtak2023: ['1']
+      mahler2018: ['1', '60']
+    z:
+      bergamini2023b:1: [1.688, spec]
+      bergamini2023a:1: [1.688, spec]
+      furtak2023:1: [1.6881, spec]
+      mahler2018:1: [1.688, spec]
+      mahler2018:60: [1.6981, model]
+    independent_papers: 2
+  '2':
+    from: bergamini2023b
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
+    papers:
+      bergamini2023b: ['2']
+      bergamini2023a: ['2']
+      furtak2023: ['2']
+      mahler2018: ['2']
+    z:
+      bergamini2023b:2: [1.887, spec]
+      bergamini2023a:2: [1.887, spec]
+      furtak2023:2: [1.8868, spec]
+      mahler2018:2: [1.8876, spec]
+    independent_papers: 2
+  '3':
+    from: bergamini2023b
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
+    papers:
+      bergamini2023b: ['3']
+      bergamini2023a: ['3']
+      furtak2023: ['3']
+      mahler2018: ['3']
+    z:
+      bergamini2023b:3: [3.98, spec]
+      bergamini2023a:3: [3.981, spec]
+      furtak2023:3: [3.9805, spec]
+      mahler2018:3: [3.9803, spec]
+    independent_papers: 2
+  '4':
+    from: bergamini2023b
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
+    papers:
+      bergamini2023b: ['4']
+      bergamini2023a: ['4']
+      furtak2023: ['4']
+      mahler2018: ['4']
+    z:
+      bergamini2023b:4: [3.577, spec]
+      bergamini2023a:4: [3.577, spec]
+      furtak2023:4: [3.577, spec]
+      mahler2018:4: [3.5769, spec]
+    independent_papers: 2
+  '6':
+    from: bergamini2023b
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
+    papers:
+      bergamini2023b: ['6']
+      bergamini2023a: ['6']
+      furtak2023: ['6']
+      mahler2018: ['6']
+    z:
+      bergamini2023b:6: [2.017, spec]
+      bergamini2023a:6: [2.017, spec]
+      furtak2023:6: [2.0171, spec]
+      mahler2018:6: [2.016, spec]
+    independent_papers: 2
+  '8':
+    from: bergamini2023b
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
+    papers:
+      bergamini2023b: ['8']
+      bergamini2023a: ['8']
+      furtak2023: ['8']
+      mahler2018: ['8']
+    z:
+      bergamini2023b:8: [3.977, spec]
+      bergamini2023a:8: [3.977, spec]
+      furtak2023:8: [3.9766, spec]
+      mahler2018:8: [3.975, spec]
+    independent_papers: 2
+  '10':
+    from: bergamini2023b
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
+    papers:
+      bergamini2023b: ['10']
+      mahler2018: ['10']
+    z:
+      bergamini2023b:10: [2.657, spec]
+      mahler2018:10: [2.6565, spec]
+    independent_papers: 2
+  '18':
+    from: bergamini2023b
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
+    papers:
+      bergamini2023b: ['18']
+      bergamini2023a: ['18']
+      furtak2023: ['18']
+      mahler2018: ['18']
+    z:
+      bergamini2023b:18: [5.662, spec]
+      bergamini2023a:18: [5.662, spec]
+      furtak2023:18: [5.6624, spec]
+      mahler2018:18: [5.6625, spec]
+    independent_papers: 2
+  '22':
+    from: bergamini2023b
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
+    papers:
+      bergamini2023b: ['22']
+      bergamini2023a: ['22']
+      furtak2023: ['22']
+      mahler2018: ['22']
+    z:
+      bergamini2023b:22: [5.284, spec]
+      bergamini2023a:22: [5.284, spec]
+      furtak2023:22: [5.28405, spec]
+      mahler2018:22: [5.2845, spec]
+    independent_papers: 2
+  '24':
+    from: bergamini2023b
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
+    papers:
+      bergamini2023b: ['24']
+      mahler2018: ['24']
+    z:
+      bergamini2023b:24: [1.044, spec]
+      mahler2018:24: [1.043, spec]
+    independent_papers: 2
+  '26':
+    from: bergamini2023b
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
+    papers:
+      bergamini2023b: ['26']
+      bergamini2023a: ['26']
+      furtak2023: ['26']
+      mahler2018: ['26']
+    z:
+      bergamini2023b:26: [3.054, spec]
+      bergamini2023a:26: [3.054, spec]
+      furtak2023:26: [3.0542, spec]
+      mahler2018:26: [3.0537, spec]
+    independent_papers: 2
+  '30':
+    from: bergamini2023b
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
+    papers:
+      bergamini2023b: ['30']
+      mahler2018: ['30']
+    z:
+      bergamini2023b:30: [1.026, spec]
+      mahler2018:30: [1.0252, spec]
+    independent_papers: 2
+  '31':
+    from: bergamini2023b
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
+    papers:
+      bergamini2023b: ['31']
+      furtak2023: ['85']
+      mahler2018: ['31']
+    z:
+      bergamini2023b:31: [4.757, spec]
+      furtak2023:85: [4.7525, spec]
+      mahler2018:31: [4.7594, spec]
+    independent_papers: 2
+  '33':
+    from: bergamini2023b
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
+    papers:
+      bergamini2023b: ['33']
+      bergamini2023a: ['33']
+      furtak2023: ['33']
+      mahler2018: ['33']
+    z:
+      bergamini2023b:33: [5.726, spec]
+      bergamini2023a:33: [5.726, spec]
+      furtak2023:33: [5.7256, spec]
+      mahler2018:33: [5.7255, spec]
+    independent_papers: 2
+  '34':
+    from: bergamini2023b
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
+    papers:
+      bergamini2023b: ['34']
+      bergamini2023a: ['34']
+      furtak2023: ['34']
+      mahler2018: ['34']
+    z:
+      bergamini2023b:34: [3.784, spec]
+      bergamini2023a:34: [3.784, spec]
+      furtak2023:34: [3.78565, spec]
+      mahler2018:34: [3.785, spec]
+    independent_papers: 2
+  '41':
+    from: bergamini2023b
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
+    papers:
+      bergamini2023b: ['41']
+      mahler2018: ['41']
+    z:
+      bergamini2023b:41: [4.91, spec]
+      mahler2018:41: [4.9113, spec]
+    independent_papers: 2
+  '42':
+    from: bergamini2023b
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
+    papers:
+      bergamini2023b: ['42']
+      bergamini2023a: ['42']
+      furtak2023: ['42']
+      mahler2018: ['42']
+    z:
+      bergamini2023b:42: [3.692, spec]
+      bergamini2023a:42: [3.692, spec]
+      furtak2023:42: [3.6919, spec]
+      mahler2018:42: [3.6915, spec]
+    independent_papers: 2
+  '61':
+    from: bergamini2023b
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
+    papers:
+      bergamini2023b: ['61']
+      bergamini2023a: ['61']
+      furtak2023: ['61']
+      mahler2018: ['61']
+    z:
+      bergamini2023b:61: [2.951, spec]
+      bergamini2023a:61: [2.951, spec]
+      furtak2023:61: [2.9509, spec]
+      mahler2018:61: [2.951, spec]
+    independent_papers: 2
+  '62':
+    from: bergamini2023b
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
+    papers:
+      bergamini2023b: ['62']
+      bergamini2023a: ['62']
+      furtak2023: ['62']
+      mahler2018: ['62']
+    z:
+      bergamini2023b:62: [4.194, spec]
+      bergamini2023a:62: [4.194, spec]
+      furtak2023:62: [4.1936, spec]
+      mahler2018:62: [4.1935, spec]
+    independent_papers: 2
+  '63':
+    from: bergamini2023b
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
+    papers:
+      bergamini2023b: ['63']
+      bergamini2023a: ['63']
+      furtak2023: ['63']
+      mahler2018: ['63']
+    z:
+      bergamini2023b:63: [5.662, spec]
+      bergamini2023a:63: [5.662, spec]
+      furtak2023:63: [5.6615, spec]
+      mahler2018:63: [5.6616, spec]
+    independent_papers: 2
+  '64':
+    from: bergamini2023b
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
+    papers:
+      bergamini2023b: ['64']
+      bergamini2023a: ['64']
+      furtak2023: ['64']
+      mahler2018: ['64']
+    z:
+      bergamini2023b:64: [3.409, spec]
+      bergamini2023a:64: [3.409, spec]
+      furtak2023:64: [3.4086, spec]
+      mahler2018:64: [3.4087, spec]
+    independent_papers: 2
+  JD1:
+    from: bergamini2023b
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
+    papers:
+      bergamini2023b: [JD1]
+      furtak2023: ['83']
+      mahler2018: ['46']
+    z:
+      bergamini2023b:JD1: [9.756, spec]
+      furtak2023:83: [9.76, spec]
+      mahler2018:46: [4.9368, model]
+    independent_papers: 2
+  '600':
+    from: bergamini2023b
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
+    papers:
+      bergamini2023b: ['600']
+      furtak2023: ['68']
+    z:
+      bergamini2023b:600: [2.58, spec]
+      furtak2023:68: [2.584, spec]
+    independent_papers: 1
+  '7':
+    from: bergamini2023b
+    tier: silver
+    reliability: 0.7
+    quality: 1.0
+    z_kind: free
+    papers:
+      bergamini2023b: ['7']
+      mahler2018: ['7']
+    z:
+      bergamini2023b:7: [0.0, free]
+      mahler2018:7: [2.5791, model]
+    independent_papers: 2
+  '28':
+    from: bergamini2023b
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
+    papers:
+      bergamini2023b: ['28']
+      furtak2023: ['84']
+      mahler2018: ['28']
+    z:
+      bergamini2023b:28: [0.0, free]
+      furtak2023:84: [6.873, spec]
+      mahler2018:28: [6.5166, model]
+    independent_papers: 2
+  '53':
+    from: bergamini2023b
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
+    papers:
+      bergamini2023b: ['53']
+      furtak2023: ['53']
+      mahler2018: ['53']
+    z:
+      bergamini2023b:53: [0.0, free]
+      furtak2023:53: [7.04, spec]
+      mahler2018:53: [6.8098, model]
+    independent_papers: 2
+  A200:
+    from: bergamini2023b
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
+    papers:
+      bergamini2023b: [A200, B200, C200]
+      furtak2023: ['65']
+    z:
+      bergamini2023b:A200: [0.0, free]
+      bergamini2023b:B200: [0.0, free]
+      bergamini2023b:C200: [0.0, free]
+      furtak2023:65: [3.5194, spec]
+    independent_papers: 1
+  B200:
+    from: bergamini2023b
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
+    papers:
+      bergamini2023b: [A200, B200, C200]
+      furtak2023: ['65']
+    z:
+      bergamini2023b:A200: [0.0, free]
+      bergamini2023b:B200: [0.0, free]
+      bergamini2023b:C200: [0.0, free]
+      furtak2023:65: [3.5194, spec]
+    independent_papers: 1
+  C200:
+    from: bergamini2023b
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
+    papers:
+      bergamini2023b: [A200, B200, C200]
+      furtak2023: ['65']
+    z:
+      bergamini2023b:A200: [0.0, free]
+      bergamini2023b:B200: [0.0, free]
+      bergamini2023b:C200: [0.0, free]
+      furtak2023:65: [3.5194, spec]
+    independent_papers: 1
+  '301':
+    from: bergamini2023b
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: free
+    papers:
+      bergamini2023b: ['301']
+      furtak2023: ['66']
+    z:
+      bergamini2023b:301: [0.0, free]
+      furtak2023:66: [2.2931, phot]
+    independent_papers: 1
+  '601':
+    from: bergamini2023b
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
+    papers:
+      bergamini2023b: ['601']
+      furtak2023: ['67']
+    z:
+      bergamini2023b:601: [0.0, free]
+      furtak2023:67: [2.322, spec]
+    independent_papers: 1
+  '602':
+    from: bergamini2023b
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
+    papers:
+      bergamini2023b: ['602']
+      furtak2023: ['69']
+    z:
+      bergamini2023b:602: [0.0, free]
+      furtak2023:69: [2.4109, spec]
+    independent_papers: 1
+  '700':
+    from: bergamini2023b
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
+    papers:
+      bergamini2023b: ['700']
+      furtak2023: ['78']
+    z:
+      bergamini2023b:700: [0.0, free]
+      furtak2023:78: [2.3151, spec]
+    independent_papers: 1
+  F86:
+    from: furtak2023
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
+    papers:
+      furtak2023: ['86']
+    z:
+      furtak2023:86: [6.875, spec]
+    independent_papers: 1
+  F70:
+    from: furtak2023
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
+    papers:
+      furtak2023: ['70']
+    z:
+      furtak2023:70: [2.3915, spec]
+    independent_papers: 1
+  F72:
+    from: furtak2023
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
+    papers:
+      furtak2023: ['72']
+    z:
+      furtak2023:72: [3.7468, spec]
+    independent_papers: 1
+  F74:
+    from: furtak2023
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
+    papers:
+      furtak2023: ['74']
+    z:
+      furtak2023:74: [2.3743, spec]
+    independent_papers: 1
+  F80:
+    from: furtak2023
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
+    papers:
+      furtak2023: ['80']
+    z:
+      furtak2023:80: [3.67289, spec]
+    independent_papers: 1
+  F81:
+    from: furtak2023
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
+    papers:
+      furtak2023: ['81']
+    z:
+      furtak2023:81: [3.4793, spec]
+    independent_papers: 1
+  F71:
+    from: furtak2023
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: free
+    papers:
+      furtak2023: ['71']
+    z:
+      furtak2023:71: [0.0, free]
+    independent_papers: 1
+  F77:
+    from: furtak2023
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: phot
+    papers:
+      furtak2023: ['77']
+    z:
+      furtak2023:77: [1.736, phot]
+    independent_papers: 1
+  F82:
+    from: furtak2023
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: free
+    papers:
+      furtak2023: ['82']
+    z:
+      furtak2023:82: [0.0, free]
+    independent_papers: 1
+  M5:
+    from: mahler2018
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
+    papers:
+      mahler2018: ['5']
+    z:
+      mahler2018:5: [4.0225, spec]
+    independent_papers: 1
+  M105:
+    from: mahler2018
+    tier: silver
+    reliability: 0.7
+    quality: 0.65
+    z_kind: spec
+    papers:
+      mahler2018: ['105']
+    z:
+      mahler2018:105: [4.0225, spec]
+    independent_papers: 1
+  M9:
+    from: mahler2018
+    tier: bronze
+    reliability: 0.4
+    quality: 0.7
+    z_kind: model
+    papers:
+      mahler2018: ['9']
+    z:
+      mahler2018:9: [2.3556, model]
+    independent_papers: 1
+  M11:
+    from: mahler2018
+    tier: bronze
+    reliability: 0.4
+    quality: 0.5
+    z_kind: model
+    papers:
+      mahler2018: ['11']
+    z:
+      mahler2018:11: [2.4508, model]
+    independent_papers: 1
+  M12:
+    from: mahler2018
+    tier: bronze
+    reliability: 0.4
+    quality: 0.5
+    z_kind: model
+    papers:
+      mahler2018: ['12']
+    z:
+      mahler2018:12: [3.6388, model]
+    independent_papers: 1
+  M13:
+    from: mahler2018
+    tier: bronze
+    reliability: 0.4
+    quality: 0.7
+    z_kind: model
+    papers:
+      mahler2018: ['13']
+    z:
+      mahler2018:13: [1.3905, model]
+    independent_papers: 1
+  M14:
+    from: mahler2018
+    tier: bronze
+    reliability: 0.4
+    quality: 0.7
+    z_kind: model
+    papers:
+      mahler2018: ['14']
+    z:
+      mahler2018:14: [2.571, model]
+    independent_papers: 1
+  M19:
+    from: mahler2018
+    tier: copper
+    reliability: 0.15
+    quality: 0.3
+    z_kind: model
+    papers:
+      mahler2018: ['19']
+    z:
+      mahler2018:19: [1.9902, model]
+    independent_papers: 1
+  M20:
+    from: mahler2018
+    tier: bronze
+    reliability: 0.4
+    quality: 0.7
+    z_kind: model
+    papers:
+      mahler2018: ['20']
+    z:
+      mahler2018:20: [2.5127, model]
+    independent_papers: 1
+  M21:
+    from: mahler2018
+    tier: bronze
+    reliability: 0.4
+    quality: 0.7
+    z_kind: model
+    papers:
+      mahler2018: ['21']
+    z:
+      mahler2018:21: [2.564, model]
+    independent_papers: 1
+  M23:
+    from: mahler2018
+    tier: bronze
+    reliability: 0.4
+    quality: 0.7
+    z_kind: model
+    papers:
+      mahler2018: ['23']
+    z:
+      mahler2018:23: [4.4156, model]
+    independent_papers: 1
+  M25:
+    from: mahler2018
+    tier: bronze
+    reliability: 0.4
+    quality: 0.5
+    z_kind: model
+    papers:
+      mahler2018: ['25']
+    z:
+      mahler2018:25: [1.2168, model]
+    independent_papers: 1
+  M27:
+    from: mahler2018
+    tier: bronze
+    reliability: 0.4
+    quality: 0.5
+    z_kind: model
+    papers:
+      mahler2018: ['27']
+    z:
+      mahler2018:27: [2.485, model]
+    independent_papers: 1
+  M29:
+    from: mahler2018
+    tier: copper
+    reliability: 0.15
+    quality: 0.3
+    z_kind: model
+    papers:
+      mahler2018: ['29']
+    z:
+      mahler2018:29: [1.9859, model]
+    independent_papers: 1
+  M32:
+    from: mahler2018
+    tier: bronze
+    reliability: 0.4
+    quality: 0.5
+    z_kind: model
+    papers:
+      mahler2018: ['32']
+    z:
+      mahler2018:32: [5.6678, model]
+    independent_papers: 1
+  M35:
+    from: mahler2018
+    tier: silver
+    reliability: 0.7
+    quality: 0.5
+    z_kind: spec
+    papers:
+      mahler2018: ['35']
+    z:
+      mahler2018:35: [2.656, spec]
+    independent_papers: 1
+  M36:
+    from: mahler2018
+    tier: bronze
+    reliability: 0.4
+    quality: 0.7
+    z_kind: model
+    papers:
+      mahler2018: ['36']
+    z:
+      mahler2018:36: [3.9291, model]
+    independent_papers: 1
+  M37:
+    from: mahler2018
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
+    papers:
+      mahler2018: ['37']
+    z:
+      mahler2018:37: [2.6501, spec]
+    independent_papers: 1
+  M38:
+    from: mahler2018
+    tier: bronze
+    reliability: 0.4
+    quality: 0.5
+    z_kind: model
+    papers:
+      mahler2018: ['38']
+    z:
+      mahler2018:38: [5.4665, model]
+    independent_papers: 1
+  M39:
+    from: mahler2018
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
+    papers:
+      mahler2018: ['39']
+    z:
+      mahler2018:39: [4.015, spec]
+    independent_papers: 1
+  M40:
+    from: mahler2018
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
+    papers:
+      mahler2018: ['40']
+    z:
+      mahler2018:40: [4.0, spec]
+    independent_papers: 1
+  M43:
+    from: mahler2018
+    tier: copper
+    reliability: 0.15
+    quality: 0.3
+    z_kind: model
+    papers:
+      mahler2018: ['43']
+    z:
+      mahler2018:43: [5.8998, model]
+    independent_papers: 1
+  M44:
+    from: mahler2018
+    tier: copper
+    reliability: 0.15
+    quality: 0.3
+    z_kind: model
+    papers:
+      mahler2018: ['44']
+    z:
+      mahler2018:44: [2.224, model]
+    independent_papers: 1
+  M45:
+    from: mahler2018
+    tier: copper
+    reliability: 0.15
+    quality: 0.3
+    z_kind: model
+    papers:
+      mahler2018: ['45']
+    z:
+      mahler2018:45: [5.9555, model]
+    independent_papers: 1
+  M47:
+    from: mahler2018
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
+    papers:
+      mahler2018: ['47']
+    z:
+      mahler2018:47: [4.0225, spec]
+    independent_papers: 1
+  M147:
+    from: mahler2018
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
+    papers:
+      mahler2018: ['147']
+    z:
+      mahler2018:147: [4.0225, spec]
+    independent_papers: 1
+  M48:
+    from: mahler2018
+    tier: bronze
+    reliability: 0.4
+    quality: 0.5
+    z_kind: model
+    papers:
+      mahler2018: ['48']
+    z:
+      mahler2018:48: [1.7775, model]
+    independent_papers: 1
+  M49:
+    from: mahler2018
+    tier: copper
+    reliability: 0.15
+    quality: 0.3
+    z_kind: model
+    papers:
+      mahler2018: ['49']
+    z:
+      mahler2018:49: [1.1172, model]
+    independent_papers: 1
+  M50:
+    from: mahler2018
+    tier: bronze
+    reliability: 0.4
+    quality: 0.5
+    z_kind: model
+    papers:
+      mahler2018: ['50']
+    z:
+      mahler2018:50: [4.9179, model]
+    independent_papers: 1
+  M51:
+    from: mahler2018
+    tier: bronze
+    reliability: 0.4
+    quality: 0.5
+    z_kind: model
+    papers:
+      mahler2018: ['51']
+    z:
+      mahler2018:51: [4.7621, model]
+    independent_papers: 1
+  M52:
+    from: mahler2018
+    tier: bronze
+    reliability: 0.4
+    quality: 0.5
+    z_kind: model
+    papers:
+      mahler2018: ['52']
+    z:
+      mahler2018:52: [1.0097, model]
+    independent_papers: 1
+  M54:
+    from: mahler2018
+    tier: copper
+    reliability: 0.15
+    quality: 0.3
+    z_kind: model
+    papers:
+      mahler2018: ['54']
+    z:
+      mahler2018:54: [5.4223, model]
+    independent_papers: 1
+  M59:
+    from: mahler2018
+    tier: copper
+    reliability: 0.15
+    quality: 0.3
+    z_kind: model
+    papers:
+      mahler2018: ['59']
+    z:
+      mahler2018:59: [4.0575, model]
+    independent_papers: 1
+excluded: {}
+conflicts: []
+free_z: ['7', '301', F71, F82]
+candidate_images:
+- image: 2F.e
+  papers: ['bergamini2023a:2F.d']
+  prior: 0.5
+- image: 34A.d
+  papers: ['bergamini2023a:34A.c', 'furtak2023:34A.c', 'mahler2018:34.c']
+  prior: 0.5
+- image: 2F.f
+  papers: ['furtak2023:2F.c']
+  prior: 0.5
+- image: 28.d
+  papers: ['furtak2023:84.b', 'mahler2018:28.d']
+  prior: 0.5
+- image: 601A.d
+  papers: ['furtak2023:67B.a']
+  prior: 0.45
+- image: 601A.e
+  papers: ['furtak2023:67C.a']
+  prior: 0.45
+- image: 601A.f
+  papers: ['furtak2023:67B.b']
+  prior: 0.45
+- image: 601A.g
+  papers: ['furtak2023:67C.b']
+  prior: 0.45
+- image: 600A.e
+  papers: ['furtak2023:68D.a']
+  prior: 0.45
+- image: 600A.f
+  papers: ['furtak2023:68D.b']
+  prior: 0.45
+- image: 600A.g
+  papers: ['furtak2023:68D.c']
+  prior: 0.45
+- image: 700A.d
+  papers: ['furtak2023:78A.a']
+  prior: 0.45
+- image: 700A.e
+  papers: ['furtak2023:78C.a']
+  prior: 0.45
+- image: 700A.f
+  papers: ['furtak2023:78A.b']
+  prior: 0.45
+- image: 700A.g
+  papers: ['furtak2023:78C.b']
+  prior: 0.45
+- image: 700A.h
+  papers: ['furtak2023:78A.c']
+  prior: 0.45
+- image: 4A.d
+  papers: ['mahler2018:4.d']
+  prior: 0.5
+- image: 8A.c
+  papers: ['mahler2018:8.c']
+  prior: 0.15
+- image: 10.c
+  papers: ['mahler2018:10.c']
+  prior: 0.15
+- image: 31.c
+  papers: ['mahler2018:31.c']
+  prior: 0.15
+- image: 33A.c
+  papers: ['mahler2018:33.c']
+  prior: 0.5
+- image: 53.d
+  papers: ['mahler2018:53.c']
+  prior: 0.15
+members:
+  counts: {bergamini2023a: 225, furtak2023: 419}
+  other_band:
+    furtak2023: ['8103', '8993', '11190', '2829', '221', '2952', '1377', '7300', '10244', '11918', '10670', '9544', '11550', '173', '11705', '2568', '733', '10691',
+      '2328', '11361', '9914', '2485', '12590', '10085', '9656', '8752', '2764', '3235', '10378', '9577', '11343', '12961', '8884', '880', '12690', '9251', '5625',
+      '8639', '9102', '1052', '8317', '9381', '10797', '1305', '8287', '8932', '394', '73', '3108', '7950', '265', '5633', '11418', '2921', '8279', '9317', '1160',
+      '10674', '9879', '1183', '783', '10547', '9793', '2751', '2974', '1827', '3787', '12954', '801', '1415', '7898', '11233', '11174', '11216', '10663', '120',
+      '262', '9176', '6276', '9694', '2095', '5025', '11641', '11009', '1832', '1240', '9797', '9767', '1148', '1022', '10722', '12342', '10421', '10267', '1067',
+      '248', '8422', '11409', '12049', '8732', '378', '2360', '4527', '3486', '12296', '2515', '1311', '11515', '2029', '8324', '1446', '10505', '288', '688', '1697',
+      '8647', '7853', '9501', '9124', '10301', '10865', '9648', '2531', '9668', '811', '7410', '11498', '10146', '10333', '10161', '83', '10815', '11081', '9778',
+      '10738', '8536', '9886', '8696', '8389', '11684', '2033', '2486', '7590', '1989', '10330', '3408', '12600', '1771', '552', '8913', '11383', '239', '4631', '11140',
+      '1246', '3027', '388', '10203', '8029', '6215', '957', '10322', '568', '8828', '10243', '8829', '6689', '5878', '4866', '1985', '602', '650', '9535', '10504',
+      '3833', '4054', '3016', '5058', '8432', '5817', '10030', '10487', '10961', '10685', '12825', '4856', '10679', '10546', '3568', '11072', '2624', '12250', '12089',
+      '920', '12102', '4813']
+  p_member: {'1': 202, '0.7': 23}

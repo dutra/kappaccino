@@ -1,0 +1,990 @@
+# Master image catalog of a2744, built on 2026-11-08 by scripts/build_master_catalog.py from bergamini2023b, bergamini2023a, furtak2023, mahler2018 (base bergamini2023b).
+# Do not edit: change sources.yaml or decisions.yaml and rebuild.  crossmatch.yaml gives each system's papers and tier.
+# 75 systems (diamond 24, gold 19, silver 3, bronze 21, copper 8; 4 with z = 0, free), 245 images, 22 of them candidates from other papers.
+# reliability: the tier's prior.  prior (per image or knot): the prior that it belongs to its system, the reliability (times its quality below 0.8).
+# ImageConstraintsConfig(trusted_prior_min=0.8) trusts the diamond and gold images; with a PartitionConfig the rest enter the slot mixture, each weighted toward its system by its prior.
+format: lenscluster-images/1
+systems:
+  '1':
+    z: 1.688
+    z_err: 0.01
+    reliability: 1.0
+    knots: [A, B, C, D]
+    notes: tier diamond; spectroscopic z
+    images:
+      a:
+        knots:
+          A: {ra: 3.597551, dec: -30.403906, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          B: {ra: 3.597062, dec: -30.404703, notes: 'flag d, QF 2, QP 1, location BCGs'}
+          C: {ra: 3.597746, dec: -30.403511, notes: 'flag d, QF 3, QP 2, location BCGs'}
+          D: {ra: 3.598073, dec: -30.403961, notes: 'flag d, QF 1, QP 1, location BCGs'}
+      b:
+        knots:
+          A: {ra: 3.595952, dec: -30.406787, notes: 'flag d, QF 2, QP 1, location BCGs'}
+          B: {ra: 3.596384, dec: -30.406123, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          C: {ra: 3.595516, dec: -30.407178, notes: 'flag d, QF 3, QP 2, location BCGs'}
+          D: {ra: 3.59571, dec: -30.407526, notes: 'flag d, QF 1, QP 1, location BCGs'}
+      c:
+        knots:
+          A: {ra: 3.58621, dec: -30.409963, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          B: {ra: 3.585732, dec: -30.410077, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          C: {ra: 3.586444, dec: -30.409849, notes: 'flag d, QF 3, QP 2, location BCGs'}
+          D: {ra: 3.587368, dec: -30.41013, notes: 'flag d, QF 1, QP 1, location BCGs'}
+  '2':
+    z: 1.887
+    z_err: 0.01
+    reliability: 1.0
+    knots: [A, B, C, D, E, F, G]
+    notes: tier diamond; spectroscopic z
+    images:
+      a:
+        knots:
+          A: {ra: 3.583251, dec: -30.403317, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          B: {ra: 3.583015, dec: -30.403167, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          C: {ra: 3.58298, dec: -30.403028, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          D: {ra: 3.582905, dec: -30.402908, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          E: {ra: 3.582814, dec: -30.402771, notes: 'flag d, QF 3, QP 2, location BCGs'}
+          F: {ra: 3.582758, dec: -30.402661, notes: 'flag d, QF 3, QP 2, location BCGs'}
+          G: {ra: 3.582516, dec: -30.402291, notes: 'flag d, QF 3, QP 2, location BCGs'}
+      b:
+        knots:
+          A: {ra: 3.597281, dec: -30.396694, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          B: {ra: 3.59713, dec: -30.39662, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          C: {ra: 3.597087, dec: -30.396561, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          D: {ra: 3.597044, dec: -30.396509, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          E: {ra: 3.596982, dec: -30.396451, notes: 'flag d, QF 3, QP 2, location BCGs'}
+          F: {ra: 3.596934, dec: -30.396403, notes: 'flag d, QF 3, QP 2, location BCGs'}
+          G: {ra: 3.596726, dec: -30.396273, notes: 'flag d, QF 3, QP 2, location BCGs'}
+      c:
+        knots:
+          A: {ra: 3.585356, dec: -30.399856, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          B: {ra: 3.585122, dec: -30.399647, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          C: {ra: 3.585004, dec: -30.399603, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          D: {ra: 3.584902, dec: -30.399559, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          E: {ra: 3.584807, dec: -30.399495, notes: 'flag d, QF 3, QP 2, location BCGs'}
+          F: {ra: 3.58471, dec: -30.399442, notes: 'flag d, QF 3, QP 2, location BCGs'}
+          G: {ra: 3.58446, dec: -30.399268, notes: 'flag d, QF 3, QP 2, location BCGs'}
+      d:
+        knots:
+          A: {ra: 3.5864, dec: -30.402106, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          B: {ra: 3.586425, dec: -30.401849, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          C: {ra: 3.586381, dec: -30.401744, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          D: {ra: 3.58634, dec: -30.401611, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          E: {ra: 3.586309, dec: -30.401469, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          F: {ra: 3.586272, dec: -30.401331, notes: 'flag d, QF 3, QP 2, location BCGs'}
+          G: {ra: 3.586224, dec: -30.400848, notes: 'flag d, QF 3, QP 2, location BCGs'}
+      e:
+        knots:
+          F: {ra: 3.584707, dec: -30.399441, prior: 0.5, notes: 'candidate: bergamini2023a:2F.d'}
+      f:
+        knots:
+          F: {ra: 3.58471179, dec: -30.39944311, prior: 0.5, notes: 'candidate: furtak2023:2F.c'}
+  '3':
+    z: 3.98
+    z_err: 0.01
+    reliability: 1.0
+    knots: [A, B, C]
+    notes: tier diamond; spectroscopic z
+    images:
+      a:
+        knots:
+          A: {ra: 3.589365, dec: -30.393837, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          B: {ra: 3.589212, dec: -30.393824, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          C: {ra: 3.589477, dec: -30.39385, notes: 'flag d, QF 3, QP 1, location BCGs'}
+      b:
+        knots:
+          A: {ra: 3.588797, dec: -30.393777, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          B: {ra: 3.588955, dec: -30.393795, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          C: {ra: 3.588629, dec: -30.393765, notes: 'flag d, QF 3, QP 1, location BCGs'}
+      c:
+        knots:
+          A: {ra: 3.576622, dec: -30.401792, notes: 'flag *, QF 1, QP 3, location BCGs', prior: 0.5}
+  '4':
+    z: 3.577
+    z_err: 0.01
+    reliability: 1.0
+    knots: [A, B]
+    notes: tier diamond; spectroscopic z
+    images:
+      a:
+        knots:
+          A: {ra: 3.592115, dec: -30.40264, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          B: {ra: 3.592087, dec: -30.402507, notes: 'flag d, QF 3, QP 1, location BCGs'}
+      b:
+        knots:
+          A: {ra: 3.595664, dec: -30.401614, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          B: {ra: 3.595557, dec: -30.401499, notes: 'flag d, QF 3, QP 1, location BCGs'}
+      c:
+        knots:
+          A: {ra: 3.580437, dec: -30.408922, notes: 'flag d, QF 3, QP 2, location BCGs'}
+      e:
+        knots:
+          A: {ra: 3.59364, dec: -30.405097, notes: 'flag d, QF 3, QP 3, location BCGs'}
+      d:
+        knots:
+          A: {ra: 3.5931859, dec: -30.404888, prior: 0.5, notes: 'candidate: mahler2018:4.d'}
+  '6':
+    z: 2.017
+    z_err: 0.01
+    reliability: 1.0
+    knots: [A]
+    notes: tier diamond; spectroscopic z
+    images:
+      a:
+        knots:
+          A: {ra: 3.598532, dec: -30.401773, notes: 'flag d, QF 3, QP 1, location BCGs'}
+      b:
+        knots:
+          A: {ra: 3.594046, dec: -30.407978, notes: 'flag d, QF 3, QP 1, location BCGs'}
+      c:
+        knots:
+          A: {ra: 3.586418, dec: -30.40934, notes: 'flag d, QF 3, QP 1, location BCGs'}
+  '8':
+    z: 3.977
+    z_err: 0.01
+    reliability: 1.0
+    knots: [A]
+    notes: tier diamond; spectroscopic z
+    images:
+      a:
+        knots:
+          A: {ra: 3.589702, dec: -30.394316, notes: 'flag d, QF 2, QP 2, location BCGs'}
+      b:
+        knots:
+          A: {ra: 3.588821, dec: -30.394182, notes: 'flag d, QF 2, QP 2, location BCGs'}
+      c:
+        knots:
+          A: {ra: 3.5763892, dec: -30.402527, prior: 0.15, notes: 'candidate: mahler2018:8.c'}
+  '10':
+    z: 2.657
+    z_err: 0.01
+    reliability: 1.0
+    notes: tier diamond; spectroscopic z
+    images:
+      a: {ra: 3.588386, dec: -30.405852, notes: 'flag s, QF 2, QP 1, location BCGs'}
+      b: {ra: 3.587369, dec: -30.406455, notes: 'flag s, QF 3, QP 1, location BCGs'}
+      c: {ra: 3.6007134, dec: -30.397068, prior: 0.15, notes: 'candidate: mahler2018:10.c'}
+  '18':
+    z: 5.662
+    z_err: 0.01
+    reliability: 1.0
+    knots: [A]
+    notes: tier diamond; spectroscopic z
+    images:
+      a:
+        knots:
+          A: {ra: 3.57611, dec: -30.404448, notes: 'flag d, QF 3, QP 1, location BCGs'}
+      b:
+        knots:
+          A: {ra: 3.588367, dec: -30.39561, notes: 'flag d, QF 3, QP 1, location BCGs'}
+      c:
+        knots:
+          A: {ra: 3.59072, dec: -30.395523, notes: 'flag d, QF 3, QP 1, location BCGs'}
+  '22':
+    z: 5.284
+    z_err: 0.01
+    reliability: 1.0
+    knots: [A]
+    notes: tier diamond; spectroscopic z
+    images:
+      a:
+        knots:
+          A: {ra: 3.587908, dec: -30.411586, notes: 'flag d, QF 3, QP 2, location BCGs'}
+      b:
+        knots:
+          A: {ra: 3.600039, dec: -30.404396, notes: 'flag d, QF 3, QP 2, location BCGs'}
+      c:
+        knots:
+          A: {ra: 3.59658, dec: -30.408968, notes: 'flag d, QF 3, QP 2, location BCGs'}
+  '24':
+    z: 1.044
+    z_err: 0.01
+    reliability: 1.0
+    notes: tier diamond; spectroscopic z
+    images:
+      a: {ra: 3.595886, dec: -30.404448, notes: 'flag s, QF 3, QP 1, location BCGs'}
+      b: {ra: 3.595112, dec: -30.405881, notes: 'flag s, QF 9, QP 1, location BCGs'}
+      c: {ra: 3.587311, dec: -30.409064, notes: 'flag s, QF 1, QP 1, location BCGs'}
+  '26':
+    z: 3.054
+    z_err: 0.01
+    reliability: 1.0
+    knots: [A, B, C]
+    notes: tier diamond; spectroscopic z
+    images:
+      a:
+        knots:
+          A: {ra: 3.593885, dec: -30.409703, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          B: {ra: 3.593979, dec: -30.409677, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          C: {ra: 3.594018, dec: -30.409583, notes: 'flag d, QF 2, QP 3, location BCGs'}
+      b:
+        knots:
+          A: {ra: 3.590339, dec: -30.410553, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          B: {ra: 3.590257, dec: -30.410588, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          C: {ra: 3.589954, dec: -30.410571, notes: 'flag d, QF 2, QP 3, location BCGs'}
+      c:
+        knots:
+          A: {ra: 3.600103, dec: -30.40292, notes: 'flag d, QF 9, QP 2, location BCGs'}
+  '30':
+    z: 1.026
+    z_err: 0.01
+    reliability: 1.0
+    notes: tier diamond; spectroscopic z
+    images:
+      a: {ra: 3.591005, dec: -30.397415, notes: 'flag s, QF 2, QP 1, location BCGs'}
+      b: {ra: 3.586672, dec: -30.398157, notes: 'flag s, QF 9, QP 1, location BCGs'}
+      c: {ra: 3.581915, dec: -30.401675, notes: 'flag s, QF 1, QP 1, location BCGs'}
+  '31':
+    z: 4.757
+    z_err: 0.01
+    reliability: 1.0
+    notes: tier diamond; spectroscopic z
+    images:
+      a: {ra: 3.58593, dec: -30.403132, notes: 'flag s, QF 3, QP 1, location BCGs'}
+      b: {ra: 3.583708, dec: -30.404073, notes: 'flag s, QF 3, QP 1, location BCGs'}
+      c: {ra: 3.5998222, dec: -30.395495, prior: 0.15, notes: 'candidate: mahler2018:31.c'}
+  '33':
+    z: 5.726
+    z_err: 0.01
+    reliability: 1.0
+    knots: [A]
+    notes: tier diamond; spectroscopic z
+    images:
+      a:
+        knots:
+          A: {ra: 3.584699, dec: -30.403125, notes: 'flag d, QF 3, QP 1, location BCGs'}
+      b:
+        knots:
+          A: {ra: 3.584383, dec: -30.403371, notes: 'flag d, QF 3, QP 1, location BCGs'}
+      c:
+        knots:
+          A: {ra: 3.6004109, dec: -30.395083, prior: 0.5, notes: 'candidate: mahler2018:33.c'}
+  '34':
+    z: 3.784
+    z_err: 0.01
+    reliability: 1.0
+    knots: [A]
+    notes: tier diamond; spectroscopic z
+    images:
+      a:
+        knots:
+          A: {ra: 3.593414, dec: -30.410812, notes: 'flag d, QF 2, QP 1, location BCGs'}
+      b:
+        knots:
+          A: {ra: 3.593798, dec: -30.410692, notes: 'flag d, QF 3, QP 1, location BCGs'}
+      c:
+        knots:
+          A: {ra: 3.600574, dec: -30.404413, notes: 'flag d, QF 2, QP 1, location BCGs'}
+      d:
+        knots:
+          A: {ra: 3.600699, dec: -30.404572, prior: 0.5, notes: 'candidate: bergamini2023a:34A.c furtak2023:34A.c mahler2018:34.c'}
+  '41':
+    z: 4.91
+    z_err: 0.01
+    reliability: 1.0
+    notes: tier diamond; spectroscopic z
+    images:
+      a: {ra: 3.599143, dec: -30.399557, notes: 'flag s, QF 9, QP 1, location BCGs'}
+      b: {ra: 3.593505, dec: -30.40773, notes: 'flag s, QF 9, QP 1, location BCGs'}
+      c: {ra: 3.583441, dec: -30.408475, notes: 'flag s, QF 9, QP 1, location BCGs'}
+      d: {ra: 3.590685, dec: -30.404541, notes: 'flag s, QF 2, QP 3, location BCGs'}
+  '42':
+    z: 3.692
+    z_err: 0.01
+    reliability: 1.0
+    knots: [A]
+    notes: tier diamond; spectroscopic z
+    images:
+      a:
+        knots:
+          A: {ra: 3.597304, dec: -30.400586, notes: 'flag d, QF 3, QP 1, location BCGs'}
+      b:
+        knots:
+          A: {ra: 3.590944, dec: -30.403231, notes: 'flag d, QF 3, QP 1, location BCGs'}
+      c:
+        knots:
+          A: {ra: 3.581575, dec: -30.408608, notes: 'flag d, QF 3, QP 1, location BCGs'}
+      d:
+        knots:
+          A: {ra: 3.594233, dec: -30.406367, notes: 'flag d, QF 3, QP 1, location BCGs'}
+      e:
+        knots:
+          A: {ra: 3.592403, dec: -30.405176, notes: 'flag d, QF 1, QP 3, location BCGs'}
+  '61':
+    z: 2.951
+    z_err: 0.01
+    reliability: 1.0
+    knots: [A]
+    notes: tier diamond; spectroscopic z
+    images:
+      a:
+        knots:
+          A: {ra: 3.595511, dec: -30.403465, notes: 'flag d, QF 1, QP 1, location BCGs'}
+      b:
+        knots:
+          A: {ra: 3.595127, dec: -30.404451, notes: 'flag d, QF 3, QP 1, location BCGs'}
+  '62':
+    z: 4.194
+    z_err: 0.01
+    reliability: 1.0
+    knots: [A]
+    notes: tier diamond; spectroscopic z
+    images:
+      a:
+        knots:
+          A: {ra: 3.591315, dec: -30.398623, notes: 'flag d, QF 3, QP 3, location BCGs'}
+      b:
+        knots:
+          A: {ra: 3.590571, dec: -30.398898, notes: 'flag d, QF 3, QP 3, location BCGs'}
+  '63':
+    z: 5.662
+    z_err: 0.01
+    reliability: 1.0
+    knots: [A]
+    notes: tier diamond; spectroscopic z
+    images:
+      a:
+        knots:
+          A: {ra: 3.582199, dec: -30.407119, notes: 'flag d, QF 3, QP 1, location BCGs'}
+      b:
+        knots:
+          A: {ra: 3.592823, dec: -30.407011, notes: 'flag d, QF 3, QP 2, location BCGs'}
+      c:
+        knots:
+          A: {ra: 3.589141, dec: -30.403406, notes: 'flag d, QF 3, QP 2, location BCGs'}
+      d:
+        knots:
+          A: {ra: 3.598822, dec: -30.398255, notes: 'flag d, QF 3, QP 2, location BCGs'}
+  '64':
+    z: 3.409
+    z_err: 0.01
+    reliability: 1.0
+    knots: [A]
+    notes: tier diamond; spectroscopic z
+    images:
+      a:
+        knots:
+          A: {ra: 3.58119, dec: -30.398712, notes: 'flag d, QF 3, QP 2, location BCGs'}
+      c:
+        knots:
+          A: {ra: 3.596412, dec: -30.394247, notes: 'flag d, QF 3, QP 2, location BCGs'}
+  JD1:
+    z: 9.756
+    z_err: 0.01
+    reliability: 1.0
+    notes: tier diamond; spectroscopic z
+    images:
+      a: {ra: 3.592492, dec: -30.401458, notes: 'flag *, QF 2, QP 1, location BCGs'}
+      b: {ra: 3.595004, dec: -30.40073, notes: 'flag *, QF 2, QP 1, location BCGs'}
+      c: {ra: 3.577512, dec: -30.408667, notes: 'flag *, QF 2, QP 1, location BCGs'}
+  '600':
+    z: 2.58
+    z_err: 0.01
+    reliability: 0.9
+    knots: [A, C, D, E]
+    notes: tier gold; spectroscopic z
+    images:
+      a:
+        knots:
+          A: {ra: 3.543063, dec: -30.368102, notes: 'QF 2, QP 1, location G1-G2', prior: 0.9}
+          C: {ra: 3.542649, dec: -30.368409, notes: 'QF 2, QP 1, location G1-G2', prior: 0.9}
+          D: {ra: 3.543199, dec: -30.367893, notes: 'QF 2, QP 1, location G1-G2', prior: 0.9}
+          E: {ra: 3.542933, dec: -30.367952, notes: 'QF 2, QP 1, location G1-G2', prior: 0.9}
+      b:
+        knots:
+          A: {ra: 3.540339, dec: -30.372503, notes: 'QF 2, QP 1, location G1-G2', prior: 0.9}
+          C: {ra: 3.540129, dec: -30.372309, notes: 'QF 2, QP 1, location G1-G2', prior: 0.9}
+          D: {ra: 3.540398, dec: -30.372637, notes: 'QF 2, QP 1, location G1-G2', prior: 0.9}
+          E: {ra: 3.540186, dec: -30.37264, notes: 'QF 2, QP 1, location G1-G2', prior: 0.9}
+      c:
+        knots:
+          A: {ra: 3.540449, dec: -30.37507, notes: 'QF 2, QP 1, location G1-G2', prior: 0.9}
+          C: {ra: 3.540147, dec: -30.375323, notes: 'QF 2, QP 1, location G1-G2', prior: 0.9}
+          D: {ra: 3.54054, dec: -30.374834, notes: 'QF 2, QP 1, location G1-G2', prior: 0.9}
+          E: {ra: 3.540297, dec: -30.374845, notes: 'QF 2, QP 1, location G1-G2', prior: 0.9}
+      d:
+        knots:
+          A: {ra: 3.542075, dec: -30.372619, notes: 'QF 2, QP 1, location G1-G2', prior: 0.9}
+      e:
+        knots:
+          A: {ra: 3.54012429, dec: -30.37501145, prior: 0.45, notes: 'candidate: furtak2023:68D.a'}
+      f:
+        knots:
+          A: {ra: 3.54004929, dec: -30.37249534, prior: 0.45, notes: 'candidate: furtak2023:68D.b'}
+      g:
+        knots:
+          A: {ra: 3.54268262, dec: -30.36811645, prior: 0.45, notes: 'candidate: furtak2023:68D.c'}
+  '7':
+    z: 0.0
+    reliability: 0.7
+    notes: tier silver; free z in the model
+    images:
+      a: {ra: 3.598254, dec: -30.40231, notes: 'QP 1, location BCGs', prior: 0.7}
+      b: {ra: 3.595216, dec: -30.407384, notes: 'QP 1, location BCGs', prior: 0.7}
+      c: {ra: 3.584596, dec: -30.409797, notes: 'QP 1, location BCGs', prior: 0.7}
+  '28':
+    z: 6.873
+    z_err: 0.01
+    reliability: 1.0
+    notes: tier diamond; free z in the model; z from furtak2023:84 (spectroscopic)
+    images:
+      a: {ra: 3.580439, dec: -30.405018, notes: 'QP 1, location BCGs'}
+      b: {ra: 3.597824, dec: -30.395939, notes: 'QP 1, location BCGs'}
+      c: {ra: 3.585308, dec: -30.397926, notes: 'QP 1, location BCGs'}
+      d: {ra: 3.58742846, dec: -30.40133367, prior: 0.5, notes: 'candidate: furtak2023:84.b mahler2018:28.d'}
+  '53':
+    z: 7.04
+    z_err: 0.01
+    reliability: 1.0
+    notes: tier diamond; free z in the model; z from furtak2023:53 (spectroscopic)
+    images:
+      a: {ra: 3.579837, dec: -30.401562, notes: 'QP 1, location BCGs'}
+      b: {ra: 3.58354, dec: -30.396673, notes: 'QP 1, location BCGs'}
+      c: {ra: 3.597214, dec: -30.394337, notes: 'QP 1, location BCGs'}
+      d: {ra: 3.5970342, dec: -30.39452, prior: 0.15, notes: 'candidate: mahler2018:53.c'}
+  A200:
+    z: 3.5194
+    z_err: 0.01
+    reliability: 0.9
+    knots: [A]
+    notes: tier gold; free z in the model; z from furtak2023:65 (spectroscopic)
+    images:
+      a:
+        knots:
+          A: {ra: 3.556366, dec: -30.376714, notes: 'QP 1, location G1-G2', prior: 0.9}
+      b:
+        knots:
+          A: {ra: 3.556536, dec: -30.375809, notes: 'QP 1, location G1-G2', prior: 0.9}
+  B200:
+    z: 3.5194
+    z_err: 0.01
+    reliability: 0.9
+    knots: [B]
+    notes: tier gold; free z in the model; z from furtak2023:65 (spectroscopic)
+    images:
+      a:
+        knots:
+          B: {ra: 3.556331, dec: -30.37678, notes: 'QP 1, location G1-G2', prior: 0.9}
+      b:
+        knots:
+          B: {ra: 3.556531, dec: -30.375736, notes: 'QP 1, location G1-G2', prior: 0.9}
+  C200:
+    z: 3.5194
+    z_err: 0.01
+    reliability: 0.9
+    knots: [C]
+    notes: tier gold; free z in the model; z from furtak2023:65 (spectroscopic)
+    images:
+      a:
+        knots:
+          C: {ra: 3.556468, dec: -30.37638, notes: 'QP 1, location G1-G2', prior: 0.9}
+      b:
+        knots:
+          C: {ra: 3.556511, dec: -30.376159, notes: 'QP 1, location G1-G2', prior: 0.9}
+  '301':
+    z: 0.0
+    reliability: 0.4
+    knots: [A]
+    notes: tier bronze; free z in the model
+    images:
+      a:
+        knots:
+          A: {ra: 3.554637, dec: -30.373839, notes: 'QP 1, location G1-G2', prior: 0.4}
+      b:
+        knots:
+          A: {ra: 3.553188, dec: -30.375998, notes: 'QP 1, location G1-G2', prior: 0.4}
+      c:
+        knots:
+          A: {ra: 3.5523, dec: -30.378605, notes: 'QP 1, location G1-G2', prior: 0.4}
+  '601':
+    z: 2.322
+    z_err: 0.01
+    reliability: 0.9
+    knots: [A]
+    notes: tier gold; free z in the model; z from furtak2023:67 (spectroscopic)
+    images:
+      a:
+        knots:
+          A: {ra: 3.544279, dec: -30.368064, notes: 'QP 1, location G1-G2', prior: 0.9}
+      b:
+        knots:
+          A: {ra: 3.542829, dec: -30.37349, notes: 'QP 1, location G1-G2', prior: 0.9}
+      c:
+        knots:
+          A: {ra: 3.542022, dec: -30.374625, notes: 'QP 1, location G1-G2', prior: 0.9}
+      d:
+        knots:
+          A: {ra: 3.54236179, dec: -30.37428562, prior: 0.45, notes: 'candidate: furtak2023:67B.a'}
+      e:
+        knots:
+          A: {ra: 3.54256179, dec: -30.37411812, prior: 0.45, notes: 'candidate: furtak2023:67C.a'}
+      f:
+        knots:
+          A: {ra: 3.54269095, dec: -30.3738445, prior: 0.45, notes: 'candidate: furtak2023:67B.b'}
+      g:
+        knots:
+          A: {ra: 3.54265345, dec: -30.37399562, prior: 0.45, notes: 'candidate: furtak2023:67C.b'}
+  '602':
+    z: 2.4109
+    z_err: 0.01
+    reliability: 0.9
+    knots: [A]
+    notes: tier gold; free z in the model; z from furtak2023:69 (spectroscopic)
+    images:
+      a:
+        knots:
+          A: {ra: 3.543093, dec: -30.369106, notes: 'QP 1, location G1-G2', prior: 0.9}
+      b:
+        knots:
+          A: {ra: 3.540729, dec: -30.375868, notes: 'QP 1, location G1-G2', prior: 0.9}
+      c:
+        knots:
+          A: {ra: 3.542623, dec: -30.372453, notes: 'QP 1, location G1-G2', prior: 0.9}
+      d:
+        knots:
+          A: {ra: 3.540913, dec: -30.37222, notes: 'QP 1, location G1-G2', prior: 0.9}
+  '700':
+    z: 2.3151
+    z_err: 0.01
+    reliability: 0.9
+    knots: [A]
+    notes: tier gold; free z in the model; z from furtak2023:78 (spectroscopic)
+    images:
+      a:
+        knots:
+          A: {ra: 3.579703, dec: -30.357717, notes: 'QP 1, location G3', prior: 0.9}
+      b:
+        knots:
+          A: {ra: 3.579165, dec: -30.357833, notes: 'QP 1, location G3', prior: 0.9}
+      c:
+        knots:
+          A: {ra: 3.574908, dec: -30.356075, notes: 'QP 1, location G3', prior: 0.9}
+      d:
+        knots:
+          A: {ra: 3.57960345, dec: -30.357702, prior: 0.45, notes: 'candidate: furtak2023:78A.a'}
+      e:
+        knots:
+          A: {ra: 3.57950762, dec: -30.35773507, prior: 0.45, notes: 'candidate: furtak2023:78C.a'}
+      f:
+        knots:
+          A: {ra: 3.57922637, dec: -30.35779006, prior: 0.45, notes: 'candidate: furtak2023:78A.b'}
+      g:
+        knots:
+          A: {ra: 3.57935346, dec: -30.35777561, prior: 0.45, notes: 'candidate: furtak2023:78C.b'}
+      h:
+        knots:
+          A: {ra: 3.57486596, dec: -30.356052, prior: 0.45, notes: 'candidate: furtak2023:78A.c'}
+  F86:
+    z: 6.875
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; from furtak2023 system 86; spectroscopic z (JWST/NIRSpec, Atek+24)
+    images:
+      a: {ra: 3.57965346, dec: -30.39863839, prior: 0.9}
+      b: {ra: 3.58296179, dec: -30.39521089, prior: 0.9}
+      c: {ra: 3.59579096, dec: -30.39333922, prior: 0.9}
+  F70:
+    z: 2.3915
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; from furtak2023 system 70; spectroscopic z (JWST/NIRSpec, Price+24)
+    images:
+      a: {ra: 3.55239846, dec: -30.373972, prior: 0.9}
+      b: {ra: 3.55234095, dec: -30.37405867, prior: 0.9}
+  F72:
+    z: 3.7468
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; from furtak2023 system 72; spectroscopic z (JWST/NIRSpec, Price+24)
+    images:
+      a: {ra: 3.5496347, dec: -30.37844367, prior: 0.9}
+      b: {ra: 3.55110471, dec: -30.37473811, prior: 0.9}
+      c: {ra: 3.55228471, dec: -30.37222311, prior: 0.9}
+  F74:
+    z: 2.3743
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; from furtak2023 system 74; spectroscopic z (JWST/NIRSpec, Price+24)
+    images:
+      a: {ra: 3.54512554, dec: -30.37489812, prior: 0.9}
+      b: {ra: 3.54524012, dec: -30.37467978, prior: 0.9}
+      c: {ra: 3.54702304, dec: -30.36946895, prior: 0.9}
+  F80:
+    z: 3.67289
+    z_err: 0.01
+    reliability: 0.9
+    knots: [A, B, C, D, E, F]
+    notes: tier gold; from furtak2023 system 80; spectroscopic z (JWST/NIRSpec, Price+24)
+    images:
+      a:
+        knots:
+          A: {ra: 3.54645762, dec: -30.37637228, prior: 0.9}
+          B: {ra: 3.54637012, dec: -30.37645145, prior: 0.9}
+          C: {ra: 3.54631179, dec: -30.37662617, prior: 0.9}
+          D: {ra: 3.54647846, dec: -30.376592, prior: 0.9}
+          E: {ra: 3.54636179, dec: -30.37657395, prior: 0.9}
+          F: {ra: 3.54626596, dec: -30.37665812, prior: 0.9}
+      b:
+        knots:
+          A: {ra: 3.54670762, dec: -30.37579367, prior: 0.9}
+          B: {ra: 3.54708262, dec: -30.37497839, prior: 0.9}
+          C: {ra: 3.54722429, dec: -30.37463173, prior: 0.9}
+          D: {ra: 3.54727012, dec: -30.37490506, prior: 0.9}
+          E: {ra: 3.54719929, dec: -30.374777, prior: 0.9}
+          F: {ra: 3.54724512, dec: -30.37451228, prior: 0.9}
+      c:
+        knots:
+          A: {ra: 3.54912429, dec: -30.3696795, prior: 0.9}
+          B: {ra: 3.54904512, dec: -30.36971784, prior: 0.9}
+          C: {ra: 3.54901179, dec: -30.36984339, prior: 0.9}
+          D: {ra: 3.54917012, dec: -30.36984034, prior: 0.9}
+          E: {ra: 3.54905345, dec: -30.36980673, prior: 0.9}
+          F: {ra: 3.54897012, dec: -30.36986367, prior: 0.9}
+  F81:
+    z: 3.4793
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; from furtak2023 system 81; spectroscopic z (JWST/NIRSpec, Price+24)
+    images:
+      a: {ra: 3.54462429, dec: -30.37659812, prior: 0.9}
+      b: {ra: 3.54625345, dec: -30.37324923, prior: 0.9}
+      c: {ra: 3.54734929, dec: -30.36957339, prior: 0.9}
+  F71:
+    z: 0.0
+    reliability: 0.4
+    knots: [A]
+    notes: tier bronze; from furtak2023 system 71; free z in the model
+    images:
+      a:
+        knots:
+          A: {ra: 3.55733804, dec: -30.37816284, prior: 0.4}
+      b:
+        knots:
+          A: {ra: 3.55743762, dec: -30.37800561, prior: 0.4}
+      c:
+        knots:
+          A: {ra: 3.55756762, dec: -30.37759006, prior: 0.4}
+  F77:
+    z: 1.736
+    z_err: 0.137
+    reliability: 0.4
+    knots: [A, B, C]
+    notes: tier bronze; from furtak2023 system 77; photometric z (JWST/NIRCam, Weaver+24)
+    images:
+      a:
+        knots:
+          A: {ra: 3.55221429, dec: -30.37645895, prior: 0.4}
+          B: {ra: 3.55204096, dec: -30.37714367, prior: 0.4}
+          C: {ra: 3.55207429, dec: -30.37704617, prior: 0.4}
+      b:
+        knots:
+          A: {ra: 3.5518172, dec: -30.37757506, prior: 0.4}
+          B: {ra: 3.55213804, dec: -30.37686645, prior: 0.4}
+          C: {ra: 3.55211595, dec: -30.37693117, prior: 0.4}
+  F82:
+    z: 0.0
+    reliability: 0.4
+    notes: tier bronze; from furtak2023 system 82; free z in the model
+    images:
+      a: {ra: 3.57984708, dec: -30.35692029, prior: 0.4}
+      b: {ra: 3.57969375, dec: -30.35669696, prior: 0.4}
+  M5:
+    z: 4.0225
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; from mahler2018 system 5; spectroscopic z
+    images:
+      a: {ra: 3.5869183, dec: -30.390677, notes: 'confid 3, categories c', prior: 0.27}
+      b: {ra: 3.5849742, dec: -30.391347, notes: 'confid 3, categories gsbc', prior: 0.9}
+      c: {ra: 3.5799509, dec: -30.394745, notes: 'confid 3, categories gsbc', prior: 0.9}
+  M105:
+    z: 4.0225
+    z_err: 0.01
+    reliability: 0.7
+    notes: tier silver; from mahler2018 system 105; spectroscopic z
+    images:
+      a: {ra: 3.583423, dec: -30.392043, notes: 'confid 3, categories gsbc', prior: 0.7}
+      b: {ra: 3.5822843, dec: -30.392762, notes: 'confid 3, categories gsbc', prior: 0.7}
+      c: {ra: 3.5804044, dec: -30.394289, notes: 'confid 3, categories c', prior: 0.21}
+      d: {ra: 3.5810529, dec: -30.393597, notes: 'confid 3, categories c', prior: 0.21}
+  M9:
+    z: 2.3556
+    z_err: 0.336
+    reliability: 0.4
+    notes: tier bronze; from mahler2018 system 9; geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5883826, dec: -30.405245, notes: 'confid --, categories sbc', prior: 0.28}
+      b: {ra: 3.5871288, dec: -30.406202, notes: 'confid --, categories sbc', prior: 0.28}
+      c: {ra: 3.6001437, dec: -30.397126, notes: 'confid --, categories bc', prior: 0.2}
+  M11:
+    z: 2.4508
+    z_err: 0.345
+    reliability: 0.4
+    notes: tier bronze; from mahler2018 system 11; geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5913856, dec: -30.40382, notes: 'confid --, categories bc', prior: 0.2}
+      b: {ra: 3.5972634, dec: -30.401408, notes: 'confid --, categories bc', prior: 0.2}
+      c: {ra: 3.5827977, dec: -30.408883, notes: 'confid --, categories bc', prior: 0.2}
+      d: {ra: 3.5945224, dec: -30.406519, notes: 'confid --, categories bc', prior: 0.2}
+  M12:
+    z: 3.6388
+    z_err: 0.464
+    reliability: 0.4
+    notes: tier bronze; from mahler2018 system 12; geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5936082, dec: -30.404437, notes: 'confid --, categories bc', prior: 0.2}
+      b: {ra: 3.5932275, dec: -30.403232, notes: 'confid --, categories bc', prior: 0.2}
+      c: {ra: 3.5945572, dec: -30.402959, notes: 'confid --, categories bc', prior: 0.2}
+      d: {ra: 3.5795657, dec: -30.410231, notes: 'confid --, categories c', prior: 0.12}
+  M13:
+    z: 1.3905
+    z_err: 0.239
+    reliability: 0.4
+    notes: tier bronze; from mahler2018 system 13; geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5923911, dec: -30.402509, notes: confid --, prior: 0.4}
+      b: {ra: 3.5937626, dec: -30.402143, notes: 'confid --, categories sbc', prior: 0.28}
+      c: {ra: 3.5827504, dec: -30.408008, notes: 'confid --, categories sbc', prior: 0.28}
+  M14:
+    z: 2.571
+    z_err: 0.357
+    reliability: 0.4
+    notes: tier bronze; from mahler2018 system 14; geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.589727, dec: -30.394611, notes: 'confid --, categories sbc', prior: 0.28}
+      b: {ra: 3.5884171, dec: -30.394407, notes: 'confid --, categories sbc', prior: 0.28}
+      c: {ra: 3.5775655, dec: -30.401661, notes: 'confid --, categories c', prior: 0.12}
+  M19:
+    z: 1.9902
+    z_err: 0.299
+    reliability: 0.15
+    notes: tier copper; from mahler2018 system 19; geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5889093, dec: -30.397412, notes: 'confid --, categories c', prior: 0.045}
+      b: {ra: 3.5914353, dec: -30.396657, notes: 'confid --, categories c', prior: 0.045}
+      c: {ra: 3.5787103, dec: -30.40399, notes: 'confid --, categories c', prior: 0.045}
+  M20:
+    z: 2.5127
+    z_err: 0.351
+    reliability: 0.4
+    notes: tier bronze; from mahler2018 system 20; geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5962339, dec: -30.402943, notes: 'confid --, categories sbc', prior: 0.28}
+      b: {ra: 3.5951918, dec: -30.40541, notes: 'confid --, categories sbc', prior: 0.28}
+      c: {ra: 3.5819933, dec: -30.409525, notes: 'confid --, categories bc', prior: 0.2}
+  M21:
+    z: 2.564
+    z_err: 0.356
+    reliability: 0.4
+    notes: tier bronze; from mahler2018 system 21; geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.596168, dec: -30.403085, notes: 'confid --, categories sbc', prior: 0.28}
+      b: {ra: 3.5952462, dec: -30.405313, notes: 'confid --, categories sbc', prior: 0.28}
+      c: {ra: 3.5819527, dec: -30.409583, notes: 'confid --, categories bc', prior: 0.2}
+  M23:
+    z: 4.4156
+    z_err: 0.542
+    reliability: 0.4
+    notes: tier bronze; from mahler2018 system 23; geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5881549, dec: -30.410518, notes: 'confid --, categories sbc', prior: 0.28}
+      b: {ra: 3.5935264, dec: -30.40969, notes: 'confid --, categories sbc', prior: 0.28}
+      c: {ra: 3.6005342, dec: -30.401804, notes: 'confid --, categories sbc', prior: 0.28}
+  M25:
+    z: 1.2168
+    z_err: 0.222
+    reliability: 0.4
+    notes: tier bronze; from mahler2018 system 25; geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5944552, dec: -30.402705, notes: 'confid --, categories bc', prior: 0.2}
+      b: {ra: 3.5921426, dec: -30.403291, notes: 'confid --, categories bc', prior: 0.2}
+      c: {ra: 3.5842071, dec: -30.408254, notes: 'confid --, categories bc', prior: 0.2}
+  M27:
+    z: 2.485
+    z_err: 0.349
+    reliability: 0.4
+    notes: tier bronze; from mahler2018 system 27; geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5807192, dec: -30.40311, notes: 'confid --, categories bc', prior: 0.2}
+      b: {ra: 3.5956905, dec: -30.396126, notes: 'confid --, categories bc', prior: 0.2}
+      c: {ra: 3.5854904, dec: -30.397626, notes: 'confid --, categories bc', prior: 0.2}
+  M29:
+    z: 1.9859
+    z_err: 0.299
+    reliability: 0.15
+    notes: tier copper; from mahler2018 system 29; geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5824401, dec: -30.39754, notes: 'confid --, categories c', prior: 0.045}
+      b: {ra: 3.5805187, dec: -30.400437, notes: 'confid --, categories c', prior: 0.045}
+      c: {ra: 3.5835926, dec: -30.396554, notes: 'confid --, categories c', prior: 0.045}
+  M32:
+    z: 5.6678
+    z_err: 0.667
+    reliability: 0.4
+    notes: tier bronze; from mahler2018 system 32; geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5835889, dec: -30.404678, notes: 'confid --, categories bc', prior: 0.2}
+      b: {ra: 3.5866635, dec: -30.403318, notes: 'confid --, categories bc', prior: 0.2}
+      c: {ra: 3.5997691, dec: -30.395954, notes: 'confid --, categories bc', prior: 0.2}
+  M35:
+    z: 2.656
+    z_err: 0.01
+    reliability: 0.7
+    notes: tier silver; from mahler2018 system 35; spectroscopic z
+    images:
+      a: {ra: 3.58110318, dec: -30.400188, notes: 'confid 3, categories bc', prior: 0.35}
+      b: {ra: 3.5815343, dec: -30.399365, notes: 'confid --, categories bc', prior: 0.35}
+      c: {ra: 3.5978259, dec: -30.395515, notes: 'confid --, categories bc', prior: 0.35}
+  M36:
+    z: 3.9291
+    z_err: 0.493
+    reliability: 0.4
+    notes: tier bronze; from mahler2018 system 36; geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5894509, dec: -30.394381, notes: 'confid --, categories sbc', prior: 0.28}
+      b: {ra: 3.5886592, dec: -30.394273, notes: 'confid --, categories sbc', prior: 0.28}
+      c: {ra: 3.5774718, dec: -30.401481, notes: 'confid --, categories c', prior: 0.12}
+  M37:
+    z: 2.6501
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; from mahler2018 system 37; spectroscopic z
+    images:
+      a: {ra: 3.5890343, dec: -30.394886, notes: 'confid 3, categories gsbc', prior: 0.9}
+      b: {ra: 3.5887009, dec: -30.394825, notes: 'confid 3, categories gsbc', prior: 0.9}
+      c: {ra: 3.5794353, dec: -30.400248, notes: confid --, prior: 0.9}
+  M38:
+    z: 5.4665
+    z_err: 0.647
+    reliability: 0.4
+    notes: tier bronze; from mahler2018 system 38; geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5894092, dec: -30.394073, notes: 'confid --, categories bc', prior: 0.2}
+      b: {ra: 3.5889322, dec: -30.394017, notes: 'confid --, categories bc', prior: 0.2}
+      c: {ra: 3.5763894, dec: -30.402101, notes: 'confid --, categories c', prior: 0.12}
+  M39:
+    z: 4.015
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; from mahler2018 system 39; spectroscopic z
+    images:
+      a: {ra: 3.5887843, dec: -30.392503, notes: 'confid 3, categories gsbc', prior: 0.9}
+      b: {ra: 3.5885343, dec: -30.392481, notes: 'confid 3, categories gsbc', prior: 0.9}
+      c: {ra: 3.5774713, dec: -30.399541, notes: 'confid --, categories gsbc', prior: 0.9}
+  M40:
+    z: 4.0
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; from mahler2018 system 40; spectroscopic z
+    images:
+      a: {ra: 3.5890785, dec: -30.392641, notes: 'confid 3, categories gsbc', prior: 0.9}
+      b: {ra: 3.5881861, dec: -30.392524, notes: 'confid 3, categories gsbc', prior: 0.9}
+      c: {ra: 3.5775369, dec: -30.399349, notes: 'confid --, categories c', prior: 0.27}
+  M43:
+    z: 5.8998
+    z_err: 0.69
+    reliability: 0.15
+    notes: tier copper; from mahler2018 system 43; geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5978285, dec: -30.40248, notes: 'confid --, categories c', prior: 0.045}
+      b: {ra: 3.5839535, dec: -30.409784, notes: 'confid --, categories c', prior: 0.045}
+  M44:
+    z: 2.224
+    z_err: 0.322
+    reliability: 0.15
+    notes: tier copper; from mahler2018 system 44; geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5834581, dec: -30.406937, notes: 'confid --, categories c', prior: 0.045}
+      b: {ra: 3.5966905, dec: -30.399728, notes: 'confid --, categories c', prior: 0.045}
+  M45:
+    z: 5.9555
+    z_err: 0.696
+    reliability: 0.15
+    notes: tier copper; from mahler2018 system 45; geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5848351, dec: -30.398447, notes: 'confid --, categories c', prior: 0.045}
+      b: {ra: 3.5813985, dec: -30.403935, notes: 'confid --, categories c', prior: 0.045}
+      c: {ra: 3.5868926, dec: -30.401272, notes: 'confid --, categories c', prior: 0.045}
+      d: {ra: 3.5974072, dec: -30.396119, notes: 'confid --, categories c', prior: 0.045}
+  M47:
+    z: 4.0225
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; from mahler2018 system 47; spectroscopic z
+    images:
+      a: {ra: 3.5901551, dec: -30.392154, notes: 'confid 3, categories gsbc', prior: 0.9}
+      b: {ra: 3.5858343, dec: -30.392217, notes: 'confid 3, categories gsbc', prior: 0.9}
+      c: {ra: 3.5783218, dec: -30.398106, notes: 'confid 3, categories gsbc', prior: 0.9}
+  M147:
+    z: 4.0225
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; from mahler2018 system 147; spectroscopic z
+    images:
+      a: {ra: 3.5896718, dec: -30.392109, notes: 'confid 3, categories gsbc', prior: 0.9}
+      b: {ra: 3.5864468, dec: -30.392101, notes: 'confid 3, categories gsbc', prior: 0.9}
+      c: {ra: 3.5780009, dec: -30.398365, notes: 'confid 3, categories gsbc', prior: 0.9}
+  M48:
+    z: 1.7775
+    z_err: 0.278
+    reliability: 0.4
+    notes: tier bronze; from mahler2018 system 48; geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5942426, dec: -30.402818, notes: 'confid --, categories bc', prior: 0.2}
+      b: {ra: 3.5927593, dec: -30.403111, notes: 'confid --, categories bc', prior: 0.2}
+      c: {ra: 3.5820395, dec: -30.408567, notes: 'confid --, categories c', prior: 0.12}
+  M49:
+    z: 1.1172
+    z_err: 0.212
+    reliability: 0.15
+    notes: tier copper; from mahler2018 system 49; geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5926246, dec: -30.408247, notes: 'confid --, categories c', prior: 0.045}
+      b: {ra: 3.5902226, dec: -30.408775, notes: 'confid --, categories c', prior: 0.045}
+      c: {ra: 3.5975034, dec: -30.403133, notes: 'confid --, categories c', prior: 0.045}
+  M50:
+    z: 4.9179
+    z_err: 0.592
+    reliability: 0.4
+    notes: tier bronze; from mahler2018 system 50; geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5779696, dec: -30.40158, notes: 'confid --, categories bc', prior: 0.2}
+      b: {ra: 3.5939509, dec: -30.394254, notes: 'confid --, categories bc', prior: 0.2}
+      c: {ra: 3.5851026, dec: -30.393712, notes: 'confid --, categories c', prior: 0.12}
+  M51:
+    z: 4.7621
+    z_err: 0.576
+    reliability: 0.4
+    notes: tier bronze; from mahler2018 system 51; geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.58687, dec: -30.405635, notes: 'confid --, categories bc', prior: 0.2}
+      b: {ra: 3.5864509, dec: -30.405635, notes: 'confid --, categories bc', prior: 0.2}
+      c: {ra: 3.5989926, dec: -30.398276, notes: 'confid --, categories c', prior: 0.12}
+  M52:
+    z: 1.0097
+    z_err: 0.201
+    reliability: 0.4
+    notes: tier bronze; from mahler2018 system 52; geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5864995, dec: -30.397012, notes: 'confid --, categories bc', prior: 0.2}
+      b: {ra: 3.5861356, dec: -30.397106, notes: 'confid --, categories bc', prior: 0.2}
+      c: {ra: 3.5884227, dec: -30.396795, notes: 'confid --, categories c', prior: 0.12}
+  M54:
+    z: 5.4223
+    z_err: 0.642
+    reliability: 0.15
+    notes: tier copper; from mahler2018 system 54; geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5923376, dec: -30.409868, notes: 'confid --, categories c', prior: 0.045}
+      b: {ra: 3.5882504, dec: -30.410301, notes: 'confid --, categories c', prior: 0.045}
+      c: {ra: 3.5883963, dec: -30.410268, notes: 'confid --, categories c', prior: 0.045}
+      d: {ra: 3.5900984, dec: -30.410232, notes: 'confid --, categories c', prior: 0.045}
+      e: {ra: 3.60091456, dec: -30.400804, notes: 'confid --, categories c', prior: 0.045}
+  M59:
+    z: 4.0575
+    z_err: 0.506
+    reliability: 0.15
+    notes: tier copper; from mahler2018 system 59; geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5842766, dec: -30.408897, notes: 'confid --, categories c', prior: 0.045}
+      b: {ra: 3.5981126, dec: -30.400956, notes: 'confid --, categories c', prior: 0.045}

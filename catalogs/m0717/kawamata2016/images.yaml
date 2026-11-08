@@ -1,0 +1,417 @@
+# Kawamata et al. 2016, ApJ 819, 114, Table 8 (VizieR J/ApJ/819/114/table8): multiple images converted on 2026-11-08 by scripts/convert_m0717_catalogs.py.
+# Every row, published systems; image n -> nth lowercase letter.  z kinds: geometric z 52, spectroscopic z 8 (see each system's notes).
+format: lenscluster-images/1
+systems:
+  '1':
+    z: 2.963
+    notes: spectroscopic z
+    images:
+      a: {ra: 109.395338, dec: 37.741175, notes: 'ref ZB, ML'}
+      b: {ra: 109.393826, dec: 37.740092, notes: ref ZB}
+      c: {ra: 109.390988, dec: 37.738286, notes: ref ZB}
+      d: {ra: 109.384352, dec: 37.736947, notes: ref ZB}
+      e: {ra: 109.405784, dec: 37.761374, notes: ref EV}
+  '2':
+    z: 2.82
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.392813, dec: 37.741003, notes: ref ZB}
+      b: {ra: 109.390434, dec: 37.739247, notes: ref ZB}
+  '3':
+    z: 1.855
+    notes: spectroscopic z
+    images:
+      a: {ra: 109.398546, dec: 37.741503, notes: 'ref ZB, ML'}
+      b: {ra: 109.394459, dec: 37.739172, notes: ref ZB}
+      c: {ra: 109.407155, dec: 37.75383, notes: ref ML}
+  '4':
+    z: 1.855
+    notes: spectroscopic z
+    images:
+      a: {ra: 109.38087, dec: 37.750119, notes: 'ref ZB, KS'}
+      b: {ra: 109.376438, dec: 37.744689, notes: ref ZB}
+      c: {ra: 109.391094, dec: 37.7633, notes: ref ZB}
+  '5':
+    z: 4.45
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.379908, dec: 37.746861, notes: ref ZB}
+      b: {ra: 109.377917, dec: 37.742803, notes: ref ZB}
+      c: {ra: 109.400034, dec: 37.767403, notes: ref ML}
+  '6':
+    z: 2.04
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.364357, dec: 37.757097, notes: ref ZB}
+      b: {ra: 109.362705, dec: 37.752681, notes: ref ZB}
+      c: {ra: 109.373863, dec: 37.769703, notes: ref ZB}
+  '7':
+    z: 2.07
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.36657, dec: 37.766339, notes: ref ZB}
+      b: {ra: 109.365037, dec: 37.764119, notes: ref ZB}
+      c: {ra: 109.359047, dec: 37.751781, notes: ref ZB}
+  '8':
+    z: 2.61
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.366652, dec: 37.769674, notes: ref ZB}
+      b: {ra: 109.362062, dec: 37.763125, notes: ref ZB}
+      c: {ra: 109.356509, dec: 37.751928, notes: ref ZB}
+  '12':
+    z: 1.71
+    notes: spectroscopic z
+    images:
+      a: {ra: 109.385165, dec: 37.751836, notes: 'ref ZB, TT'}
+      b: {ra: 109.377617, dec: 37.742914, notes: ref ZB}
+      c: {ra: 109.391219, dec: 37.76063, notes: ref ZB}
+  '13':
+    z: 2.547
+    notes: spectroscopic z
+    images:
+      a: {ra: 109.385674, dec: 37.750722, notes: 'ref ZB, ML'}
+      b: {ra: 109.377564, dec: 37.739614, notes: ref ZB}
+      c: {ra: 109.396212, dec: 37.763333, notes: ref ZB}
+  '14':
+    z: 1.855
+    notes: spectroscopic z
+    images:
+      a: {ra: 109.388791, dec: 37.752164, notes: 'ref ML, ML'}
+      b: {ra: 109.379664, dec: 37.739703, notes: ref ML}
+      c: {ra: 109.396192, dec: 37.760419, notes: ref ML}
+  '15':
+    z: 2.405
+    notes: spectroscopic z
+    images:
+      a: {ra: 109.367663, dec: 37.772058, notes: 'ref ML, ML'}
+      b: {ra: 109.358624, dec: 37.760133, notes: ref ML}
+      c: {ra: 109.35654, dec: 37.754641, notes: ref ML}
+  '16':
+    z: 3.03
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.36917, dec: 37.773291, notes: ref ML}
+      b: {ra: 109.358561, dec: 37.759558, notes: ref ML}
+      c: {ra: 109.35693, dec: 37.753699, notes: ref ML}
+  '17':
+    z: 2.48
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.369371, dec: 37.771866, notes: ref ML}
+      b: {ra: 109.359393, dec: 37.758839, notes: ref ML}
+      c: {ra: 109.358227, dec: 37.753608, notes: ref ML}
+      d: {ra: 109.360754, dec: 37.758241, notes: ref DB}
+  '18':
+    z: 2.04
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.364249, dec: 37.768633, notes: ref ML}
+      b: {ra: 109.361215, dec: 37.764333, notes: ref ML}
+  '19':
+    z: 6.387
+    notes: spectroscopic z
+    images:
+      a: {ra: 109.409067, dec: 37.754682, notes: ref EV}
+      b: {ra: 109.407728, dec: 37.742741, notes: ref EV}
+      c: {ra: 109.381057, dec: 37.731611, notes: ref JR}
+  '20':
+    z: 2.58
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.374191, dec: 37.765149, notes: ref DB}
+      b: {ra: 109.3734, dec: 37.764658, notes: ref DB}
+  '23':
+    z: 3.84
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.379564, dec: 37.762852, notes: ref DB}
+      b: {ra: 109.378995, dec: 37.762003, notes: ref DB}
+  '25':
+    z: 4.53
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.380288, dec: 37.74475, notes: ref DB}
+      b: {ra: 109.379513, dec: 37.742756, notes: ref DB}
+      c: {ra: 109.402914, dec: 37.766408, notes: ref DB}
+      d: {ra: 109.386063, dec: 37.742033, notes: ref --}
+  '27':
+    z: 2.25
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.397351, dec: 37.747949, notes: ref DB}
+      b: {ra: 109.397551, dec: 37.747566, notes: ref DB}
+  '29':
+    z: 1.61
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.400879, dec: 37.743175, notes: ref DB}
+      b: {ra: 109.392875, dec: 37.738603, notes: ref DB}
+      c: {ra: 109.406088, dec: 37.749953, notes: ref DB}
+  '31':
+    z: 1.55
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.374705, dec: 37.756359, notes: ref DB}
+      b: {ra: 109.37102, dec: 37.750555, notes: ref DB}
+      c: {ra: 109.381612, dec: 37.764983, notes: ref DB}
+  '32':
+    z: 2.43
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.369513, dec: 37.757724, notes: ref DB}
+      b: {ra: 109.380947, dec: 37.769383, notes: ref DB}
+      c: {ra: 109.366249, dec: 37.749216, notes: ref DB}
+  '33':
+    z: 3.87
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.383753, dec: 37.758266, notes: ref DB}
+      b: {ra: 109.386605, dec: 37.764129, notes: ref DB}
+      c: {ra: 109.370353, dec: 37.738692, notes: ref DB}
+  '36':
+    z: 2.59
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.364321, dec: 37.771974, notes: ref DB}
+      b: {ra: 109.358243, dec: 37.763341, notes: ref DB}
+      c: {ra: 109.353315, dec: 37.75585, notes: ref DB}
+  '45':
+    z: 3.06
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.389817, dec: 37.7392, notes: ref DB}
+      b: {ra: 109.383456, dec: 37.737881, notes: ref DB}
+  '49':
+    z: 4.0
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.402967, dec: 37.733258, notes: ref DB}
+      b: {ra: 109.392978, dec: 37.730708, notes: ref DB}
+  '50':
+    z: 2.97
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.374442, dec: 37.743736, notes: ref DB}
+      b: {ra: 109.379582, dec: 37.750708, notes: ref DB}
+      c: {ra: 109.392803, dec: 37.767181, notes: ref DB}
+  '52':
+    z: 3.02
+    notes: geometric z (lens-model prediction)
+    images:
+      b: {ra: 109.360222, dec: 37.760497, notes: ref DB}
+      c: {ra: 109.357034, dec: 37.752486, notes: ref DB}
+  '53':
+    z: 2.55
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.370197, dec: 37.761283, notes: ref DB}
+      b: {ra: 109.379324, dec: 37.768266, notes: ref DB}
+      c: {ra: 109.365095, dec: 37.747151, notes: ref DB}
+  '55':
+    z: 4.79
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.405801, dec: 37.731841, notes: ref DB}
+      b: {ra: 109.397047, dec: 37.729001, notes: ref DB}
+      c: {ra: 109.414033, dec: 37.741602, notes: ref --}
+  '56':
+    z: 3.92
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.39314, dec: 37.762794, notes: ref DB}
+      b: {ra: 109.387349, dec: 37.755964, notes: ref DB}
+      c: {ra: 109.375753, dec: 37.735622, notes: ref DB}
+  '57':
+    z: 3.91
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.39299, dec: 37.762203, notes: ref DB}
+      b: {ra: 109.388044, dec: 37.756514, notes: ref DB}
+      c: {ra: 109.375941, dec: 37.735131, notes: ref DB}
+  '58':
+    z: 4.01
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.393003, dec: 37.762389, notes: ref DB}
+      b: {ra: 109.387824, dec: 37.756392, notes: ref DB}
+      c: {ra: 109.375824, dec: 37.735178, notes: ref DB}
+  '60':
+    z: 2.85
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.402547, dec: 37.763613, notes: ref DB}
+      b: {ra: 109.381086, dec: 37.740666, notes: ref DB}
+      c: {ra: 109.380654, dec: 37.741346, notes: ref DB}
+      d: {ra: 109.387206, dec: 37.741291, notes: ref DB}
+      e: {ra: 109.382704, dec: 37.744707, notes: ref DB}
+  '61':
+    z: 2.67
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.392209, dec: 37.760494, notes: ref DB}
+      b: {ra: 109.389374, dec: 37.757278, notes: ref DB}
+  '62':
+    z: 3.85
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.379533, dec: 37.745114, notes: ref DB}
+      b: {ra: 109.37902, dec: 37.744105, notes: ref DB}
+  '63':
+    z: 2.93
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.372561, dec: 37.749536, notes: ref DB}
+      b: {ra: 109.373289, dec: 37.751282, notes: ref DB}
+  '64':
+    z: 3.79
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.387693, dec: 37.738889, notes: ref DB}
+      b: {ra: 109.383957, dec: 37.738396, notes: ref DB}
+      c: {ra: 109.405246, dec: 37.763783, notes: ref --}
+      d: {ra: 109.38398, dec: 37.743955, notes: ref --}
+  '65':
+    z: 4.4
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.388637, dec: 37.739259, notes: ref DB}
+      b: {ra: 109.382017, dec: 37.738436, notes: ref DB}
+      c: {ra: 109.383471, dec: 37.744588, notes: ref --}
+      d: {ra: 109.404961, dec: 37.764683, notes: ref --}
+  '66':
+    z: 5.78
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.386218, dec: 37.751924, notes: ref --}
+      b: {ra: 109.376999, dec: 37.73645, notes: ref --}
+      c: {ra: 109.399102, dec: 37.764959, notes: ref --}
+  '67':
+    z: 4.19
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.38544, dec: 37.758508, notes: ref --}
+      b: {ra: 109.387777, dec: 37.762834, notes: ref --}
+      c: {ra: 109.371791, dec: 37.737295, notes: ref --}
+  '68':
+    z: 4.04
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.383107, dec: 37.762585, notes: ref --}
+      b: {ra: 109.382235, dec: 37.760399, notes: ref --}
+  '69':
+    z: 3.13
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.390481, dec: 37.737919, notes: ref --}
+      b: {ra: 109.384688, dec: 37.736875, notes: ref --}
+  '70':
+    z: 3.4
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.365316, dec: 37.747671, notes: ref --}
+      b: {ra: 109.368518, dec: 37.758292, notes: ref --}
+      c: {ra: 109.382338, dec: 37.770699, notes: ref --}
+  '71':
+    z: 3.26
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.362599, dec: 37.747559, notes: ref --}
+      b: {ra: 109.366909, dec: 37.760808, notes: ref --}
+      c: {ra: 109.378027, dec: 37.770166, notes: ref --}
+  '72':
+    z: 3.24
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.362867, dec: 37.747774, notes: ref --}
+      b: {ra: 109.366909, dec: 37.760366, notes: ref --}
+      c: {ra: 109.37848, dec: 37.770341, notes: ref --}
+  '73':
+    z: 3.26
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.362941, dec: 37.747799, notes: ref --}
+      b: {ra: 109.366888, dec: 37.760233, notes: ref --}
+      c: {ra: 109.378606, dec: 37.770383, notes: ref --}
+  '74':
+    z: 3.8
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.373152, dec: 37.744011, notes: ref --}
+      b: {ra: 109.378399, dec: 37.751095, notes: ref --}
+      c: {ra: 109.39285, dec: 37.768771, notes: ref --}
+  '75':
+    z: 4.49
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.373027, dec: 37.745508, notes: ref --}
+      b: {ra: 109.377178, dec: 37.750574, notes: ref --}
+      c: {ra: 109.393355, dec: 37.770141, notes: ref --}
+  '76':
+    z: 3.6
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.370552, dec: 37.745834, notes: ref --}
+      b: {ra: 109.376077, dec: 37.753657, notes: ref --}
+      c: {ra: 109.388875, dec: 37.769833, notes: ref --}
+  '77':
+    z: 3.43
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.363617, dec: 37.750477, notes: ref --}
+      b: {ra: 109.365372, dec: 37.756216, notes: ref --}
+      c: {ra: 109.380145, dec: 37.772541, notes: ref --}
+  '78':
+    z: 3.32
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.367431, dec: 37.756481, notes: ref --}
+      b: {ra: 109.365128, dec: 37.749532, notes: ref --}
+      c: {ra: 109.382085, dec: 37.771633, notes: ref --}
+  '79':
+    z: 3.38
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.367048, dec: 37.746459, notes: ref --}
+      b: {ra: 109.371065, dec: 37.75845, notes: ref --}
+      c: {ra: 109.384278, dec: 37.770033, notes: ref --}
+  '80':
+    z: 4.62
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.372394, dec: 37.739899, notes: ref --}
+      b: {ra: 109.381475, dec: 37.754354, notes: ref --}
+      c: {ra: 109.391454, dec: 37.767049, notes: ref --}
+  '81':
+    z: 3.87
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.373064, dec: 37.739655, notes: ref --}
+      b: {ra: 109.38214, dec: 37.754277, notes: ref --}
+      c: {ra: 109.391518, dec: 37.766093, notes: ref --}
+  '82':
+    z: 4.53
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.373004, dec: 37.739002, notes: ref --}
+      b: {ra: 109.382391, dec: 37.754409, notes: ref --}
+      c: {ra: 109.391816, dec: 37.766214, notes: ref --}
+  '83':
+    z: 2.49
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.4021, dec: 37.731199, notes: ref --}
+      b: {ra: 109.404937, dec: 37.732524, notes: ref --}
+  '84':
+    z: 4.67
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.397229, dec: 37.7292, notes: ref --}
+      b: {ra: 109.404811, dec: 37.731449, notes: ref --}
+  '85':
+    z: 4.33
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 109.379628, dec: 37.746559, notes: ref --}
+      b: {ra: 109.377965, dec: 37.743293, notes: ref --}
+      c: {ra: 109.399954, dec: 37.767516, notes: ref --}

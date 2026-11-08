@@ -1,0 +1,405 @@
+# Master image catalog of m1149, built on 2026-11-08 by scripts/build_master_catalog.py from treu2016, grillo2016, canucs (base treu2016).
+# Do not edit: change sources.yaml or decisions.yaml and rebuild.  crossmatch.yaml gives each system's papers and tier.
+# 36 systems (diamond 0, gold 9, silver 0, bronze 8, copper 19; 23 with z = 0, free), 103 images, 0 of them candidates from other papers.
+# reliability: the tier's prior.  prior (per image or knot): the prior that it belongs to its system, the reliability (times its quality below 0.8).
+# ImageConstraintsConfig(trusted_prior_min=0.8) trusts the diamond and gold images; with a PartitionConfig the rest enter the slot mixture, each weighted toward its system by its prior.
+format: lenscluster-images/1
+systems:
+  '1':
+    z: 1.4880000352859497
+    z_err: 0.01
+    reliability: 0.9
+    knots: [K1, K2, K3, K4, K5, K6, K7, K8, K9, K10, K11, K12, K13, K14, K15, K16, K17, K18, K19, K20, K21, K22, K23, K24, K25, K27, K26, K28, K29, K30]
+    notes: tier gold; spectroscopic z; the Refsdal host, knots from Table 4
+    images:
+      a:
+        knots:
+          K1: {ra: 177.39702, dec: 22.396003, notes: note 1, prior: 0.9}
+          K2: {ra: 177.39661, dec: 22.396308, prior: 0.9}
+          K3: {ra: 177.39687, dec: 22.396219, prior: 0.9}
+          K4: {ra: 177.39702, dec: 22.396214, prior: 0.9}
+          K5: {ra: 177.39726, dec: 22.396208, prior: 0.9}
+          K6: {ra: 177.39737, dec: 22.396164, prior: 0.9}
+          K7: {ra: 177.39757, dec: 22.396114, prior: 0.9}
+          K8: {ra: 177.39795, dec: 22.396014, prior: 0.9}
+          K9: {ra: 177.39803, dec: 22.395939, prior: 0.9}
+          K10: {ra: 177.39809, dec: 22.395856, prior: 0.9}
+          K12: {ra: 177.39716, dec: 22.395211, prior: 0.9}
+          K13: {ra: 177.39697, dec: 22.396639, prior: 0.9}
+          K14: {ra: 177.39712, dec: 22.396725, prior: 0.9}
+          K15: {ra: 177.39717, dec: 22.396506, prior: 0.9}
+          K16: {ra: 177.39745, dec: 22.3964, prior: 0.9}
+          K17: {ra: 177.39815, dec: 22.396347, prior: 0.9}
+          K18: {ra: 177.3985, dec: 22.3961, prior: 0.9}
+          K19: {ra: 177.39689, dec: 22.395761, prior: 0.9}
+          K20: {ra: 177.39708, dec: 22.395728, prior: 0.9}
+          K21: {ra: 177.39694, dec: 22.395406, prior: 0.9}
+          K22: {ra: 177.39677, dec: 22.395487, prior: 0.9}
+          K23: {ra: 177.39672, dec: 22.395381, prior: 0.9}
+          K24: {ra: 177.3965, dec: 22.395589, prior: 0.9}
+          K25: {ra: 177.39657, dec: 22.395933, prior: 0.9}
+          K27: {ra: 177.39831, dec: 22.396285, prior: 0.9}
+          K26: {ra: 177.39633, dec: 22.396011, prior: 0.9}
+          K28: {ra: 177.3986, dec: 22.396166, prior: 0.9}
+          K29: {ra: 177.39858, dec: 22.39586, prior: 0.9}
+          K30: {ra: 177.39817, dec: 22.395465, prior: 0.9}
+      b:
+        knots:
+          K1: {ra: 177.39942, dec: 22.397439, notes: note 1, prior: 0.9}
+          K2: {ra: 177.39899, dec: 22.397867, prior: 0.9}
+          K3: {ra: 177.39917, dec: 22.3976, prior: 0.9}
+          K4: {ra: 177.39923, dec: 22.397483, prior: 0.9}
+          K5: {ra: 177.39933, dec: 22.397303, prior: 0.9}
+          K6: {ra: 177.39945, dec: 22.397236, prior: 0.9}
+          K7: {ra: 177.39974, dec: 22.396933, prior: 0.9}
+          K8: {ra: 177.39981, dec: 22.39675, prior: 0.9}
+          K9: {ra: 177.39973, dec: 22.396983, prior: 0.9}
+          K10: {ra: 177.39997, dec: 22.396708, prior: 0.9}
+          K11: {ra: 177.4001, dec: 22.396661, prior: 0.9}
+          K12: {ra: 177.40032, dec: 22.396925, prior: 0.9}
+          K13: {ra: 177.39882, dec: 22.397711, prior: 0.9}
+          K14: {ra: 177.39878, dec: 22.397633, prior: 0.9}
+          K15: {ra: 177.39894, dec: 22.397514, prior: 0.9}
+          K16: {ra: 177.39915, dec: 22.397228, prior: 0.9}
+          K17: {ra: 177.39927, dec: 22.396831, prior: 0.9}
+          K18: {ra: 177.39947, dec: 22.396592, prior: 0.9}
+          K19: {ra: 177.39954, dec: 22.397486, prior: 0.9}
+          K20: {ra: 177.39963, dec: 22.397361, prior: 0.9}
+          K22: {ra: 177.39968, dec: 22.397495, prior: 0.9}
+          K23: {ra: 177.39977, dec: 22.397497, prior: 0.9}
+          K24: {ra: 177.39953, dec: 22.397753, prior: 0.9}
+          K27: {ra: 177.39933, dec: 22.396725, prior: 0.9}
+          K28: {ra: 177.39942, dec: 22.396559, prior: 0.9}
+          K29: {ra: 177.39976, dec: 22.39649, prior: 0.9}
+          K30: {ra: 177.39801, dec: 22.39523, prior: 0.9}
+      c:
+        knots:
+          K1: {ra: 177.40341, dec: 22.402444, notes: note 1, prior: 0.9}
+          K2: {ra: 177.40303, dec: 22.402681, prior: 0.9}
+          K3: {ra: 177.40328, dec: 22.402594, prior: 0.9}
+          K4: {ra: 177.40339, dec: 22.402558, prior: 0.9}
+          K5: {ra: 177.40356, dec: 22.402522, prior: 0.9}
+          K6: {ra: 177.4036, dec: 22.402489, prior: 0.9}
+          K7: {ra: 177.4037, dec: 22.402406, prior: 0.9}
+          K8: {ra: 177.4038, dec: 22.402311, prior: 0.9}
+          K9: {ra: 177.40377, dec: 22.40225, prior: 0.9}
+          K10: {ra: 177.4038, dec: 22.402183, prior: 0.9}
+          K11: {ra: 177.40377, dec: 22.402047, prior: 0.9}
+          K12: {ra: 177.4036, dec: 22.401878, prior: 0.9}
+          K13: {ra: 177.40329, dec: 22.402828, prior: 0.9}
+          K14: {ra: 177.40338, dec: 22.402872, prior: 0.9}
+          K15: {ra: 177.40344, dec: 22.402753, prior: 0.9}
+          K16: {ra: 177.4036, dec: 22.402656, prior: 0.9}
+          K17: {ra: 177.40384, dec: 22.402564, prior: 0.9}
+          K18: {ra: 177.40394, dec: 22.402408, prior: 0.9}
+          K19: {ra: 177.40337, dec: 22.402292, prior: 0.9}
+          K20: {ra: 177.40353, dec: 22.402233, prior: 0.9}
+          K21: {ra: 177.40341, dec: 22.402006, prior: 0.9}
+          K22: {ra: 177.40328, dec: 22.402098, prior: 0.9}
+          K23: {ra: 177.40324, dec: 22.402011, prior: 0.9}
+          K24: {ra: 177.40301, dec: 22.402203, prior: 0.9}
+          K25: {ra: 177.40304, dec: 22.402456, prior: 0.9}
+          K26: {ra: 177.40283, dec: 22.4026, prior: 0.9}
+          K30: {ra: 177.3973, dec: 22.395364, prior: 0.9}
+      e:
+        knots:
+          K1: {ra: 177.39986, dec: 22.397133, notes: 'note 1,2', prior: 0.9}
+          K19: {ra: 177.39997, dec: 22.397106, prior: 0.9}
+          K20: {ra: 177.4, dec: 22.396981, prior: 0.9}
+          K21: {ra: 177.40018, dec: 22.397042, prior: 0.9}
+          K22: {ra: 177.40008, dec: 22.397139, prior: 0.9}
+          K23: {ra: 177.40013, dec: 22.3972, prior: 0.9}
+      d:
+        knots:
+          K2: {ra: 177.39777, dec: 22.398789, prior: 0.9}
+          K13: {ra: 177.39791, dec: 22.398433, prior: 0.9}
+          K14: {ra: 177.3981, dec: 22.398256, prior: 0.9}
+          K30: {ra: 177.39788, dec: 22.395721, prior: 0.9}
+      f:
+        knots:
+          K2: {ra: 177.39867, dec: 22.398242, prior: 0.9}
+          K13: {ra: 177.39852, dec: 22.398061, notes: note 3, prior: 0.9}
+  SN:
+    z: 1.4880000352859497
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; spectroscopic z; SN Refsdal images S1-S4 (Table 4)
+    images:
+      a: {ra: 177.39823, dec: 22.395631, prior: 0.9}
+      b: {ra: 177.39772, dec: 22.395783, prior: 0.9}
+      c: {ra: 177.39737, dec: 22.395539, prior: 0.9}
+      d: {ra: 177.39781, dec: 22.395189, prior: 0.9}
+  '2':
+    z: 1.891
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; spectroscopic z
+    images:
+      a: {ra: 177.40242, dec: 22.38975, notes: 'set Gold, score 1.0', prior: 0.9}
+      b: {ra: 177.40604, dec: 22.392478, notes: 'set Gold, score 1.0', prior: 0.9}
+      c: {ra: 177.40658, dec: 22.392886, notes: 'set Gold, score 1.0', prior: 0.9}
+  '3':
+    z: 3.129
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; spectroscopic z
+    images:
+      a: {ra: 177.39075, dec: 22.399847, notes: 'set Gold, score 1.0', prior: 0.9}
+      b: {ra: 177.39271, dec: 22.403081, notes: 'set Gold, score 1.0', prior: 0.9}
+      c: {ra: 177.40129, dec: 22.407189, notes: 'set Gold, score 1.100000023841858', prior: 0.9}
+  '4':
+    z: 2.949
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; spectroscopic z
+    images:
+      a: {ra: 177.393, dec: 22.396825, notes: 'set Gold, score 1.0', prior: 0.9}
+      b: {ra: 177.39438, dec: 22.400736, notes: 'set Gold, score 1.0', prior: 0.9}
+      c: {ra: 177.40417, dec: 22.406128, notes: 'set Gold, score 1.0', prior: 0.9}
+  '5':
+    z: 2.8
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; spectroscopic z
+    images:
+      a: {ra: 177.39975, dec: 22.393061, notes: 'set Gold, score 1.0', prior: 0.9}
+      b: {ra: 177.40108, dec: 22.393825, notes: 'set Gold, score 1.0', prior: 0.9}
+      c: {ra: 177.40792, dec: 22.403553, notes: 'set Silver, score 1.7000000476837158', prior: 0.63}
+  '6':
+    z: 0.0
+    reliability: 0.4
+    notes: tier bronze; free z in the model
+    images:
+      a: {ra: 177.39971, dec: 22.392544, notes: 'set Gold, score 1.100000023841858', prior: 0.4}
+      b: {ra: 177.40183, dec: 22.393858, notes: 'set Gold, score 1.100000023841858', prior: 0.4}
+      c: {ra: 177.40804, dec: 22.402506, notes: 'set Silver, score 1.7000000476837158', prior: 0.28}
+  '7':
+    z: 0.0
+    reliability: 0.4
+    notes: tier bronze; free z in the model
+    images:
+      a: {ra: 177.39896, dec: 22.391339, notes: 'set Gold, score 1.100000023841858', prior: 0.4}
+      b: {ra: 177.40342, dec: 22.394269, notes: 'set Gold, score 1.100000023841858', prior: 0.4}
+      c: {ra: 177.40758, dec: 22.401242, notes: 'set Gold, score 1.2000000476837158', prior: 0.4}
+  '8':
+    z: 0.0
+    reliability: 0.4
+    notes: tier bronze; free z in the model
+    images:
+      a: {ra: 177.3985, dec: 22.39435, notes: 'set Gold, score 1.2000000476837158', prior: 0.4}
+      b: {ra: 177.39979, dec: 22.395044, notes: 'set Gold, score 1.2000000476837158', prior: 0.4}
+      d: {ra: 177.40709, dec: 22.404722, notes: 'set Gold, score 1.2000000476837158', prior: 0.4}
+  R26:
+    z: 2.78
+    z_err: 0.01
+    reliability: 0.15
+    notes: tier copper; spectroscopic z
+    images:
+      a: {ra: 177.40704, dec: 22.405553, notes: 'set Rejected, score 3.0', prior: 0.015}
+  R27:
+    z: 0.0
+    reliability: 0.15
+    notes: tier copper; free z in the model
+    images:
+      a: {ra: 177.40517, dec: 22.401563, notes: 'set Rejected, score 3.0', prior: 0.015}
+  '9':
+    z: 0.0
+    reliability: 0.15
+    notes: tier copper; free z in the model
+    images:
+      a: {ra: 177.40517, dec: 22.426233, notes: 'set -, score 1.7999999523162842', prior: 0.06}
+      b: {ra: 177.40388, dec: 22.427231, notes: 'set -, score 1.7999999523162842', prior: 0.06}
+      c: {ra: 177.40325, dec: 22.427228, notes: 'set -, score 1.7999999523162842', prior: 0.06}
+      d: {ra: 177.40364, dec: 22.426422, notes: 'set -, score 1.7999999523162842', prior: 0.06}
+  '10':
+    z: 0.0
+    reliability: 0.15
+    notes: tier copper; free z in the model
+    images:
+      a: {ra: 177.4045, dec: 22.425514, notes: 'set -, score 1.7999999523162842', prior: 0.06}
+      b: {ra: 177.40362, dec: 22.425636, notes: 'set -, score 1.7999999523162842', prior: 0.06}
+      c: {ra: 177.40221, dec: 22.426625, notes: 'set -, score 1.7999999523162842', prior: 0.06}
+  '12':
+    z: 0.929
+    z_err: 0.01
+    reliability: 0.15
+    notes: tier copper; spectroscopic z; image redshifts 0.929, 1.02, 1.118 disagree, the first is used
+    images:
+      a: {ra: 177.39857, dec: 22.389356, notes: 'set Rejected, score 2.5999999046325684', prior: 0.015}
+      b: {ra: 177.40375, dec: 22.392345, notes: 'set Rejected, score 2.9000000953674316', prior: 0.015}
+      c: {ra: 177.40822, dec: 22.398801, notes: 'set Rejected, score 2.5999999046325684', prior: 0.015}
+  '13':
+    z: 1.24
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; spectroscopic z; image redshifts 1.23, 1.25
+    images:
+      a: {ra: 177.40371, dec: 22.397786, notes: 'set Gold, score 1.0', prior: 0.9}
+      b: {ra: 177.40283, dec: 22.396656, notes: 'set Gold, score 1.0', prior: 0.9}
+      c: {ra: 177.40004, dec: 22.393858, notes: 'set Gold, score 1.2999999523162842', prior: 0.9}
+  '14':
+    z: 3.703
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; spectroscopic z
+    images:
+      a: {ra: 177.39167, dec: 22.403489, notes: 'set Gold, score 1.2999999523162842', prior: 0.9}
+      b: {ra: 177.39083, dec: 22.402647, notes: 'set Gold, score 1.2999999523162842', prior: 0.9}
+  '110':
+    z: 3.214
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; spectroscopic z
+    images:
+      a: {ra: 177.40014, dec: 22.390162, notes: 'set Gold, score 1.0', prior: 0.9}
+      b: {ra: 177.40402, dec: 22.392894, notes: 'set Gold, score 1.0', prior: 0.9}
+      c: {ra: 177.40907, dec: 22.400242, notes: 'set -, score 2.0', prior: 0.36}
+  '21':
+    z: 0.0
+    reliability: 0.4
+    notes: tier bronze; free z in the model
+    images:
+      a: {ra: 177.40451, dec: 22.386704, notes: 'set Silver, score 1.7999999523162842', prior: 0.28}
+      b: {ra: 177.408, dec: 22.389057, notes: 'set Silver, score 1.600000023841858', prior: 0.28}
+      c: {ra: 177.40907, dec: 22.390407, notes: 'set Silver, score 1.600000023841858', prior: 0.28}
+  '22':
+    z: 0.0
+    reliability: 0.15
+    notes: tier copper; free z in the model
+    images:
+      a: {ra: 177.4037, dec: 22.386838, notes: 'set -, score 1.7999999523162842', prior: 0.06}
+      b: {ra: 177.40791, dec: 22.389232, notes: 'set -, score 1.7999999523162842', prior: 0.06}
+      c: {ra: 177.40902, dec: 22.391053, notes: 'set -, score 1.7999999523162842', prior: 0.06}
+  '23':
+    z: 0.0
+    reliability: 0.15
+    notes: tier copper; free z in the model
+    images:
+      a: {ra: 177.39302, dec: 22.411428, notes: 'set -, score 1.7999999523162842', prior: 0.06}
+      b: {ra: 177.39308, dec: 22.411455, notes: 'set -, score 1.7999999523162842', prior: 0.06}
+      c: {ra: 177.39315, dec: 22.411473, notes: 'set -, score 1.7999999523162842', prior: 0.06}
+  '24':
+    z: 0.0
+    reliability: 0.15
+    notes: tier copper; free z in the model
+    images:
+      a: {ra: 177.39285, dec: 22.412872, notes: 'set -, score 1.7000000476837158', prior: 0.06}
+      b: {ra: 177.39353, dec: 22.413071, notes: 'set -, score 1.7000000476837158', prior: 0.06}
+      c: {ra: 177.39504, dec: 22.412697, notes: 'set -, score 1.7999999523162842', prior: 0.06}
+  '25':
+    z: 0.0
+    reliability: 0.15
+    notes: tier copper; free z in the model
+    images:
+      a: {ra: 177.40428, dec: 22.398782, notes: 'set -, score 2.0', prior: 0.06}
+      b: {ra: 177.40411, dec: 22.398599, notes: 'set -, score 2.0', prior: 0.06}
+      c: {ra: 177.39489, dec: 22.391796, notes: 'set -, score 2.299999952316284', prior: 0.06}
+  '26':
+    z: 0.0
+    reliability: 0.4
+    notes: tier bronze; free z in the model
+    images:
+      a: {ra: 177.41035, dec: 22.388749, notes: 'set Silver, score 1.7999999523162842', prior: 0.28}
+      b: {ra: 177.40922, dec: 22.387697, notes: 'set Silver, score 1.7999999523162842', prior: 0.28}
+      c: {ra: 177.40623, dec: 22.385369, notes: 'set Silver, score 1.7999999523162842', prior: 0.28}
+  '27':
+    z: 0.0
+    reliability: 0.4
+    notes: tier bronze; free z in the model
+    images:
+      a: {ra: 177.40971, dec: 22.387665, notes: 'set Silver, score 1.7999999523162842', prior: 0.28}
+      b: {ra: 177.40988, dec: 22.387835, notes: 'set Silver, score 1.7999999523162842', prior: 0.28}
+      c: {ra: 177.40615, dec: 22.385142, notes: 'set -, score 2.5', prior: 0.16}
+  '28':
+    z: 0.0
+    reliability: 0.15
+    notes: tier copper; free z in the model
+    images:
+      a: {ra: 177.39531, dec: 22.391809, notes: 'set -, score 2.0', prior: 0.06}
+      b: {ra: 177.40215, dec: 22.39675, notes: 'set -, score 2.200000047683716', prior: 0.06}
+      c: {ra: 177.40562, dec: 22.402434, notes: 'set -, score 2.0', prior: 0.06}
+  '200':
+    z: 2.32
+    z_err: 0.01
+    reliability: 0.15
+    notes: tier copper; spectroscopic z
+    images:
+      a: {ra: 177.40875, dec: 22.394467, notes: 'set -, score 2.5999999046325684', prior: 0.06}
+      b: {ra: 177.40512, dec: 22.391261, notes: 'set -, score 2.5999999046325684', prior: 0.06}
+      c: {ra: 177.40256, dec: 22.389233, notes: 'set -, score 2.799999952316284', prior: 0.06}
+  '201':
+    z: 0.0
+    reliability: 0.15
+    notes: tier copper; free z in the model
+    images:
+      a: {ra: 177.40048, dec: 22.395444, notes: 'set -, score 1.600000023841858', prior: 0.06}
+      b: {ra: 177.40683, dec: 22.404517, notes: 'set -, score 1.600000023841858', prior: 0.06}
+  '202':
+    z: 0.0
+    reliability: 0.15
+    notes: tier copper; free z in the model
+    images:
+      a: {ra: 177.40765, dec: 22.396789, notes: 'set -, score 2.0', prior: 0.06}
+      b: {ra: 177.40224, dec: 22.391489, notes: 'set -, score 2.0', prior: 0.06}
+      c: {ra: 177.40353, dec: 22.392586, notes: 'set -, score 2.0', prior: 0.06}
+  '203':
+    z: 0.0
+    reliability: 0.4
+    notes: tier bronze; free z in the model
+    images:
+      a: {ra: 177.40995, dec: 22.387244, notes: 'set Silver, score 1.7999999523162842', prior: 0.28}
+      b: {ra: 177.40657, dec: 22.384511, notes: 'set Silver, score 2.0', prior: 0.28}
+      c: {ra: 177.41123, dec: 22.388461, notes: 'set Silver, score 1.7999999523162842', prior: 0.28}
+  '204':
+    z: 0.0
+    reliability: 0.4
+    notes: tier bronze; free z in the model
+    images:
+      a: {ra: 177.40961, dec: 22.386661, notes: 'set Silver, score 1.7999999523162842', prior: 0.28}
+      b: {ra: 177.40668, dec: 22.384322, notes: 'set Silver, score 1.7999999523162842', prior: 0.28}
+      c: {ra: 177.41208, dec: 22.389056, notes: 'set Silver, score 1.7999999523162842', prior: 0.28}
+  '205':
+    z: 0.0
+    reliability: 0.15
+    notes: tier copper; free z in the model
+    images:
+      a: {ra: 177.4052, dec: 22.386042, notes: 'set -, score 2.0', prior: 0.06}
+      b: {ra: 177.40821, dec: 22.388119, notes: 'set -, score 2.0', prior: 0.06}
+      c: {ra: 177.41038, dec: 22.390625, notes: 'set -, score 2.0', prior: 0.06}
+  '206':
+    z: 0.0
+    reliability: 0.15
+    notes: tier copper; free z in the model
+    images:
+      a: {ra: 177.40764, dec: 22.385647, notes: 'set -, score 2.200000047683716', prior: 0.06}
+      b: {ra: 177.40863, dec: 22.386453, notes: 'set -, score 2.200000047683716', prior: 0.06}
+      c: {ra: 177.41133, dec: 22.388997, notes: 'set -, score 2.200000047683716', prior: 0.06}
+  '207':
+    z: 0.0
+    reliability: 0.15
+    notes: tier copper; free z in the model
+    images:
+      a: {ra: 177.40442, dec: 22.397303, notes: 'set -, score 2.200000047683716', prior: 0.06}
+      b: {ra: 177.40397, dec: 22.396039, notes: 'set -, score 2.200000047683716', prior: 0.06}
+  '208':
+    z: 0.0
+    reliability: 0.15
+    notes: tier copper; free z in the model
+    images:
+      a: {ra: 177.40453, dec: 22.395761, notes: 'set -, score 2.0', prior: 0.06}
+      b: {ra: 177.40494, dec: 22.396397, notes: 'set -, score 2.0', prior: 0.06}
+  '209':
+    z: 0.0
+    reliability: 0.15
+    notes: tier copper; free z in the model
+    images:
+      a: {ra: 177.38994, dec: 22.412694, notes: 'set -, score 3.0', prior: 0.06}
+      b: {ra: 177.39055, dec: 22.413408, notes: 'set -, score 3.0', prior: 0.06}
+  '210':
+    z: 0.702
+    z_err: 0.01
+    reliability: 0.15
+    notes: tier copper; spectroscopic z
+    images:
+      a: {ra: 177.3969, dec: 22.398061, notes: 'set -, score 3.0', prior: 0.06}
+      b: {ra: 177.39505, dec: 22.397497, notes: 'set -, score 3.0', prior: 0.06}

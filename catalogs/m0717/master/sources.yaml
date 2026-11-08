@@ -1,0 +1,14 @@
+# Papers merged into the MACS J0717 master catalog (scripts/build_master_catalog.py).  Paths are relative to this folder.
+cluster: m0717
+base: limousin2016            # the CATS v4.1 constraint set (Limousin et al. 2016) and its 90 members
+match_radius_arcsec: 0.5      # after each paper is shifted onto the base frame
+dz_max: 0.01                  # |dz| / (1 + z) above which two spectroscopic redshifts conflict
+z_cluster: 0.545               # members: a spectroscopic z within member_dz (1 + z) of it gives p_member 1
+papers:
+  limousin2016:
+    images: ../limousin2016/images.yaml
+    members: ../limousin2016/members.yaml
+    # z_kind left unknown: the 10 fixed redshifts are not all spectroscopic (limousin2016/README.md)
+  kawamata2016:
+    images: ../kawamata2016/images.yaml
+    prefix: K

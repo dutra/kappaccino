@@ -203,8 +203,10 @@ def member_scaling_table(state: ModelState, posterior: PosteriorResults) -> pd.D
 
 
 def population_scaling_draws(table: pd.DataFrame, posterior_physical: np.ndarray,
-                             specs: list[ParameterSpec]) -> dict:
-    """Joint population relations, without individual velocity/radius deviations."""
+                             specs: list[ParameterSpec], fixed: dict[str, float] | None = None) -> dict:
+    """Joint population relations, without individual velocity/radius deviations.  ``fixed`` gives the value of a
+    relation field that is not sampled (``"<population>.<field>"``: held fixed, e.g. a Lenstool ``vdslope 0``)."""
+    fixed = fixed or {}
     names = {spec.name: i for i, spec in enumerate(specs)}
     result = {}
     for population, members in table.groupby("potfile_id", sort=True):
@@ -215,7 +217,12 @@ def population_scaling_draws(table: pd.DataFrame, posterior_physical: np.ndarray
         magnitude = np.linspace(members.catalog_mag.min(), members.catalog_mag.max(), 240)
         lum = 10. ** (-.4 * (magnitude - pivots[0]))
         def draws(field):
-            return posterior_physical[:, names[f"{population}.{field}"]][:, None]
+            key = f"{population}.{field}"
+            if key not in names:
+                if key not in fixed:
+                    raise KeyError(f"{key} is neither sampled nor given as fixed")
+                return np.full((posterior_physical.shape[0], 1), float(fixed[key]))
+            return posterior_physical[:, names[key]][:, None]
         velocity = draws("sigma") * lum ** draws("alpha_sigma")
         radius = draws("cutkpc") * lum ** draws("beta_radius")
         result[population] = (magnitude, {"v_disp": velocity, "cut_radius_kpc": radius,
@@ -231,12 +238,13 @@ def population_scaling_draws(table: pd.DataFrame, posterior_physical: np.ndarray
                  "xtick.major.size": 4, "ytick.major.size": 4,
                  "xtick.top": False, "ytick.right": False, "axes.grid": False,
                  "pdf.fonttype": 42})
-def plot_scaling_relation(table: pd.DataFrame, posterior_physical: np.ndarray, specs: list[ParameterSpec], path: Path) -> Path:
+def plot_scaling_relation(table: pd.DataFrame, posterior_physical: np.ndarray, specs: list[ParameterSpec], path: Path,
+                          fixed: dict[str, float] | None = None) -> Path:
     from matplotlib.patches import Patch
     fields = [("v_disp", r"$\sigma$ (km s$^{-1}$)", True),
               ("cut_radius_kpc", r"$r_{\rm cut}$ (kpc)", True),
               ("log10_mass_msun", r"$\log_{10}(M/M_\odot)$", False)]
-    relations = population_scaling_draws(table, np.asarray(posterior_physical), specs)
+    relations = population_scaling_draws(table, np.asarray(posterior_physical), specs, fixed)
     names = {spec.name: i for i, spec in enumerate(specs)}
     pivots = {}
     for population, members in table.groupby("potfile_id"):

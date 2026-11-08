@@ -1,0 +1,554 @@
+# Master image catalog of a370, built on 2026-11-08 by scripts/build_master_catalog.py from gledhill2024, lagattuta2019 (base gledhill2024).
+# Do not edit: change sources.yaml or decisions.yaml and rebuild.  crossmatch.yaml gives each system's papers and tier.
+# 44 systems (diamond 22, gold 13, silver 3, bronze 3, copper 3; 0 with z = 0, free), 134 images, 11 of them candidates from other papers.
+# reliability: the tier's prior.  prior (per image or knot): the prior that it belongs to its system, the reliability (times its quality below 0.8).
+# ImageConstraintsConfig(trusted_prior_min=0.8) trusts the diamond and gold images; with a PartitionConfig the rest enter the slot mixture, each weighted toward its system by its prior.
+format: lenscluster-images/1
+systems:
+  '1':
+    z: 0.8041
+    z_err: 0.01
+    reliability: 1.0
+    knots: [A, B, C]
+    notes: tier diamond; z from lagattuta2019:1 (spectroscopic)
+    images:
+      a:
+        knots:
+          A: {ra: 39.976300399878916, dec: -1.5760378143731808}
+      b:
+        knots:
+          A: {ra: 39.96715799978526, dec: -1.576883613438107}
+          B: {ra: 39.96756929979809, dec: -1.576761313480175}
+          C: {ra: 39.967041299782885, dec: -1.5769058134261704}
+      c:
+        knots:
+          A: {ra: 39.9685807998128, dec: -1.5766252135836318}
+          B: {ra: 39.96810279980873, dec: -1.5766614135347419}
+          C: {ra: 39.96874199981663, dec: -1.5765891136001196}
+  '2':
+    z: 0.7251
+    z_err: 0.01
+    reliability: 1.0
+    knots: [A]
+    notes: tier diamond; z from lagattuta2019:2 (spectroscopic)
+    images:
+      a:
+        knots:
+          A: {ra: 39.97379519903716, dec: -1.5842426141169559}
+      b:
+        knots:
+          A: {ra: 39.97097919895369, dec: -1.58503661382894}
+      c:
+        knots:
+          A: {ra: 39.96874719900601, dec: -1.5845086136006514}
+      d:
+        knots:
+          A: {ra: 39.96940285, dec: -1.58473366, prior: 0.5, notes: 'candidate: lagattuta2019:2.d'}
+      e:
+        knots:
+          A: {ra: 39.96963885, dec: -1.58485166, prior: 0.5, notes: 'candidate: lagattuta2019:2.e'}
+  '3':
+    z: 1.9553
+    z_err: 0.01
+    reliability: 1.0
+    knots: [A, B]
+    notes: tier diamond; z from lagattuta2019:3 (spectroscopic)
+    images:
+      a:
+        knots:
+          A: {ra: 39.96852160092017, dec: -1.565806213577577}
+          B: {ra: 39.96732840088588, dec: -1.5661322134555353}
+      b:
+        knots:
+          A: {ra: 39.965683200810304, dec: -1.566858213287262}
+          B: {ra: 39.96620200083724, dec: -1.5665989133403257}
+      c:
+        knots:
+          A: {ra: 39.978959900758724, dec: -1.5674620146451839}
+          B: {ra: 39.979050800757925, dec: -1.5674706146544803}
+  '4':
+    z: 1.2728
+    z_err: 0.01
+    reliability: 1.0
+    knots: [A, B, C]
+    notes: tier diamond; z from lagattuta2019:4 (spectroscopic)
+    images:
+      a:
+        knots:
+          A: {ra: 39.97967829984537, dec: -1.576391214718658}
+          B: {ra: 39.97977459982723, dec: -1.5765690147285072}
+          C: {ra: 39.97959539985893, dec: -1.5762580147101795}
+      b:
+        knots:
+          A: {ra: 39.97072959984981, dec: -1.576280013803411}
+          B: {ra: 39.97068139983157, dec: -1.5764578137984808}
+          C: {ra: 39.97076149986291, dec: -1.5761523138066733}
+      c:
+        knots:
+          A: {ra: 39.96195869967277, dec: -1.5779431129063102}
+          B: {ra: 39.96201049965765, dec: -1.5780912129116087}
+          C: {ra: 39.96191369968446, dec: -1.5778287129017077}
+  '5':
+    z: 1.2775
+    z_err: 0.01
+    reliability: 1.0
+    notes: tier diamond; z from lagattuta2019:5 (spectroscopic)
+    images:
+      a: {ra: 39.9734921985447, dec: -1.5890516140859658}
+      b: {ra: 39.971024198525676, dec: -1.5892186138335422}
+      c: {ra: 39.96913619854099, dec: -1.5890546136404384}
+      d: {ra: 39.97058485, dec: -1.58919546, prior: 0.5, notes: 'candidate: lagattuta2019:5.b'}
+      e: {ra: 39.96948085, dec: -1.58909696, prior: 0.5, notes: 'candidate: lagattuta2019:5.c'}
+      f: {ra: 39.96858885, dec: -1.58900536, prior: 0.5, notes: 'candidate: lagattuta2019:5.d'}
+  '6':
+    z: 1.0633
+    z_err: 0.01
+    reliability: 1.0
+    knots: [A, B, C]
+    notes: tier diamond; z from lagattuta2019:6 (spectroscopic)
+    images:
+      a:
+        knots:
+          A: {ra: 39.97976389976037, dec: -1.5772223147274127}
+          B: {ra: 39.97965769977389, dec: -1.577089414716551}
+          C: {ra: 39.97946059977922, dec: -1.577035714696393}
+      b:
+        knots:
+          A: {ra: 39.969373799738655, dec: -1.5773556136647402}
+          B: {ra: 39.96949219975632, dec: -1.5771841136768499}
+          C: {ra: 39.96966519976523, dec: -1.5770982136945442}
+      c:
+        knots:
+          A: {ra: 39.96450469963177, dec: -1.578363013166723}
+          B: {ra: 39.96434729964586, dec: -1.5782241131506234}
+          C: {ra: 39.96409089964948, dec: -1.5781870131243985}
+  '7':
+    z: 2.7512
+    z_err: 0.01
+    reliability: 1.0
+    notes: tier diamond; z from lagattuta2019:7 (spectroscopic)
+    images:
+      a: {ra: 39.96983179940952, dec: -1.5805746137115841}
+      f: {ra: 39.96835510035296, dec: -1.5713464135605473}
+  '8':
+    z: 2.8659
+    z_err: 0.387
+    reliability: 0.7
+    notes: tier silver
+    images:
+      a: {ra: 39.964557000512926, dec: -1.569754913172072, prior: 0.7}
+      b: {ra: 39.96187420010858, dec: -1.5736849128976673, prior: 0.7}
+  '9':
+    z: 1.5182
+    z_err: 0.01
+    reliability: 1.0
+    notes: tier diamond; z from lagattuta2019:9 (spectroscopic)
+    images:
+      a: {ra: 39.962406199678796, dec: -1.5778877129520823}
+      b: {ra: 39.969489199850045, dec: -1.576268313676543}
+      c: {ra: 39.982023199832476, dec: -1.576534914958481}
+  '11':
+    z: 7.6476
+    z_err: 0.865
+    reliability: 0.7
+    knots: [A, B]
+    notes: tier silver
+    images:
+      a:
+        knots:
+          A: {ra: 39.96380480055029, dec: -1.5693842130951352, prior: 0.7}
+          B: {ra: 39.96387150055717, dec: -1.5693176131019575, prior: 0.7}
+      b:
+        knots:
+          A: {ra: 39.96077020006003, dec: -1.5741509127847457, prior: 0.7}
+          B: {ra: 39.96073410005319, dec: -1.5742175127810536, prior: 0.7}
+      c:
+        knots:
+          A: {ra: 39.98846885, dec: -1.57196846, prior: 0.105, notes: 'candidate: lagattuta2019:11.c'}
+  '12':
+    z: 3.4809
+    z_err: 0.01
+    reliability: 1.0
+    knots: [A, B, C]
+    notes: tier diamond; z from lagattuta2019:12 (spectroscopic)
+    images:
+      a:
+        knots:
+          A: {ra: 39.98414380041205, dec: -1.5708883151753616}
+          B: {ra: 39.984084500404414, dec: -1.570962415169297}
+          C: {ra: 39.983985300421054, dec: -1.5707991151591518}
+      b:
+        knots:
+          A: {ra: 39.969618400836076, dec: -1.5666360136897577}
+          B: {ra: 39.96978890083393, dec: -1.5666582137071963}
+          C: {ra: 39.969874900841994, dec: -1.5665801137159925}
+      c:
+        knots:
+          A: {ra: 39.95924749994774, dec: -1.575236412628997}
+          B: {ra: 39.95915859993023, dec: -1.5754068126199043}
+          C: {ra: 39.95914749995107, dec: -1.5752031126187689}
+  '13':
+    z: 4.248
+    z_err: 0.01
+    reliability: 1.0
+    knots: [A, B]
+    notes: tier diamond; z from lagattuta2019:13 (spectroscopic)
+    images:
+      a:
+        knots:
+          A: {ra: 39.979525900317476, dec: -1.5717774147030712}
+          B: {ra: 39.9795871003134, dec: -1.5718177147093304}
+      b:
+        knots:
+          A: {ra: 39.97522430061667, dec: -1.5688218142631205}
+          B: {ra: 39.97514240062171, dec: -1.568771814254744}
+      c:
+        knots:
+          A: {ra: 39.956762399714016, dec: -1.5775008123748078}
+  '14':
+    z: 3.1309
+    z_err: 0.01
+    reliability: 1.0
+    knots: [A, B]
+    notes: tier diamond; z from lagattuta2019:14 (spectroscopic)
+    images:
+      a:
+        knots:
+          A: {ra: 39.98133309966502, dec: -1.578165814887902}
+          B: {ra: 39.981296099653235, dec: -1.5782806148841175}
+      b:
+        knots:
+          A: {ra: 39.972304299674654, dec: -1.5780031139644697}
+          B: {ra: 39.972319099650406, dec: -1.5782401139659832}
+      c:
+        knots:
+          A: {ra: 39.972200499466055, dec: -1.5800403139538528}
+      d:
+        knots:
+          A: {ra: 39.95770379941426, dec: -1.5804364124710994}
+          B: {ra: 39.9576851994074, dec: -1.5805031124691966}
+      e:
+        knots:
+          A: {ra: 39.974215398896845, dec: -1.5856167141599333}
+          B: {ra: 39.97433209890054, dec: -1.5855815141718688}
+  '17':
+    z: 4.2567
+    z_err: 0.01
+    reliability: 1.0
+    notes: tier diamond; z from lagattuta2019:17 (spectroscopic)
+    images:
+      a: {ra: 39.96976419859467, dec: -1.58853491370467}
+      b: {ra: 39.98540919939424, dec: -1.580842215304777}
+      c: {ra: 39.96024119908701, dec: -1.5836524127306375}
+  '18':
+    z: 4.4296
+    z_err: 0.01
+    reliability: 1.0
+    notes: tier diamond; z from lagattuta2019:18 (spectroscopic)
+    images:
+      a: {ra: 39.97583619875009, dec: -1.587062914325704}
+      b: {ra: 39.98148219926508, dec: -1.5820744149031507}
+      c: {ra: 39.95737085, dec: -1.58208696, prior: 0.5, notes: 'candidate: lagattuta2019:18.c'}
+  '20':
+    z: 5.7505
+    z_err: 0.01
+    reliability: 1.0
+    notes: tier diamond; z from lagattuta2019:20 (spectroscopic)
+    images:
+      a: {ra: 39.96527719866595, dec: -1.5878044132457356}
+      b: {ra: 39.963614198758755, dec: -1.5868849130756402}
+  '22':
+    z: 3.1309
+    z_err: 0.01
+    reliability: 1.0
+    knots: [A, B]
+    notes: tier diamond; z from lagattuta2019:22 (spectroscopic)
+    images:
+      a:
+        knots:
+          A: {ra: 39.981689199509866, dec: -1.5796843149243218}
+          B: {ra: 39.98162249949588, dec: -1.5798205149175}
+      b:
+        knots:
+          A: {ra: 39.97441839884673, dec: -1.5861079141806957}
+          B: {ra: 39.974523998851936, dec: -1.586057914191496}
+      c:
+        knots:
+          A: {ra: 39.95791485, dec: -1.58101166, prior: 0.35, notes: 'candidate: lagattuta2019:22.c'}
+  '24':
+    z: 4.916
+    z_err: 0.01
+    reliability: 1.0
+    knots: [A, B, C, D, E, F]
+    notes: tier diamond; median of the knot redshifts 4.9153, 4.916; z from lagattuta2019:24 (spectroscopic)
+    images:
+      a:
+        knots:
+          A: {ra: 39.963519500465324, dec: -1.5702123130659538}
+          B: {ra: 39.96348800046206, dec: -1.5702438130627323}
+          C: {ra: 39.963289800451285, dec: -1.57034751304246}
+          D: {ra: 39.96312020042414, dec: -1.5706115130251121}
+          E: {ra: 39.963009100422354, dec: -1.5706281130137485}
+          F: {ra: 39.96309060041407, dec: -1.570709613022085}
+      b:
+        knots:
+          A: {ra: 39.96157970013584, dec: -1.5734164128675445}
+          B: {ra: 39.96160190014003, dec: -1.5733756128698158}
+          C: {ra: 39.961742700187536, dec: -1.572912612884217}
+          D: {ra: 39.962062300246274, dec: -1.572341212916907}
+          E: {ra: 39.96214940028292, dec: -1.571983812925816}
+          F: {ra: 39.962243900274274, dec: -1.5720690129354813}
+  '25':
+    z: 3.8145
+    z_err: 0.01
+    reliability: 1.0
+    knots: [A, B, C]
+    notes: tier diamond; z from lagattuta2019:25 (spectroscopic)
+    images:
+      a:
+        knots:
+          A: {ra: 39.98730249960862, dec: -1.5787621154984082}
+          B: {ra: 39.98724549958468, dec: -1.5789955154925788}
+          C: {ra: 39.987280199602914, dec: -1.5788177154961276}
+      b:
+        knots:
+          A: {ra: 39.961741299167535, dec: -1.5828773128840736}
+          B: {ra: 39.96191359912985, dec: -1.5832467129016976}
+          C: {ra: 39.96176079916129, dec: -1.5829384128860684}
+  '26':
+    z: 3.9359
+    z_err: 0.01
+    reliability: 1.0
+    notes: tier diamond; z from lagattuta2019:26 (spectroscopic)
+    images:
+      a: {ra: 39.979945200357264, dec: -1.5713918147459551}
+      b: {ra: 39.974470200690426, dec: -1.5680954141859933}
+      c: {ra: 39.95717885, dec: -1.57697256, prior: 0.5, notes: 'candidate: lagattuta2019:26.c'}
+  '27':
+    z: 3.0161
+    z_err: 0.01
+    reliability: 1.0
+    notes: tier diamond; z from lagattuta2019:27 (spectroscopic)
+    images:
+      a: {ra: 39.97245220078476, dec: -1.5671586139795965}
+      b: {ra: 39.980700200384995, dec: -1.5711266148231728}
+      c: {ra: 39.95829619987821, dec: -1.5759084125316933}
+  '28':
+    z: 2.9101
+    z_err: 0.01
+    reliability: 1.0
+    notes: tier diamond; z from lagattuta2019:28 (spectroscopic)
+    images:
+      a: {ra: 39.963498199229825, dec: -1.5822822130637755}
+      b: {ra: 39.967064198999445, dec: -1.584559913428513}
+      c: {ra: 39.98782585, dec: -1.57745366, prior: 0.5, notes: 'candidate: lagattuta2019:28.c'}
+  '29':
+    z: 4.4897
+    z_err: 0.01
+    reliability: 1.0
+    knots: [A, B]
+    notes: tier diamond; z from lagattuta2019:29 (spectroscopic)
+    images:
+      a:
+        knots:
+          A: {ra: 39.98349400077747, dec: -1.567313115108905}
+          B: {ra: 39.98358660075063, dec: -1.5675761151183754}
+      b:
+        knots:
+          A: {ra: 39.96845350103924, dec: -1.5646424135706116}
+          B: {ra: 39.967649401011315, dec: -1.5649091134883675}
+      c:
+        knots:
+          A: {ra: 39.960205100538495, dec: -1.5694724127269448}
+          B: {ra: 39.96093880058721, dec: -1.5690020128019908}
+      d:
+        knots:
+          B: {ra: 39.96084685, dec: -1.56913366, prior: 0.35, notes: 'candidate: lagattuta2019:29.c'}
+  '38':
+    z: 3.2
+    z_err: 0.01
+    reliability: 1.0
+    notes: tier diamond; z from lagattuta2019:38 (spectroscopic)
+    images:
+      a: {ra: 39.97720470010802, dec: -1.573806314465669}
+      b: {ra: 39.97508890027889, dec: -1.5721210142492723}
+  L15:
+    z: 3.7084
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; from lagattuta2019 system 15; spectroscopic z
+    images:
+      a: {ra: 39.97133685, dec: -1.58060486, notes: 'class gold, note -', prior: 0.9}
+      b: {ra: 39.97194385, dec: -1.58705206, notes: 'class gold, note -', prior: 0.9}
+      c: {ra: 39.97103585, dec: -1.57779156, notes: 'class gold, note -', prior: 0.9}
+      d: {ra: 39.98401685, dec: -1.57845646, notes: 'class gold, note -', prior: 0.9}
+      e: {ra: 39.95880385, dec: -1.58054966, notes: 'class silver, note -', prior: 0.63}
+      f: {ra: 39.97039985, dec: -1.56963956, notes: 'class copper, note -', prior: 0.27}
+      g: {ra: 39.97045885, dec: -1.56894456, notes: 'class copper, note -', prior: 0.27}
+  L16:
+    z: 3.7743
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; from lagattuta2019 system 16; spectroscopic z
+    images:
+      a: {ra: 39.96402485, dec: -1.58807906, notes: 'class gold, note -', prior: 0.9}
+      b: {ra: 39.96604585, dec: -1.58903636, notes: 'class -, note 1', prior: 0.27}
+      c: {ra: 39.98442285, dec: -1.58411196, notes: 'class gold, note -', prior: 0.9}
+  L19:
+    z: 5.6493
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; from lagattuta2019 system 19; spectroscopic z
+    images:
+      a: {ra: 39.97200485, dec: -1.58786626, notes: 'class gold, note -', prior: 0.9}
+      b: {ra: 39.98515085, dec: -1.57909526, notes: 'class gold, note -', prior: 0.9}
+      c: {ra: 39.95832485, dec: -1.58131016, notes: 'class gold, note -', prior: 0.9}
+  L21:
+    z: 1.2567
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; from lagattuta2019 system 21; spectroscopic z
+    images:
+      a: {ra: 39.96674185, dec: -1.58469516, notes: 'class gold, note -', prior: 0.9}
+      b: {ra: 39.96726085, dec: -1.58497026, notes: 'class gold, note -', prior: 0.9}
+      c: {ra: 39.98154785, dec: -1.58140366, notes: 'class gold, note -', prior: 0.9}
+  L23:
+    z: 5.9386
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; from lagattuta2019 system 23; spectroscopic z
+    images:
+      a: {ra: 39.98012185, dec: -1.56672726, notes: 'class gold, note -', prior: 0.9}
+      b: {ra: 39.95732385, dec: -1.57274486, notes: 'class gold, note -', prior: 0.9}
+      c: {ra: 39.97717485, dec: -1.56627566, notes: 'class gold, note -', prior: 0.9}
+  L30:
+    z: 5.6459
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; from lagattuta2019 system 30; spectroscopic z
+    images:
+      a: {ra: 39.98335985, dec: -1.57040896, notes: 'class gold, note -', prior: 0.9}
+      b: {ra: 39.97241285, dec: -1.56635416, notes: 'class gold, note -', prior: 0.9}
+  L31:
+    z: 5.4476
+    z_err: 0.01
+    reliability: 0.7
+    notes: tier silver; from lagattuta2019 system 31; spectroscopic z
+    images:
+      a: {ra: 39.97475885, dec: -1.56933096, notes: 'class gold, note -', prior: 0.7}
+      b: {ra: 39.98067585, dec: -1.57473546, notes: 'class bronze, note -', prior: 0.35}
+      c: {ra: 39.95616485, dec: -1.57867946, notes: 'class bronze, note -', prior: 0.35}
+  L32:
+    z: 4.4953
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; from lagattuta2019 system 32; spectroscopic z
+    images:
+      a: {ra: 39.96629385, dec: -1.56934546, notes: 'class gold, note -', prior: 0.9}
+      b: {ra: 39.98810585, dec: -1.57518796, notes: 'class gold, note -', prior: 0.9}
+      c: {ra: 39.96069085, dec: -1.57838036, notes: 'class gold, note -', prior: 0.9}
+  L33:
+    z: 4.882
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; from lagattuta2019 system 33; spectroscopic z
+    images:
+      a: {ra: 39.96273085, dec: -1.58600446, notes: 'class gold, note -', prior: 0.9}
+      b: {ra: 39.96622385, dec: -1.58799696, notes: 'class gold, note -', prior: 0.9}
+  L34:
+    z: 5.2437
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; from lagattuta2019 system 34; spectroscopic z
+    images:
+      a: {ra: 39.97011585, dec: -1.57015076, notes: 'class gold, note -', prior: 0.9}
+      b: {ra: 39.97181385, dec: -1.58804036, notes: 'class gold, note -', prior: 0.9}
+      c: {ra: 39.95857485, dec: -1.58170166, notes: 'class gold, note -', prior: 0.9}
+      d: {ra: 39.98505685, dec: -1.57955986, notes: 'class gold, note -', prior: 0.9}
+  L35:
+    z: 6.1735
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; from lagattuta2019 system 35; spectroscopic z
+    images:
+      a: {ra: 39.98154685, dec: -1.56586326, notes: 'class gold, note -', prior: 0.9}
+      b: {ra: 39.97583385, dec: -1.56444316, notes: 'class gold, note -', prior: 0.9}
+  L36:
+    z: 6.2855
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; from lagattuta2019 system 36; spectroscopic z
+    images:
+      a: {ra: 39.96245285, dec: -1.58071066, notes: 'class gold, note -', prior: 0.9}
+      b: {ra: 39.96600485, dec: -1.58438536, notes: 'class gold, note -', prior: 0.9}
+  L37:
+    z: 5.6489
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; from lagattuta2019 system 37; spectroscopic z
+    images:
+      a: {ra: 39.97039985, dec: -1.56879516, notes: 'class gold, note 2', prior: 0.9}
+      b: {ra: 39.97043685, dec: -1.56942116, notes: 'class gold, note 2', prior: 0.9}
+  L39:
+    z: 4.9441
+    z_err: 0.01
+    reliability: 0.15
+    notes: tier copper; from lagattuta2019 system 39; spectroscopic z
+    images:
+      a: {ra: 39.97055485, dec: -1.56938096, notes: 'class copper, note -', prior: 0.045}
+      b: {ra: 39.96998585, dec: -1.57003756, notes: 'class copper, note -', prior: 0.045}
+      c: {ra: 39.98523185, dec: -1.57938936, notes: 'class copper, note -', prior: 0.045}
+      d: {ra: 39.97140385, dec: -1.58802086, notes: 'class copper, note -', prior: 0.045}
+  L40:
+    z: 4.3381
+    z_err: 0.01
+    reliability: 0.15
+    notes: tier copper; from lagattuta2019 system 40; spectroscopic z
+    images:
+      a: {ra: 39.97064085, dec: -1.57104016, notes: 'class copper, note -', prior: 0.045}
+      b: {ra: 39.98317085, dec: -1.57966726, notes: 'class copper, note -', prior: 0.045}
+      c: {ra: 39.97339185, dec: -1.58744736, notes: 'class copper, note -', prior: 0.045}
+      d: {ra: 39.95797585, dec: -1.58150896, notes: 'class copper, note -', prior: 0.045}
+  L41:
+    z: 1.272
+    z_err: 0.227
+    reliability: 0.4
+    notes: tier bronze; from lagattuta2019 system 41; geometric z (lens-model prediction; free in the model)
+    images:
+      a: {ra: 39.96545085, dec: -1.57802306, notes: 'class silver, note -', prior: 0.28}
+      b: {ra: 39.96794185, dec: -1.57734806, notes: 'class silver, note -', prior: 0.28}
+      c: {ra: 39.98230485, dec: -1.57697586, notes: 'class silver, note -', prior: 0.28}
+  L42:
+    z: 1.0315
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; from lagattuta2019 system 42; spectroscopic z
+    images:
+      a: {ra: 39.96358785, dec: -1.56563416, notes: 'class gold, note -', prior: 0.9}
+      b: {ra: 39.96296685, dec: -1.56611196, notes: 'class gold, note -', prior: 0.9}
+      c: {ra: 39.96338385, dec: -1.56595366, notes: 'class gold, note -', prior: 0.9}
+  L43:
+    z: 1.973
+    z_err: 0.297
+    reliability: 0.4
+    notes: tier bronze; from lagattuta2019 system 43; geometric z (lens-model prediction; free in the model)
+    images:
+      a: {ra: 39.96212585, dec: -1.57525086, notes: 'class bronze, note -', prior: 0.2}
+      b: {ra: 39.98406285, dec: -1.57335646, notes: 'class copper, note -', prior: 0.12}
+      c: {ra: 39.96657185, dec: -1.56967026, notes: 'class bronze, note -', prior: 0.2}
+  L44:
+    z: 2.336
+    z_err: 0.334
+    reliability: 0.4
+    notes: tier bronze; from lagattuta2019 system 44; geometric z (lens-model prediction; free in the model)
+    images:
+      a: {ra: 39.97772585, dec: -1.58279256, notes: 'class silver, note -', prior: 0.28}
+      b: {ra: 39.97665485, dec: -1.58360366, notes: 'class silver, note -', prior: 0.28}
+  L45:
+    z: 8.593
+    z_err: 0.959
+    reliability: 0.15
+    notes: tier copper; from lagattuta2019 system 45; geometric z (lens-model prediction; free in the model)
+    images:
+      a: {ra: 39.98240885, dec: -1.58110086, notes: 'class copper, note -', prior: 0.045}
+      b: {ra: 39.97588385, dec: -1.58726086, notes: 'class copper, note -', prior: 0.045}

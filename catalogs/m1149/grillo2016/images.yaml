@@ -1,0 +1,70 @@
+# Grillo et al. 2016, ApJ 822, 78, Table 2 (VizieR J/ApJ/822/78): multiple images converted on 2026-11-08 by scripts/convert_m1149_catalogs.py.
+# Every row, published systems; image n -> nth lowercase letter.  See the README for the redshifts and positions.
+format: lenscluster-images/1
+systems:
+  '2':
+    z: 1.892
+    notes: spectroscopic z
+    images:
+      a: {ra: 177.4024293, dec: 22.38975}
+      b: {ra: 177.4060436, dec: 22.3924611}
+      c: {ra: 177.4065814, dec: 22.3928861}
+  '3':
+    z: 3.13
+    notes: spectroscopic z
+    images:
+      a: {ra: 177.390751, dec: 22.3998389}
+      b: {ra: 177.3927099, dec: 22.4030806}
+      c: {ra: 177.4012936, dec: 22.4071889}
+  '4':
+    z: 2.949
+    notes: spectroscopic z
+    images:
+      a: {ra: 177.3930224, dec: 22.3968333}
+      b: {ra: 177.3944014, dec: 22.4007361}
+      c: {ra: 177.4042019, dec: 22.4061194}
+  '5':
+    z: 2.8
+    notes: spectroscopic z
+    images:
+      a: {ra: 177.3997523, dec: 22.3930611}
+      b: {ra: 177.4011013, dec: 22.3938333}
+  '6':
+    z: 0.0
+    notes: free z in the model
+    images:
+      a: {ra: 177.3997103, dec: 22.3925444}
+      b: {ra: 177.4018314, dec: 22.3938583}
+  '7':
+    z: 0.0
+    notes: free z in the model
+    images:
+      a: {ra: 177.3989622, dec: 22.3913389}
+      b: {ra: 177.4034027, dec: 22.3942806}
+      c: {ra: 177.4075789, dec: 22.4012417}
+  '8':
+    z: 0.0
+    notes: free z in the model
+    images:
+      a: {ra: 177.3984995, dec: 22.39435}
+      b: {ra: 177.3997914, dec: 22.3950444}
+      c: {ra: 177.4070892, dec: 22.4047222}
+  '13':
+    z: 1.24
+    notes: spectroscopic z
+    images:
+      a: {ra: 177.4037122, dec: 22.3977861}
+      b: {ra: 177.4028319, dec: 22.3966472}
+      c: {ra: 177.4000317, dec: 22.3938583}
+  '14':
+    z: 3.703
+    notes: spectroscopic z
+    images:
+      a: {ra: 177.3916704, dec: 22.4035111}
+      b: {ra: 177.3908411, dec: 22.4026417}
+  '110':
+    z: 3.216
+    notes: spectroscopic z
+    images:
+      a: {ra: 177.4001519, dec: 22.3901611}
+      b: {ra: 177.4040307, dec: 22.3929028}

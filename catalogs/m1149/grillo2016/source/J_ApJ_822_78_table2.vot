@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VOTABLE version="1.4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns="http://www.ivoa.net/xml/VOTable/v1.3"
+  xsi:schemaLocation="http://www.ivoa.net/xml/VOTable/v1.3 http://www.ivoa.net/xml/VOTable/v1.3">
+ <DESCRIPTION>
+   VizieR Astronomical Server vizier.cfa.harvard.edu
+    Date: 2026-11-08T19:26:10 [V7.6.1]
+   Explanations and Statistics of UCDs:			See LINK below
+   In case of problem, please report to:	cds-question@unistra.fr
+ </DESCRIPTION>
+<!-- VOTable description at http://www.ivoa.net/Documents/latest/VOT.html -->
+<INFO name="service_protocol" value="ASU">  IVOID of the protocol through which the data was retrieved</INFO>
+<INFO name="request_date" value="2026-11-08T19:26:10">  Query execution date</INFO>
+<INFO name="request" value="https://vizier.cfa.harvard.edu/viz-bin/votable?-source=J/ApJ/822/78/table2&amp;-out.all&amp;-out.max=unlimited">  Full request URL</INFO>
+<INFO name="contact" value="cds-question@unistra.fr">  Email or URL to contact publisher</INFO>
+<INFO name="server_software" value="VizieR/7.6.1">  Software version</INFO>
+<INFO name="publisher" value="CDS">  Data centre that produced the VOTable</INFO>
+
+<!--
+Execution Reports
+ -->
+
+<RESOURCE ID="yCat_18220078" name="J/ApJ/822/78" type="results">
+  <DESCRIPTION>VLT/MUSE spectroscopic obs. of MACS J1149.5+2223 (Grillo+, 2016)</DESCRIPTION>  <INFO name="ivoid" value="ivo://cds.vizier/j/apj/822/78">    IVOID of underlying data collection  </INFO>
+  <INFO name="data_ivoid" value="ivo://cds.vizier/j/apj/822/78">    IVOID of underlying data collection  </INFO>
+  <INFO name="creator" value="Grillo C.">    First author or institution  </INFO>
+  <INFO name="cites" value="bibcode:2016ApJ...822...78G">    Article or Data origin sources  </INFO>
+  <INFO name="journal" value="ApJ">    Journal name  </INFO>
+  <INFO name="original_date" value="2016">    Year of the article publication  </INFO>
+  <INFO name="reference_url" value="https://cdsarc.cds.unistra.fr/viz-bin/cat/J/ApJ/822/78">    Dataset landing page  </INFO>
+  <INFO name="citation" value="doi:10.26093/cds/vizier.18220078">    Dataset identifier that can be used for citation  </INFO>
+  <INFO name="publication_date" value="2021-01-25">    Date of first publication in the data centre  </INFO>
+  <INFO name="rights_uri" value="https://cds.unistra.fr/vizier-org/licences_vizier.html">    Licence URI  </INFO>
+
+  <COOSYS ID="J2000" system="eq_FK5" equinox="J2000"/>
+  <TABLE ID="J_ApJ_822_78_table2" name="J/ApJ/822/78/table2">
+    <DESCRIPTION>Angular positions and spectroscopic redshifts of the multiple image systems</DESCRIPTION>
+    <!-- Definitions of GROUPs and FIELDs -->
+
+<!-- +++No column could be found to attach a LINK in table: J/ApJ/822/78/table2 -->
+    <FIELD name="recno" ucd="meta.record" datatype="int" width="8"><!-- ucd="RECORD" -->
+      <DESCRIPTION>Record number assigned by the VizieR team. Should Not be used for identification.</DESCRIPTION>
+      <LINK href="http://vizier.cfa.harvard.edu/viz-bin/VizieR-5?-info=XML&amp;-out.add=.&amp;-source=J/ApJ/822/78/table2&amp;recno=${recno}"/>
+    </FIELD>
+    <FIELD name="T16" ucd="meta.id;meta.main" datatype="short" width="3"><!-- ucd="ID_MAIN" -->
+      <DESCRIPTION>[2/110] Main ID from Treu+ (2016, J/ApJ/817/60) (G1)</DESCRIPTION>
+      <LINK href="http://vizier.cfa.harvard.edu/viz-bin/VizieR-4?-info=XML&amp;-out.add=.&amp;-source=J/ApJ/817/60/table2&amp;ID=${T16}"/>
+    </FIELD>
+    <FIELD name="offX" ucd="pos;arith.diff" datatype="float" width="6" precision="2" unit="arcsec"><!-- ucd="POS_OFFSET" -->
+      <DESCRIPTION>X offset from BCG Luminosity center (G2)</DESCRIPTION>
+    </FIELD>
+    <FIELD name="offY" ucd="pos;arith.diff" datatype="float" width="6" precision="2" unit="arcsec"><!-- ucd="POS_OFFSET" -->
+      <DESCRIPTION>Y offset from BCG Luminosity center (G2)</DESCRIPTION>
+    </FIELD>
+    <FIELD name="z" ucd="src.redshift" datatype="float" width="6" precision="3"><!-- ucd="REDSHIFT_HC" -->
+      <DESCRIPTION>[1.2/3.71]? Spectroscopic redshift</DESCRIPTION>
+      <VALUES null="NaN" />
+    </FIELD>
+    <FIELD name="IDsp" ucd="meta.id.assoc" datatype="short" width="3"><!-- ucd="ID_ASSOCIATED" -->
+      <DESCRIPTION>[106/118]? MUSE Spectroscopic Object ID in MACS J1149.5+2223</DESCRIPTION>
+<!-- [106/118]? MUSE Spectroscopic Object ID in MACS J1149.5+2223 \linkRole{MUSE spectroscopic data (table 1)} -->
+
+      <VALUES null="-32768" />
+      <LINK href="http://vizier.cfa.harvard.edu/viz-bin/VizieR-5?-info=XML&amp;-out.add=.&amp;-source=J/ApJ/822/78&amp;-corr=PK=IDsp&amp;IDsp===${IDsp}"/>
+    </FIELD>
+    <FIELD name="_RA" ucd="pos.eq.ra;meta.main" ref="J2000" datatype="double" width="9" precision="5" unit="deg"><!-- ucd="POS_EQ_RA_MAIN" -->
+      <DESCRIPTION>Positions computed from BCG position (11:49:35.699+22:23:54.71) with X and Y offsets (right ascension part)</DESCRIPTION>
+    </FIELD>
+    <FIELD name="_DE" ucd="pos.eq.dec;meta.main" ref="J2000" datatype="double" width="9" precision="5" unit="deg"><!-- ucd="POS_EQ_DEC_MAIN" -->
+      <DESCRIPTION>Positions computed from BCG position (11:49:35.699+22:23:54.71) with X and Y offsets (declination part)</DESCRIPTION>
+    </FIELD>
+<DATA><TABLEDATA>
+<TR><TD>1</TD><TD>2</TD><TD>-12.26</TD><TD>-31.61</TD><TD>1.892</TD><TD>112</TD><TD>177.39506</TD><TD>+22.38975</TD></TR>
+<TR><TD>2</TD><TD>2</TD><TD>-24.29</TD><TD>-21.85</TD><TD>1.892</TD><TD>112</TD><TD>177.39145</TD><TD>+22.39246</TD></TR>
+<TR><TD>3</TD><TD>2</TD><TD>-26.08</TD><TD>-20.32</TD><TD>1.892</TD><TD>112</TD><TD>177.39091</TD><TD>+22.39289</TD></TR>
+<TR><TD>4</TD><TD>3</TD><TD>26.61</TD><TD>4.71</TD><TD>3.130</TD><TD>116</TD><TD>177.40674</TD><TD>+22.39984</TD></TR>
+<TR><TD>5</TD><TD>3</TD><TD>20.09</TD><TD>16.38</TD><TD>3.130</TD><TD>116</TD><TD>177.40478</TD><TD>+22.40308</TD></TR>
+<TR><TD>6</TD><TD>3</TD><TD>-8.48</TD><TD>31.17</TD><TD>3.130</TD><TD>116</TD><TD>177.39620</TD><TD>+22.40719</TD></TR>
+<TR><TD>7</TD><TD>4</TD><TD>19.05</TD><TD>-6.11</TD><TD>2.949</TD><TD>113</TD><TD>177.40447</TD><TD>+22.39683</TD></TR>
+<TR><TD>8</TD><TD>4</TD><TD>14.46</TD><TD>7.94</TD><TD>2.949</TD><TD>113</TD><TD>177.40309</TD><TD>+22.40074</TD></TR>
+<TR><TD>9</TD><TD>4</TD><TD>-18.16</TD><TD>27.32</TD><TD>2.949</TD><TD>113</TD><TD>177.39329</TD><TD>+22.40612</TD></TR>
+<TR><TD>10</TD><TD>5</TD><TD>-3.35</TD><TD>-19.69</TD><TD>2.800</TD><TD></TD><TD>177.39774</TD><TD>+22.39306</TD></TR>
+<TR><TD>11</TD><TD>5</TD><TD>-7.84</TD><TD>-16.91</TD><TD>2.800</TD><TD></TD><TD>177.39639</TD><TD>+22.39383</TD></TR>
+<TR><TD>12</TD><TD>6</TD><TD>-3.21</TD><TD>-21.55</TD><TD></TD><TD></TD><TD>177.39778</TD><TD>+22.39254</TD></TR>
+<TR><TD>13</TD><TD>6</TD><TD>-10.27</TD><TD>-16.82</TD><TD></TD><TD></TD><TD>177.39566</TD><TD>+22.39386</TD></TR>
+<TR><TD>14</TD><TD>7</TD><TD>-0.72</TD><TD>-25.89</TD><TD></TD><TD></TD><TD>177.39853</TD><TD>+22.39134</TD></TR>
+<TR><TD>15</TD><TD>7</TD><TD>-15.50</TD><TD>-15.30</TD><TD></TD><TD></TD><TD>177.39409</TD><TD>+22.39428</TD></TR>
+<TR><TD>16</TD><TD>7</TD><TD>-29.40</TD><TD>9.76</TD><TD></TD><TD></TD><TD>177.38991</TD><TD>+22.40124</TD></TR>
+<TR><TD>17</TD><TD>8</TD><TD>0.82</TD><TD>-15.05</TD><TD></TD><TD></TD><TD>177.39899</TD><TD>+22.39435</TD></TR>
+<TR><TD>18</TD><TD>8</TD><TD>-3.48</TD><TD>-12.55</TD><TD></TD><TD></TD><TD>177.39770</TD><TD>+22.39504</TD></TR>
+<TR><TD>19</TD><TD>8</TD><TD>-27.77</TD><TD>22.29</TD><TD></TD><TD></TD><TD>177.39040</TD><TD>+22.40472</TD></TR>
+<TR><TD>20</TD><TD>13</TD><TD>-16.53</TD><TD>-2.68</TD><TD>1.240</TD><TD>106</TD><TD>177.39378</TD><TD>+22.39779</TD></TR>
+<TR><TD>21</TD><TD>13</TD><TD>-13.60</TD><TD>-6.78</TD><TD>1.240</TD><TD>106</TD><TD>177.39466</TD><TD>+22.39665</TD></TR>
+<TR><TD>22</TD><TD>13</TD><TD>-4.28</TD><TD>-16.82</TD><TD>1.240</TD><TD>106</TD><TD>177.39746</TD><TD>+22.39386</TD></TR>
+<TR><TD>23</TD><TD>14</TD><TD>23.55</TD><TD>17.93</TD><TD>3.703</TD><TD>118</TD><TD>177.40582</TD><TD>+22.40351</TD></TR>
+<TR><TD>24</TD><TD>14</TD><TD>26.31</TD><TD>14.80</TD><TD>3.703</TD><TD>118</TD><TD>177.40665</TD><TD>+22.40264</TD></TR>
+<TR><TD>25</TD><TD>110</TD><TD>-4.68</TD><TD>-30.13</TD><TD>3.216</TD><TD>117</TD><TD>177.39734</TD><TD>+22.39016</TD></TR>
+<TR><TD>26</TD><TD>110</TD><TD>-17.59</TD><TD>-20.26</TD><TD>3.216</TD><TD>117</TD><TD>177.39346</TD><TD>+22.39290</TD></TR>
+</TABLEDATA></DATA>
+</TABLE>
+<INFO name="matches" value="26">matching records</INFO>
+</RESOURCE>
+</VOTABLE>

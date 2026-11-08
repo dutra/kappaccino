@@ -24,3 +24,15 @@ def test_population_curves_preserve_joint_draws_and_ignore_member_offsets():
     table.loc[1, "luminosity_ratio"] = .2
     with pytest.raises(ValueError, match="pivot"):
         population_scaling_draws(table, posterior, specs)
+
+
+def test_population_curves_use_fixed_relation_fields():
+    specs = [SimpleNamespace(name=f"potfile_1.{field}") for field in ("sigma", "cutkpc")]
+    posterior = np.array([[100., 10.], [200., 4.]])
+    table = pd.DataFrame(dict(potfile_id=["potfile_1"] * 2, catalog_mag=[20., 22.5], luminosity_ratio=[1., .1]))
+    with pytest.raises(KeyError, match="alpha_sigma"):
+        population_scaling_draws(table, posterior, specs)
+    fixed = {"potfile_1.alpha_sigma": .25, "potfile_1.beta_radius": .5}
+    _, curves = population_scaling_draws(table, posterior, specs, fixed)["potfile_1"]
+    np.testing.assert_allclose(curves["v_disp"][:, -1], [100 * .1**.25, 200 * .1**.25])
+    np.testing.assert_allclose(curves["cut_radius_kpc"][:, -1], [10 * .1**.5, 4 * .1**.5])

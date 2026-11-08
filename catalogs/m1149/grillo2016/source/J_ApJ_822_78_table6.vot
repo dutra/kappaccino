@@ -1,0 +1,381 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VOTABLE version="1.4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns="http://www.ivoa.net/xml/VOTable/v1.3"
+  xsi:schemaLocation="http://www.ivoa.net/xml/VOTable/v1.3 http://www.ivoa.net/xml/VOTable/v1.3">
+ <DESCRIPTION>
+   VizieR Astronomical Server vizier.cfa.harvard.edu
+    Date: 2026-11-08T19:26:11 [V7.6.1]
+   Explanations and Statistics of UCDs:			See LINK below
+   In case of problem, please report to:	cds-question@unistra.fr
+ </DESCRIPTION>
+<!-- VOTable description at http://www.ivoa.net/Documents/latest/VOT.html -->
+<INFO name="service_protocol" value="ASU">  IVOID of the protocol through which the data was retrieved</INFO>
+<INFO name="request_date" value="2026-11-08T19:26:11">  Query execution date</INFO>
+<INFO name="request" value="https://vizier.cfa.harvard.edu/viz-bin/votable?-source=J/ApJ/822/78/table6&amp;-out.all&amp;-out.max=unlimited">  Full request URL</INFO>
+<INFO name="contact" value="cds-question@unistra.fr">  Email or URL to contact publisher</INFO>
+<INFO name="server_software" value="VizieR/7.6.1">  Software version</INFO>
+<INFO name="publisher" value="CDS">  Data centre that produced the VOTable</INFO>
+
+<!--
+Execution Reports
+ -->
+
+<RESOURCE ID="yCat_18220078" name="J/ApJ/822/78" type="results">
+  <DESCRIPTION>VLT/MUSE spectroscopic obs. of MACS J1149.5+2223 (Grillo+, 2016)</DESCRIPTION>  <INFO name="ivoid" value="ivo://cds.vizier/j/apj/822/78">    IVOID of underlying data collection  </INFO>
+  <INFO name="data_ivoid" value="ivo://cds.vizier/j/apj/822/78">    IVOID of underlying data collection  </INFO>
+  <INFO name="creator" value="Grillo C.">    First author or institution  </INFO>
+  <INFO name="cites" value="bibcode:2016ApJ...822...78G">    Article or Data origin sources  </INFO>
+  <INFO name="journal" value="ApJ">    Journal name  </INFO>
+  <INFO name="original_date" value="2016">    Year of the article publication  </INFO>
+  <INFO name="reference_url" value="https://cdsarc.cds.unistra.fr/viz-bin/cat/J/ApJ/822/78">    Dataset landing page  </INFO>
+  <INFO name="citation" value="doi:10.26093/cds/vizier.18220078">    Dataset identifier that can be used for citation  </INFO>
+  <INFO name="publication_date" value="2021-01-25">    Date of first publication in the data centre  </INFO>
+  <INFO name="rights_uri" value="https://cds.unistra.fr/vizier-org/licences_vizier.html">    Licence URI  </INFO>
+
+  <COOSYS ID="J2000" system="eq_FK5" equinox="J2000"/>
+  <TABLE ID="J_ApJ_822_78_table6" name="J/ApJ/822/78/table6">
+    <DESCRIPTION>Catalog of the 300 candidate cluster members</DESCRIPTION>
+    <!-- Definitions of GROUPs and FIELDs -->
+    <FIELD name="recno" ucd="meta.record" datatype="int" width="8"><!-- ucd="RECORD" -->
+      <DESCRIPTION>Record number assigned by the VizieR team. Should Not be used for identification.</DESCRIPTION>
+      <LINK href="http://vizier.cfa.harvard.edu/viz-bin/VizieR-5?-info=XML&amp;-out.add=.&amp;-source=J/ApJ/822/78/table6&amp;recno=${recno}"/>
+    </FIELD>
+    <FIELD name="IDph" ucd="meta.id.assoc" datatype="short" width="4"><!-- ucd="ID_ASSOCIATED" -->
+      <DESCRIPTION>[1/300] Photometric Object ID in MACS J1149.5+2223 (1)</DESCRIPTION>
+      <LINK href="http://vizier.cfa.harvard.edu/viz-bin/VizieR-5?-info=XML&amp;-out.add=.&amp;-source=J/ApJ/822/78/table6&amp;recno=${recno}"/>
+    </FIELD>
+    <FIELD name="RAJ2000" ucd="pos.eq.ra;meta.main" ref="J2000" datatype="char" arraysize="12" xtype="hms"><!-- ucd="POS_EQ_RA_MAIN" -->
+      <DESCRIPTION>[11] Hour of Right Ascension (J2000)</DESCRIPTION>
+    </FIELD>
+    <FIELD name="DEJ2000" ucd="pos.eq.dec;meta.main" ref="J2000" datatype="char" arraysize="12" xtype="dms"><!-- ucd="POS_EQ_DEC_MAIN" -->
+      <DESCRIPTION>[22] Degree of Declination (J2000)</DESCRIPTION>
+    </FIELD>
+    <FIELD name="F160W" ucd="phot.mag;em.IR.H" datatype="float" width="5" precision="2" unit="mag"><!-- ucd="PHOT_MAG_H" -->
+      <DESCRIPTION>[17.9/24.6] HST/WFC3 F160W AB magnitude</DESCRIPTION>
+    </FIELD>
+    <FIELD name="e_F160W" ucd="stat.error" datatype="float" width="5" precision="2" unit="mag"><!-- ucd="ERROR" -->
+      <DESCRIPTION>[0.01/0.08] Uncertainty in F160W</DESCRIPTION>
+    </FIELD>
+    <FIELD name="Obs" ucd="meta.code" datatype="char" arraysize="5*"><!-- ucd="CODE_MISC" -->
+      <DESCRIPTION>Observation Code(s) (2)</DESCRIPTION>
+      <LINK href="http://vizier.cfa.harvard.edu/viz-bin/VizieR?-6N&amp;-info=XML&amp;-out.add=.&amp;&amp;lt;&amp;quot;Note&amp;quot;&amp;catid=18220078&amp;notid=6&amp;-out.emph=${Obs}"/>
+    </FIELD>
+    <FIELD name="Notes" ucd="meta.note" datatype="char" arraysize="3"><!-- ucd="NOTE" -->
+      <DESCRIPTION>Notes (3)</DESCRIPTION>
+      <LINK href="http://vizier.cfa.harvard.edu/viz-bin/VizieR?-6N&amp;-info=XML&amp;-out.add=.&amp;&amp;lt;&amp;quot;Note&amp;quot;&amp;catid=18220078&amp;notid=7&amp;-out.emph=${Notes}"/>
+    </FIELD>
+    <FIELD name="MCat" ucd="meta.ref.url" datatype="short" width="3"><!-- ucd="DATA_LINK" -->
+      <DESCRIPTION>Display data from MCS J1149.6+2223 catalogs (Postman+, 2012, J/ApJS/199/25 and Ebeling+, 2014, J/ApJS/211/21) within 0.5"</DESCRIPTION>
+      <VALUES null="-32768" />
+    </FIELD>
+    <FIELD name="Simbad" ucd="meta.ref.url" datatype="char" arraysize="6*"><!-- ucd="DATA_LINK" -->
+      <DESCRIPTION>Simbad column added by the CDS</DESCRIPTION>
+<!-- ask the {\bf\fg{FireBrick}Simbad} data-base about this object -->
+
+    </FIELD>
+<DATA><TABLEDATA>
+<TR><TD>1</TD><TD>1</TD><TD>11 49 29.546</TD><TD>+22 23 34.80</TD><TD>21.17</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>2</TD><TD>2</TD><TD>11 49 29.994</TD><TD>+22 24 16.26</TD><TD>23.26</TD><TD>0.03</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>3</TD><TD>3</TD><TD>11 49 30.283</TD><TD>+22 23 29.97</TD><TD>22.24</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>4</TD><TD>4</TD><TD>11 49 30.337</TD><TD>+22 24 01.61</TD><TD>22.26</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>5</TD><TD>5</TD><TD>11 49 30.372</TD><TD>+22 24 18.81</TD><TD>20.45</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>6</TD><TD>6</TD><TD>11 49 30.392</TD><TD>+22 24 07.47</TD><TD>23.30</TD><TD>0.04</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>7</TD><TD>7</TD><TD>11 49 30.460</TD><TD>+22 23 40.64</TD><TD>21.20</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>8</TD><TD>8</TD><TD>11 49 30.634</TD><TD>+22 24 11.26</TD><TD>21.60</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>9</TD><TD>9</TD><TD>11 49 30.661</TD><TD>+22 23 38.45</TD><TD>23.75</TD><TD>0.03</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>10</TD><TD>10</TD><TD>11 49 30.891</TD><TD>+22 23 34.11</TD><TD>22.77</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>11</TD><TD>11</TD><TD>11 49 31.041</TD><TD>+22 24 32.08</TD><TD>22.88</TD><TD>0.02</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>12</TD><TD>12</TD><TD>11 49 31.068</TD><TD>+22 23 02.00</TD><TD>23.38</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>13</TD><TD>13</TD><TD>11 49 31.117</TD><TD>+22 23 58.49</TD><TD>23.50</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>14</TD><TD>14</TD><TD>11 49 31.132</TD><TD>+22 23 42.35</TD><TD>22.08</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>15</TD><TD>15</TD><TD>11 49 31.156</TD><TD>+22 24 25.41</TD><TD>23.05</TD><TD>0.04</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>16</TD><TD>16</TD><TD>11 49 31.165</TD><TD>+22 24 30.35</TD><TD>23.58</TD><TD>0.05</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>17</TD><TD>17</TD><TD>11 49 31.226</TD><TD>+22 23 00.10</TD><TD>23.81</TD><TD>0.04</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>18</TD><TD>18</TD><TD>11 49 31.328</TD><TD>+22 23 52.42</TD><TD>21.30</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>19</TD><TD>19</TD><TD>11 49 31.462</TD><TD>+22 24 04.09</TD><TD>22.45</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>20</TD><TD>20</TD><TD>11 49 31.606</TD><TD>+22 23 49.15</TD><TD>19.00</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>21</TD><TD>21</TD><TD>11 49 31.741</TD><TD>+22 23 48.66</TD><TD>23.48</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>22</TD><TD>22</TD><TD>11 49 31.788</TD><TD>+22 23 55.19</TD><TD>21.19</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>23</TD><TD>23</TD><TD>11 49 31.810</TD><TD>+22 24 25.80</TD><TD>22.91</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>24</TD><TD>24</TD><TD>11 49 31.860</TD><TD>+22 24 47.15</TD><TD>21.13</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>25</TD><TD>25</TD><TD>11 49 31.861</TD><TD>+22 23 24.85</TD><TD>19.55</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>26</TD><TD>26</TD><TD>11 49 31.912</TD><TD>+22 24 24.97</TD><TD>21.98</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>27</TD><TD>27</TD><TD>11 49 31.958</TD><TD>+22 24 57.31</TD><TD>22.52</TD><TD>0.02</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>28</TD><TD>28</TD><TD>11 49 32.012</TD><TD>+22 24 01.80</TD><TD>23.14</TD><TD>0.03</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>29</TD><TD>29</TD><TD>11 49 32.048</TD><TD>+22 24 53.78</TD><TD>21.12</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>30</TD><TD>30</TD><TD>11 49 32.062</TD><TD>+22 24 38.60</TD><TD>22.74</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>31</TD><TD>31</TD><TD>11 49 32.093</TD><TD>+22 25 01.55</TD><TD>22.28</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>32</TD><TD>32</TD><TD>11 49 32.136</TD><TD>+22 23 58.94</TD><TD>22.57</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>33</TD><TD>33</TD><TD>11 49 32.137</TD><TD>+22 24 37.03</TD><TD>19.70</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>34</TD><TD>34</TD><TD>11 49 32.157</TD><TD>+22 23 05.06</TD><TD>20.40</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>35</TD><TD>35</TD><TD>11 49 32.161</TD><TD>+22 24 24.04</TD><TD>21.76</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>36</TD><TD>36</TD><TD>11 49 32.180</TD><TD>+22 23 38.99</TD><TD>21.27</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>37</TD><TD>37</TD><TD>11 49 32.190</TD><TD>+22 23 37.86</TD><TD>19.11</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>38</TD><TD>38</TD><TD>11 49 32.246</TD><TD>+22 24 33.48</TD><TD>23.31</TD><TD>0.03</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>39</TD><TD>39</TD><TD>11 49 32.320</TD><TD>+22 24 53.86</TD><TD>22.88</TD><TD>0.03</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>40</TD><TD>40</TD><TD>11 49 32.320</TD><TD>+22 23 13.30</TD><TD>19.49</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>41</TD><TD>41</TD><TD>11 49 32.326</TD><TD>+22 24 10.44</TD><TD>23.27</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>42</TD><TD>42</TD><TD>11 49 32.334</TD><TD>+22 24 01.77</TD><TD>20.03</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>43</TD><TD>43</TD><TD>11 49 32.342</TD><TD>+22 23 59.29</TD><TD>23.88</TD><TD>0.04</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>44</TD><TD>44</TD><TD>11 49 32.367</TD><TD>+22 23 55.84</TD><TD>21.73</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>45</TD><TD>45</TD><TD>11 49 32.425</TD><TD>+22 23 48.15</TD><TD>23.88</TD><TD>0.03</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>46</TD><TD>46</TD><TD>11 49 32.716</TD><TD>+22 25 01.15</TD><TD>23.76</TD><TD>0.04</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>47</TD><TD>47</TD><TD>11 49 32.719</TD><TD>+22 24 12.76</TD><TD>23.22</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>48</TD><TD>48</TD><TD>11 49 32.731</TD><TD>+22 24 49.35</TD><TD>21.93</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>49</TD><TD>49</TD><TD>11 49 32.789</TD><TD>+22 24 49.14</TD><TD>21.27</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>50</TD><TD>50</TD><TD>11 49 32.811</TD><TD>+22 22 37.70</TD><TD>23.69</TD><TD>0.07</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>51</TD><TD>51</TD><TD>11 49 32.896</TD><TD>+22 24 39.74</TD><TD>22.12</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>52</TD><TD>52</TD><TD>11 49 32.964</TD><TD>+22 23 56.27</TD><TD>20.34</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>53</TD><TD>53</TD><TD>11 49 32.982</TD><TD>+22 23 40.95</TD><TD>19.78</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>54</TD><TD>54</TD><TD>11 49 33.022</TD><TD>+22 23 15.29</TD><TD>20.97</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>55</TD><TD>55</TD><TD>11 49 33.022</TD><TD>+22 23 13.25</TD><TD>20.08</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>56</TD><TD>56</TD><TD>11 49 33.038</TD><TD>+22 22 51.19</TD><TD>23.98</TD><TD>0.08</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>57</TD><TD>57</TD><TD>11 49 33.049</TD><TD>+22 23 37.50</TD><TD>20.91</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>58</TD><TD>58</TD><TD>11 49 33.075</TD><TD>+22 23 43.42</TD><TD>20.94</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>59</TD><TD>59</TD><TD>11 49 33.129</TD><TD>+22 24 42.53</TD><TD>20.85</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>60</TD><TD>60</TD><TD>11 49 33.147</TD><TD>+22 24 49.54</TD><TD>20.02</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>61</TD><TD>61</TD><TD>11 49 33.148</TD><TD>+22 24 30.25</TD><TD>19.28</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>62</TD><TD>62</TD><TD>11 49 33.189</TD><TD>+22 24 08.13</TD><TD>23.27</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>63</TD><TD>63</TD><TD>11 49 33.196</TD><TD>+22 24 42.12</TD><TD>21.52</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>64</TD><TD>64</TD><TD>11 49 33.219</TD><TD>+22 23 35.74</TD><TD>23.96</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>65</TD><TD>65</TD><TD>11 49 33.223</TD><TD>+22 23 59.76</TD><TD>23.22</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>66</TD><TD>66</TD><TD>11 49 33.295</TD><TD>+22 24 01.20</TD><TD>23.41</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>67</TD><TD>67</TD><TD>11 49 33.328</TD><TD>+22 24 50.94</TD><TD>21.12</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>68</TD><TD>68</TD><TD>11 49 33.360</TD><TD>+22 23 05.28</TD><TD>22.28</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>69</TD><TD>69</TD><TD>11 49 33.403</TD><TD>+22 22 55.48</TD><TD>23.01</TD><TD>0.02</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>70</TD><TD>70</TD><TD>11 49 33.467</TD><TD>+22 23 33.40</TD><TD>20.64</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>71</TD><TD>71</TD><TD>11 49 33.468</TD><TD>+22 23 38.09</TD><TD>18.88</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>72</TD><TD>72</TD><TD>11 49 33.473</TD><TD>+22 24 22.95</TD><TD>20.18</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>73</TD><TD>73</TD><TD>11 49 33.507</TD><TD>+22 25 00.19</TD><TD>23.45</TD><TD>0.04</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>74</TD><TD>74</TD><TD>11 49 33.527</TD><TD>+22 23 33.74</TD><TD>19.48</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>75</TD><TD>75</TD><TD>11 49 33.627</TD><TD>+22 24 56.55</TD><TD>22.35</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>76</TD><TD>76</TD><TD>11 49 33.637</TD><TD>+22 24 14.00</TD><TD>20.87</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>77</TD><TD>77</TD><TD>11 49 33.671</TD><TD>+22 24 50.32</TD><TD>23.27</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>78</TD><TD>78</TD><TD>11 49 33.682</TD><TD>+22 22 50.77</TD><TD>20.51</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>79</TD><TD>79</TD><TD>11 49 33.721</TD><TD>+22 23 07.32</TD><TD>22.49</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>80</TD><TD>80</TD><TD>11 49 33.776</TD><TD>+22 24 33.97</TD><TD>23.60</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>81</TD><TD>81</TD><TD>11 49 33.832</TD><TD>+22 24 06.05</TD><TD>20.11</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>82</TD><TD>82</TD><TD>11 49 33.851</TD><TD>+22 24 11.82</TD><TD>23.16</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>83</TD><TD>83</TD><TD>11 49 33.863</TD><TD>+22 24 17.68</TD><TD>19.53</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>84</TD><TD>84</TD><TD>11 49 33.889</TD><TD>+22 23 33.77</TD><TD>19.94</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>85</TD><TD>85</TD><TD>11 49 33.921</TD><TD>+22 24 28.05</TD><TD>22.08</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>86</TD><TD>86</TD><TD>11 49 33.932</TD><TD>+22 24 03.85</TD><TD>21.57</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>87</TD><TD>87</TD><TD>11 49 33.946</TD><TD>+22 22 46.26</TD><TD>22.48</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>88</TD><TD>88</TD><TD>11 49 34.003</TD><TD>+22 23 26.22</TD><TD>19.78</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>89</TD><TD>89</TD><TD>11 49 34.038</TD><TD>+22 24 19.04</TD><TD>20.18</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>90</TD><TD>90</TD><TD>11 49 34.105</TD><TD>+22 24 12.28</TD><TD>23.28</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>91</TD><TD>91</TD><TD>11 49 34.120</TD><TD>+22 24 04.61</TD><TD>21.93</TD><TD>0.01</TD><TD>M</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>92</TD><TD>92</TD><TD>11 49 34.125</TD><TD>+22 24 53.14</TD><TD>23.04</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>93</TD><TD>93</TD><TD>11 49 34.214</TD><TD>+22 24 38.13</TD><TD>21.38</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>94</TD><TD>94</TD><TD>11 49 34.240</TD><TD>+22 23 33.83</TD><TD>19.29</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>95</TD><TD>95</TD><TD>11 49 34.245</TD><TD>+22 23 39.70</TD><TD>20.74</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>96</TD><TD>96</TD><TD>11 49 34.267</TD><TD>+22 23 53.14</TD><TD>19.60</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>97</TD><TD>97</TD><TD>11 49 34.291</TD><TD>+22 25 05.51</TD><TD>21.85</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>98</TD><TD>98</TD><TD>11 49 34.291</TD><TD>+22 23 49.57</TD><TD>20.25</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>99</TD><TD>99</TD><TD>11 49 34.298</TD><TD>+22 23 35.09</TD><TD>21.93</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>100</TD><TD>100</TD><TD>11 49 34.305</TD><TD>+22 24 42.74</TD><TD>19.14</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>101</TD><TD>101</TD><TD>11 49 34.353</TD><TD>+22 24 40.82</TD><TD>20.05</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>102</TD><TD>102</TD><TD>11 49 34.401</TD><TD>+22 24 37.55</TD><TD>22.40</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>103</TD><TD>103</TD><TD>11 49 34.432</TD><TD>+22 22 47.33</TD><TD>23.99</TD><TD>0.04</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>104</TD><TD>104</TD><TD>11 49 34.439</TD><TD>+22 25 13.47</TD><TD>23.73</TD><TD>0.03</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>105</TD><TD>105</TD><TD>11 49 34.475</TD><TD>+22 23 41.36</TD><TD>22.89</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>106</TD><TD>106</TD><TD>11 49 34.515</TD><TD>+22 24 08.30</TD><TD>21.98</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>107</TD><TD>107</TD><TD>11 49 34.518</TD><TD>+22 24 42.10</TD><TD>19.09</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>108</TD><TD>108</TD><TD>11 49 34.563</TD><TD>+22 23 43.20</TD><TD>23.38</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>109</TD><TD>109</TD><TD>11 49 34.572</TD><TD>+22 24 30.37</TD><TD>20.42</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>110</TD><TD>110</TD><TD>11 49 34.579</TD><TD>+22 24 45.80</TD><TD>21.63</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>111</TD><TD>111</TD><TD>11 49 34.598</TD><TD>+22 23 42.12</TD><TD>22.69</TD><TD>0.01</TD><TD>M</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>112</TD><TD>112</TD><TD>11 49 34.610</TD><TD>+22 24 44.88</TD><TD>20.99</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>113</TD><TD>113</TD><TD>11 49 34.628</TD><TD>+22 24 27.18</TD><TD>21.36</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>114</TD><TD>114</TD><TD>11 49 34.631</TD><TD>+22 23 03.44</TD><TD>23.45</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>115</TD><TD>115</TD><TD>11 49 34.688</TD><TD>+22 24 02.28</TD><TD>21.81</TD><TD>0.01</TD><TD>M</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>116</TD><TD>116</TD><TD>11 49 34.720</TD><TD>+22 24 47.92</TD><TD>23.41</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>117</TD><TD>117</TD><TD>11 49 34.725</TD><TD>+22 22 43.04</TD><TD>21.42</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>118</TD><TD>118</TD><TD>11 49 34.733</TD><TD>+22 24 40.94</TD><TD>22.27</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>119</TD><TD>119</TD><TD>11 49 34.735</TD><TD>+22 24 51.88</TD><TD>20.48</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>120</TD><TD>120</TD><TD>11 49 34.761</TD><TD>+22 23 34.53</TD><TD>22.24</TD><TD>0.01</TD><TD>M</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>121</TD><TD>121</TD><TD>11 49 34.807</TD><TD>+22 23 45.66</TD><TD>21.64</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>122</TD><TD>122</TD><TD>11 49 34.818</TD><TD>+22 23 23.47</TD><TD>22.05</TD><TD>0.01</TD><TD>M</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>123</TD><TD>123</TD><TD>11 49 34.844</TD><TD>+22 22 54.67</TD><TD>23.05</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>124</TD><TD>124</TD><TD>11 49 34.857</TD><TD>+22 24 53.76</TD><TD>20.45</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>125</TD><TD>125</TD><TD>11 49 34.858</TD><TD>+22 23 49.17</TD><TD>23.68</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>126</TD><TD>126</TD><TD>11 49 34.865</TD><TD>+22 24 03.78</TD><TD>21.21</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>127</TD><TD>127</TD><TD>11 49 34.918</TD><TD>+22 23 15.62</TD><TD>21.36</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>128</TD><TD>128</TD><TD>11 49 34.992</TD><TD>+22 25 05.59</TD><TD>23.65</TD><TD>0.02</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>129</TD><TD>129</TD><TD>11 49 35.001</TD><TD>+22 23 36.60</TD><TD>20.47</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>130</TD><TD>130</TD><TD>11 49 35.064</TD><TD>+22 23 02.75</TD><TD>22.19</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>131</TD><TD>131</TD><TD>11 49 35.160</TD><TD>+22 23 52.53</TD><TD>23.27</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>132</TD><TD>132</TD><TD>11 49 35.182</TD><TD>+22 24 47.98</TD><TD>19.65</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>133</TD><TD>133</TD><TD>11 49 35.224</TD><TD>+22 23 01.62</TD><TD>22.64</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>134</TD><TD>134</TD><TD>11 49 35.230</TD><TD>+22 22 42.59</TD><TD>21.65</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>135</TD><TD>135</TD><TD>11 49 35.235</TD><TD>+22 24 36.04</TD><TD>22.85</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>136</TD><TD>136</TD><TD>11 49 35.237</TD><TD>+22 24 38.65</TD><TD>23.72</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>137</TD><TD>137</TD><TD>11 49 35.241</TD><TD>+22 25 02.87</TD><TD>19.33</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>138</TD><TD>138</TD><TD>11 49 35.251</TD><TD>+22 23 32.30</TD><TD>20.90</TD><TD>0.01</TD><TD>M</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>139</TD><TD>139</TD><TD>11 49 35.259</TD><TD>+22 22 39.86</TD><TD>22.08</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>140</TD><TD>140</TD><TD>11 49 35.260</TD><TD>+22 25 05.17</TD><TD>22.49</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>141</TD><TD>141</TD><TD>11 49 35.265</TD><TD>+22 23 34.72</TD><TD>19.82</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>142</TD><TD>142</TD><TD>11 49 35.288</TD><TD>+22 24 41.63</TD><TD>20.95</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>143</TD><TD>143</TD><TD>11 49 35.291</TD><TD>+22 24 27.33</TD><TD>24.58</TD><TD>0.04</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>144</TD><TD>144</TD><TD>11 49 35.343</TD><TD>+22 24 01.05</TD><TD>21.71</TD><TD>0.01</TD><TD>M</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>145</TD><TD>145</TD><TD>11 49 35.369</TD><TD>+22 23 22.60</TD><TD>21.74</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>146</TD><TD>146</TD><TD>11 49 35.405</TD><TD>+22 23 58.30</TD><TD>19.69</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>147</TD><TD>147</TD><TD>11 49 35.429</TD><TD>+22 24 10.36</TD><TD>22.06</TD><TD>0.01</TD><TD>M</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>148</TD><TD>148</TD><TD>11 49 35.444</TD><TD>+22 24 58.27</TD><TD>21.51</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>149</TD><TD>149</TD><TD>11 49 35.453</TD><TD>+22 24 54.77</TD><TD>21.30</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>150</TD><TD>150</TD><TD>11 49 35.469</TD><TD>+22 23 43.63</TD><TD>19.65</TD><TD>0.01</TD><TD>M,G</TD><TD>G1</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>151</TD><TD>151</TD><TD>11 49 35.498</TD><TD>+22 23 49.52</TD><TD>23.44</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>152</TD><TD>152</TD><TD>11 49 35.500</TD><TD>+22 24 14.18</TD><TD>22.35</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>153</TD><TD>153</TD><TD>11 49 35.509</TD><TD>+22 24 03.77</TD><TD>19.32</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>154</TD><TD>154</TD><TD>11 49 35.514</TD><TD>+22 24 16.48</TD><TD>23.12</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>155</TD><TD>155</TD><TD>11 49 35.553</TD><TD>+22 24 57.45</TD><TD>22.29</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>156</TD><TD>156</TD><TD>11 49 35.559</TD><TD>+22 24 26.67</TD><TD>19.75</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>157</TD><TD>157</TD><TD>11 49 35.568</TD><TD>+22 24 58.61</TD><TD>21.40</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>158</TD><TD>158</TD><TD>11 49 35.584</TD><TD>+22 24 38.84</TD><TD>19.33</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>159</TD><TD>159</TD><TD>11 49 35.593</TD><TD>+22 24 11.29</TD><TD>23.16</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>160</TD><TD>160</TD><TD>11 49 35.593</TD><TD>+22 24 57.68</TD><TD>22.55</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>161</TD><TD>161</TD><TD>11 49 35.629</TD><TD>+22 24 19.31</TD><TD>21.66</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>162</TD><TD>162</TD><TD>11 49 35.652</TD><TD>+22 23 23.24</TD><TD>21.37</TD><TD>0.01</TD><TD>M</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>163</TD><TD>163</TD><TD>11 49 35.665</TD><TD>+22 23 53.09</TD><TD>21.00</TD><TD>0.01</TD><TD>M</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>164</TD><TD>164</TD><TD>11 49 35.665</TD><TD>+22 24 25.81</TD><TD>23.01</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>165</TD><TD>165</TD><TD>11 49 35.686</TD><TD>+22 23 32.29</TD><TD>20.11</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>166</TD><TD>166</TD><TD>11 49 35.699</TD><TD>+22 23 54.71</TD><TD>17.99</TD><TD>0.01</TD><TD>M,G</TD><TD>BCG</TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>167</TD><TD>167</TD><TD>11 49 35.727</TD><TD>+22 24 06.52</TD><TD>20.75</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>168</TD><TD>168</TD><TD>11 49 35.761</TD><TD>+22 25 06.22</TD><TD>20.23</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>169</TD><TD>169</TD><TD>11 49 35.763</TD><TD>+22 22 48.70</TD><TD>20.12</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>170</TD><TD>170</TD><TD>11 49 35.806</TD><TD>+22 24 03.25</TD><TD>23.16</TD><TD>0.02</TD><TD>M</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>171</TD><TD>171</TD><TD>11 49 35.829</TD><TD>+22 22 53.12</TD><TD>19.15</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>172</TD><TD>172</TD><TD>11 49 35.845</TD><TD>+22 24 47.89</TD><TD>22.83</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>173</TD><TD>173</TD><TD>11 49 35.864</TD><TD>+22 24 55.60</TD><TD>19.44</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>174</TD><TD>174</TD><TD>11 49 35.881</TD><TD>+22 24 44.21</TD><TD>22.57</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>175</TD><TD>175</TD><TD>11 49 35.903</TD><TD>+22 24 08.32</TD><TD>23.20</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>176</TD><TD>176</TD><TD>11 49 35.908</TD><TD>+22 25 15.28</TD><TD>22.96</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>177</TD><TD>177</TD><TD>11 49 35.917</TD><TD>+22 23 58.59</TD><TD>21.20</TD><TD>0.01</TD><TD>M</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>178</TD><TD>178</TD><TD>11 49 35.943</TD><TD>+22 25 06.49</TD><TD>22.56</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>179</TD><TD>179</TD><TD>11 49 35.952</TD><TD>+22 24 53.67</TD><TD>19.19</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>180</TD><TD>180</TD><TD>11 49 35.958</TD><TD>+22 23 50.13</TD><TD>19.44</TD><TD>0.01</TD><TD>M,G</TD><TD>G2</TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>181</TD><TD>181</TD><TD>11 49 36.045</TD><TD>+22 22 45.24</TD><TD>23.96</TD><TD>0.05</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>182</TD><TD>182</TD><TD>11 49 36.048</TD><TD>+22 23 39.89</TD><TD>22.86</TD><TD>0.01</TD><TD>M</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>183</TD><TD>183</TD><TD>11 49 36.052</TD><TD>+22 23 52.57</TD><TD>21.30</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>184</TD><TD>184</TD><TD>11 49 36.097</TD><TD>+22 23 53.54</TD><TD>21.68</TD><TD>0.01</TD><TD>M</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>185</TD><TD>185</TD><TD>11 49 36.188</TD><TD>+22 23 46.49</TD><TD>21.78</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>186</TD><TD>186</TD><TD>11 49 36.192</TD><TD>+22 23 37.59</TD><TD>22.79</TD><TD>0.01</TD><TD>M</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>187</TD><TD>187</TD><TD>11 49 36.247</TD><TD>+22 23 52.36</TD><TD>19.46</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>188</TD><TD>188</TD><TD>11 49 36.289</TD><TD>+22 24 01.20</TD><TD>19.72</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>189</TD><TD>189</TD><TD>11 49 36.303</TD><TD>+22 24 56.16</TD><TD>23.10</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>190</TD><TD>190</TD><TD>11 49 36.304</TD><TD>+22 25 07.92</TD><TD>20.78</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>191</TD><TD>191</TD><TD>11 49 36.333</TD><TD>+22 24 39.58</TD><TD>23.48</TD><TD>0.03</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>192</TD><TD>192</TD><TD>11 49 36.382</TD><TD>+22 24 40.70</TD><TD>21.52</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>193</TD><TD>193</TD><TD>11 49 36.396</TD><TD>+22 24 34.10</TD><TD>22.55</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>194</TD><TD>194</TD><TD>11 49 36.414</TD><TD>+22 23 55.69</TD><TD>21.86</TD><TD>0.01</TD><TD>M</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>195</TD><TD>195</TD><TD>11 49 36.503</TD><TD>+22 22 40.43</TD><TD>23.34</TD><TD>0.03</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>196</TD><TD>196</TD><TD>11 49 36.519</TD><TD>+22 22 58.19</TD><TD>23.79</TD><TD>0.02</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>197</TD><TD>197</TD><TD>11 49 36.541</TD><TD>+22 23 59.09</TD><TD>20.32</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>198</TD><TD>198</TD><TD>11 49 36.546</TD><TD>+22 24 40.53</TD><TD>23.03</TD><TD>0.03</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>199</TD><TD>199</TD><TD>11 49 36.574</TD><TD>+22 23 52.92</TD><TD>22.63</TD><TD>0.01</TD><TD>M</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>200</TD><TD>200</TD><TD>11 49 36.580</TD><TD>+22 22 33.72</TD><TD>22.79</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>201</TD><TD>201</TD><TD>11 49 36.607</TD><TD>+22 24 37.67</TD><TD>21.08</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>202</TD><TD>202</TD><TD>11 49 36.608</TD><TD>+22 25 07.97</TD><TD>21.55</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>203</TD><TD>203</TD><TD>11 49 36.628</TD><TD>+22 23 46.26</TD><TD>20.36</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>204</TD><TD>204</TD><TD>11 49 36.643</TD><TD>+22 23 47.17</TD><TD>22.89</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>205</TD><TD>205</TD><TD>11 49 36.644</TD><TD>+22 22 43.36</TD><TD>23.08</TD><TD>0.03</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>206</TD><TD>206</TD><TD>11 49 36.692</TD><TD>+22 24 07.23</TD><TD>22.12</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>207</TD><TD>207</TD><TD>11 49 36.699</TD><TD>+22 22 40.48</TD><TD>21.60</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>208</TD><TD>208</TD><TD>11 49 36.704</TD><TD>+22 24 42.06</TD><TD>21.80</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>209</TD><TD>209</TD><TD>11 49 36.736</TD><TD>+22 24 15.79</TD><TD>20.55</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>210</TD><TD>210</TD><TD>11 49 36.756</TD><TD>+22 24 52.13</TD><TD>22.71</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>211</TD><TD>211</TD><TD>11 49 36.796</TD><TD>+22 23 49.92</TD><TD>23.86</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>212</TD><TD>212</TD><TD>11 49 36.825</TD><TD>+22 22 40.39</TD><TD>21.52</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>213</TD><TD>213</TD><TD>11 49 36.858</TD><TD>+22 23 46.98</TD><TD>18.89</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>214</TD><TD>214</TD><TD>11 49 36.860</TD><TD>+22 24 20.17</TD><TD>23.16</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>215</TD><TD>215</TD><TD>11 49 36.878</TD><TD>+22 23 30.99</TD><TD>20.32</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>216</TD><TD>216</TD><TD>11 49 36.881</TD><TD>+22 23 38.63</TD><TD>23.79</TD><TD>0.03</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>217</TD><TD>217</TD><TD>11 49 36.883</TD><TD>+22 23 18.22</TD><TD>21.15</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>218</TD><TD>218</TD><TD>11 49 36.886</TD><TD>+22 23 20.79</TD><TD>20.08</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>219</TD><TD>219</TD><TD>11 49 36.892</TD><TD>+22 24 16.47</TD><TD>19.67</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>220</TD><TD>220</TD><TD>11 49 36.924</TD><TD>+22 23 20.75</TD><TD>23.06</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>221</TD><TD>221</TD><TD>11 49 36.964</TD><TD>+22 24 07.68</TD><TD>22.30</TD><TD>0.01</TD><TD>M</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>222</TD><TD>222</TD><TD>11 49 36.968</TD><TD>+22 24 10.88</TD><TD>21.50</TD><TD>0.01</TD><TD>M</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>223</TD><TD>223</TD><TD>11 49 36.972</TD><TD>+22 23 10.96</TD><TD>19.97</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>224</TD><TD>224</TD><TD>11 49 36.990</TD><TD>+22 23 07.17</TD><TD>21.70</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>225</TD><TD>225</TD><TD>11 49 37.100</TD><TD>+22 23 47.16</TD><TD>23.06</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>226</TD><TD>226</TD><TD>11 49 37.135</TD><TD>+22 22 56.00</TD><TD>20.67</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>227</TD><TD>227</TD><TD>11 49 37.162</TD><TD>+22 25 00.45</TD><TD>22.29</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>228</TD><TD>228</TD><TD>11 49 37.191</TD><TD>+22 24 39.12</TD><TD>23.31</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>229</TD><TD>229</TD><TD>11 49 37.231</TD><TD>+22 23 53.07</TD><TD>23.99</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>230</TD><TD>230</TD><TD>11 49 37.238</TD><TD>+22 23 59.18</TD><TD>21.90</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>231</TD><TD>231</TD><TD>11 49 37.288</TD><TD>+22 23 29.95</TD><TD>22.51</TD><TD>0.01</TD><TD>M</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>232</TD><TD>232</TD><TD>11 49 37.306</TD><TD>+22 23 52.32</TD><TD>19.66</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>233</TD><TD>233</TD><TD>11 49 37.442</TD><TD>+22 24 32.01</TD><TD>23.03</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>234</TD><TD>234</TD><TD>11 49 37.445</TD><TD>+22 22 51.75</TD><TD>22.02</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>235</TD><TD>235</TD><TD>11 49 37.469</TD><TD>+22 23 56.82</TD><TD>22.86</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>236</TD><TD>236</TD><TD>11 49 37.509</TD><TD>+22 24 19.45</TD><TD>21.74</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>237</TD><TD>237</TD><TD>11 49 37.518</TD><TD>+22 24 23.65</TD><TD>22.10</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>238</TD><TD>238</TD><TD>11 49 37.549</TD><TD>+22 23 22.50</TD><TD>18.09</TD><TD>0.01</TD><TD>M,G</TD><TD>Ref</TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>239</TD><TD>239</TD><TD>11 49 37.588</TD><TD>+22 24 16.19</TD><TD>23.87</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>240</TD><TD>240</TD><TD>11 49 37.592</TD><TD>+22 23 43.97</TD><TD>21.45</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>241</TD><TD>241</TD><TD>11 49 37.619</TD><TD>+22 23 14.82</TD><TD>20.39</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>242</TD><TD>242</TD><TD>11 49 37.656</TD><TD>+22 23 44.95</TD><TD>20.68</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>243</TD><TD>243</TD><TD>11 49 37.716</TD><TD>+22 23 12.08</TD><TD>23.35</TD><TD>0.03</TD><TD>-</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>244</TD><TD>244</TD><TD>11 49 37.744</TD><TD>+22 23 29.20</TD><TD>22.54</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>245</TD><TD>245</TD><TD>11 49 37.745</TD><TD>+22 23 52.42</TD><TD>23.46</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>246</TD><TD>246</TD><TD>11 49 37.770</TD><TD>+22 23 41.25</TD><TD>23.76</TD><TD>0.03</TD><TD>M,G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>247</TD><TD>247</TD><TD>11 49 37.793</TD><TD>+22 23 56.83</TD><TD>22.65</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>248</TD><TD>248</TD><TD>11 49 37.804</TD><TD>+22 24 10.99</TD><TD>18.76</TD><TD>0.01</TD><TD>M,G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>249</TD><TD>249</TD><TD>11 49 38.003</TD><TD>+22 24 27.79</TD><TD>20.34</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>250</TD><TD>250</TD><TD>11 49 38.039</TD><TD>+22 23 35.57</TD><TD>21.53</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>251</TD><TD>251</TD><TD>11 49 38.129</TD><TD>+22 23 47.91</TD><TD>23.82</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>252</TD><TD>252</TD><TD>11 49 38.181</TD><TD>+22 24 55.80</TD><TD>20.89</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>253</TD><TD>253</TD><TD>11 49 38.211</TD><TD>+22 23 39.75</TD><TD>22.75</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>254</TD><TD>254</TD><TD>11 49 38.269</TD><TD>+22 23 43.30</TD><TD>22.23</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>255</TD><TD>255</TD><TD>11 49 38.282</TD><TD>+22 23 34.23</TD><TD>21.02</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>256</TD><TD>256</TD><TD>11 49 38.372</TD><TD>+22 23 52.21</TD><TD>22.45</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>257</TD><TD>257</TD><TD>11 49 38.397</TD><TD>+22 24 48.64</TD><TD>20.29</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>258</TD><TD>258</TD><TD>11 49 38.430</TD><TD>+22 23 21.84</TD><TD>19.86</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>259</TD><TD>259</TD><TD>11 49 38.430</TD><TD>+22 24 00.69</TD><TD>23.58</TD><TD>0.03</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>260</TD><TD>260</TD><TD>11 49 38.502</TD><TD>+22 23 02.54</TD><TD>19.83</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>261</TD><TD>261</TD><TD>11 49 38.503</TD><TD>+22 23 09.34</TD><TD>22.69</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>262</TD><TD>262</TD><TD>11 49 38.513</TD><TD>+22 22 48.86</TD><TD>21.59</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>263</TD><TD>263</TD><TD>11 49 38.526</TD><TD>+22 24 28.26</TD><TD>23.48</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>264</TD><TD>264</TD><TD>11 49 38.553</TD><TD>+22 23 42.45</TD><TD>21.40</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>265</TD><TD>265</TD><TD>11 49 38.570</TD><TD>+22 23 09.22</TD><TD>19.49</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>266</TD><TD>266</TD><TD>11 49 38.829</TD><TD>+22 23 25.80</TD><TD>22.28</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>267</TD><TD>267</TD><TD>11 49 38.836</TD><TD>+22 23 45.77</TD><TD>21.64</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>268</TD><TD>268</TD><TD>11 49 38.849</TD><TD>+22 22 56.72</TD><TD>19.37</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>269</TD><TD>269</TD><TD>11 49 38.882</TD><TD>+22 23 51.38</TD><TD>21.15</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>270</TD><TD>270</TD><TD>11 49 38.928</TD><TD>+22 22 59.90</TD><TD>18.51</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>271</TD><TD>271</TD><TD>11 49 39.004</TD><TD>+22 22 57.05</TD><TD>22.48</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>272</TD><TD>272</TD><TD>11 49 39.091</TD><TD>+22 23 28.38</TD><TD>21.77</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>273</TD><TD>273</TD><TD>11 49 39.092</TD><TD>+22 23 37.15</TD><TD>21.33</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>274</TD><TD>274</TD><TD>11 49 39.165</TD><TD>+22 24 58.28</TD><TD>23.81</TD><TD>0.03</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>275</TD><TD>275</TD><TD>11 49 39.188</TD><TD>+22 23 59.85</TD><TD>22.90</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>276</TD><TD>276</TD><TD>11 49 39.228</TD><TD>+22 24 46.00</TD><TD>23.65</TD><TD>0.03</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>277</TD><TD>277</TD><TD>11 49 39.310</TD><TD>+22 23 52.48</TD><TD>21.06</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>278</TD><TD>278</TD><TD>11 49 39.320</TD><TD>+22 24 30.43</TD><TD>18.78</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>279</TD><TD>279</TD><TD>11 49 39.376</TD><TD>+22 23 01.02</TD><TD>20.18</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>280</TD><TD>280</TD><TD>11 49 39.418</TD><TD>+22 24 50.46</TD><TD>23.06</TD><TD>0.03</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>281</TD><TD>281</TD><TD>11 49 39.431</TD><TD>+22 23 24.98</TD><TD>22.42</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>282</TD><TD>282</TD><TD>11 49 39.514</TD><TD>+22 23 39.56</TD><TD>20.04</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>283</TD><TD>283</TD><TD>11 49 39.565</TD><TD>+22 23 05.35</TD><TD>22.98</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>284</TD><TD>284</TD><TD>11 49 39.656</TD><TD>+22 24 08.30</TD><TD>23.64</TD><TD>0.03</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>285</TD><TD>285</TD><TD>11 49 39.824</TD><TD>+22 23 49.01</TD><TD>22.90</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>286</TD><TD>286</TD><TD>11 49 39.899</TD><TD>+22 23 32.39</TD><TD>20.39</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>287</TD><TD>287</TD><TD>11 49 39.908</TD><TD>+22 23 22.25</TD><TD>22.47</TD><TD>0.04</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>288</TD><TD>288</TD><TD>11 49 40.163</TD><TD>+22 24 04.04</TD><TD>19.23</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>289</TD><TD>289</TD><TD>11 49 40.195</TD><TD>+22 23 59.29</TD><TD>18.98</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>290</TD><TD>290</TD><TD>11 49 40.218</TD><TD>+22 23 26.55</TD><TD>23.60</TD><TD>0.06</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>291</TD><TD>291</TD><TD>11 49 40.273</TD><TD>+22 24 54.65</TD><TD>19.94</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>292</TD><TD>292</TD><TD>11 49 40.360</TD><TD>+22 24 26.56</TD><TD>22.36</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>293</TD><TD>293</TD><TD>11 49 40.366</TD><TD>+22 23 57.60</TD><TD>20.34</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>294</TD><TD>294</TD><TD>11 49 40.473</TD><TD>+22 23 22.52</TD><TD>19.20</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>295</TD><TD>295</TD><TD>11 49 40.485</TD><TD>+22 24 56.62</TD><TD>21.49</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>296</TD><TD>296</TD><TD>11 49 40.573</TD><TD>+22 24 19.34</TD><TD>23.78</TD><TD>0.03</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>297</TD><TD>297</TD><TD>11 49 40.778</TD><TD>+22 24 24.15</TD><TD>22.96</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>298</TD><TD>298</TD><TD>11 49 40.833</TD><TD>+22 23 39.92</TD><TD>21.80</TD><TD>0.01</TD><TD>G</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>299</TD><TD>299</TD><TD>11 49 40.987</TD><TD>+22 23 24.34</TD><TD>19.21</TD><TD>0.01</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>300</TD><TD>300</TD><TD>11 49 41.368</TD><TD>+22 24 11.84</TD><TD>23.42</TD><TD>0.02</TD><TD>-</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+</TABLEDATA></DATA>
+</TABLE>
+<INFO name="matches" value="300">matching records</INFO>
+</RESOURCE>
+</VOTABLE>

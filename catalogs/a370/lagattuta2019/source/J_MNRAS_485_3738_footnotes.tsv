@@ -1,0 +1,90 @@
+#
+#   VizieR Astronomical Server vizier.cfa.harvard.edu
+#    Date: 2026-11-08T19:28:16 [V7.6.1]
+#   In case of problem, please report to:	cds-question@unistra.fr
+#
+#
+#Coosys	J2000:	eq_FK5 J2000
+#INFO	service_protocol=ASU	  IVOID of the protocol through which the data was retrieved
+#INFO	request_date=2026-11-08T19:28:16	  Query execution date
+#INFO	request=https://vizier.cfa.harvard.edu/viz-bin/asu-tsv?-source=METAnot&catid=74853738&-out.all&-out.max=500	  Full request URL
+#INFO	contact=cds-question@unistra.fr	  Email or URL to contact publisher
+#INFO	server_software=VizieR/7.6.1	  Software version
+#INFO	publisher=CDS	  Data centre that produced the VOTable
+
+#RESOURCE=yCat_0
+#Name: META
+#Title: VizieR META catalogue
+#INFO	ivoid=ivo://cds.vizier/meta	    IVOID of underlying data collection
+#INFO	data_ivoid=ivo://cds.vizier/meta	    IVOID of underlying data collection
+#INFO	creator=Francois Ochsenbein	    First author or institution
+#INFO	reference_url=https://cdsarc.cds.unistra.fr/viz-bin/cat/META	    Dataset landing page
+#INFO	publication_date=2010-04-19	    Date of first publication in the data centre
+#INFO	rights_uri=https://cds.unistra.fr/vizier-org/licences_vizier.html	    Licence URI
+#Table	METAnot:
+#Name: METAnot
+#Title: Contains details of Notes (to columns / tables)
+#Column	catid	(I10)	catalogue identification FK(METAcat)	[ucd=meta.code;meta.dataset]
+#Column	notid	(I5)	identifier of note (>0) for catalog	[ucd=meta.code]
+#Column	linid	(I5)	line number of note within catalog	[ucd=meta.id.part]
+#Column	text	(A255)	text of note (increases from 1)	[ucd=meta.note]
+catid	notid	linid	text
+ 	 	 	
+----------	-----	-----	---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  74853738	    1	    1	Note (1): Unless otherwise specified (i.e. a measurement having fewer than four
+  74853738	    1	    2	          significant digits), spectroscopic redshifts have an uncertainty
+  74853738	    1	    3	          {delta}z=+/-0.0001
+  74853738	    2	    1	Note (2): Redshifts fitted by the model as free parameters
+  74853738	    3	    1	Note (3): 'Quality' flag of the Multiple Image constraint, based on the Hubble
+  74853738	    3	    2	          Frontier Fields Public Modeling Challenge discussion. Constraints can
+  74853738	    3	    3	          be labeled 'gold', 'silver', 'bronze', or 'copper', with gold
+  74853738	    3	    4	          constraints being the most reliable, and copper the most uncertain.
+  74853738	    4	    1	Note (4): Notes as follows:
+  74853738	    4	    2	    1 = These systems are not used as constraints in our mass model. Our
+  74853738	    4	    3	        best-fitting solution merges Image 10.1 and 10.2 into a single
+  74853738	    4	    4	        constraint, while Image 16.2 is predicted but is not seen in either
+  74853738	    4	    5	        MUSE or HST data
+  74853738	    4	    6	    2 = While originally identified as unique systems, updated modelling
+  74853738	    4	    7	        suggests they are in fact counterimages of other objects
+  74853738	    5	    1	Note (1): dRA and dDE are measured relative to the reference coordinate point:
+  74853738	    5	    2	          (39.97134, -1.5822597)
+  74853738	    6	    1	Note (2): Flag as follows:
+  74853738	    6	    2	    * = Component parameters without uncertainties are fixed quantities and do
+  74853738	    6	    3	        not vary in the model
+  74853738	    7	    1	Note (3): Ellipticity is defined as ell=(a^2^-b^2^)/(a^2^+b^2^), where a and b
+  74853738	    7	    2	          are the semi-major and semi-minor axes of the ellipse, respectively
+  74853738	    8	    1	Note (1): Objects labeled with the letter M (e.g., M11) are only detected in
+  74853738	    8	    2	          MUSE data. They show no signs of continuum emission in any of the
+  74853738	    8	    3	          HST images.
+  74853738	    9	    1	Note (2): Spectroscopic type as follows:
+  74853738	    9	    2	    0 = Star
+  74853738	    9	    3	    1 = H{alpha} emitter (z<0.4)
+  74853738	    9	    4	    2 = [OII] emitter (0.4<z<1.5)
+  74853738	    9	    5	    3 = Absorption-line galaxy (typically cluster members)
+  74853738	    9	    6	    4 = [CIII] emitter (1.5<z<3.0)
+  74853738	    9	    7	    5 = Lyman {alpha} emitter (z>3.0)
+  74853738	    9	    8	    6 = [OIII] emitter (only if H{alpha} and [OII] not present; very rare)
+  74853738	   10	    1	Note (3): Spectroscopic confidence as follows:
+  74853738	   10	    2	    3 = Secure redshift; multiple prominent spectral features or one strong
+  74853738	   10	    3	        feature (such as Lyman {alpha}) that is unambiguous to identify.
+  74853738	   10	    4	    2 = Probable redshift; features are less strong but still clearly
+  74853738	   10	    5	        identifiable. They may be overly broad or noisy, leading to a less
+  74853738	   10	    6	        precise peak (or trough) estimate. The redshift precision is still
+  74853738	   10	    7	        less than {delta}z=0.001
+  74853738	   10	    8	    1 = Possible redshift; identified by one (ambiguous) line feature, or
+  74853738	   10	    9	        a few, very low S/N lines. Often faint absorption-line galaxies.
+  74853738	   10	   10	        These redshifts should be used with caution.
+  74853738	   11	    1	Note (4): A negative magnitude value (e.g., -12.345) means that the object is
+  74853738	   11	    2	          not detected in this band. Instead, the (positive) number represents
+  74853738	   11	    3	          the 3{sigma} detection limit, effectively placing an upper bound on
+  74853738	   11	    4	          the galaxy's flux.
+  74853738	   11	    5	          In addition, two other 'flag' values highlight further photometric
+  74853738	   11	    6	          errors, as follows:
+  74853738	   11	    7	 -1.0 = 'No Data' -- Object does not fall in the HST FoV in this filter.
+  74853738	   11	    8	 -2.0 = 'Anomaly' -- Object photometry is contaminated by a systematic
+  74853738	   11	    9	        anomaly in this band, such as cosmic ray or hot pixel.
+  74853738	   12	    1	Note (5): Magnification values are calculated using the Copper lens model.
+  74853738	   13	    1	Note (6): A single object may contain two multiple-image IDs if it is identified
+  74853738	   13	    2	          as a merging pair of images.
+  74853738	   14	    1	Note (1): -1.0 = No redshift measurement in the GLASS catalogue
+

@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VOTABLE version="1.4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns="http://www.ivoa.net/xml/VOTable/v1.3"
+  xsi:schemaLocation="http://www.ivoa.net/xml/VOTable/v1.3 http://www.ivoa.net/xml/VOTable/v1.3">
+ <DESCRIPTION>
+   VizieR Astronomical Server vizier.cfa.harvard.edu
+    Date: 2026-11-08T19:26:11 [V7.6.1]
+   Explanations and Statistics of UCDs:			See LINK below
+   In case of problem, please report to:	cds-question@unistra.fr
+ </DESCRIPTION>
+<!-- VOTable description at http://www.ivoa.net/Documents/latest/VOT.html -->
+<INFO name="service_protocol" value="ASU">  IVOID of the protocol through which the data was retrieved</INFO>
+<INFO name="request_date" value="2026-11-08T19:26:11">  Query execution date</INFO>
+<INFO name="request" value="https://vizier.cfa.harvard.edu/viz-bin/votable?-source=J/ApJ/817/60/table3&amp;-out.all&amp;-out.max=unlimited">  Full request URL</INFO>
+<INFO name="contact" value="cds-question@unistra.fr">  Email or URL to contact publisher</INFO>
+<INFO name="server_software" value="VizieR/7.6.1">  Software version</INFO>
+<INFO name="publisher" value="CDS">  Data centre that produced the VOTable</INFO>
+
+<!--
+Execution Reports
+ -->
+
+<RESOURCE ID="yCat_18170060" name="J/ApJ/817/60" type="results">
+  <DESCRIPTION>Multiply imaged supernova Refsdal (Treu+, 2016)</DESCRIPTION>  <INFO name="ivoid" value="ivo://cds.vizier/j/apj/817/60">    IVOID of underlying data collection  </INFO>
+  <INFO name="data_ivoid" value="ivo://cds.vizier/j/apj/817/60">    IVOID of underlying data collection  </INFO>
+  <INFO name="creator" value="Treu T.">    First author or institution  </INFO>
+  <INFO name="cites" value="bibcode:2016ApJ...817...60T">    Article or Data origin sources  </INFO>
+  <INFO name="journal" value="ApJ">    Journal name  </INFO>
+  <INFO name="original_date" value="2016">    Year of the article publication  </INFO>
+  <INFO name="reference_url" value="https://cdsarc.cds.unistra.fr/viz-bin/cat/J/ApJ/817/60">    Dataset landing page  </INFO>
+  <INFO name="citation" value="doi:10.26093/cds/vizier.18170060">    Dataset identifier that can be used for citation  </INFO>
+  <INFO name="publication_date" value="2021-01-22">    Date of first publication in the data centre  </INFO>
+  <INFO name="rights_uri" value="https://cds.unistra.fr/vizier-org/licences_vizier.html">    Licence URI  </INFO>
+
+  <COOSYS ID="J2000" system="eq_FK5" equinox="J2000"/>
+  <TABLE ID="J_ApJ_817_60_table3" name="J/ApJ/817/60/table3">
+    <DESCRIPTION>Multiply imaged systems</DESCRIPTION>
+    <!-- Definitions of GROUPs and FIELDs -->
+
+<!-- +++No column could be found to attach a LINK in table: J/ApJ/817/60/table3 -->
+    <FIELD name="recno" ucd="meta.record" datatype="int" width="8"><!-- ucd="RECORD" -->
+      <DESCRIPTION>Record number assigned by the VizieR team. Should Not be used for identification.</DESCRIPTION>
+      <LINK href="http://vizier.cfa.harvard.edu/viz-bin/VizieR-5?-info=XML&amp;-out.add=.&amp;-source=J/ApJ/817/60/table3&amp;recno=${recno}"/>
+    </FIELD>
+    <FIELD name="ImgS" ucd="meta.id;meta.main" datatype="float" width="5" precision="1"><!-- ucd="ID_MAIN" -->
+      <DESCRIPTION>[1.1/210.2]? Identifier (1)</DESCRIPTION>
+      <VALUES null="NaN" />
+    </FIELD>
+    <FIELD name="RAJ2000" ucd="pos.eq.ra;meta.main" ref="J2000" datatype="double" width="9" precision="5" unit="deg"><!-- ucd="POS_EQ_RA_MAIN" -->
+      <DESCRIPTION>[177.38/177.42] Right ascension (J2000)</DESCRIPTION>
+    </FIELD>
+    <FIELD name="DEJ2000" ucd="pos.eq.dec;meta.main" ref="J2000" datatype="double" width="10" precision="6" unit="deg"><!-- ucd="POS_EQ_DEC_MAIN" -->
+      <DESCRIPTION>[22.38/22.43] Declination (J2000)</DESCRIPTION>
+    </FIELD>
+    <FIELD name="Z09" ucd="meta.id.cross" datatype="char" arraysize="7*"><!-- ucd="ID_CROSSID" -->
+      <DESCRIPTION>Z09 identifier(s) (2)</DESCRIPTION>
+    </FIELD>
+    <FIELD name="S09" ucd="meta.id.cross" datatype="char" arraysize="5"><!-- ucd="ID_CROSSID" -->
+      <DESCRIPTION>S09 identifier (2)</DESCRIPTION>
+    </FIELD>
+    <FIELD name="R14" ucd="meta.id.cross" datatype="float" width="4" precision="1"><!-- ucd="ID_CROSSID" -->
+      <DESCRIPTION>[1.1/14.2]? R14 and J14 identifiers (2)</DESCRIPTION>
+      <VALUES null="NaN" />
+    </FIELD>
+    <FIELD name="D15" ucd="meta.id.cross" datatype="float" width="4" precision="1"><!-- ucd="ID_CROSSID" -->
+      <DESCRIPTION>[1.1/8.2]? D15 identifiers (2)</DESCRIPTION>
+      <VALUES null="NaN" />
+    </FIELD>
+    <FIELD name="z" ucd="src.redshift" datatype="float" width="7" precision="4"><!-- ucd="REDSHIFT_HC" -->
+      <DESCRIPTION>[1.4/2.5]? Previous spectroscopic redshift</DESCRIPTION>
+      <VALUES null="NaN" />
+    </FIELD>
+    <FIELD name="r_z" ucd="meta.ref;pos.frame" datatype="char" arraysize="3"><!-- ucd="REFER_CODE" -->
+      <DESCRIPTION>Reference of z</DESCRIPTION>
+    </FIELD>
+    <FIELD name="zspec" ucd="src.redshift" datatype="float" width="6" precision="3"><!-- ucd="REDSHIFT_HC" -->
+      <DESCRIPTION>[0.7/3.8]? New spectroscopic redshift (3)</DESCRIPTION>
+      <VALUES null="NaN" />
+    </FIELD>
+    <FIELD name="r_zspec" ucd="meta.ref;pos.frame" datatype="unsignedByte" width="1"><!-- ucd="REFER_CODE" -->
+      <DESCRIPTION>[1/4]? Source of zspec (G1)</DESCRIPTION>
+      <VALUES null="255" />
+      <LINK href="http://vizier.cfa.harvard.edu/viz-bin/VizieR?-6N&amp;-info=XML&amp;-out.add=.&amp;&amp;lt;&amp;quot;Note&amp;quot;&amp;catid=18170060&amp;notid=10&amp;-out.emph=${r_zspec}"/>
+    </FIELD>
+    <FIELD name="Note" ucd="meta.note" datatype="unsignedByte" width="1"><!-- ucd="NOTE" -->
+      <DESCRIPTION>[1/5]? Note (4)</DESCRIPTION>
+      <VALUES null="255" />
+      <LINK href="http://vizier.cfa.harvard.edu/viz-bin/VizieR?-6N&amp;-info=XML&amp;-out.add=.&amp;&amp;lt;&amp;quot;Note&amp;quot;&amp;catid=18170060&amp;notid=4&amp;-out.emph=${Note}"/>
+    </FIELD>
+    <FIELD name="Score" ucd="meta.code.qual" datatype="float" width="4" precision="1"><!-- ucd="CODE_QUALITY" -->
+      <DESCRIPTION>[1/3] Average score (1=secure identification) (5)</DESCRIPTION>
+    </FIELD>
+    <FIELD name="Set" ucd="meta.id" datatype="char" arraysize="8*"><!-- ucd="ID_SET" -->
+      <DESCRIPTION>Category (6)</DESCRIPTION>
+    </FIELD>
+    <FIELD name="HCat" ucd="meta.ref.url" datatype="short" width="3"><!-- ucd="DATA_LINK" -->
+      <DESCRIPTION>Display SED data from Postman+, 2012, J/ApJS/199/25 and images data from Zitrin+, 2015, J/ApJ/801/44, within 0.5"</DESCRIPTION>
+      <VALUES null="-32768" />
+    </FIELD>
+    <FIELD name="Simbad" ucd="meta.ref.url" datatype="char" arraysize="6*"><!-- ucd="DATA_LINK" -->
+      <DESCRIPTION>Simbad column added by the CDS</DESCRIPTION>
+<!-- ask the {\bf\fg{FireBrick}Simbad} data-base about this object -->
+
+    </FIELD>
+<DATA><TABLEDATA>
+<TR><TD>1</TD><TD>1.1</TD><TD>177.39700</TD><TD>+22.396000</TD><TD>1.2</TD><TD>A1.1</TD><TD>1.1</TD><TD>1.1</TD><TD>1.4906</TD><TD>S09</TD><TD>1.488</TD><TD>3</TD><TD></TD><TD>1.0</TD><TD>Gold</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>2</TD><TD>1.2</TD><TD>177.39942</TD><TD>+22.397439</TD><TD>1.3</TD><TD>A1.2</TD><TD>1.2</TD><TD>1.2</TD><TD>1.4906</TD><TD>S09</TD><TD>1.488</TD><TD>3</TD><TD></TD><TD>1.0</TD><TD>Gold</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>3</TD><TD>1.3</TD><TD>177.40342</TD><TD>+22.402439</TD><TD>1.1</TD><TD>A1.3</TD><TD>1.3</TD><TD>1.3</TD><TD>1.4906</TD><TD>S09</TD><TD>1.488</TD><TD>3</TD><TD></TD><TD>1.0</TD><TD>Gold</TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>4</TD><TD>1.5</TD><TD>177.39986</TD><TD>+22.397133</TD><TD>1.4</TD><TD></TD><TD></TD><TD>1.5</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1</TD><TD>2.0</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>5</TD><TD>2.1</TD><TD>177.40242</TD><TD>+22.389750</TD><TD>3.3</TD><TD>A2.1</TD><TD>2.1</TD><TD>2.3</TD><TD>1.8940</TD><TD>S09</TD><TD>1.891</TD><TD>3</TD><TD></TD><TD>1.0</TD><TD>Gold</TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>6</TD><TD>2.2</TD><TD>177.40604</TD><TD>+22.392478</TD><TD>3.2</TD><TD>A2.2</TD><TD>2.2</TD><TD>2.2</TD><TD>1.8940</TD><TD>S09</TD><TD>1.891</TD><TD>3</TD><TD></TD><TD>1.0</TD><TD>Gold</TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>7</TD><TD>2.3</TD><TD>177.40658</TD><TD>+22.392886</TD><TD>3.1</TD><TD>A2.3</TD><TD>2.3</TD><TD>2.1</TD><TD>1.8940</TD><TD>S09</TD><TD>1.891</TD><TD>3</TD><TD></TD><TD>1.0</TD><TD>Gold</TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>8</TD><TD>3.1</TD><TD>177.39075</TD><TD>+22.399847</TD><TD>2.1</TD><TD>A3.1</TD><TD>3.1</TD><TD>3.1</TD><TD>2.4970</TD><TD>S09</TD><TD>3.129</TD><TD>3</TD><TD>2</TD><TD>1.0</TD><TD>Gold</TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>9</TD><TD>3.2</TD><TD>177.39271</TD><TD>+22.403081</TD><TD>2.2</TD><TD>A3.2</TD><TD>3.2</TD><TD>3.2</TD><TD>2.4970</TD><TD>S09</TD><TD>3.129</TD><TD>3</TD><TD>2</TD><TD>1.0</TD><TD>Gold</TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>10</TD><TD>3.3</TD><TD>177.40129</TD><TD>+22.407189</TD><TD>2.3</TD><TD>A3.3</TD><TD>3.3</TD><TD>3.3</TD><TD></TD><TD></TD><TD>3.129</TD><TD>3</TD><TD>2</TD><TD>1.1</TD><TD>Gold</TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>11</TD><TD>4.1</TD><TD>177.39300</TD><TD>+22.396825</TD><TD>4.1</TD><TD></TD><TD>4.1</TD><TD>4.1</TD><TD></TD><TD></TD><TD>2.949</TD><TD>4</TD><TD></TD><TD>1.0</TD><TD>Gold</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>12</TD><TD>4.2</TD><TD>177.39438</TD><TD>+22.400736</TD><TD>4.2</TD><TD></TD><TD>4.2</TD><TD>4.2</TD><TD></TD><TD></TD><TD>2.949</TD><TD>2</TD><TD></TD><TD>1.0</TD><TD>Gold</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>13</TD><TD>4.3</TD><TD>177.40417</TD><TD>+22.406128</TD><TD>4.3</TD><TD></TD><TD>4.3</TD><TD>4.3</TD><TD></TD><TD></TD><TD>2.949</TD><TD>2</TD><TD></TD><TD>1.0</TD><TD>Gold</TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>14</TD><TD>5.1</TD><TD>177.39975</TD><TD>+22.393061</TD><TD>5.1</TD><TD></TD><TD>5.1</TD><TD>5.1</TD><TD></TD><TD></TD><TD>2.800</TD><TD>1</TD><TD></TD><TD>1.0</TD><TD>Gold</TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>15</TD><TD>5.2</TD><TD>177.40108</TD><TD>+22.393825</TD><TD>5.2</TD><TD></TD><TD>5.2</TD><TD>5.2</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.0</TD><TD>Gold</TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>16</TD><TD>5.3</TD><TD>177.40792</TD><TD>+22.403553</TD><TD>5.3</TD><TD></TD><TD>5.3</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.7</TD><TD>Silver</TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>17</TD><TD>6.1</TD><TD>177.39971</TD><TD>+22.392544</TD><TD>6.1</TD><TD></TD><TD>6.1</TD><TD>6.1</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.1</TD><TD>Gold</TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>18</TD><TD>6.2</TD><TD>177.40183</TD><TD>+22.393858</TD><TD>6.2</TD><TD></TD><TD>6.2</TD><TD>6.2</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.1</TD><TD>Gold</TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>19</TD><TD>6.3</TD><TD>177.40804</TD><TD>+22.402506</TD><TD>5.4;6.3</TD><TD></TD><TD>6.3</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.7</TD><TD>Silver</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>20</TD><TD>7.1</TD><TD>177.39896</TD><TD>+22.391339</TD><TD>7.1</TD><TD></TD><TD>7.1</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.1</TD><TD>Gold</TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>21</TD><TD>7.2</TD><TD>177.40342</TD><TD>+22.394269</TD><TD>7.2</TD><TD></TD><TD>7.2</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.1</TD><TD>Gold</TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>22</TD><TD>7.3</TD><TD>177.40758</TD><TD>+22.401242</TD><TD></TD><TD></TD><TD>7.3</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.2</TD><TD>Gold</TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>23</TD><TD>8.1</TD><TD>177.39850</TD><TD>+22.394350</TD><TD>8.1</TD><TD></TD><TD>8.1</TD><TD>8.1</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.2</TD><TD>Gold</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>24</TD><TD>8.2</TD><TD>177.39979</TD><TD>+22.395044</TD><TD>8.2</TD><TD></TD><TD>8.2</TD><TD>8.2</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.2</TD><TD>Gold</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>25</TD><TD>8.4</TD><TD>177.40709</TD><TD>+22.404722</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>3</TD><TD>1.2</TD><TD>Gold</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>26</TD><TD></TD><TD>177.40704</TD><TD>+22.405553</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>2.780</TD><TD>1</TD><TD>3</TD><TD>3.0</TD><TD>Rejected</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>27</TD><TD></TD><TD>177.40517</TD><TD>+22.401563</TD><TD>8.3</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>3</TD><TD>3.0</TD><TD>Rejected</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>28</TD><TD>9.1</TD><TD>177.40517</TD><TD>+22.426233</TD><TD></TD><TD>A6.1</TD><TD>9.1</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.8</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>29</TD><TD>9.2</TD><TD>177.40388</TD><TD>+22.427231</TD><TD></TD><TD>A6.2</TD><TD>9.2</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.8</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>30</TD><TD>9.3</TD><TD>177.40325</TD><TD>+22.427228</TD><TD></TD><TD>A6.3</TD><TD>9.3</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.8</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>31</TD><TD>9.4</TD><TD>177.40364</TD><TD>+22.426422</TD><TD></TD><TD>A6.4?</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.8</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>32</TD><TD>10.1</TD><TD>177.40450</TD><TD>+22.425514</TD><TD></TD><TD>A7.1</TD><TD>10.1</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.8</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>33</TD><TD>10.2</TD><TD>177.40362</TD><TD>+22.425636</TD><TD></TD><TD>A7.2</TD><TD>10.2</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.8</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>34</TD><TD>10.3</TD><TD>177.40221</TD><TD>+22.426625</TD><TD></TD><TD>A7.3</TD><TD>10.3</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.8</TD><TD></TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>35</TD><TD>12.1</TD><TD>177.39857</TD><TD>+22.389356</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.020</TD><TD>3</TD><TD>4</TD><TD>2.6</TD><TD>Rejected</TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>36</TD><TD>12.2</TD><TD>177.40375</TD><TD>+22.392345</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>0.929</TD><TD>2</TD><TD>4</TD><TD>2.9</TD><TD>Rejected</TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>37</TD><TD>12.3</TD><TD>177.40822</TD><TD>+22.398801</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.118</TD><TD>3</TD><TD>4</TD><TD>2.6</TD><TD>Rejected</TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>38</TD><TD>13.1</TD><TD>177.40371</TD><TD>+22.397786</TD><TD></TD><TD></TD><TD>13.1</TD><TD></TD><TD></TD><TD></TD><TD>1.230</TD><TD>1</TD><TD></TD><TD>1.0</TD><TD>Gold</TD><TD>2</TD><TD>Simbad</TD></TR>
+<TR><TD>39</TD><TD>13.2</TD><TD>177.40283</TD><TD>+22.396656</TD><TD></TD><TD></TD><TD>13.2</TD><TD></TD><TD></TD><TD></TD><TD>1.250</TD><TD>1</TD><TD></TD><TD>1.0</TD><TD>Gold</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>40</TD><TD>13.3</TD><TD>177.40004</TD><TD>+22.393858</TD><TD></TD><TD></TD><TD>13.3</TD><TD></TD><TD></TD><TD></TD><TD>1.230</TD><TD>1</TD><TD></TD><TD>1.3</TD><TD>Gold</TD><TD>3</TD><TD>Simbad</TD></TR>
+<TR><TD>41</TD><TD>14.1</TD><TD>177.39167</TD><TD>+22.403489</TD><TD></TD><TD></TD><TD>14.1</TD><TD></TD><TD></TD><TD></TD><TD>3.703</TD><TD>2</TD><TD></TD><TD>1.3</TD><TD>Gold</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>42</TD><TD>14.2</TD><TD>177.39083</TD><TD>+22.402647</TD><TD></TD><TD></TD><TD>14.2</TD><TD></TD><TD></TD><TD></TD><TD>3.703</TD><TD>2</TD><TD></TD><TD>1.3</TD><TD>Gold</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>43</TD><TD>110.1</TD><TD>177.40014</TD><TD>+22.390162</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>3.214</TD><TD>2</TD><TD></TD><TD>1.0</TD><TD>Gold</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>44</TD><TD>110.2</TD><TD>177.40402</TD><TD>+22.392894</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>3.214</TD><TD>2</TD><TD></TD><TD>1.0</TD><TD>Gold</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>45</TD><TD>110.3</TD><TD>177.40907</TD><TD>+22.400242</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>2.0</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>46</TD><TD>21.1</TD><TD>177.40451</TD><TD>+22.386704</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.8</TD><TD>Silver</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>47</TD><TD>21.2</TD><TD>177.40800</TD><TD>+22.389057</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.6</TD><TD>Silver</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>48</TD><TD>21.3</TD><TD>177.40907</TD><TD>+22.390407</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.6</TD><TD>Silver</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>49</TD><TD>22.1</TD><TD>177.40370</TD><TD>+22.386838</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.8</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>50</TD><TD>22.2</TD><TD>177.40791</TD><TD>+22.389232</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.8</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>51</TD><TD>22.3</TD><TD>177.40902</TD><TD>+22.391053</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.8</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>52</TD><TD>23.1</TD><TD>177.39302</TD><TD>+22.411428</TD><TD></TD><TD>A5</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.8</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>53</TD><TD>23.2</TD><TD>177.39308</TD><TD>+22.411455</TD><TD></TD><TD>A5</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.8</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>54</TD><TD>23.3</TD><TD>177.39315</TD><TD>+22.411473</TD><TD></TD><TD>A5</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.8</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>55</TD><TD>24.1</TD><TD>177.39285</TD><TD>+22.412872</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.7</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>56</TD><TD>24.2</TD><TD>177.39353</TD><TD>+22.413071</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.7</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>57</TD><TD>24.3</TD><TD>177.39504</TD><TD>+22.412697</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.8</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>58</TD><TD>25.1</TD><TD>177.40428</TD><TD>+22.398782</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>2.0</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>59</TD><TD>25.2</TD><TD>177.40411</TD><TD>+22.398599</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>2.0</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>60</TD><TD>25.3</TD><TD>177.39489</TD><TD>+22.391796</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>2.3</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>61</TD><TD>26.1</TD><TD>177.41035</TD><TD>+22.388749</TD><TD>9.1</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.8</TD><TD>Silver</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>62</TD><TD>26.2</TD><TD>177.40922</TD><TD>+22.387697</TD><TD>9.2</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.8</TD><TD>Silver</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>63</TD><TD>26.3</TD><TD>177.40623</TD><TD>+22.385369</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.8</TD><TD>Silver</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>64</TD><TD>27.1</TD><TD>177.40971</TD><TD>+22.387665</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.8</TD><TD>Silver</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>65</TD><TD>27.2</TD><TD>177.40988</TD><TD>+22.387835</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.8</TD><TD>Silver</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>66</TD><TD>27.3</TD><TD>177.40615</TD><TD>+22.385142</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>2.5</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>67</TD><TD>28.1</TD><TD>177.39531</TD><TD>+22.391809</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>2.0</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>68</TD><TD>28.2</TD><TD>177.40215</TD><TD>+22.396750</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>2.2</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>69</TD><TD>28.3</TD><TD>177.40562</TD><TD>+22.402434</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>2.0</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>70</TD><TD>200.1</TD><TD>177.40875</TD><TD>+22.394467</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>2.320</TD><TD>1</TD><TD></TD><TD>2.6</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>71</TD><TD>200.2</TD><TD>177.40512</TD><TD>+22.391261</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>2.6</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>72</TD><TD>200.3</TD><TD>177.40256</TD><TD>+22.389233</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>2.8</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>73</TD><TD>201.1</TD><TD>177.40048</TD><TD>+22.395444</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>5</TD><TD>1.6</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>74</TD><TD>201.2</TD><TD>177.40683</TD><TD>+22.404517</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>5</TD><TD>1.6</TD><TD></TD><TD>3</TD><TD>Simbad</TD></TR>
+<TR><TD>75</TD><TD>202.1</TD><TD>177.40765</TD><TD>+22.396789</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>2.0</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>76</TD><TD>202.2</TD><TD>177.40224</TD><TD>+22.391489</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>2.0</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>77</TD><TD>202.3</TD><TD>177.40353</TD><TD>+22.392586</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>2.0</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>78</TD><TD>203.1</TD><TD>177.40995</TD><TD>+22.387244</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.8</TD><TD>Silver</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>79</TD><TD>203.2</TD><TD>177.40657</TD><TD>+22.384511</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>2.0</TD><TD>Silver</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>80</TD><TD>203.3</TD><TD>177.41123</TD><TD>+22.388461</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.8</TD><TD>Silver</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>81</TD><TD>204.1</TD><TD>177.40961</TD><TD>+22.386661</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.8</TD><TD>Silver</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>82</TD><TD>204.2</TD><TD>177.40668</TD><TD>+22.384322</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.8</TD><TD>Silver</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>83</TD><TD>204.3</TD><TD>177.41208</TD><TD>+22.389056</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>1.8</TD><TD>Silver</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>84</TD><TD>205.1</TD><TD>177.40520</TD><TD>+22.386042</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>2.0</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>85</TD><TD>205.2</TD><TD>177.40821</TD><TD>+22.388119</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>2.0</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>86</TD><TD>205.3</TD><TD>177.41038</TD><TD>+22.390625</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>2.0</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>87</TD><TD>206.1</TD><TD>177.40764</TD><TD>+22.385647</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>2.2</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>88</TD><TD>206.2</TD><TD>177.40863</TD><TD>+22.386453</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>2.2</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>89</TD><TD>206.3</TD><TD>177.41133</TD><TD>+22.388997</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>2.2</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>90</TD><TD>207.1</TD><TD>177.40442</TD><TD>+22.397303</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>2.2</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>91</TD><TD>207.2</TD><TD>177.40397</TD><TD>+22.396039</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>2.2</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>92</TD><TD>208.1</TD><TD>177.40453</TD><TD>+22.395761</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>2.0</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>93</TD><TD>208.2</TD><TD>177.40494</TD><TD>+22.396397</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>2.0</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>94</TD><TD>209.1</TD><TD>177.38994</TD><TD>+22.412694</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>3.0</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>95</TD><TD>209.2</TD><TD>177.39055</TD><TD>+22.413408</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>3.0</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>96</TD><TD>210.1</TD><TD>177.39690</TD><TD>+22.398061</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>0.702</TD><TD>2</TD><TD></TD><TD>3.0</TD><TD></TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>97</TD><TD>210.2</TD><TD>177.39505</TD><TD>+22.397497</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>0.702</TD><TD>2</TD><TD></TD><TD>3.0</TD><TD></TD><TD>1</TD><TD>Simbad</TD></TR>
+</TABLEDATA></DATA>
+</TABLE>
+<INFO name="matches" value="97">matching records</INFO>
+</RESOURCE>
+</VOTABLE>

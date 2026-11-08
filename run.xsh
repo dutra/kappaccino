@@ -154,11 +154,11 @@ def _usage() -> str:
         "  --bcg-cut-prior lognormal|uniform: BCG cut-radius prior (default lognormal, unbounded)\n"
         "  --skip-plots: no figures or tables after sampling (quick tests; the sampler diagnostics are in the log)\n"
         "  --truth-fit: HERA, ARES only: instead of fitting the images, fit the model directly to the true deflection over the\n"
-        "          strong-lensing region (kappaccino.diagnostics.truth_fit), with the members on the relation and free; writes\n"
+        "          strong-lensing region (kappaccino.diagnostics.truth_fit), with the members on the scaling relation; writes\n"
         "          <run>/truth_fit/ (residual deflection and convergence, image-plane floor, residual correlation vs the knee prior)\n"
         "  --truth-fit-compare RUN_DIR: with --truth-fit, also score that image fit of the same model (its best posterior draw, or\n"
         "          its init start) and split its error into model limit and missing constraints\n"
-        "  --truth-fit-variants relation,free: the variants to fit (default both)\n"
+        "  --truth-fit-variants relation[,free]: the variants to fit (default relation; free also frees the exact members' offsets)\n"
         "  --fast: exploratory settings: members deflecting every image by < 0.03\" are dropped, far-field members allowed down to\n"
         "          2 cut radii from an image, classification at the current model, 16 search starts, 300+150 draws at tree depth 7\n"
         "          (check the audit's far-field error before trusting a fast run)\n"
@@ -185,7 +185,7 @@ def _parse_args(argv: list[str]) -> dict:
               "halo_search": "lbfgs", "member_search": "lbfgs", "likelihood": "grf_gp", "gp_blocks": None,
               "warm_start": None, "gp_band_max": None, "start_tolerance": None, "start_max_iter": None, "gp_knee_gamma": None, "gp_knee_fixed": None, "fix_relation": None, "relation_prior": None, "kinematics": None, "drop_halos": None, "member_shapes": None,
               "warmup": None, "samples": None, "dense_offsets": None, "far_offsets": None, "offset_tail": None, "bcg_cut_prior": "lognormal",
-              "skip_plots": False, "truth_fit": False, "truth_fit_compare": None, "truth_fit_variants": "relation,free"}
+              "skip_plots": False, "truth_fit": False, "truth_fit_compare": None, "truth_fit_variants": "relation"}
     flag_to_key = {"--campaign": "campaign", "--run-label": "run_label", "--stage": "stage", "--imaging": "imaging",
                    "--halo-search": "halo_search", "--member-search": "member_search", "--likelihood": "likelihood",
                    "--gp-blocks": "gp_blocks", "--warm-start": "warm_start",

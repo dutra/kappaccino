@@ -20,7 +20,8 @@ $$\ln L(\theta) = -\frac{1}{2\sigma^2} \sum_p \left|\alpha_{\rm model}(x_p; \the
 with the constant deflection $c$ profiled out (the images cannot see it: the sources absorb it, as the image
 likelihood's translation projection does). The truth has no noise, so $\sigma$ (0.1") only weighs the data against the
 priors, which stay as a weak regularizer. The deflection is the quantity the images respond to; the convergence is
-reported as well. L-BFGS on the same objective as the init search, two variants:
+reported as well. L-BFGS on the same objective as the init search, in two variants (`--truth-fit-variants`,
+default `relation`):
 
 - `relation`: the members on their scaling relation; tests the relation and the cluster-scale halos;
 - `free`: as the image fit, the offsets of the exact members free and the far-field members on the relation. The

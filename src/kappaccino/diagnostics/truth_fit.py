@@ -331,7 +331,7 @@ def knee_prior_curves(config, r: np.ndarray) -> dict[str, Any] | None:
 
 # ----------------------------------------------------------------------------- driver
 def run_truth_fit(config, *, deflection_path: str | Path, kappa_path: str | Path, output_dir: str | Path,
-                  variants: tuple[str, ...] = VARIANTS, step_arcsec: float = 1.0, radius_factor: float = 1.5,
+                  variants: tuple[str, ...] = ("relation",), step_arcsec: float = 1.0, radius_factor: float = 1.5,
                   sigma_arcsec: float = 0.1, max_iter: int = 2000, extra_starts: int = 0, compare_theta: np.ndarray | None = None,
                   compare_label: str = "image fit", log=print) -> dict[str, Any]:
     """Fit each variant to the truth and write ``<output_dir>/<variant>/`` (summary.json, parameters.csv, the residual maps

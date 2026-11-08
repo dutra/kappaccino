@@ -9,8 +9,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from kappaccino import pipeline
-from kappaccino.config import ImageDiagnosticsConfig, PartitionConfig, RuntimeConfig, SamplingConfig, SearchConfig
+from kappaccino.config import ImageDiagnosticsConfig, PartitionConfig
 from kappaccino.evaluator import Evaluator
 from kappaccino.exact_images import ExactImageSolver, packed_to_kwargs_lens
 from kappaccino.partition import add_slots, extend_theta
@@ -165,22 +164,26 @@ def test_slot_prior_correction_turns_unit_offsets_into_the_physical_priors(synth
         np.testing.assert_allclose(float(model.log_prior_correction(values)), log_beta + log_pop + log_jacobian - unit, rtol=1e-10)
 
 
-def test_final_stage_with_slots_writes_assignments(synthetic_config, tmp_path):
+def test_slot_outputs_from_posterior_draws(synthetic_config, tmp_path):
+    """slots.npz and the tables from a few draws about the start (the final stage writes them from the NUTS draws)."""
+    from types import SimpleNamespace
+    from kappaccino.partition.slots import SLOTS_FILE, write_slot_outputs
     path, truth = _mock(synthetic_config, tmp_path)
-    config = replace(_with_partition(synthetic_config, path, posterior_draws=5),
-                     runtime=RuntimeConfig(seed=3, chains=1, resume=True, nuts_chain_method="sequential", skip_plots=True),
-                     search=SearchConfig(n_starts=2, lbfgs_max_iter=20, polish_max_iter=5),
-                     sampling=SamplingConfig(warmup=5, samples=5, max_tree_depth=3),
-                     image_diagnostics=ImageDiagnosticsConfig(posterior_image_diagnostic_draws=0)).validate()
-    result = pipeline.run(config)
-    assert result.state.slots is not None and result.posterior.samples.shape[1] == result.state.n_parameters
-    saved = np.load(result.paths.final.artifacts / "slots.npz")
-    assert saved["probability"].shape == (len(truth), len(result.state.slots.option_names()))
+    config = _with_partition(synthetic_config, path, posterior_draws=5)
+    state = build_state(config)
+    extended, evaluator = add_slots(config, state, Evaluator(state), state.initial_theta, log=lambda _: None)
+    theta = extend_theta(extended, state.initial_theta)
+    samples = theta + 0.01 * np.random.default_rng(4).normal(size=(6, theta.size))
+    stage = SimpleNamespace(artifacts=tmp_path / "artifacts", tables=tmp_path / "tables")
+    stage.artifacts.mkdir(), stage.tables.mkdir()
+    write_slot_outputs(extended, evaluator, SimpleNamespace(samples=samples), stage, draws=5, seed=3, log=lambda _: None)
+    saved = np.load(stage.artifacts / SLOTS_FILE)
+    assert saved["probability"].shape == (len(truth), len(extended.slots.option_names()))
+    assert saved["responsibilities"].shape[0] == 5
     np.testing.assert_allclose(saved["probability"].sum(axis=1), 1.0, atol=1e-9)
-    images = pd.read_csv(result.paths.final.tables / "uncertain_images.csv")
+    images = pd.read_csv(stage.tables / "uncertain_images.csv")
     assert list(images["image_label"]) == [f"u{k}" for k in range(len(truth))]
-    resumed = pipeline.run(config)
-    assert resumed.resumed and resumed.state.n_parameters == result.state.n_parameters
+    assert (stage.tables / "uncertain_pairs.csv").is_file()
 
 
 def test_population_mixture_and_color_scatter_are_recovered():

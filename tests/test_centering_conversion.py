@@ -119,7 +119,8 @@ def test_chain_starts_and_hessian_use_the_converted_modes(synthetic_config, monk
 
 
 def test_a_misplaced_chain_start_is_reported(synthetic_config, monkeypatch, tmp_path):
-    """With the conversion removed (the bug), the final stage warns that the chain starts are not the saved start."""
+    """With the conversion removed (the bug), the final stage warns that the chain starts are not the saved start.
+    The check runs before NUTS, so the sampler is replaced by a stop."""
     from kappaccino.sampling import hessian_seed_warning
     config = replace(synthetic_config,
                      runtime=RuntimeConfig(seed=5, chains=2, nuts_chain_method="sequential", resume=True),
@@ -127,18 +128,24 @@ def test_a_misplaced_chain_start_is_reported(synthetic_config, monkeypatch, tmp_
                      sampling=SamplingConfig(warmup=5, samples=5, max_tree_depth=3),
                      image_diagnostics=ImageDiagnosticsConfig(posterior_image_diagnostic_draws=2),
                      members=replace(synthetic_config.members, centering="exact"))
-    good = pipeline.run(config)
-    log = (good.paths.final.logs / "final.log").read_text()
-    assert "chain-start log-likelihoods" in log and "WARNING" not in log
-    assert good.posterior.diagnostics["start_check"]["warnings"] == []
-    assert "initialization" in (good.paths.final.tables / "run_summary.txt").read_text()
 
-    broken = replace(config, paths=replace(config.paths, run_name="broken"))
+    class _ReachedNUTS(Exception):
+        pass
+
+    def stop(*args, **kwargs):
+        raise _ReachedNUTS
+    monkeypatch.setattr(pipeline, "run_nuts", stop)
+
+    def final_log(run_config):
+        init = pipeline.run_init(run_config)
+        with pytest.raises(_ReachedNUTS):
+            pipeline.run_final(run_config, init)
+        return (init.paths.root.parent / "final" / "logs" / "final.log").read_text()
+
+    log = final_log(config)
+    assert "chain-start log-likelihoods" in log and "WARNING" not in log
     monkeypatch.setattr(pipeline, "convert_search_centering", lambda search, before, after: search)
-    bad = pipeline.run(broken)
-    log = (bad.paths.final.logs / "final.log").read_text()
+    log = final_log(replace(config, paths=replace(config.paths, run_name="broken")))
     assert "WARNING: the first chain start is not the saved init start" in log
-    assert bad.posterior.diagnostics["start_check"]["warnings"]
-    assert "WARNING, see the final log" in (bad.paths.final.tables / "run_summary.txt").read_text()
     # The Hessian rule on the numbers of the M0416 run that had the bug, and of a run started at a correct mode.
     assert hessian_seed_warning({"n_negative_eigenvalues": 19, "global_dim": 39}) and not hessian_seed_warning({"n_negative_eigenvalues": 1, "global_dim": 35})

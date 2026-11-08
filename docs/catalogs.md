@@ -32,6 +32,9 @@ catalogs/<cluster>/<source>/
 | `a2744/furtak2023/` | images.yaml | members.yaml | Furtak et al. 2023 (UNCOVER v2.0) |
 | `a2744/mahler2018/` | images.yaml | | Mahler et al. 2018 |
 | `a2744/master/` | images.yaml, images_gold.yaml | members.yaml | our merge of the four A2744 catalogs |
+| `m0717/limousin2016/` | images.yaml | members.yaml | Limousin et al. 2016 (CATS v4.1) |
+| `m0717/kawamata2016/` | images.yaml | | Kawamata et al. 2016 |
+| `m0717/master/` | images.yaml, images_gold.yaml | members.yaml | our merge of the two M0717 catalogs |
 
 Positions of the real clusters are ICRS RA/Dec in degrees. Hera and Ares positions are offsets about (0, 0) in degrees
 (the Lenstool `reference 3 0 0` convention), not sky coordinates. `catalogs/README.md` records the astrometric frames

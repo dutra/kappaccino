@@ -87,7 +87,7 @@ class Paper:
         if float(entry["z"]) <= 0.0:
             return float(entry["z"]), "free"   # Lenstool's z = 0: the redshift is a free parameter of the model
         kind = ("spec" if "spectroscopic" in notes else "phot" if "photometric" in notes
-                else "model" if "geometric" in notes or "model" in notes else self.z_kind)
+                else "model" if "geometric" in notes or "lens-model" in notes else self.z_kind)
         return float(entry["z"]), kind
 
     def label(self, i: int) -> str:

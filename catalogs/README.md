@@ -28,6 +28,9 @@ catalogs/<cluster>/<source>/
 | `a2744/furtak2023/` | (not an entry) | images.yaml | members.yaml (419 with F814W) | UNCOVER lens model release v2.0 (Furtak et al. 2023) |
 | `a2744/mahler2018/` | (not an entry) | images.yaml | | Mahler et al. 2018, MNRAS 473, 663 Table A1, VizieR |
 | `a2744/master/` | (not an entry yet) | images.yaml, images_gold.yaml | members.yaml | built from the four folders above, base bergamini2023b |
+| `m0717/limousin2016/` | (not an entry) | images.yaml (41 systems with model z) | members.yaml (90) | CATS v4.1 release of Limousin et al. 2016, MAST |
+| `m0717/kawamata2016/` | (not an entry) | images.yaml | | Kawamata et al. 2016, ApJ 819, 114 Table 8, VizieR |
+| `m0717/master/` | (not an entry yet) | images.yaml, images_gold.yaml | members.yaml | built from the two folders above, base limousin2016 |
 
 Hera and Ares positions are offsets about (0, 0) in degrees (the par files' `reference 3 0 0`), not sky coordinates.
 Positions of the real clusters are ICRS RA/Dec; the CANUCS catalog is in the frame of the CANUCS lenstool input,
@@ -102,3 +105,6 @@ to `results/`, not here.
   of the two, 1.031, matches [OIII] 5007 / Hbeta, which points to a line confusion in the grism, so `m0416/master` uses
   the MUSE value by a `set_z` decision. That choice is provisional: check the MUSE quality flag, the NIRISS spectrum
   (Halpha) or a fit with K8's z free, then update `m0416/master/decisions.yaml`. The evidence is in the comment there.
+- **M0717 redshifts.** 41 of the 51 master systems carry the CATS best-fit (model) redshift, and the fixed redshifts of
+  systems 6 and 68 have no spectroscopic support in Kawamata et al. 2016 (see `m0717/limousin2016/README.md`). Check
+  them against Limousin et al. 2016, Table A.1, before treating the M0717 master as spectroscopic.

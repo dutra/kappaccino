@@ -1,0 +1,544 @@
+# Master member catalog of m0717: the limousin2016 members (members.yaml), built on 2026-11-08 by scripts/build_master_catalog.py.
+# Each member's notes name the papers that list it; members only other papers list are in crossmatch.yaml.  Do not edit.
+band: F814W
+members:
+  '340':
+    ra: 109.3943267
+    dec: 37.7293558
+    mag: {F814W: 21.37}
+    shape: [1.0, 0.4875, -80.7]
+    notes: in limousin2016
+  '381':
+    ra: 109.3991386
+    dec: 37.7295344
+    mag: {F814W: 21.62}
+    shape: [1.0, 0.8597, 20.6]
+    notes: in limousin2016
+  '445':
+    ra: 109.3951417
+    dec: 37.7316219
+    mag: {F814W: 20.69}
+    shape: [1.0, 0.9342, 1.6]
+    notes: in limousin2016
+  '518':
+    ra: 109.4143847
+    dec: 37.7331955
+    mag: {F814W: 21.11}
+    shape: [1.0, 0.7274, -56.8]
+    notes: in limousin2016
+  '546':
+    ra: 109.4018306
+    dec: 37.734093
+    mag: {F814W: 19.86}
+    shape: [1.0, 0.8792, -3.2]
+    notes: in limousin2016
+  '552':
+    ra: 109.4072064
+    dec: 37.7327408
+    mag: {F814W: 22.44}
+    shape: [1.0, 0.6939, -56.8]
+    notes: in limousin2016
+  '556':
+    ra: 109.4056424
+    dec: 37.7328388
+    mag: {F814W: 21.78}
+    shape: [1.0, 0.8423, 2.1]
+    notes: in limousin2016
+  '649':
+    ra: 109.3814188
+    dec: 37.7354766
+    mag: {F814W: 20.31}
+    shape: [1.0, 0.3797, 39.4]
+    notes: in limousin2016
+  '662':
+    ra: 109.3908615
+    dec: 37.7351069
+    mag: {F814W: 21.07}
+    shape: [1.0, 0.6687, 32.2]
+    notes: in limousin2016
+  '666':
+    ra: 109.4016946
+    dec: 37.734958
+    mag: {F814W: 21.53}
+    shape: [1.0, 0.6955, 52.0]
+    notes: in limousin2016
+  '682':
+    ra: 109.3881675
+    dec: 37.7364697
+    mag: {F814W: 21.04}
+    shape: [1.0, 0.7225, 3.1]
+    notes: in limousin2016
+  '720':
+    ra: 109.4023301
+    dec: 37.7359572
+    mag: {F814W: 20.61}
+    shape: [1.0, 0.3398, 11.6]
+    notes: in limousin2016
+  '858':
+    ra: 109.3826413
+    dec: 37.7395822
+    mag: {F814W: 20.96}
+    shape: [1.0, 0.6438, -77.0]
+    notes: in limousin2016
+  '905':
+    ra: 109.38092
+    dec: 37.7394794
+    mag: {F814W: 21.75}
+    shape: [1.0, 0.9389, 24.1]
+    notes: in limousin2016
+  '906':
+    ra: 109.3854622
+    dec: 37.7430683
+    mag: {F814W: 19.5}
+    shape: [1.0, 0.9165, 14.1]
+    notes: in limousin2016
+  '907':
+    ra: 109.4150472
+    dec: 37.7394019
+    mag: {F814W: 21.07}
+    shape: [1.0, 0.4534, 8.6]
+    notes: in limousin2016
+  '935':
+    ra: 109.3833313
+    dec: 37.7398724
+    mag: {F814W: 21.84}
+    shape: [1.0, 0.7274, -29.9]
+    notes: in limousin2016
+  '953':
+    ra: 109.3850421
+    dec: 37.7400522
+    mag: {F814W: 21.35}
+    shape: [1.0, 0.4324, -2.3]
+    notes: in limousin2016
+  '959':
+    ra: 109.3856807
+    dec: 37.7405147
+    mag: {F814W: 21.99}
+    shape: [1.0, 0.4558, 56.2]
+    notes: in limousin2016
+  '1083':
+    ra: 109.3813033
+    dec: 37.7438147
+    mag: {F814W: 20.54}
+    shape: [1.0, 0.6112, -50.7]
+    notes: in limousin2016
+  '1100':
+    ra: 109.3857018
+    dec: 37.7454555
+    mag: {F814W: 19.69}
+    shape: [1.0, 0.4661, -86.5]
+    notes: in limousin2016
+  '1110':
+    ra: 109.3992714
+    dec: 37.7453341
+    mag: {F814W: 20.41}
+    shape: [1.0, 0.3077, 38.2]
+    notes: in limousin2016
+  '1159':
+    ra: 109.3970299
+    dec: 37.7453677
+    mag: {F814W: 20.61}
+    shape: [1.0, 0.5179, -29.5]
+    notes: in limousin2016
+  '1170':
+    ra: 109.3830762
+    dec: 37.747228
+    mag: {F814W: 19.89}
+    shape: [1.0, 0.4945, 67.3]
+    notes: in limousin2016
+  '1187':
+    ra: 109.3939599
+    dec: 37.7446897
+    mag: {F814W: 20.78}
+    shape: [1.0, 0.7696, -16.2]
+    notes: in limousin2016
+  '1217':
+    ra: 109.3982046
+    dec: 37.7457786
+    mag: {F814W: 19.89}
+    shape: [1.0, 0.701, 83.5]
+    notes: in limousin2016
+  '1229':
+    ra: 109.398063
+    dec: 37.7449777
+    mag: {F814W: 22.24}
+    shape: [1.0, 0.7362, 14.9]
+    notes: in limousin2016
+  '1255':
+    ra: 109.3915729
+    dec: 37.7456519
+    mag: {F814W: 21.23}
+    shape: [1.0, 0.8873, -66.7]
+    notes: in limousin2016
+  '1284':
+    ra: 109.3970485
+    dec: 37.7465536
+    mag: {F814W: 21.06}
+    shape: [1.0, 0.6554, -37.5]
+    notes: in limousin2016
+  '1290':
+    ra: 109.3946604
+    dec: 37.7462752
+    mag: {F814W: 21.14}
+    shape: [1.0, 0.4922, 59.5]
+    notes: in limousin2016
+  '1308':
+    ra: 109.3941299
+    dec: 37.7460483
+    mag: {F814W: 22.39}
+    shape: [1.0, 0.2571, -26.0]
+    notes: in limousin2016
+  '1320':
+    ra: 109.3850529
+    dec: 37.7464033
+    mag: {F814W: 22.07}
+    shape: [1.0, 0.9248, -50.8]
+    notes: in limousin2016
+  '1542':
+    ra: 109.3980289
+    dec: 37.7515047
+    mag: {F814W: 19.83}
+    shape: [1.0, 0.9695, -0.2]
+    notes: in limousin2016
+  '1553':
+    ra: 109.3891954
+    dec: 37.7514711
+    mag: {F814W: 20.39}
+    shape: [1.0, 0.7763, 88.8]
+    notes: in limousin2016
+  '1572':
+    ra: 109.3753731
+    dec: 37.7511572
+    mag: {F814W: 20.61}
+    shape: [1.0, 0.7804, 7.7]
+    notes: in limousin2016
+  '1573':
+    ra: 109.3915912
+    dec: 37.7503061
+    mag: {F814W: 22.01}
+    shape: [1.0, 0.528, 16.8]
+    notes: in limousin2016
+  '1574':
+    ra: 109.3969835
+    dec: 37.750713
+    mag: {F814W: 21.71}
+    shape: [1.0, 0.6656, -83.3]
+    notes: in limousin2016
+  '1579':
+    ra: 109.3880488
+    dec: 37.7508519
+    mag: {F814W: 21.56}
+    shape: [1.0, 0.9314, 6.3]
+    notes: in limousin2016
+  '1580':
+    ra: 109.405835
+    dec: 37.7517133
+    mag: {F814W: 20.49}
+    shape: [1.0, 0.8242, 47.2]
+    notes: in limousin2016
+  '1621':
+    ra: 109.3985263
+    dec: 37.7548344
+    mag: {F814W: 19.05}
+    shape: [1.0, 0.7137, -20.0]
+    notes: in limousin2016
+  '1629':
+    ra: 109.3984571
+    dec: 37.7517916
+    mag: {F814W: 21.69}
+    shape: [1.0, 0.8021, 62.8]
+    notes: in limousin2016
+  '1630':
+    ra: 109.370669
+    dec: 37.7523422
+    mag: {F814W: 20.5}
+    shape: [1.0, 0.8114, -30.2]
+    notes: in limousin2016
+  '1638':
+    ra: 109.3841944
+    dec: 37.7521163
+    mag: {F814W: 21.35}
+    shape: [1.0, 0.9018, -43.9]
+    notes: in limousin2016
+  '1646':
+    ra: 109.3944633
+    dec: 37.7517644
+    mag: {F814W: 22.34}
+    shape: [1.0, 0.8388, -68.0]
+    notes: in limousin2016
+  '1649':
+    ra: 109.3694553
+    dec: 37.7521169
+    mag: {F814W: 21.8}
+    shape: [1.0, 0.7002, 78.4]
+    notes: in limousin2016
+  '1682':
+    ra: 109.3940927
+    dec: 37.7529363
+    mag: {F814W: 20.8}
+    shape: [1.0, 0.8225, 42.9]
+    notes: in limousin2016
+  '1684':
+    ra: 109.3750679
+    dec: 37.7551505
+    mag: {F814W: 20.43}
+    shape: [1.0, 0.9128, 3.8]
+    notes: in limousin2016
+  '1710':
+    ra: 109.3939346
+    dec: 37.7528397
+    mag: {F814W: 21.26}
+    shape: [1.0, 0.8615, -37.3]
+    notes: in limousin2016
+  '1713':
+    ra: 109.3956763
+    dec: 37.7524391
+    mag: {F814W: 23.39}
+    shape: [1.0, 0.7672, -60.3]
+    notes: in limousin2016
+  '1807':
+    ra: 109.3658809
+    dec: 37.7549758
+    mag: {F814W: 20.44}
+    shape: [1.0, 0.8156, 14.7]
+    notes: in limousin2016
+  '1829':
+    ra: 109.3949927
+    dec: 37.7549558
+    mag: {F814W: 21.17}
+    shape: [1.0, 0.5558, 75.7]
+    notes: in limousin2016
+  '1836':
+    ra: 109.3977152
+    dec: 37.7547844
+    mag: {F814W: 22.19}
+    shape: [1.0, 0.4622, 63.6]
+    notes: in limousin2016
+  '1852':
+    ra: 109.3978167
+    dec: 37.7550897
+    mag: {F814W: 20.85}
+    shape: [1.0, 0.6136, 45.5]
+    notes: in limousin2016
+  '1868':
+    ra: 109.3759766
+    dec: 37.7552069
+    mag: {F814W: 21.04}
+    shape: [1.0, 0.7664, 7.7]
+    notes: in limousin2016
+  '1872':
+    ra: 109.4074361
+    dec: 37.7566222
+    mag: {F814W: 20.07}
+    shape: [1.0, 0.5171, -64.9]
+    notes: in limousin2016
+  '1880':
+    ra: 109.375455
+    dec: 37.7549694
+    mag: {F814W: 22.41}
+    shape: [1.0, 0.8536, -55.1]
+    notes: in limousin2016
+  '1934':
+    ra: 109.3753018
+    dec: 37.7560119
+    mag: {F814W: 21.74}
+    shape: [1.0, 0.8038, -61.8]
+    notes: in limousin2016
+  '1936':
+    ra: 109.3739265
+    dec: 37.7569197
+    mag: {F814W: 20.49}
+    shape: [1.0, 0.9137, -87.7]
+    notes: in limousin2016
+  '1943':
+    ra: 109.3759201
+    dec: 37.7558299
+    mag: {F814W: 21.46}
+    shape: [1.0, 0.4478, -11.0]
+    notes: in limousin2016
+  '1971':
+    ra: 109.3689624
+    dec: 37.7577688
+    mag: {F814W: 20.43}
+    shape: [1.0, 0.8191, -7.3]
+    notes: in limousin2016
+  '1983':
+    ra: 109.3761337
+    dec: 37.7562805
+    mag: {F814W: 22.79}
+    shape: [1.0, 0.612, -21.0]
+    notes: in limousin2016
+  '1997':
+    ra: 109.3775697
+    dec: 37.7572708
+    mag: {F814W: 21.16}
+    shape: [1.0, 0.4984, -46.7]
+    notes: in limousin2016
+  '2017':
+    ra: 109.359753
+    dec: 37.7575302
+    mag: {F814W: 21.62}
+    shape: [1.0, 0.8123, -84.2]
+    notes: in limousin2016
+  '2018':
+    ra: 109.3753275
+    dec: 37.7568119
+    mag: {F814W: 23.31}
+    shape: [1.0, 0.686, 1.5]
+    notes: in limousin2016
+  '2022':
+    ra: 109.391921
+    dec: 37.7579033
+    mag: {F814W: 21.76}
+    shape: [1.0, 0.5047, 83.0]
+    notes: in limousin2016
+  '2023':
+    ra: 109.3600305
+    dec: 37.7583958
+    mag: {F814W: 20.22}
+    shape: [1.0, 0.8199, -8.4]
+    notes: in limousin2016
+  '2095':
+    ra: 109.396628
+    dec: 37.7588472
+    mag: {F814W: 21.2}
+    shape: [1.0, 0.9512, 64.1]
+    notes: in limousin2016
+  '2107':
+    ra: 109.396804
+    dec: 37.7593591
+    mag: {F814W: 21.01}
+    shape: [1.0, 0.8139, 48.0]
+    notes: in limousin2016
+  '2108':
+    ra: 109.3672176
+    dec: 37.7585452
+    mag: {F814W: 21.68}
+    shape: [1.0, 0.3675, -24.2]
+    notes: in limousin2016
+  '2111':
+    ra: 109.3764495
+    dec: 37.7605947
+    mag: {F814W: 20.27}
+    shape: [1.0, 0.923, 58.7]
+    notes: in limousin2016
+  '2119':
+    ra: 109.3676177
+    dec: 37.7588405
+    mag: {F814W: 21.33}
+    shape: [1.0, 0.425, -26.6]
+    notes: in limousin2016
+  '2133':
+    ra: 109.3600453
+    dec: 37.7585858
+    mag: {F814W: 22.14}
+    shape: [1.0, 0.9541, 13.0]
+    notes: in limousin2016
+  '2203':
+    ra: 109.3764892
+    dec: 37.7604358
+    mag: {F814W: 21.26}
+    shape: [1.0, 0.5202, 78.2]
+    notes: in limousin2016
+  '2330':
+    ra: 109.3704203
+    dec: 37.7619141
+    mag: {F814W: 21.09}
+    shape: [1.0, 0.5697, 14.3]
+    notes: in limousin2016
+  '2364':
+    ra: 109.3716168
+    dec: 37.7631313
+    mag: {F814W: 21.33}
+    shape: [1.0, 0.7209, -63.9]
+    notes: in limousin2016
+  '2489':
+    ra: 109.3528459
+    dec: 37.7672608
+    mag: {F814W: 19.42}
+    shape: [1.0, 0.759, 81.3]
+    notes: in limousin2016
+  '2505':
+    ra: 109.3515089
+    dec: 37.7657963
+    mag: {F814W: 21.49}
+    shape: [1.0, 0.9146, -1.8]
+    notes: in limousin2016
+  '2535':
+    ra: 109.3544632
+    dec: 37.7665955
+    mag: {F814W: 20.88}
+    shape: [1.0, 0.8909, -64.6]
+    notes: in limousin2016
+  '2544':
+    ra: 109.3478801
+    dec: 37.7670363
+    mag: {F814W: 20.45}
+    shape: [1.0, 0.7233, 62.1]
+    notes: in limousin2016
+  '2619':
+    ra: 109.3531431
+    dec: 37.7672711
+    mag: {F814W: 21.43}
+    shape: [1.0, 0.7821, -2.7]
+    notes: in limousin2016
+  '2654':
+    ra: 109.3495648
+    dec: 37.7696369
+    mag: {F814W: 20.62}
+    shape: [1.0, 0.3154, -49.0]
+    notes: in limousin2016
+  '2692':
+    ra: 109.3523731
+    dec: 37.769058
+    mag: {F814W: 21.9}
+    shape: [1.0, 0.9579, -49.7]
+    notes: in limousin2016
+  '2749':
+    ra: 109.3510631
+    dec: 37.7702152
+    mag: {F814W: 22.13}
+    shape: [1.0, 0.8276, 48.2]
+    notes: in limousin2016
+  '2758':
+    ra: 109.35185
+    dec: 37.7701652
+    mag: {F814W: 23.01}
+    shape: [1.0, 0.7516, 16.6]
+    notes: in limousin2016
+  '2790':
+    ra: 109.3523467
+    dec: 37.7722055
+    mag: {F814W: 20.23}
+    shape: [1.0, 0.7451, 61.6]
+    notes: in limousin2016
+  '2875':
+    ra: 109.351582
+    dec: 37.7724208
+    mag: {F814W: 21.34}
+    shape: [1.0, 0.6734, 5.7]
+    notes: in limousin2016
+  '2894':
+    ra: 109.3566304
+    dec: 37.773853
+    mag: {F814W: 20.72}
+    shape: [1.0, 0.5589, -68.6]
+    notes: in limousin2016
+  '2933':
+    ra: 109.3465364
+    dec: 37.7739577
+    mag: {F814W: 21.05}
+    shape: [1.0, 0.3788, -30.6]
+    notes: in limousin2016
+  '2999':
+    ra: 109.3451776
+    dec: 37.7755622
+    mag: {F814W: 21.54}
+    shape: [1.0, 0.7614, 27.6]
+    notes: in limousin2016
+  '3003':
+    ra: 109.348271
+    dec: 37.7754283
+    mag: {F814W: 21.06}
+    shape: [1.0, 0.4922, -10.0]
+    notes: in limousin2016

@@ -176,6 +176,7 @@ def build_member_components(potfiles, reference, scaling_param_indices, *, start
                 "potfile_id": str(potfile["id"]), "potfile_order": int(potfile_order), "catalog_row_index": int(row_index),
                 "component_index": int(component_index), "catalog_id": str(row.id), "catalog_mag": float(row.catalog_mag),
                 "keep": bool(getattr(row, "catalog_keep", False)), "role": str(getattr(row, "catalog_role", "member")),
+                "p_member": float(getattr(row, "catalog_p_member", np.nan)), "z_kind": str(getattr(row, "catalog_z_kind", "")),
                 "kinematics": list(getattr(row, "catalog_kinematics", None) or []),
                 "luminosity_ratio": float(luminosity_ratio[row_index]),
                 "x_centre": float(x_offsets[row_index]), "y_centre": float(y_offsets[row_index]),
@@ -349,6 +350,21 @@ def build_member_kinematics(records: list[dict[str, Any]], populations) -> dict[
 
 
 # ----------------------------------------------------------------------------- state assembly
+def member_membership_prior(records: list[dict[str, Any]], members_config) -> np.ndarray:
+    """Prior membership probability of each member record (``MemberConfig.membership``): the catalog ``p_member``
+    when given; otherwise 1 for a spectroscopically confirmed member (a ``z`` of kind ``spec``, kinematics, or role
+    ``bcg``) and ``membership_default_probability`` for the rest.  All ones under ``membership="fixed"``."""
+    if str(getattr(members_config, "membership", "fixed")) != "marginalize":
+        return np.ones(len(records), dtype=float)
+    default = float(getattr(members_config, "membership_default_probability", 1.0))
+    prior = []
+    for record in records:
+        p_member = float(record.get("p_member", np.nan))
+        confirmed = record.get("z_kind") == "spec" or bool(record.get("kinematics")) or record.get("role") == "bcg"
+        prior.append(p_member if np.isfinite(p_member) else 1.0 if confirmed else default)
+    return np.asarray(prior, dtype=float)
+
+
 def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.ndarray | None = None, drop_member_ids=(),
                 classification: dict[str, Any] | None = None) -> ModelState:
     """Build the full model state. Every member is sampled; classes default to all exact.
@@ -357,7 +373,7 @@ def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.n
     parameters of each member population, the population scatters of the member deviations, one deviation offset per
     member (and per radius in the ``sigma_rcut`` / ``mass_rcut`` modes), member shape offsets
     (``member_shape_scatter``), the error-model scales of the configured likelihood, two source offsets per family,
-    and the softening length.  ``initial_theta`` is set to the prior centers with the configured starts of the
+    the membership log-odds shift (``MemberConfig.membership_calibration_prior``) and the softening length.  ``initial_theta`` is set to the prior centers with the configured starts of the
     error-model scales.
 
     Parameters
@@ -529,6 +545,15 @@ def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.n
             site_index += 1
         source_param_indices[family.family_id] = (pair[0], pair[1])
 
+    membership_mode = str(getattr(config.members, "membership", "fixed"))
+    membership_prior = member_membership_prior(records, config.members)
+    calibration_index = -1
+    calibration_prior = getattr(config.members, "membership_calibration_prior", None)
+    if membership_mode == "marginalize" and calibration_prior is not None and np.any(membership_prior < 1.0):
+        calibration_index = len(specs)
+        specs.append(_prior_spec("membership.logit_shift", "membership_logit_shift", "membership", "logit_shift", calibration_prior,
+                                 "membership"))
+
     softening_index = -1
     if scaling.softening_length_prior is not None:
         softening_index = len(specs)
@@ -570,7 +595,10 @@ def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.n
         far_field_guard_cut_radii=float(config.members.far_field_cut_radii),
         classification=dict(classification or {}),
         far_field_barrier_width=float(config.members.far_field_barrier_width),
-        far_field_barrier_strength=float(config.members.far_field_barrier_strength))
+        far_field_barrier_strength=float(config.members.far_field_barrier_strength),
+        membership_mode=membership_mode, membership_prior=membership_prior,
+        membership_max_enumerated=int(getattr(config.members, "membership_max_enumerated", 4)),
+        membership_calibration_param_index=int(calibration_index))
     state = ModelState(
         run_name=str(config.paths.run_name or "cluster"), cosmo_config=cosmo_config, z_lens=z_lens,
         kpc_per_arcsec=float(kpc_per_arcsec), reference=reference, parameter_specs=specs,

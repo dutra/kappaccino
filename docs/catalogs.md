@@ -95,6 +95,7 @@ members:
     role: bcg
     kinematics: [{source: G26, sigma: 275.6, err: 1.5, sn: 164.6}]
   "4112": {ra: 64.0352, dec: -24.0735, mag: {F160W: 17.95}}
+  "5120": {ra: 64.0391, dec: -24.0702, mag: {F160W: 22.31}, z: {value: 0.41, kind: phot}, p_member: 0.7}
 ```
 
 Top level
@@ -103,7 +104,7 @@ Top level
 Member
 : `ra`/`dec` (required); `mag` (`{band: mag}` or `{band: [mag, err]}`, the `band` entry required); `shape`
   (`[a, b, theta]`, default round); `z` (a number, or `{value, kind}` with kind `spec` or `phot`); `role` (`member` or
-  `bcg`); `treatment`; `keep`; `kinematics`; `notes`.
+  `bcg`); `treatment`; `keep`; `p_member`; `kinematics`; `notes`.
 
 `treatment`
 : `relation` (default): the member follows the scaling relation. `independent`: the member gets its own dPIE, added as
@@ -113,6 +114,13 @@ Member
 `keep`
 : `true` protects the member from the `MemberConfig.min_deflection_arcsec` impact cut. Members with kinematics are
   always kept.
+
+`p_member`
+: The prior probability, in (0, 1], that the galaxy belongs to the cluster, for example $P(\mathrm{member} \mid
+  \mathrm{colors})$ from a color classifier. Used only with `MemberConfig(membership="marginalize")`. Without it, a
+  member with a spectroscopic `z`, kinematics or role `bcg` gets 1 and the others
+  `MemberConfig.membership_default_probability`. A known non-member is `treatment: exclude`, not `p_member: 0`. See
+  {doc}`likelihoods` (Uncertain membership).
 
 `kinematics`
 : A list of measurements `{source, sigma, err, sn, notes}` with `sigma` and `err` in km/s. A kinematics source gives

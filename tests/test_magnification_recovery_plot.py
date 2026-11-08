@@ -7,7 +7,9 @@ from astropy.cosmology import FlatLambdaCDM
 from astropy.io import fits
 from astropy.wcs import WCS
 
-from kappaccino.magnification_recovery_plot import binned_recovery, image_truth_magnification, render_recovery, write_magnification_recovery
+from kappaccino.plotting.magnification_recovery import (
+    binned_recovery, image_truth_magnification, render_recovery, write_magnification_recovery,
+)
 
 
 def test_native_truth_redshift_scaling(tmp_path):
@@ -55,7 +57,7 @@ def test_missing_truth_skips(tmp_path):
 
 
 def test_writer_preserves_family_redshifts_and_records_limits(tmp_path, monkeypatch):
-    import kappaccino.magnification_recovery_plot as module
+    import kappaccino.plotting.magnification_recovery as module
     x,y=np.meshgrid(np.linspace(-1,1,5),np.linspace(-1,1,5))
     truth=dict(x=x,y=y,truth={'mu':np.full(x.shape,2.)},model={'mu':{'median':np.full(x.shape,3.)}},z_source=9.)
     images=pd.DataFrame(dict(family_id=['a','a','b','b'],image_label=['a1','a2','b1','b2'],

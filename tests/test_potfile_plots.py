@@ -8,8 +8,9 @@ import pytest
 
 import numpyro.distributions as dist
 
-from kappaccino import outputs, potfile_plots
-from kappaccino.model import ParameterSpec
+from kappaccino.reporting import outputs
+from kappaccino.plotting import potfile
+from kappaccino.core.model import ParameterSpec
 
 
 def make_spec(name, field, prior, family="scaling"):
@@ -57,7 +58,7 @@ def test_multiple_populations_and_isolated_style(tmp_path):
     samples, specs = fixture_draws("potfile_2")
     other, other_specs = fixture_draws("potfile_named")
     style = plt.rcParams.copy()
-    results = potfile_plots.write_potfile_plots(np.column_stack((samples, other)), specs + other_specs, tmp_path)
+    results = potfile.write_potfile_plots(np.column_stack((samples, other)), specs + other_specs, tmp_path)
     assert {p.name for p in results} == {f"potfile_{pop}_{kind}.pdf" for pop in ("2", "named")
                                        for kind in ("corner",)}
     assert plt.rcParams["font.size"] == style["font.size"]
@@ -67,20 +68,20 @@ def test_multiple_populations_and_isolated_style(tmp_path):
 
 def test_short_fixed_and_empty_posteriors(tmp_path):
     samples, specs = fixture_draws()
-    assert potfile_plots.write_potfile_plots(samples[:2], specs, tmp_path, log=lambda _: None) == []
-    assert potfile_plots.write_potfile_plots(np.empty((4, 0)), [], tmp_path) == []
+    assert potfile.write_potfile_plots(samples[:2], specs, tmp_path, log=lambda _: None) == []
+    assert potfile.write_potfile_plots(np.empty((4, 0)), [], tmp_path) == []
     fixed = np.tile(samples[0], (10, 1))
-    paths = potfile_plots.write_potfile_plots(fixed, specs, tmp_path, log=lambda _: None)
+    paths = potfile.write_potfile_plots(fixed, specs, tmp_path, log=lambda _: None)
     assert paths == []
 
 
 def test_prior_quantiles_and_density_match_sampler():
     import jax
-    from kappaccino.sampling import SampleSite, distribution_for_site
+    from kappaccino.inference.sampling import SampleSite, distribution_for_site
     jax.config.update("jax_enable_x64", True)
     for prior in (dist.Normal(.5, .2), dist.TruncatedNormal(.5, .2, low=0., high=1.5), dist.Uniform(0., 1.5)):
         spec = make_spec("potfile_1.beta_radius", "beta_radius", prior)
-        prior = potfile_plots.saved_prior(spec)
+        prior = potfile.saved_prior(spec)
         values = prior.ppf(np.linspace(.001, .999, 100))
         distribution = distribution_for_site(SampleSite("beta", (0,), False), [spec])
         np.testing.assert_allclose(prior.logpdf(values), distribution.log_prob(values), atol=2e-14, rtol=2e-14)
@@ -90,17 +91,17 @@ def test_corner_traces_preserve_chain_order(tmp_path):
     samples, specs = fixture_draws()
     grouped = samples.reshape(3, 100, 2)
     path = tmp_path / 'corner_with_traces.pdf'
-    potfile_plots.plot_potfile_corner(samples, specs, 'potfile_members', path, grouped_physical=grouped)
+    potfile.plot_potfile_corner(samples, specs, 'potfile_members', path, grouped_physical=grouped)
     metadata = json.loads(path.with_suffix('.json').read_text())
     assert metadata['trace_chains'] == 3 and metadata['trace_draws_per_chain'] == 100
     with pytest.raises(ValueError, match='chain-ordered'):
-        potfile_plots.plot_potfile_corner(samples, specs, 'potfile_members', tmp_path/'bad.pdf', grouped_physical=grouped[::-1])
+        potfile.plot_potfile_corner(samples, specs, 'potfile_members', tmp_path/'bad.pdf', grouped_physical=grouped[::-1])
     plt.close('all')
 
 
 def test_uniform_global_prior_and_coordinate_transforms(tmp_path):
-    from kappaccino.corner_plots import DisplayPrior, display_values
-    from kappaccino.plots import plot_corner
+    from kappaccino.plotting.corner import DisplayPrior, display_values
+    from kappaccino.plotting.plots import plot_corner
     specs = [make_spec(f'halo.{field}', field, dist.Uniform(-1., 1.), 'large') for field in ('x', 'y')]
     draws = np.random.default_rng(4).uniform(-.8, .8, (100, 2))
     path = plot_corner(draws, specs, tmp_path/'global.pdf', best=draws[0])
@@ -113,7 +114,7 @@ def test_uniform_global_prior_and_coordinate_transforms(tmp_path):
 
 
 def test_corner_headers_physical_with_log_axes(tmp_path, monkeypatch):
-    from kappaccino.corner_plots import plot_parameter_corner
+    from kappaccino.plotting.corner import plot_parameter_corner
     from matplotlib.figure import Figure
     spec = make_spec('images.sigma_def', 'sigma_def', dist.LogNormal(np.log(.01), .5), 'error_scale')
     samples = np.geomspace(.005, .02, 101)[:,None]

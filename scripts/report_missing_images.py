@@ -20,6 +20,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import fit_arc_source as fas  # noqa: E402
 from find_missing_images import COLOUR_BANDS, colours, load_photometry, load_published, norm_label  # noqa: E402
 from predict_counter_images import stamp_rgb  # noqa: E402
+from kappaccino.io.hdf5 import load_arrays  # noqa: E402
 
 np, pd, cutouts = fas.np, fas.pd, fas.cutouts
 
@@ -74,7 +75,10 @@ def counterpart_info(phot, best, site):
 def main():
     args = parse_args()
     folder = Path(args.sites)
-    sites = pd.read_pickle(folder / "missing_image_sites.pkl")
+    sites = pd.read_csv(folder / "missing_image_sites.csv")
+    draws = load_arrays(folder / "missing_image_site_draws.h5")
+    sites["x_draws"] = [draws["x"][draws["site_row"] == i] for i in range(len(sites))]
+    sites["y_draws"] = [draws["y"][draws["site_row"] == i] for i in range(len(sites))]
     cands = pd.read_csv(folder / "missing_image_candidates.csv")
     _, state, _, _ = fas.load_model(Path(args.run))
     reference = state.reference
@@ -129,8 +133,8 @@ def main():
     matplotlib.use("pdf")
     import matplotlib.pyplot as plt
     from matplotlib.backends.backend_pdf import PdfPages
-    from kappaccino.plot_style import PAPER_STYLE
-    plt.style.use(str(ROOT / "src/kappaccino/style.mplstyle")); plt.rcParams.update(PAPER_STYLE)
+    from kappaccino.plotting.style import PAPER_STYLE
+    plt.style.use(str(ROOT / "src/kappaccino/plotting/style.mplstyle")); plt.rcParams.update(PAPER_STYLE)
     half = args.stamp / 2
     with PdfPages(folder / "new_candidates.pdf") as pdf:
         for _, r in new.iterrows():

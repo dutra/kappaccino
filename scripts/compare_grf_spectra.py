@@ -15,7 +15,7 @@ variants start from the knee's optimum, the parameters they add at the values th
 init's chain-start step in rounds of --round-iter iterations (stop: a gain below --tolerance over 50 iterations),
 restarted from its best point while a round gains more than --restart-gain, up to --max-iter iterations in all.
 
-Writes <out>/<variant>.json and <out>/<variant>_theta.npy and the table <out>/summary.txt.  With --tight-gp the
+Writes <out>/<variant>.json and <out>/<variant>_theta.h5 and the table <out>/summary.txt.  With --tight-gp the
 image-plane GP is held to measurement error (sigma_shared <= 0.1", ell <= 2") in every variant.  Run one variant at a time:
 
     python scripts/compare_grf_spectra.py RUN_DIR --variants knee
@@ -47,6 +47,7 @@ ISOTHERMAL_KNEE_PER_RT = 6.38          # lambda_t / r_t of the gamma = 2 knee fi
 def variant_likelihood(likelihood, variant: str, tight_gp: bool, *, fixed_knee: float, fixed_ell: float):
     import numpyro.distributions as dist
     from kappaccino.config import ERROR_SCALE_FLOOR_ARCSEC
+    from kappaccino.io.hdf5 import load_arrays, save_arrays
     from kappaccino.priors import truncated_lognormal
 
     def LN(median, log_sigma, upper, lower=ERROR_SCALE_FLOOR_ARCSEC):
@@ -75,7 +76,7 @@ def optimize(objective, x0, *, round_iter: int, tolerance: float, restart_gain: 
     """L-BFGS in rounds, each from the best point of the last, while a round gains more than ``restart_gain``."""
     import numpy as np
     import jax.numpy as jnp
-    from kappaccino.search import run_optax_lbfgs
+    from kappaccino.inference.search import run_optax_lbfgs
     x, value = np.asarray(x0, dtype=float), -float(objective.reduced(jnp.asarray(x0)))
     total, rounds, gain = 0, 0, math.inf
     while total < max_iter:
@@ -97,10 +98,10 @@ def fit_variant(run_dir: Path, variant: str, out: Path, *, args) -> dict:
     import jax
     import jax.numpy as jnp
     jax.config.update("jax_enable_x64", True)
-    from kappaccino import artifacts
-    from kappaccino.evaluator import Evaluator
-    from kappaccino.search import Objective
-    from kappaccino.state import build_state, with_member_classes
+    from kappaccino.io import artifacts
+    from kappaccino.likelihood.evaluator import Evaluator
+    from kappaccino.inference.search import Objective
+    from kappaccino.core.state import build_state, with_member_classes
 
     ns = {"__file__": str(ROOT / "run.xsh"), "__name__": "compare_grf_spectra"}
     exec(compile("\n".join(l for l in (ROOT / "run.xsh").read_text().splitlines() if not l.startswith("$")), "run.xsh", "exec"), ns)
@@ -130,7 +131,7 @@ def fit_variant(run_dir: Path, variant: str, out: Path, *, args) -> dict:
             raise SystemExit(f"fit the knee first (--variants knee): {knee_file} is missing")
         source = "the knee optimum"
         start_names = json.loads(knee_file.read_text())["parameter_names"]
-        start_theta = np.load(out / "knee_theta.npy")
+        start_theta = load_arrays(out / "knee_theta.h5")["theta"]
         skip = set()
     shared = 0
     for name, value in zip(start_names, start_theta):
@@ -172,7 +173,7 @@ def fit_variant(run_dir: Path, variant: str, out: Path, *, args) -> dict:
                    fixed_rt_kpc=float(args.fixed_rt_kpc) if variant == "fixed" else None)
     out.mkdir(parents=True, exist_ok=True)
     (out / f"{variant}.json").write_text(json.dumps(summary, indent=1))
-    np.save(out / f"{variant}_theta.npy", final)
+    save_arrays(out / f"{variant}_theta.h5", theta=final)
     log(f"log posterior {before:.2f} -> {log_posterior:.2f} (log L {log_likelihood:.2f}) in {iterations} iterations, {rounds} rounds, "
         f"{'converged' if converged else 'NOT converged (iteration cap)'}, {seconds:.0f}s; "
         + ", ".join(f"{k.split('.')[-1]} {v:.4g}" for k, v in sites.items()))

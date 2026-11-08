@@ -7,7 +7,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from kappaccino.results_tex import command_prefix, duration, write_run_results, write_mock_results
+from kappaccino.reporting.results_tex import command_prefix, duration, write_run_results, write_mock_results
+from kappaccino.io.hdf5 import save_arrays
 
 
 @pytest.mark.parametrize('name,expected', [('ares','Ares'), ('hera','Hera'), ('MJ0416','MJZeroFourOneSix'), ('as1063','ASOneZeroSixThree'), ('cluster-2','ClusterTwo')])
@@ -93,7 +94,7 @@ def test_mock_export(tmp_path):
 
 
 def test_member_table_uses_joint_deviation_draws(tmp_path):
-    from kappaccino.results_tex import m0416_table_metrics, interval
+    from kappaccino.reporting.results_tex import m0416_table_metrics, interval
     final = tmp_path / 'final'
     (final / 'tables').mkdir(parents=True)
     (final / 'artifacts').mkdir()
@@ -104,9 +105,9 @@ def test_member_table_uses_joint_deviation_draws(tmp_path):
     (tmp_path / 'init/artifacts/state.json').write_text(json.dumps(state))
     pd.DataFrame({'parameter':['potfile_1.'+n for n in names], 'median': physical[0],
                   'p16':physical[0], 'p84':physical[0]}).to_csv(final/'tables/posterior_summary.csv',index=False)
-    np.savez(final/'artifacts/posterior.npz',physical=physical)
+    save_arrays(final/'artifacts/posterior.h5',physical=physical)
     delta = np.tile([np.log(2.),np.log(3.)],(3,1,1))
-    np.savez(final/'tables/member_diagnostic_draws.npz', deviations=delta)
+    save_arrays(final/'tables/member_diagnostic_draws.h5', deviations=delta)
     row = dict(member_id='potfile_1:8971',potfile_id='potfile_1',catalog_mag=21.,luminosity_ratio=1.)
     for prefix, value in [('velocity',np.log(2.)),('radius',np.log(3.))]:
         for suffix in ['p16','median','p84']: row[prefix+'_'+suffix]=value

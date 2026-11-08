@@ -10,16 +10,16 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from kappaccino.classification import impact_cut
+from kappaccino.core.classification import impact_cut
 import numpyro.distributions as dist
 
 from kappaccino import priors
 from kappaccino.config import IndependentMemberHaloConfig
-from kappaccino.evaluator import Evaluator
-from kappaccino.image_catalog import CatalogError
-from kappaccino.inputs import declared_model_inputs
-from kappaccino.member_catalog import load_member_catalog, members_from_lenstool, write_member_catalog
-from kappaccino.state import build_state
+from kappaccino.likelihood.evaluator import Evaluator
+from kappaccino.io.image_catalog import CatalogError
+from kappaccino.core.inputs import declared_model_inputs
+from kappaccino.io.member_catalog import load_member_catalog, members_from_lenstool, write_member_catalog
+from kappaccino.core.state import build_state
 
 SOURCES = {"K": {"reference": "a test", "quantity": "sigma_ap", "aperture_arcsec": 0.8}}
 

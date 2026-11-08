@@ -24,11 +24,13 @@ the value itself.  Creating one of the exp-transformed priors starts JAX, so cal
 """
 from __future__ import annotations
 
+import importlib
 import math
-from dataclasses import asdict, dataclass, field, replace
+from dataclasses import dataclass, field, fields, is_dataclass, replace
 from numbers import Integral
 from pathlib import Path
-from typing import Any
+from types import UnionType
+from typing import Any, Union, get_args, get_origin, get_type_hints
 
 import numpyro.distributions as dist
 
@@ -408,7 +410,7 @@ class MemberPopulationConfig:
     id : str
         Name of the population; must be unique.
     catalog_path : str or pathlib.Path
-        Member catalog: a YAML catalog (``.yaml``/``.yml``, see ``kappaccino.member_catalog``) or a Lenstool potfile
+        Member catalog: a YAML catalog (``.yaml``/``.yml``, see ``kappaccino.io.member_catalog``) or a Lenstool potfile
         (``.cat``).  Must exist.  Members with catalog ``treatment`` ``exclude`` are left out of the model.
     mag0 : float or str
         Pivot magnitude :math:`m_0` (mag, in the relation's band) at which ``sigma``, ``cutkpc``, ``corekpc`` and their
@@ -556,7 +558,7 @@ class ImageConstraintsConfig:
     Parameters
     ----------
     catalog_path : str or pathlib.Path
-        YAML image catalog (see ``kappaccino.image_catalog``); convert Lenstool files with
+        YAML image catalog (see ``kappaccino.io.image_catalog``); convert Lenstool files with
         ``scripts/convert_lenstool_catalog.py``.  Must exist.
     sigma_inst_arcsec : float, optional
         Astrometric error :math:`\\sigma_{inst}`, in arcsec, of images whose catalog entry (and the catalog's
@@ -1519,7 +1521,7 @@ class ImageCatalogCutoutConfig:
 
 @dataclass(frozen=True)
 class PartitionConfig:
-    """Uncertain images whose sources are inferred jointly with the lens (``lenscluster.partition.slots``).
+    """Uncertain images whose sources are inferred jointly with the lens (``kappaccino.partition.slots``).
 
     Each uncertain image may be a new image of a trusted family, an image of a new source shared with other uncertain
     images (a source slot, sampled), or unrelated; the choice is summed out per image, so NUTS samples the lens and the
@@ -1658,21 +1660,65 @@ class LensClusterSolverConfig:
     def to_json_dict(self) -> dict[str, Any]:
         """Return the configuration as JSON-serializable nested dictionaries.
 
-        Priors become their ``priors.to_dict`` descriptions, paths become strings, infinite floats become ``"inf"`` or
-        ``"-inf"`` and tuples become lists.
+        Nested configurations become dictionaries keyed by field name, with a ``"_class"`` entry (``module:name``) where
+        the field's type does not determine the class (the halos of ``LensModelConfig.large_halos``).  Priors become their
+        ``priors.to_dict`` descriptions, paths become strings, infinite floats become ``"inf"`` or ``"-inf"`` and tuples
+        become lists.  :meth:`from_json_dict` is the inverse.
 
         Returns
         -------
         dict
             Nested dictionaries keyed by field name.
         """
-        return _jsonable(asdict(self))
+        return _jsonable(self, LensClusterSolverConfig)
+
+    @classmethod
+    def from_json_dict(cls, payload: dict[str, Any]) -> "LensClusterSolverConfig":
+        """Rebuild a configuration from :meth:`to_json_dict` output (``config.json`` of a run).
+
+        Parameters
+        ----------
+        payload : dict
+            The JSON dictionaries.
+
+        Returns
+        -------
+        LensClusterSolverConfig
+            The configuration; ``to_json_dict`` of the result equals ``payload``.
+        """
+        return _from_jsonable(payload, cls)
 
 
-def _jsonable(value: Any) -> Any:
+CLASS_KEY = "_class"
+
+
+def _hint_class(hint: Any) -> type | None:
+    """The dataclass a type hint names unambiguously (``X`` or ``X | None``), else None."""
+    if is_dataclass(hint):
+        return hint
+    options = [a for a in get_args(hint) if a is not type(None)] if get_origin(hint) in (Union, UnionType) else []
+    return options[0] if len(options) == 1 and is_dataclass(options[0]) else None
+
+
+def _element_hint(hint: Any) -> Any:
+    """The element type of ``tuple[X, ...]`` or ``list[X]`` (through ``| None``), else Any."""
+    if get_origin(hint) in (Union, UnionType):
+        options = [a for a in get_args(hint) if a is not type(None)]
+        hint = options[0] if len(options) == 1 else Any
+    args = get_args(hint) if get_origin(hint) in (tuple, list) else ()
+    return args[0] if args and (len(args) == 1 or args[1] is Ellipsis) else Any
+
+
+def _jsonable(value: Any, hint: Any = Any) -> Any:
     if is_distribution(value):
         from .priors import to_dict
         return to_dict(value)
+    if is_dataclass(value) and not isinstance(value, type):
+        hints = get_type_hints(type(value))
+        payload = {f.name: _jsonable(getattr(value, f.name), hints.get(f.name, Any)) for f in fields(value)}
+        if _hint_class(hint) is not type(value):
+            payload = {CLASS_KEY: f"{type(value).__module__}:{type(value).__qualname__}", **payload}
+        return payload
     if isinstance(value, Path):
         return str(value)
     if isinstance(value, float) and math.isinf(value):
@@ -1680,7 +1726,31 @@ def _jsonable(value: Any) -> Any:
     if isinstance(value, dict):
         return {str(key): _jsonable(item) for key, item in value.items()}
     if isinstance(value, (list, tuple)):
-        return [_jsonable(item) for item in value]
+        element = _element_hint(hint)
+        return [_jsonable(item, element) for item in value]
+    return value
+
+
+def _from_jsonable(value: Any, hint: Any = Any) -> Any:
+    if isinstance(value, dict):
+        if CLASS_KEY in value or _hint_class(hint) is not None:
+            if CLASS_KEY in value:
+                module, name = value[CLASS_KEY].split(":")
+                cls = getattr(importlib.import_module(module), name)
+            else:
+                cls = _hint_class(hint)
+            hints = get_type_hints(cls)
+            return cls(**{key: _from_jsonable(item, hints.get(key, Any)) for key, item in value.items() if key != CLASS_KEY})
+        if {"family", "log"} <= value.keys():
+            from .priors import from_dict
+            return from_dict(value)
+        return {key: _from_jsonable(item) for key, item in value.items()}
+    if isinstance(value, list):
+        element = _element_hint(hint)
+        items = [_from_jsonable(item, element) for item in value]
+        return items if get_origin(hint) is list else tuple(items)
+    if value in ("inf", "-inf"):
+        return float(value)
     return value
 
 

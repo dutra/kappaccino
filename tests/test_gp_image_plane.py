@@ -13,9 +13,9 @@ import pytest
 from scipy.optimize import brentq
 
 from conftest import synthetic_cluster_config, write_offset_catalog
-from kappaccino import gp_image_plane as gp, smoothed_likelihood as sl
-from kappaccino.evaluator import Evaluator
-from kappaccino.state import build_state
+from kappaccino.likelihood import gp_image_plane as gp, smoothed as sl
+from kappaccino.likelihood.evaluator import Evaluator
+from kappaccino.core.state import build_state
 
 ELL, FLOOR = 7.0, 0.0015
 SHARED2, WHITE2 = 0.99, 0.01          # the fractions of sigma_img^2 that reproduce the earlier rho = 0.99 model

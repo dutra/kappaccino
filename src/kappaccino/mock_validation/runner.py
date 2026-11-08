@@ -15,8 +15,8 @@ import pandas as pd
 
 from .. import pipeline, priors
 from ..config import DPIEHaloConfig
-from ..model import ModelState, PosteriorResults, member_log_deviations
-from ..utils import DPIE_MASS_GRAVITATIONAL_CONSTANT_KPC_KMS2_PER_MSUN as G_KPC, log10_dpie_mass_msun, progress
+from ..core.model import ModelState, PosteriorResults, member_log_deviations
+from ..core.utils import DPIE_MASS_GRAVITATIONAL_CONSTANT_KPC_KMS2_PER_MSUN as G_KPC, log10_dpie_mass_msun, progress
 from .aperture import APERTURE_RADII_KPC, COMPONENT_GROUPS, aperture_profiles, truth_groups
 from .config import MockValidationConfig, solver_config_for_mock
 from .images import generate_images, jacobian, lens_state
@@ -238,7 +238,7 @@ def m2d_recovery(state: ModelState, config_model, posterior: PosteriorResults, t
 
 def write_recovery(recovery_dir: Path, result: pipeline.RunResult, solver_config, truth: dict[str, Any], seed: int, *, log=print) -> dict[str, Any]:
     """Compare the posterior with the mock truth and write recovery.json plus CSV tables."""
-    from ..plots import member_scaling_table
+    from ..plotting.plots import member_scaling_table
     recovery_dir.mkdir(parents=True, exist_ok=True)
     state, evaluator, posterior = result.state, result.evaluator, result.posterior
     tables = result.paths.final.tables
@@ -329,7 +329,7 @@ def rescore_mock_validation(config: MockValidationConfig, *, log=print) -> list[
     ``magnification_recovery.csv`` and ``m2d_aperture_recovery.csv`` in the same directory.  Aggregate plots are not
     refreshed; call ``write_aggregate_plots`` afterwards.
     """
-    from .. import artifacts
+    from ..io import artifacts
     config = config.validate()
     root = campaign_root(config)
     outputs = []

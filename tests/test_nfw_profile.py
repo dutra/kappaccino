@@ -8,16 +8,16 @@ import jax.numpy as jnp
 import numpy as np
 from jaxtronomy.LensModel.Profiles.nfw_ellipse_cse import NFW_ELLIPSE_CSE
 
-from kappaccino import jax_lensing
+from kappaccino.lens import lensing
 import numpyro.distributions as dist
 
 from kappaccino import priors
 from kappaccino.config import NFWHaloConfig
-from kappaccino.evaluator import Evaluator
-from kappaccino.exact_images import packed_to_kwargs_lens
-from kappaccino.jax_cosmology import flat_wcdm_config, kpc_per_arcsec_from_config
-from kappaccino.profiles import nfw_lenstronomy_parameters
-from kappaccino.state import build_state
+from kappaccino.likelihood.evaluator import Evaluator
+from kappaccino.diagnostics.exact_images import packed_to_kwargs_lens
+from kappaccino.lens.cosmology import flat_wcdm_config, kpc_per_arcsec_from_config
+from kappaccino.lens.profiles import nfw_lenstronomy_parameters
+from kappaccino.core.state import build_state
 
 
 def test_nfw_kernel_matches_jaxtronomy_and_finite_differences():
@@ -25,7 +25,7 @@ def test_nfw_kernel_matches_jaxtronomy_and_finite_differences():
     x, y = (jnp.asarray(rng.uniform(-40, 40, 30)) for _ in range(2))
     rs, e1, e2, cx, cy = 60.0, 0.12, -0.2, 3.0, -1.5
     alpha_rs = jnp.asarray(rng.uniform(5, 10, 30))                      # per-point normalization, as per image
-    alpha, u, du = jax_lensing.nfw_fields(x, y, rs, alpha_rs, e1, e2, cx, cy)
+    alpha, u, du = lensing.nfw_fields(x, y, rs, alpha_rs, e1, e2, cx, cy)
     ref = NFW_ELLIPSE_CSE(high_accuracy=True)
     ax, ay = ref.derivatives(x, y, rs, 1.0, e1, e2, cx, cy)
     np.testing.assert_allclose(alpha, np.stack((ax, ay), -1) * alpha_rs[:, None], rtol=1e-12)
@@ -35,14 +35,14 @@ def test_nfw_kernel_matches_jaxtronomy_and_finite_differences():
     np.testing.assert_allclose(u[:, 1, 1], fyy * alpha_rs, rtol=1e-12)
     h = 1e-4
     for l, (dx, dy) in enumerate(((h, 0.0), (0.0, h))):
-        plus = jax_lensing.nfw_fields(x + dx, y + dy, rs, alpha_rs, e1, e2, cx, cy, derivative=False)[1]
-        minus = jax_lensing.nfw_fields(x - dx, y - dy, rs, alpha_rs, e1, e2, cx, cy, derivative=False)[1]
+        plus = lensing.nfw_fields(x + dx, y + dy, rs, alpha_rs, e1, e2, cx, cy, derivative=False)[1]
+        minus = lensing.nfw_fields(x - dx, y - dy, rs, alpha_rs, e1, e2, cx, cy, derivative=False)[1]
         np.testing.assert_allclose(du[..., l], (plus - minus) / (2 * h), rtol=1e-5, atol=1e-9)
-    alpha_only, u_only, none = jax_lensing.nfw_fields(x, y, rs, alpha_rs, e1, e2, cx, cy, derivative=False)
+    alpha_only, u_only, none = lensing.nfw_fields(x, y, rs, alpha_rs, e1, e2, cx, cy, derivative=False)
     assert none is None
     np.testing.assert_array_equal(alpha_only, alpha)
     # Gradients with respect to the ellipticity are finite at e = 0 and match finite differences away from it.
-    total = lambda e: jnp.sum(jax_lensing.nfw_fields(x, y, rs, alpha_rs, e[0], e[1], cx, cy, derivative=False)[0] ** 2)
+    total = lambda e: jnp.sum(lensing.nfw_fields(x, y, rs, alpha_rs, e[0], e[1], cx, cy, derivative=False)[0] ** 2)
     assert np.all(np.isfinite(np.asarray(jax.grad(total)(jnp.zeros(2)))))
     e = jnp.array([0.12, -0.2])
     g = np.asarray(jax.grad(total)(e))

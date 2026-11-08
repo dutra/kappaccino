@@ -3,10 +3,10 @@ from __future__ import annotations
 
 import numpy as np
 
-from kappaccino.diagnostics import predictions_at
-from kappaccino.evaluator import Evaluator
-from kappaccino.exact_images import ExactImageSolver
-from kappaccino.state import build_state
+from kappaccino.diagnostics.image_recovery import predictions_at
+from kappaccino.likelihood.evaluator import Evaluator
+from kappaccino.diagnostics.exact_images import ExactImageSolver
+from kappaccino.core.state import build_state
 
 
 def test_batched_local_solve_matches_per_family_solver(synthetic_config):

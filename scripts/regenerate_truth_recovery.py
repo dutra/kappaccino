@@ -16,11 +16,11 @@ def main():
     import numpy as np
     import pandas as pd
     from _covariance_plot_cli import load_run
-    from kappaccino import plots
-    from kappaccino.truth_recovery import compute_truth_recovery
-    from kappaccino.exact_images import astropy_cosmology
-    from kappaccino.magnification_recovery_plot import write_magnification_recovery
-    from kappaccino.results_tex import write_run_results
+    from kappaccino.plotting import plots
+    from kappaccino.diagnostics.truth_recovery import compute_truth_recovery
+    from kappaccino.diagnostics.exact_images import astropy_cosmology
+    from kappaccino.plotting.magnification_recovery import write_magnification_recovery
+    from kappaccino.reporting.results_tex import write_run_results
     for run in args.runs:
         config,state,evaluator,posterior,paths=load_run(run)
         tables,figures=paths.tables,paths.figures

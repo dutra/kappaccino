@@ -11,9 +11,9 @@ def load_run(run_directory, *, physical_draw_indices=None):
     import jax
     jax.config.update('jax_enable_x64', True)
     import numpy as np
-    from kappaccino import artifacts
-    from kappaccino.evaluator import Evaluator
-    from kappaccino.state import build_state, with_member_classes
+    from kappaccino.io import artifacts
+    from kappaccino.likelihood.evaluator import Evaluator
+    from kappaccino.core.state import build_state, with_member_classes
     run = Path(run_directory).resolve()
     init, final = run / 'init/artifacts', run / 'final'
     config = artifacts.load_config(final / 'artifacts')
@@ -36,7 +36,7 @@ def load_run(run_directory, *, physical_draw_indices=None):
         source_indices = np.r_[state.images.source_x_param_index, state.images.source_y_param_index]
         mass_indices = np.setdiff1d(np.arange(posterior.samples.shape[1]), source_indices)
         if evaluator.gp_knee:
-            from kappaccino.model import convert_theta_to_latent
+            from kappaccino.core.model import convert_theta_to_latent
             evaluator = evaluator._padded_evaluator()
             whitening_fn = jax.jit(lambda theta: evaluator.statistics(theta)['whitening'])
             reported_fn = jax.jit(evaluator.reported_physical)

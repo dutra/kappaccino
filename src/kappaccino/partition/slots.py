@@ -9,7 +9,7 @@ label sums out on its own:
 
     p(D_i | beta, z, theta) = N(beta | beta_i(z), C_i(z)) h_i  x  N(zhat_i | z, sigma_i^2)  x  p(c_i | theta)
 
-with the per-image position term of the trusted images (``smoothed_likelihood``: source-plane Gaussian times the
+with the per-image position term of the trusted images (``kappaccino.likelihood.smoothed``: source-plane Gaussian times the
 smoothed |det A|), the catalog redshift, and the colors with a same-source scatter s and an outlier fraction f:
 p(c | theta) = (1 - f) N(c | theta, S + s^2 I) + f N(c | theta, S + s_broad^2 I).  For a trusted slot the color term
 is the predictive given the family's own members (closed form, independent of the lens).  E_i is the evidence of the
@@ -42,11 +42,12 @@ import numpyro.distributions as dist
 import pandas as pd
 from scipy.special import logsumexp as np_logsumexp
 
-from .. import smoothed_likelihood as sl
-from ..model import ModelState, ParameterSpec
+from ..likelihood import smoothed as sl
+from ..core.model import ModelState, ParameterSpec
 from .catalog_evidence import (LOG_2PI, GaussianMixture, available_bands, catalog_data, catalog_log_evidence, fit_color_scatter,
                                fit_gaussian_mixture, fit_population, image_redshifts)
 from .lens_evidence import LensImages, error_scales, family_lens_evidence, grid_fields, image_terms, lens_images, reference_fields
+from ..io.hdf5 import save_arrays
 
 SLOT_SITE = "slot_latent"
 LOG_DZ_SCALE = 0.3            # b: the log(z - z_lens) step of a unit offset
@@ -262,7 +263,7 @@ def load_uncertain_images(path, state: ModelState, *, sigma_inst_arcsec: float) 
     missing = {"image_label", "ra", "dec"} - set(table.columns)
     if missing:
         raise ValueError(f"{path}: missing columns {sorted(missing)}")
-    from ..sky import radec_to_offsets_arcsec
+    from ..io.sky import radec_to_offsets_arcsec
     _, ra0, dec0 = state.reference
     table = table.copy()
     table["x_obs"], table["y_obs"] = radec_to_offsets_arcsec(table["ra"].to_numpy(dtype=float), table["dec"].to_numpy(dtype=float),
@@ -277,7 +278,7 @@ def load_uncertain_images(path, state: ModelState, *, sigma_inst_arcsec: float) 
 
 def trusted_catalog_table(config, state: ModelState) -> pd.DataFrame:
     """The trusted images (families present in the state) with their catalog photometry and secure redshifts."""
-    from ..image_catalog import load_image_catalog
+    from ..io.image_catalog import load_image_catalog
     constraints = config.model.image_constraints
     table = load_image_catalog(constraints.catalog_path, sigma_inst_arcsec=constraints.sigma_inst_arcsec,
                                sigma_floor_arcsec=constraints.sigma_floor_arcsec)
@@ -336,7 +337,7 @@ def add_slots(config, state: ModelState, evaluator, theta: np.ndarray, *, log=pr
     Deterministic given the state and ``theta`` (the start of the trusted-family fit), so a resumed final stage rebuilds
     the same slots.
     """
-    from ..evaluator import Evaluator
+    from ..likelihood.evaluator import Evaluator
     partition = config.partition
     table = load_uncertain_images(partition.catalog_path, state, sigma_inst_arcsec=partition.sigma_inst_arcsec)
     trusted = trusted_catalog_table(config, state)
@@ -438,7 +439,7 @@ def add_slots(config, state: ModelState, evaluator, theta: np.ndarray, *, log=pr
 
 def efficiency_factor_table(state: ModelState, z: np.ndarray) -> np.ndarray:
     """The dPIE lensing-efficiency factor at many source redshifts in one vectorized evaluation."""
-    from ..jax_cosmology import dpie_sigma0_factor, h0_from_config, om0_from_config, w0_from_config
+    from ..lens.cosmology import dpie_sigma0_factor, h0_from_config, om0_from_config, w0_from_config
     cosmo = state.cosmo_config
     return np.asarray(dpie_sigma0_factor(float(state.z_lens), jnp.asarray(z, dtype=jnp.float64), h0_from_config(cosmo), om0_from_config(cosmo),
                                          w0_from_config(cosmo)), dtype=float).reshape(np.shape(z))
@@ -488,13 +489,13 @@ def _fit_scatter(data, family_rows: dict[str, np.ndarray], population: GaussianM
     return scatter
 
 
-SLOTS_FILE = "slots.npz"
+SLOTS_FILE = "slots.h5"
 
 
 def write_slot_outputs(state: ModelState, evaluator, posterior, stage, *, draws: int, seed: int, log=print) -> dict[str, Any]:
     """Assignment probabilities and joint draws of the uncertain images from the posterior.
 
-    Writes ``<stage>/artifacts/slots.npz`` (``options``, ``labels`` of the images, per-draw ``responsibilities`` and
+    Writes ``<stage>/artifacts/slots.h5`` (``options``, ``labels`` of the images, per-draw ``responsibilities`` and
     sampled ``assignment``, ``probability``, ``pair_probability``, new-slot ``slot_z`` and ``slot_beta``),
     ``<stage>/tables/uncertain_images.csv`` (per image: the probability of every option and the most probable one) and
     ``<stage>/tables/uncertain_pairs.csv`` (image pairs sharing a source with probability above 0.01).
@@ -505,7 +506,7 @@ def write_slot_outputs(state: ModelState, evaluator, posterior, stage, *, draws:
     chosen = samples[np.unique(np.linspace(0, len(samples) - 1, min(int(draws), len(samples))).astype(int))]
     result = model.posterior(evaluator, chosen, np.random.default_rng(int(seed)))
     options = model.option_names()
-    np.savez(stage.artifacts / SLOTS_FILE, options=np.asarray(options), image_labels=np.asarray(model.labels), assignment=result["labels"],
+    save_arrays(stage.artifacts / SLOTS_FILE, options=np.asarray(options), image_labels=np.asarray(model.labels), assignment=result["labels"],
              responsibilities=result["responsibilities"], probability=result["probability"], pair_probability=result["pair_probability"],
              slot_z=result["slot_z"], slot_beta=result["slot_beta"])
     table = pd.DataFrame(result["probability"], columns=[f"p_{o}" for o in options])

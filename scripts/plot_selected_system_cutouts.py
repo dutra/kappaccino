@@ -19,21 +19,23 @@ def main():
     import matplotlib.pyplot as plt
     from matplotlib.backends.backend_pdf import PdfPages
     from matplotlib.lines import Line2D
-    from kappaccino.cutouts import (load_cluster_imaging,arcsec_to_skycoord,arcsec_to_radec,
-                                    rgb_cutout,cutout_window,rgb_reference_band)
-    from kappaccino.rgb import DEFAULT_JWST_RGB_BANDS
+    from kappaccino.imaging.cutouts import (
+        load_cluster_imaging, arcsec_to_skycoord, arcsec_to_radec, rgb_cutout, cutout_window, rgb_reference_band,
+    )
+    from kappaccino.io.hdf5 import load_arrays
+    from kappaccino.imaging.rgb import DEFAULT_JWST_RGB_BANDS
     from kappaccino.config import RGBDisplayConfig
-    from kappaccino.image_catalog import load_image_catalog
-    from kappaccino.fold_diagnostics import _contours
-    from kappaccino.plot_style import CRITICAL_COLOR
-    from kappaccino.plot_style import PAPER_STYLE
+    from kappaccino.io.image_catalog import load_image_catalog
+    from kappaccino.plotting.fold_pairs import _contours
+    from kappaccino.plotting.style import CRITICAL_COLOR
+    from kappaccino.plotting.style import PAPER_STYLE
     config,state,e,post,paths=load_run(args.run_directory)
     best=int(np.nanargmax(post.log_prob));theta=post.samples[best]
     physical=e.physical(theta);correction=e.gp_deflection_correction(theta)
     cat=load_image_catalog(config.model.image_constraints.catalog_path,
         sigma_inst_arcsec=config.model.image_constraints.sigma_inst_arcsec,
         sigma_floor_arcsec=config.model.image_constraints.sigma_floor_arcsec).set_index('image_label')
-    cache=np.load(paths.tables/'posterior_overview_positions.npz')
+    cache=load_arrays(paths.tables/'posterior_overview_positions.h5')
     labels=list(map(str,cache['image_labels']));positions=cache['recovered']
     if best not in cache['draw_indices']:raise ValueError('Position cache does not contain the current best draw')
     metadata=json.loads((paths.tables/'posterior_overview_positions.json').read_text())
@@ -49,7 +51,7 @@ def main():
     palette=['#56B4E9','#E69F00','#009E73','#CC79A7','#D55E00']
     output=paths.figures/f'{config.paths.figure_prefix}_selected_system_cutouts_jwst.pdf'
     report=[]
-    with plt.rc_context(fname=Path(__file__).resolve().parents[1]/'src/kappaccino/style.mplstyle',rc=PAPER_STYLE),PdfPages(output) as pdf:
+    with plt.rc_context(fname=Path(__file__).resolve().parents[1]/'src/kappaccino/plotting/style.mplstyle',rc=PAPER_STYLE),PdfPages(output) as pdf:
         for requested in args.systems:
             rows=cat[cat.system_id.astype(str).eq(requested)]
             if rows.empty:rows=cat[cat.family_id.astype(str).eq(requested)]

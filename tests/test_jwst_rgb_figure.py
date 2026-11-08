@@ -2,7 +2,8 @@
 import pytest
 import numpy as np
 import pandas as pd
-from kappaccino.jwst_rgb_figure import marker_photometry
+from kappaccino.plotting.jwst_rgb import marker_photometry
+from kappaccino.io.hdf5 import save_arrays
 
 
 def test_marker_matches_survive_reordering_but_reject_moved_images(tmp_path):
@@ -31,7 +32,7 @@ def test_missing_photometry_keeps_all_image_markers(tmp_path):
 
 def test_critical_band_uses_only_best_chain():
     from types import SimpleNamespace
-    from kappaccino.jwst_rgb_figure import best_chain_draw_indices
+    from kappaccino.plotting.jwst_rgb import best_chain_draw_indices
     grouped=np.arange(4*100*2).reshape(4,100,2)
     p=SimpleNamespace(grouped_samples=grouped,samples=grouped.reshape(-1,2))
     indices,chain=best_chain_draw_indices(p,326,count=32)
@@ -40,7 +41,7 @@ def test_critical_band_uses_only_best_chain():
 
 
 def test_critical_band_for_translating_line_and_identical_draws():
-    from kappaccino.jwst_rgb_figure import critical_quantile_band
+    from kappaccino.plotting.jwst_rgb import critical_quantile_band
     x=np.linspace(-2,2,401)
     shifts=np.linspace(-1,1,101)
     lo,hi,band=critical_quantile_band(x[None,:]-shifts[:,None])
@@ -51,7 +52,7 @@ def test_critical_band_for_translating_line_and_identical_draws():
 
 
 def test_median_determinant_contour_and_band_are_matched():
-    from kappaccino.jwst_rgb_figure import critical_quantile_summary
+    from kappaccino.plotting.jwst_rgb import critical_quantile_summary
     import contourpy
     x=np.linspace(-2,2,501);y=np.linspace(-1,1,11)
     xx,yy=np.meshgrid(x,y)
@@ -68,7 +69,7 @@ def test_median_determinant_contour_and_band_are_matched():
 
 def test_critical_band_shading_preserves_subpixel_interval():
     import matplotlib.pyplot as plt
-    from kappaccino.jwst_rgb_figure import draw_critical_interval
+    from kappaccino.plotting.jwst_rgb import draw_critical_interval
     # Old min(-lower,upper) is negative at every node, losing the entire band.
     x=np.array([[-1.,1.],[-1.,1.]])
     low,high=x-.02,x+.02
@@ -90,7 +91,8 @@ def test_critical_band_shading_preserves_subpixel_interval():
 def test_simulated_hst_overview_has_no_m0416_overlays(tmp_path, monkeypatch, cluster):
     from types import SimpleNamespace as NS
     from astropy.wcs import WCS
-    from kappaccino import jwst_rgb_figure as rgb, mass_figure, cutouts
+    from kappaccino.plotting import jwst_rgb as rgb, mass_figure
+    from kappaccino.imaging import cutouts
     wcs=WCS(naxis=2)
     wcs.wcs.ctype=['RA---TAN','DEC--TAN'];wcs.wcs.crval=[64.,-24.]
     wcs.wcs.crpix=[16.,16.];wcs.wcs.cdelt=[-.1/3600,.1/3600]
@@ -104,7 +106,7 @@ def test_simulated_hst_overview_has_no_m0416_overlays(tmp_path, monkeypatch, clu
         assert cache_stem=='hst_rgb_critical_z9'
         x,y=np.meshgrid(np.linspace(-1,1,32),np.linspace(-1,1,32))
         determinants=np.array([x*x+y*y-r for r in [.3,.4,.5]])
-        np.savez(tmp_path/f'{cache_stem}_band.npz',determinants=determinants,fingerprint='test')
+        save_arrays(tmp_path/f'{cache_stem}_band.h5',determinants=determinants,fingerprint='test')
         return np.ones((32,32),bool),dict(draw_indices=[0,1,2],chain=0)
     monkeypatch.setattr(rgb,'critical_band',band)
     catalog=pd.DataFrame(dict(image_label=['a','b'],family_id=['1','2'],x_obs_arcsec=[-.3,.3],y_obs_arcsec=[-.3,.3]))
@@ -118,7 +120,7 @@ def test_simulated_hst_overview_has_no_m0416_overlays(tmp_path, monkeypatch, clu
     assert output.exists() and info['candidate_overlays']==[]
     assert info['candidate_catalog'] is None and info['marker_photometry'] is None
     assert info['magnitude_band'] is None
-    assert (tmp_path/'hst_rgb_critical_z9.npz').exists()
-    assert not (tmp_path/'jwst_rgb_critical_z9.npz').exists()
+    assert (tmp_path/'hst_rgb_critical_z9.h5').exists()
+    assert not (tmp_path/'jwst_rgb_critical_z9.h5').exists()
     markers=pd.read_csv(tmp_path/'hst_rgb_markers.csv')
     assert len(markers)==2 and (markers.marker_area_pt2==9).all()

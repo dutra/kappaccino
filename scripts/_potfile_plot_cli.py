@@ -10,7 +10,8 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
-from kappaccino import potfile_plots
+from kappaccino.plotting import potfile
+from kappaccino.io.hdf5 import load_arrays
 
 
 def main(kind):
@@ -21,22 +22,22 @@ def main(kind):
     args = parser.parse_args()
     run = args.run_directory.resolve()
     state_path = run / "init/artifacts/state.json"
-    posterior_path = run / "final/artifacts/posterior.npz"
+    posterior_path = run / "final/artifacts/posterior.h5"
     specs = [SimpleNamespace(**s) for s in json.loads(state_path.read_text())["parameter_specs"]]
-    with np.load(posterior_path, allow_pickle=False) as saved:
-        physical = saved["physical"]
-        divergences = int(saved["diverging"].sum())
-        chains = int(saved["num_chains"])
-        log_prob = saved["log_prob"]
-        best_index = int(np.nanargmax(log_prob)) if np.isfinite(log_prob).any() else None
-        grouped_physical = None
-        if kind == "corner" and "grouped_samples" in saved:
-            grouped = saved["grouped_samples"]
-            np.testing.assert_array_equal(grouped.reshape(saved["samples"].shape), saved["samples"])
-            grouped_physical = physical.reshape(grouped.shape)
+    saved = load_arrays(posterior_path)
+    physical = saved["physical"]
+    divergences = int(saved["diverging"].sum())
+    chains = int(saved["num_chains"])
+    log_prob = saved["log_prob"]
+    best_index = int(np.nanargmax(log_prob)) if np.isfinite(log_prob).any() else None
+    grouped_physical = None
+    if kind == "corner" and "grouped_samples" in saved:
+        grouped = saved["grouped_samples"]
+        np.testing.assert_array_equal(grouped.reshape(saved["samples"].shape), saved["samples"])
+        grouped_physical = physical.reshape(grouped.shape)
     population = args.potfile if args.potfile.startswith("potfile_") else f"potfile_{args.potfile}"
     output = args.output or run / "final/figures" / f"{population}_{kind}.pdf"
-    renderer = getattr(potfile_plots, f"plot_potfile_{kind}")
+    renderer = getattr(potfile, f"plot_potfile_{kind}")
     kwargs = {"grouped_physical": grouped_physical, "best_index": best_index} if kind == "corner" else {}
     if renderer(physical, specs, population, output, **kwargs) is None:
         raise ValueError("No usable potfile posterior draws for this plot")

@@ -9,15 +9,19 @@ A run writes everything under its run root, `<output_dir>/<run_name>/` from
 ## Directory layout
 
 `init/artifacts/`
-: `config.json` and `config.pkl`, `init_signature.json`, `state.json`, `classification.json`, `search.npz` and
-  `modes.json`, `start.json`, `summary.json`.
+: `config.json`, `init_signature.json`, `state.json`, `classification.json`, `search.h5` and `modes.json`,
+  `start.json`, `summary.json`.
 
 `init/tables/`
 : `classification_report.txt`, `shallow_fold_pairs.json`.
 
 `final/artifacts/`
-: `config.json` and `config.pkl`, `posterior.npz`, `audit.json`, `summary.json`, and with uncertain images
-  `slots.npz` (see {doc}`likelihoods`).
+: `config.json`, `posterior.h5`, `audit.json`, `summary.json`, and with uncertain images `slots.h5` (see
+  {doc}`likelihoods`).
+
+Arrays are saved as HDF5 (`.h5`, one dataset per array; read them with `kappaccino.io.hdf5.load_arrays` or `h5py`) and
+everything else as JSON or CSV. `config.json` restores the run configuration exactly
+(`kappaccino.io.artifacts.load_config`). Nothing is pickled.
 
 `final/tables/`
 : `posterior_summary.csv`, `member_classification.csv`, `member_scaling_relation.csv`, `image_fit_quality.csv`,
@@ -109,12 +113,12 @@ Missing imaging is reported and skipped.
 
 ```python
 import json
-import numpy as np
 import pandas as pd
+from kappaccino.io.hdf5 import load_arrays
 
 run = "results/demo/hera"
 summary = pd.read_csv(f"{run}/final/tables/posterior_summary.csv")
-posterior = np.load(f"{run}/final/artifacts/posterior.npz")
+posterior = load_arrays(f"{run}/final/artifacts/posterior.h5")
 fit = json.load(open(f"{run}/final/tables/run_summary.json"))
 ```
 
@@ -128,7 +132,7 @@ in the text. Names contain letters only: M0416 uses `MJZeroFourOneSix`, AS1063 u
 Regenerate from saved artifacts, without inference or plotting:
 
 ```bash
-PYTHONPATH=src python -m kappaccino.results_tex path/to/run/final
+PYTHONPATH=src python -m kappaccino.reporting.results_tex path/to/run/final
 ```
 
 To regenerate individual figures without rerunning inference, see {doc}`scripts`.

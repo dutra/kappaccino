@@ -17,7 +17,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 from cmcrameri import cm
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'src'))
-from kappaccino.plot_style import PAPER_STYLE
+from kappaccino.plotting.style import PAPER_STYLE
 OUT=ROOT/'plots/paper/covariance_revision'
 COLORS=['#0072B2','#D55E00','#009E73','#222222']
 LABELS=['Measurement','Deflection GRF','Image-plane GP','Total']
@@ -155,7 +155,7 @@ def validate(C):
 
 def main():
     OUT.mkdir(parents=True,exist_ok=True)
-    plt.style.use(ROOT/'src/kappaccino/style.mplstyle');plt.rcParams.update(PAPER_STYLE)
+    plt.style.use(ROOT/'src/kappaccino/plotting/style.mplstyle');plt.rcParams.update(PAPER_STYLE)
     f1=mapping();f2,C=blocks();f3=fold();checks=validate(C)
     with PdfPages(OUT/'covariance_alternatives.pdf') as combined:
         for fig,name in zip([f1,f2,f3],['covariance_local_mapping','covariance_joint_blocks','covariance_fold_modes']):

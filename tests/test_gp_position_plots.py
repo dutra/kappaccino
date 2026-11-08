@@ -1,7 +1,9 @@
 from types import SimpleNamespace
 import numpy as np
 import jax.numpy as jnp
-from kappaccino.gp_position_plots import conditional_displacement,gaussian_mixture_grid,add_gp_position_diagnostics
+from kappaccino.plotting.gp_positions import (
+    conditional_displacement, gaussian_mixture_grid, add_gp_position_diagnostics,
+)
 
 
 def test_gp_sign_and_conditional_variance_for_one_observation():

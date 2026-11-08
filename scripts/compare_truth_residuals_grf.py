@@ -11,13 +11,14 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize, LinearSegmentedColormap
 from matplotlib.lines import Line2D
 from _covariance_plot_cli import load_run
-from kappaccino.truth_recovery import load_truth_fits, grid_arcsec
-from kappaccino.jax_cosmology import dpie_sigma0_factor_from_config
-from kappaccino.plot_style import PAPER_STYLE
+from kappaccino.diagnostics.truth_recovery import load_truth_fits, grid_arcsec
+from kappaccino.io.hdf5 import load_arrays, save_arrays
+from kappaccino.lens.cosmology import dpie_sigma0_factor_from_config
+from kappaccino.plotting.style import PAPER_STYLE
 
 
 def render(data, images, path):
-    plt.style.use(Path(__file__).resolve().parents[1]/'src/kappaccino/style.mplstyle')
+    plt.style.use(Path(__file__).resolve().parents[1]/'src/kappaccino/plotting/style.mplstyle')
     plt.rcParams.update(PAPER_STYLE)
     cmap=LinearSegmentedColormap.from_list('cropped_RdBu',plt.get_cmap('RdBu_r')(np.linspace(.25,1,768)),N=768)
     cmap.set_bad('#e8e8e8');norm=Normalize(-1,2,clip=True)
@@ -54,7 +55,7 @@ def render(data, images, path):
 
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('run',type=Path);p.add_argument('--render-only',action='store_true');a=p.parse_args()
-    final=a.run/'final';cache=final/'tables/truth_recovery_grf_comparison.npz'
+    final=a.run/'final';cache=final/'tables/truth_recovery_grf_comparison.h5'
     cfg=json.loads((final/'artifacts/config.json').read_text());prefix=cfg['paths']['figure_prefix']
     output=final/'figures'/f'{prefix}_truth_recovery_residuals_grf_comparison.pdf'
     images=pd.read_csv(final/'tables/image_fit_quality.csv')
@@ -98,7 +99,7 @@ def main():
             np.testing.assert_allclose(data[f'{mode}_{q}'],saved,rtol=1e-8,atol=1e-10)
             differences[q]=float(np.nanmax(abs(data[f'{mode}_{q}']-saved)))
         data.update(x=x,y=y,grf_kappa=(.5*np.trace(du,axis1=-2,axis2=-1)).reshape(shape),theta=theta)
-        np.savez_compressed(cache,**data)
+        save_arrays(cache,**data)
         metadata=dict(run=str(a.run.resolve()),z_source=z,model='median latent parameter vector, matching the existing truth-recovery plot',
             grf='conditional mean at the same model and its reconstructed sources, not posterior-averaged fields',
             grid_shape=list(shape),redshift_weight=weight,baseline_max_absolute_difference=differences,
@@ -106,7 +107,8 @@ def main():
             normalization='display [-1,2], cropped from symmetric [-2,2] RdBu_r',
             grf_kappa_min=float(data['grf_kappa'].min()),grf_kappa_max=float(data['grf_kappa'].max()))
         (cache.with_suffix('.json')).write_text(json.dumps(metadata,indent=2)+'\n')
-    with np.load(cache) as data:render(data,images,output)
+    data = load_arrays(cache)
+    render(data,images,output)
     print(output,flush=True)
 
 

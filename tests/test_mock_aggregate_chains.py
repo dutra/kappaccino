@@ -2,14 +2,15 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 from kappaccino.mock_validation import aggregate_chains as plots
+from kappaccino.io.hdf5 import save_arrays
 
 
 def test_chain_shape_rejects_incorrect_flat_order(tmp_path):
     grouped=np.arange(24.).reshape(2,6,2)
-    path=tmp_path/'posterior.npz'
-    np.savez(path,grouped_samples=grouped,samples=grouped.reshape(12,2),physical=grouped.reshape(12,2)*3)
+    path=tmp_path/'posterior.h5'
+    save_arrays(path,grouped_samples=grouped,samples=grouped.reshape(12,2),physical=grouped.reshape(12,2)*3)
     assert plots.chain_shape(path)==(2,6)
-    np.savez(path,grouped_samples=grouped,samples=grouped.reshape(12,2)[::-1],physical=grouped.reshape(12,2))
+    save_arrays(path,grouped_samples=grouped,samples=grouped.reshape(12,2)[::-1],physical=grouped.reshape(12,2))
     with pytest.raises(ValueError,match='draw order'):plots.chain_shape(path)
 
 

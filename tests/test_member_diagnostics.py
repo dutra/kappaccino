@@ -8,12 +8,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 
-from kappaccino.evaluator import Evaluator
-from kappaccino.member_diagnostics import (compute_member_diagnostics, diagnostic_draw_indices, deviation_draws,
-    neighbor_variables, prior_deviation_draws, reporting_fields, whiten)
-from kappaccino.member_diagnostic_plots import write_member_diagnostic_plots
-from kappaccino.model import member_log_deviations
-from kappaccino.state import build_state, with_member_classes
+from kappaccino.likelihood.evaluator import Evaluator
+from kappaccino.diagnostics.members import (
+    compute_member_diagnostics, diagnostic_draw_indices, deviation_draws, neighbor_variables, prior_deviation_draws,
+    reporting_fields, whiten,
+)
+from kappaccino.plotting.members import write_member_diagnostic_plots
+from kappaccino.core.model import member_log_deviations
+from kappaccino.core.state import build_state, with_member_classes
 
 
 def posterior_for(state, evaluator, n=12):
@@ -131,7 +133,7 @@ def test_hierarchical_prior_width_against_independent_quadrature(synthetic_confi
 
 
 def test_normal_output_hook(synthetic_config, tmp_path, monkeypatch):
-    from kappaccino import outputs
+    from kappaccino.reporting import outputs
     import pandas as pd
     state = build_state(synthetic_config)
     evaluator = Evaluator(state)

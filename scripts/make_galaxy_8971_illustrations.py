@@ -199,7 +199,7 @@ def main():
     parser.add_argument("--galaxy-style", choices=("f","b","c"), default="b")
     args=parser.parse_args()
     args.output_dir.mkdir(parents=True,exist_ok=True)
-    with plt.style.context(ROOT/"src/kappaccino/style.mplstyle"), plt.rc_context({
+    with plt.style.context(ROOT/"src/kappaccino/plotting/style.mplstyle"), plt.rc_context({
             "font.family":"DejaVu Sans","pdf.fonttype":42,"ps.fonttype":42,
             "text.latex.preamble":r"\usepackage{sfmath}",
             "savefig.bbox":None,"axes.grid":False}):

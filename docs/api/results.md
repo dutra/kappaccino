@@ -7,40 +7,40 @@ The objects a run returns ({class}`~kappaccino.pipeline.RunResult`) and the help
 Model state and parameters
 --------------------------
 
-.. autofunction:: kappaccino.state.build_state
-.. autofunction:: kappaccino.state.with_member_classes
-.. autoclass:: kappaccino.model.ModelState
+.. autofunction:: kappaccino.core.state.build_state
+.. autofunction:: kappaccino.core.state.with_member_classes
+.. autoclass:: kappaccino.core.model.ModelState
    :no-members:
-.. autoclass:: kappaccino.model.ParameterSpec
+.. autoclass:: kappaccino.core.model.ParameterSpec
    :members: latent_prior, log
-.. autoclass:: kappaccino.model.FamilyData
+.. autoclass:: kappaccino.core.model.FamilyData
    :no-members:
-.. autoclass:: kappaccino.model.ImageData
+.. autoclass:: kappaccino.core.model.ImageData
    :no-members:
-.. autoclass:: kappaccino.model.MemberModel
+.. autoclass:: kappaccino.core.model.MemberModel
    :no-members:
 
 Latent and physical values
 --------------------------
 
-.. autofunction:: kappaccino.model.latent_to_physical
-.. autofunction:: kappaccino.model.physical_to_latent
-.. autofunction:: kappaccino.model.latent_array_to_physical
-.. autofunction:: kappaccino.model.convert_theta_to_physical
-.. autofunction:: kappaccino.model.convert_theta_to_latent
-.. autofunction:: kappaccino.model.convert_sample_matrix_to_physical
-.. autofunction:: kappaccino.model.default_theta
+.. autofunction:: kappaccino.core.model.latent_to_physical
+.. autofunction:: kappaccino.core.model.physical_to_latent
+.. autofunction:: kappaccino.core.model.latent_array_to_physical
+.. autofunction:: kappaccino.core.model.convert_theta_to_physical
+.. autofunction:: kappaccino.core.model.convert_theta_to_latent
+.. autofunction:: kappaccino.core.model.convert_sample_matrix_to_physical
+.. autofunction:: kappaccino.core.model.default_theta
 
 Posterior
 ---------
 
-.. autoclass:: kappaccino.model.PosteriorResults
+.. autoclass:: kappaccino.core.model.PosteriorResults
    :no-members:
 
 Evaluating the model
 --------------------
 
-.. autoclass:: kappaccino.evaluator.Evaluator
+.. autoclass:: kappaccino.likelihood.evaluator.Evaluator
    :members: physical, packed_state, packed_state_for_z, component_dispersions, fields, total_fields_at, statistics,
              error_scales, log_likelihood, search_log_likelihood, reported_physical, latent_from_reported_physical,
              source_positions, gp_deflection_correction
@@ -48,33 +48,35 @@ Evaluating the model
 Lens maps and truth comparison
 ------------------------------
 
-.. automodule:: kappaccino.truth_recovery
+.. automodule:: kappaccino.diagnostics.truth_recovery
    :no-members:
 
-.. autofunction:: kappaccino.truth_recovery.lens_quantities
-.. autofunction:: kappaccino.truth_recovery.load_truth_fits
-.. autofunction:: kappaccino.truth_recovery.diagnostic_grid
-.. autofunction:: kappaccino.truth_recovery.sample_on_grid
-.. autofunction:: kappaccino.truth_recovery.grid_arcsec
-.. autofunction:: kappaccino.truth_recovery.compute_truth_recovery
+.. autofunction:: kappaccino.diagnostics.truth_recovery.lens_quantities
+.. autofunction:: kappaccino.diagnostics.truth_recovery.load_truth_fits
+.. autofunction:: kappaccino.diagnostics.truth_recovery.diagnostic_grid
+.. autofunction:: kappaccino.diagnostics.truth_recovery.sample_on_grid
+.. autofunction:: kappaccino.diagnostics.truth_recovery.grid_arcsec
+.. autofunction:: kappaccino.diagnostics.truth_recovery.compute_truth_recovery
 
 Saved artifacts
 ---------------
 
-.. automodule:: kappaccino.artifacts
+.. automodule:: kappaccino.io.artifacts
    :no-members:
 
-.. autofunction:: kappaccino.artifacts.load_config
-.. autofunction:: kappaccino.artifacts.load_posterior
-.. autofunction:: kappaccino.artifacts.load_start
-.. autofunction:: kappaccino.artifacts.load_search
-.. autofunction:: kappaccino.artifacts.load_exact_positions
-.. autofunction:: kappaccino.artifacts.save_config
-.. autofunction:: kappaccino.artifacts.save_state
-.. autofunction:: kappaccino.artifacts.save_search
-.. autofunction:: kappaccino.artifacts.save_start
-.. autofunction:: kappaccino.artifacts.save_posterior
-.. autofunction:: kappaccino.artifacts.spec_to_json
-.. autofunction:: kappaccino.artifacts.init_signature
-.. autofunction:: kappaccino.artifacts.write_json
+.. autofunction:: kappaccino.io.artifacts.load_config
+.. autofunction:: kappaccino.io.artifacts.load_posterior
+.. autofunction:: kappaccino.io.artifacts.load_start
+.. autofunction:: kappaccino.io.artifacts.load_search
+.. autofunction:: kappaccino.io.artifacts.load_exact_positions
+.. autofunction:: kappaccino.io.artifacts.save_config
+.. autofunction:: kappaccino.io.artifacts.save_state
+.. autofunction:: kappaccino.io.artifacts.save_search
+.. autofunction:: kappaccino.io.artifacts.save_start
+.. autofunction:: kappaccino.io.artifacts.save_posterior
+.. autofunction:: kappaccino.io.artifacts.spec_to_json
+.. autofunction:: kappaccino.io.artifacts.init_signature
+.. autofunction:: kappaccino.io.artifacts.write_json
+.. autofunction:: kappaccino.io.hdf5.load_arrays
+.. autofunction:: kappaccino.io.hdf5.save_arrays
 ```

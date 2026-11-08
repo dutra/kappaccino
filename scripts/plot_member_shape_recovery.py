@@ -10,8 +10,9 @@ from matplotlib.patches import Ellipse
 from matplotlib.lines import Line2D
 from scipy.stats import chi2
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
-from kappaccino.inputs import lenstool_shape_to_e1e2
-from kappaccino.plot_style import PAPER_STYLE
+from kappaccino.core.inputs import lenstool_shape_to_e1e2
+from kappaccino.io.hdf5 import load_arrays, save_arrays
+from kappaccino.plotting.style import PAPER_STYLE
 
 BLUE='#0072B2';ORANGE='#D55E00';GRAY='.65';CHAIN=['#0072B2','#D55E00','#009E73','#CC79A7']
 def wrap(a):return (a+90)%180-90
@@ -31,10 +32,10 @@ def main():
  specs=state['parameter_specs'];names=[s['name']for s in specs];scatter=cfg['scaling']['member_shape_scatter'];assert scatter>0
  members=pd.read_csv(final/'tables/member_diagnostics.csv',dtype={'catalog_id':str,'member_id':str})
  assert members.member_id.tolist()==state['member_ids']
- with np.load(final/'artifacts/posterior.npz',allow_pickle=True)as saved:
-  physical=saved['physical'];latent=saved['samples'];chains=saved['grouped_samples'];divergences=int(saved['diverging'].sum())
-  assert chains.ndim==3 and chains.shape[0]*chains.shape[1]==len(physical)
-  np.testing.assert_allclose(chains.reshape(latent.shape),latent)
+ saved=load_arrays(final/'artifacts/posterior.h5')
+ physical=saved['physical'];latent=saved['samples'];chains=saved['grouped_samples'];divergences=int(saved['diverging'].sum())
+ assert chains.ndim==3 and chains.shape[0]*chains.shape[1]==len(physical)
+ np.testing.assert_allclose(chains.reshape(latent.shape),latent)
  indices=np.array([[names.index(f'{r.potfile_id}.{r.catalog_id}.shape_e{k}_offset')for k in (1,2)]for r in members.itertuples()])
  for i in indices.ravel():assert specs[i]['prior']=={'family':'Normal','log':False,'loc':0.0,'scale':1.0}
  offset=physical[:,indices];np.testing.assert_allclose(offset,latent[:,indices])
@@ -81,8 +82,8 @@ def main():
   for qi,suffix in enumerate(['p16','median','p84']):
    summary[f'e{k+1}_posterior_{suffix}']=np.where(active,cart_q[qi,:,k],np.nan)
  summary.to_csv(tables/'member_shape_recovery.csv',index=False)
- np.savez_compressed(tables/'member_shape_recovery_draws.npz',unit_offsets=offset,base_e1e2=base,active=active,ellipticity=eps[:,active],delta_pa_deg=delta_pa[:,active],active_member_ids=members.member_id[active].to_numpy(dtype=str))
- plt.style.use(Path(__file__).resolve().parents[1]/'src/kappaccino/style.mplstyle');plt.rcParams.update(PAPER_STYLE)
+ save_arrays(tables/'member_shape_recovery_draws.h5',unit_offsets=offset,base_e1e2=base,active=active,ellipticity=eps[:,active],delta_pa_deg=delta_pa[:,active],active_member_ids=members.member_id[active].to_numpy(dtype=str))
+ plt.style.use(Path(__file__).resolve().parents[1]/'src/kappaccino/plotting/style.mplstyle');plt.rcParams.update(PAPER_STYLE)
  def finish(fig,path):
   for ax in fig.axes:ax.grid(False);ax.tick_params(which='both',top=True,right=True)
   fig.savefig(path,dpi=300,bbox_inches='tight',pad_inches=.04);plt.close(fig);print(path,flush=True)

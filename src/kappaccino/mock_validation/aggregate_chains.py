@@ -8,28 +8,29 @@ from matplotlib.ticker import MaxNLocator
 import numpy as np
 import pandas as pd
 
-from ..block_corner import BLOCK_COLORS, STYLE, PAPER_STYLE
+from ..plotting.block_corner import BLOCK_COLORS, STYLE, PAPER_STYLE
 from .deviation_corners import load_columns, combined_draws
 from .aggregate_plots import PARAMETER_LABELS
+from ..io.hdf5 import load_arrays
 
 
 def chain_shape(path):
     """Verify the saved flattening order before reshaping physical draws."""
-    with np.load(path, allow_pickle=False) as saved:
-        grouped, flat, physical = saved['grouped_samples'], saved['samples'], saved['physical']
-        if (grouped.ndim != 3 or flat.ndim != 2 or flat.shape != physical.shape
-                or grouped.shape[-1] != flat.shape[-1] or grouped.size != flat.size):
-            raise ValueError('Missing or inconsistent saved chain dimensions')
-        if not np.array_equal(grouped.reshape(flat.shape), flat, equal_nan=True):
-            raise ValueError('Grouped draws do not match flat draw order')
-        return grouped.shape[:2]
+    saved = load_arrays(path)
+    grouped, flat, physical = saved['grouped_samples'], saved['samples'], saved['physical']
+    if (grouped.ndim != 3 or flat.ndim != 2 or flat.shape != physical.shape
+            or grouped.shape[-1] != flat.shape[-1] or grouped.size != flat.size):
+        raise ValueError('Missing or inconsistent saved chain dimensions')
+    if not np.array_equal(grouped.reshape(flat.shape), flat, equal_nan=True):
+        raise ValueError('Grouped draws do not match flat draw order')
+    return grouped.shape[:2]
 
 
 def collect_chains(campaign):
     loaded, shapes, failures = {}, {}, {}
     for seed in campaign.seeds:
         try:
-            shape = chain_shape(campaign.root/f'seed_{seed:08d}/solver/final/artifacts/posterior.npz')
+            shape = chain_shape(campaign.root/f'seed_{seed:08d}/solver/final/artifacts/posterior.h5')
             loaded[seed] = load_columns(campaign.root, seed)
             shapes[seed] = shape
         except (FileNotFoundError, KeyError, ValueError) as exc:

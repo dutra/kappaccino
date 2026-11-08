@@ -1,6 +1,7 @@
 import numpy as np
 from types import SimpleNamespace
 from kappaccino.mock_validation import deviation_corners as plots
+from kappaccino.io.hdf5 import load_arrays
 
 
 def test_standardized_draws_keep_bias_and_joint_correlation():
@@ -21,11 +22,11 @@ def test_corner_weights_each_mock_equally_and_pairs_sources(tmp_path,monkeypatch
     campaign=SimpleNamespace(root=tmp_path,seeds=[1,2])
     paths=plots.write_deviation_corners(campaign,tmp_path)
     assert len(paths)==1 and paths[0].read_bytes().startswith(b'%PDF')
-    with np.load(tmp_path/'mock_sources_truth_deviation_corner.npz') as data:
-        assert data['values'].shape==(300,2)
-        for seed in [1,2]:np.testing.assert_allclose(data['weights'][data['seeds']==seed].sum(),.5)
-        expected,_=plots.standardized_draws(np.column_stack(list(load(tmp_path,1)[0].values())),[.2,-.2])
-        np.testing.assert_allclose(data['values'][:100],expected)
+    data = load_arrays(tmp_path/'mock_sources_truth_deviation_corner.h5')
+    assert data['values'].shape==(300,2)
+    for seed in [1,2]:np.testing.assert_allclose(data['weights'][data['seeds']==seed].sum(),.5)
+    expected,_=plots.standardized_draws(np.column_stack(list(load(tmp_path,1)[0].values())),[.2,-.2])
+    np.testing.assert_allclose(data['values'][:100],expected)
 
 
 def test_combined_draws_preserve_alignment_and_equal_weights():

@@ -11,7 +11,9 @@ import jax
 jax.config.update('jax_enable_x64', True)
 import jax.numpy as jnp
 from scipy.linalg import cho_solve, block_diag
-from kappaccino import artifacts, gp_knee
+from kappaccino.io import artifacts
+from kappaccino.io.hdf5 import save_arrays
+from kappaccino.likelihood import gp_knee
 from kappaccino.mock_validation.field import field_arrays, field_alpha_hessian_tiled
 from make_shared_grf_map import _evaluator
 
@@ -73,7 +75,7 @@ def run(seed,output,draw_count,step):
     rng=np.random.default_rng(20261106)
     radii=np.asarray(e.gp_tables['r_grid'])
     median_physical=np.median(posterior.physical,axis=0)
-    from kappaccino.model import convert_theta_to_latent
+    from kappaccino.core.model import convert_theta_to_latent
     median_theta=convert_theta_to_latent(median_physical,state.parameter_specs)
     ix=np.asarray(state.images.source_x_param_index);iy=np.asarray(state.images.source_y_param_index)
     median_theta[ix]=0.;median_theta[iy]=0.
@@ -117,7 +119,7 @@ def run(seed,output,draw_count,step):
     im,iw,ib=mixture(image_means,image_variances);gm,gw,gb=mixture(grid_means,grid_variances)
     samples=np.concatenate(mixture_draws);lo,med,hi=np.quantile(samples,[.16,.5,.84],axis=0)
     stem=output/f'{seed.name}_posterior_fields'
-    np.savez_compressed(stem.with_suffix('.npz'),x=x,y=y,xy=xy,indices=ids,truth_grid=true_grid,mean_grid=gm,
+    save_arrays(stem.with_suffix('.h5'),x=x,y=y,xy=xy,indices=ids,truth_grid=true_grid,mean_grid=gm,
                         within_variance_grid=gw,between_variance_grid=gb,truth_images=target,mean_images=im,
                         median_parameter_grid=median_grid,median_parameter_images=median_images,median_physical=median_physical,
                         within_variance_images=iw,between_variance_images=ib,conditional_means=image_means,

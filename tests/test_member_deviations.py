@@ -8,10 +8,10 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from kappaccino.evaluator import Evaluator
-from kappaccino.model import member_log_deviations
-from kappaccino.sampling import prior_log_prob
-from kappaccino.state import build_state, with_member_classes
+from kappaccino.likelihood.evaluator import Evaluator
+from kappaccino.core.model import member_log_deviations
+from kappaccino.inference.sampling import prior_log_prob
+from kappaccino.core.state import build_state, with_member_classes
 
 
 @pytest.mark.parametrize("mode", ["sigma", "mass", "sigma_rcut", "mass_rcut"])
@@ -33,7 +33,7 @@ def test_centered_conversion_preserves_the_likelihood(synthetic_config, mode):
 
 
 def test_mass_mode_moves_radii_with_the_dispersion(synthetic_config):
-    from kappaccino.model import member_log_deviations
+    from kappaccino.core.model import member_log_deviations
     config = replace(synthetic_config, scaling=replace(synthetic_config.scaling, member_deviation="mass"))
     state = build_state(config)
     state = with_member_classes(state, state.members.exact_positions, centered=np.ones(4, dtype=bool))

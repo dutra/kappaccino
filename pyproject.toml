@@ -11,6 +11,7 @@ dependencies = [
     "astropy>=8.0.0",
     "blackjax>=1.5",
     "graphviz>=0.21",
+    "h5py>=3.8",
     "jax-cosmo>=0.1.0",
     "jax>=0.4",
     "jaxtronomy @ git+https://github.com/dutra/JAXtronomy.git@feat-pseudojaffe-compact-profiles",
@@ -31,7 +32,7 @@ dependencies = [
 where = ["src"]
 
 [tool.setuptools.package-data]
-kappaccino = ["style.mplstyle", "data/*.csv", "data/*.json"]
+kappaccino = ["plotting/style.mplstyle", "data/*.csv", "data/*.json"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

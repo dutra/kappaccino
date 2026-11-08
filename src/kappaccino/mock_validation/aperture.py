@@ -5,7 +5,7 @@ from typing import Any
 
 import numpy as np
 
-from ..utils import DPIE_MASS_GRAVITATIONAL_CONSTANT_KPC_KMS2_PER_MSUN
+from ..core.utils import DPIE_MASS_GRAVITATIONAL_CONSTANT_KPC_KMS2_PER_MSUN
 
 APERTURE_RADII_KPC = tuple(float(v) for v in np.geomspace(3.0, 500.0, 36))
 COMPONENT_GROUPS = ("halo", "bcg", "members")

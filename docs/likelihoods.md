@@ -676,7 +676,7 @@ redshifts (`zspec_best`, `catalog_z` or `zphot_best`, with `catalog_z_sigma` or 
 photometric catalog of the field with a redshift column and the same bands; without it the mixture is fit on the
 trusted and uncertain images, which is crude.
 
-The final stage writes `final/artifacts/slots.npz` (per-draw option probabilities and sampled assignments, their
+The final stage writes `final/artifacts/slots.h5` (per-draw option probabilities and sampled assignments, their
 averages, the probability that two images share a source, and the new slots' redshifts and positions) and the tables
 `uncertain_images.csv` and `uncertain_pairs.csv`. The new slots' sampled parameters (`slot.<k>.*`) are unit offsets.
 

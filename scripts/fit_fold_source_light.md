@@ -78,10 +78,10 @@ Use `chi2_per_pixel`, standardized residual maps and knot-scale residuals to ass
 - `fit.pdf`: observed arc, reconstructed image and standardized residuals, using the shared stylesheet.
 - `source.pdf`, `best_source.fits`: reconstructed source. For nJy science pixels, the source FITS is in nJy/arcsec²; its integrated flux must use the source pixel area.
 - `best_model.fits`: PSF-convolved model on the observed WCS.
-- `fits.npz`: lens draw indices, fitted parameters, model images, mask, PSF and successful noise-bootstrap parameters.
+- `fits.h5`: lens draw indices, fitted parameters, model images, mask, PSF and successful noise-bootstrap parameters.
 - `summary.json`: inputs, per-draw source-grid geometry, convergence, fit quality, GP inverse checks, bootstrap status, timings and limitations. Source flux and half-light radius refer to the finite source grid and depend on its support and regularization.
-- `lens_spread.npz`: image-model percentiles for successful additional lens draws, when enough draws exist. Source-parameter percentiles are provided only for Gaussian-knot mode.
-- `best_local_covariance.npy`: Gaussian-knot mode only.
+- `lens_spread.h5`: image-model percentiles for successful additional lens draws, when enough draws exist. Source-parameter percentiles are provided only for Gaussian-knot mode.
+- `best_local_covariance.h5`: Gaussian-knot mode only.
 
 Production run artifacts, sampling code and the original fold figures are not changed.
 

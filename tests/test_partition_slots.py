@@ -10,12 +10,13 @@ import pandas as pd
 import pytest
 
 from kappaccino.config import ImageDiagnosticsConfig, PartitionConfig
-from kappaccino.evaluator import Evaluator
-from kappaccino.exact_images import ExactImageSolver, packed_to_kwargs_lens
+from kappaccino.likelihood.evaluator import Evaluator
+from kappaccino.diagnostics.exact_images import ExactImageSolver, packed_to_kwargs_lens
 from kappaccino.partition import add_slots, extend_theta
 from kappaccino.partition import catalog_evidence as ce, lens_evidence as le
-from kappaccino import smoothed_likelihood as sl
-from kappaccino.state import build_state
+from kappaccino.likelihood import smoothed as sl
+from kappaccino.core.state import build_state
+from kappaccino.io.hdf5 import load_arrays
 
 SOURCES = [(2.0, (0.5, 0.3)), (3.0, (-1.0, 0.8)), (2.5, (2.0, -1.5))]       # (z, source position) of the new sources
 COLORS = {0: (24.0, 23.5, 23.3), 1: (25.0, 24.2, 23.6), 2: (23.8, 23.7, 23.65), "trusted": (24.5, 24.0, 23.0)}
@@ -165,7 +166,7 @@ def test_slot_prior_correction_turns_unit_offsets_into_the_physical_priors(synth
 
 
 def test_slot_outputs_from_posterior_draws(synthetic_config, tmp_path):
-    """slots.npz and the tables from a few draws about the start (the final stage writes them from the NUTS draws)."""
+    """slots.h5 and the tables from a few draws about the start (the final stage writes them from the NUTS draws)."""
     from types import SimpleNamespace
     from kappaccino.partition.slots import SLOTS_FILE, write_slot_outputs
     path, truth = _mock(synthetic_config, tmp_path)
@@ -177,7 +178,7 @@ def test_slot_outputs_from_posterior_draws(synthetic_config, tmp_path):
     stage = SimpleNamespace(artifacts=tmp_path / "artifacts", tables=tmp_path / "tables")
     stage.artifacts.mkdir(), stage.tables.mkdir()
     write_slot_outputs(extended, evaluator, SimpleNamespace(samples=samples), stage, draws=5, seed=3, log=lambda _: None)
-    saved = np.load(stage.artifacts / SLOTS_FILE)
+    saved = load_arrays(stage.artifacts / SLOTS_FILE)
     assert saved["probability"].shape == (len(truth), len(extended.slots.option_names()))
     assert saved["responsibilities"].shape[0] == 5
     np.testing.assert_allclose(saved["probability"].sum(axis=1), 1.0, atol=1e-9)
@@ -252,7 +253,7 @@ def test_slots_under_the_gp_likelihoods(synthetic_config, tmp_path, mode):
 def test_slots_sit_inside_the_membership_sum(synthetic_config, tmp_path):
     """With enumerated uncertain members, every member configuration evaluates the uncertain images with its own lens."""
     from scipy.special import logsumexp
-    from kappaccino.state import with_member_classes
+    from kappaccino.core.state import with_member_classes
     path, _ = _mock(synthetic_config, tmp_path)
     p = 0.6
     config = _with_partition(replace(synthetic_config, members=replace(synthetic_config.members, membership="marginalize",

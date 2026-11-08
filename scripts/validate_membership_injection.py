@@ -77,9 +77,9 @@ def _doubted_members(state, xy, exact_ids):
 def _case(config, base_state, draws, members_doc, population, exact_ids, uncertain_id, prior, workdir, label, log):
     import jax
     import jax.numpy as jnp
-    from kappaccino.evaluator import Evaluator
-    from kappaccino.member_catalog import write_member_catalog
-    from kappaccino.state import build_state, with_member_classes
+    from kappaccino.likelihood.evaluator import Evaluator
+    from kappaccino.io.member_catalog import write_member_catalog
+    from kappaccino.core.state import build_state, with_member_classes
     catalog = write_member_catalog(workdir / f'members_{label}.yaml', members_doc['members'], band=members_doc['band'],
                                    kinematics_sources=members_doc.get('kinematics_sources'))
     members = replace(config.members, membership='marginalize', membership_default_probability=1.0, membership_max_enumerated=1,
@@ -115,8 +115,8 @@ def _figure(table, path, prior):
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
     from importlib.resources import files
-    from kappaccino.plot_style import PAPER_STYLE
-    plt.style.use(str(files('kappaccino') / 'style.mplstyle'))
+    from kappaccino.plotting.style import PAPER_STYLE
+    plt.style.use(str(files('kappaccino') / 'plotting' / 'style.mplstyle'))
     plt.rcParams.update(PAPER_STYLE)
     fig, ax = plt.subplots(figsize=(3.5, 2.8))
     for kind, color, marker in (('interloper', 'tab:red', 'o'), ('member', 'tab:blue', 's')):
@@ -142,7 +142,7 @@ def main():
     parser.add_argument('--seed', type=int, default=1)
     args = parser.parse_args()
     import pandas as pd
-    from kappaccino.sky import offsets_to_radec
+    from kappaccino.io.sky import offsets_to_radec
     output = Path(args.output)
     workdir = output / 'catalogs'
     workdir.mkdir(parents=True, exist_ok=True)

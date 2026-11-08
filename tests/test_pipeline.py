@@ -9,10 +9,11 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from kappaccino import artifacts, pipeline
+from kappaccino.io import artifacts
+from kappaccino import pipeline
 from kappaccino.config import ImageDiagnosticsConfig, RuntimeConfig, SamplingConfig, SearchConfig
-from kappaccino.evaluator import Evaluator
-from kappaccino.state import build_state
+from kappaccino.likelihood.evaluator import Evaluator
+from kappaccino.core.state import build_state
 
 
 def _fast(config):
@@ -88,7 +89,7 @@ def test_single_stage_end_to_end(synthetic_config, monkeypatch):
 
 
 def test_far_field_barrier_is_finite_smooth_and_pushes_back(synthetic_config):
-    from kappaccino.state import with_member_classes
+    from kappaccino.core.state import with_member_classes
     state = build_state(synthetic_config)
     state = with_member_classes(state, np.asarray([0, 1], dtype=np.int32), {"exact_count": 2, "mandatory_count": 2})   # two far-field members
     evaluator = Evaluator(state)

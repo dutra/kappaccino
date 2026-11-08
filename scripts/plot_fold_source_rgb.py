@@ -15,11 +15,12 @@ from scipy.ndimage import map_coordinates
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'src'))
-from kappaccino.rgb import (CalibratedRGBDisplayConfig,make_calibrated_rgb,
-    DEFAULT_JWST_RGB_BANDS,DEFAULT_JWST_RGB_CHANNEL_WEIGHTS,
-    DEFAULT_JWST_RGB_CHANNEL_GAINS,DEFAULT_JWST_RGB_Q,DEFAULT_JWST_RGB_STRETCH)
-from kappaccino.cutouts import _jwst_display_fields
-from kappaccino.plot_style import PAPER_STYLE
+from kappaccino.imaging.rgb import (
+    CalibratedRGBDisplayConfig, make_calibrated_rgb, DEFAULT_JWST_RGB_BANDS, DEFAULT_JWST_RGB_CHANNEL_WEIGHTS,
+    DEFAULT_JWST_RGB_CHANNEL_GAINS, DEFAULT_JWST_RGB_Q, DEFAULT_JWST_RGB_STRETCH,
+)
+from kappaccino.imaging.cutouts import _jwst_display_fields
+from kappaccino.plotting.style import PAPER_STYLE
 
 
 def display_config(exposure=1.):
@@ -108,7 +109,7 @@ def main():
         x=-fovx/2+.055*fovx;y=-fovy/2+.07*fovy
         ax.plot([x,x+.05],[y,y],color='white',lw=1.5,solid_capstyle='butt')
         ax.text(x+.025,y+.013*fovy,'0.05″',color='white',ha='center',va='bottom',fontsize=9)
-    with plt.rc_context(fname=ROOT/'src/kappaccino/style.mplstyle',rc=PAPER_STYLE):
+    with plt.rc_context(fname=ROOT/'src/kappaccino/plotting/style.mplstyle',rc=PAPER_STYLE):
         for mode,(rgb,images,header,directories) in products.items():
             fig,ax=plt.subplots(figsize=(5.4,5.4));fig.subplots_adjust(0,0,1,1)
             portrait(ax,rgb,header,'K12 · reconstructed source')

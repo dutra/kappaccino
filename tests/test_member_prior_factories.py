@@ -8,7 +8,7 @@ import numpy as np
 
 from kappaccino import priors
 from kappaccino.config import MemberPopulationConfig, ScalingModelConfig
-from kappaccino.state import build_state
+from kappaccino.core.state import build_state
 
 
 def _population(synthetic_config, factory):

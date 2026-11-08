@@ -25,11 +25,11 @@ import jax.numpy as jnp
 import numpy as np
 import pandas as pd
 
-from .. import gp_knee
+from ..likelihood import gp_knee
 from ..priors import parameters, split
 from ..config import LensClusterSolverConfig
-from ..evaluator import Evaluator
-from ..state import build_state
+from ..likelihood.evaluator import Evaluator
+from ..core.state import build_state
 from .images import jacobian, lens_state
 from .truth import truth_from_json
 

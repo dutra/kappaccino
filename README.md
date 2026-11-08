@@ -46,7 +46,7 @@ from kappaccino.cpu_runtime import configure_cpu_runtime
 
 configure_cpu_runtime(4, "parallel")          # before anything starts JAX
 
-from kappaccino.lenstool_par import config_from_lenstool_par
+from kappaccino.io.lenstool_par import config_from_lenstool_par
 from kappaccino.pipeline import dry_run, run
 
 config = config_from_lenstool_par(
@@ -79,7 +79,7 @@ halo = DPIEHaloConfig("1", 0.0, 0.0, 0.3, 30.0, 10.0, 1500.0, 800.0, z_lens=0.5,
 ```
 
 Each run writes to `<output_dir>/<run_name>/`: `init/` holds the search and the chain start, and `final/` holds
-`posterior.npz`, the summary tables (`posterior_summary.csv`, `image_fit_quality.csv`, `run_summary.txt`, ...), the
+`posterior.h5`, the summary tables (`posterior_summary.csv`, `image_fit_quality.csv`, `run_summary.txt`, ...), the
 figures and the lens maps. The documentation defines every [output file](https://kappaccino.readthedocs.io/en/latest/outputs.html)
 and every [posterior parameter](https://kappaccino.readthedocs.io/en/latest/posterior.html) with its units.
 

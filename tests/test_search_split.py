@@ -8,10 +8,10 @@ import numpy as np
 import pytest
 
 from kappaccino.config import SearchConfig
-from kappaccino.evaluator import Evaluator
-from kappaccino.search import prior_starts
-from kappaccino.search_split import split_map, transfer_by_name
-from kappaccino.state import build_state
+from kappaccino.likelihood.evaluator import Evaluator
+from kappaccino.inference.search import prior_starts
+from kappaccino.inference.search_split import split_map, transfer_by_name
+from kappaccino.core.state import build_state
 
 
 @pytest.mark.parametrize("methods", [("lbfgs", "lbfgs"), ("adam", "svi")])
@@ -42,7 +42,7 @@ def test_transfer_by_name_copies_shared_parameters_only(synthetic_config):
 
 
 def test_optax_lbfgs_matches_scipy_on_the_synthetic_cluster(synthetic_config):
-    from kappaccino.search import multistart_map
+    from kappaccino.inference.search import multistart_map
     state = build_state(synthetic_config)
     evaluator = Evaluator(state)
     starts = prior_starts(state, 4, 5)
@@ -55,7 +55,7 @@ def test_optax_lbfgs_matches_scipy_on_the_synthetic_cluster(synthetic_config):
 
 
 def test_search_summary_table_lists_the_three_stages(synthetic_config):
-    from kappaccino.report import search_summary_table
+    from kappaccino.reporting.text import search_summary_table
     search = SearchConfig(n_starts=3, member_starts=2, lbfgs_max_iter=20, polish_max_iter=5)
     config = replace(synthetic_config, search=search)
     state = build_state(config)
@@ -82,7 +82,7 @@ def test_search_target_drops_the_source_transport_jacobian(synthetic_config):
 
 
 def test_degenerate_modes_cannot_seed_chains(synthetic_config):
-    from kappaccino.search import multistart_map
+    from kappaccino.inference.search import multistart_map
     state = build_state(synthetic_config)
     evaluator = Evaluator(state)
     starts = prior_starts(state, 3, 7)

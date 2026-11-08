@@ -21,8 +21,9 @@ sys.path.insert(0, str(ROOT / "src"))
 import numpy as np
 from scipy.ndimage import zoom
 
-from kappaccino import cutouts
-from kappaccino.rgb import make_calibrated_rgb
+from kappaccino.imaging import cutouts
+from kappaccino.io.hdf5 import load_arrays
+from kappaccino.imaging.rgb import make_calibrated_rgb
 
 
 def parse_args():
@@ -39,10 +40,10 @@ def parse_args():
 
 
 def load(run: Path, draw: int) -> dict:
-    with np.load(run / "pixel_sources.npz") as f:
-        return dict(band=str(f["band"]), source=np.asarray(f["sources"][draw], float), origin=tuple(f["origins"][draw]),
-                    pixel=float(f["pixel"]), image_pixel=float(f["image_pixel"]), model=np.asarray(f["arc_model"], float),
-                    extent=np.asarray(f["extent"], float), sky_reference=tuple(float(v) for v in f["sky_reference"]))
+    f = load_arrays(run / "pixel_sources.h5")
+    return dict(band=str(f["band"]), source=np.asarray(f["sources"][draw], float), origin=tuple(f["origins"][draw]),
+                pixel=float(f["pixel"]), image_pixel=float(f["image_pixel"]), model=np.asarray(f["arc_model"], float),
+                extent=np.asarray(f["extent"], float), sky_reference=tuple(float(v) for v in f["sky_reference"]))
 
 
 def display_for(bands, image_dir: str, reference_pixel: float):
@@ -110,8 +111,8 @@ def main():
     import matplotlib
     matplotlib.use("pdf")
     import matplotlib.pyplot as plt
-    from kappaccino.plot_style import PAPER_STYLE
-    plt.style.use(str(ROOT / "src/kappaccino/style.mplstyle")); plt.rcParams.update(PAPER_STYLE)
+    from kappaccino.plotting.style import PAPER_STYLE
+    plt.style.use(str(ROOT / "src/kappaccino/plotting/style.mplstyle")); plt.rcParams.update(PAPER_STYLE)
     fig, axes = plt.subplots(1, 3, figsize=(7.2, 2.6), constrained_layout=True)
     image_extent = [ext[0], ext[1], ext[2], ext[3]]
     axes[0].imshow(rgb_data, origin="lower", extent=image_extent)

@@ -278,11 +278,11 @@ Common changes on an existing configuration:
 (lenstool-par)=
 ## From a Lenstool `.par` file
 
-{func}`~kappaccino.lenstool_par.config_from_lenstool_par` reads a Lenstool parameter file and returns a
+{func}`~kappaccino.io.lenstool_par.config_from_lenstool_par` reads a Lenstool parameter file and returns a
 `LensClusterSolverConfig` with library defaults outside the lens model:
 
 ```python
-from kappaccino.lenstool_par import config_from_lenstool_par
+from kappaccino.io.lenstool_par import config_from_lenstool_par
 
 config = config_from_lenstool_par(
     "model.par",

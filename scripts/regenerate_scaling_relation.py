@@ -10,7 +10,8 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
-from kappaccino.plots import plot_scaling_relation
+from kappaccino.plotting.plots import plot_scaling_relation
+from kappaccino.io.hdf5 import load_arrays
 
 
 def main():
@@ -19,8 +20,8 @@ def main():
     args = parser.parse_args()
     run = args.run_directory.resolve()
     specs = [SimpleNamespace(**p) for p in json.loads((run / "init/artifacts/state.json").read_text())["parameter_specs"]]
-    with np.load(run / "final/artifacts/posterior.npz", allow_pickle=False) as data:
-        physical = data["physical"]
+    data = load_arrays(run / "final/artifacts/posterior.h5")
+    physical = data["physical"]
     table = pd.read_csv(run / "final/tables/member_scaling_relation.csv")
     # Check the saved table and posterior use the same normalizations and slopes.
     names = {spec.name: i for i, spec in enumerate(specs)}

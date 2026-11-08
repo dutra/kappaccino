@@ -21,11 +21,12 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from types import SimpleNamespace
-from kappaccino import artifacts
-from kappaccino.evaluator import Evaluator
-from kappaccino.state import build_state, with_member_classes
-from kappaccino.truth_recovery import load_truth_fits, mass_per_kappa_pixel_msun
-from kappaccino.plot_style import PAPER_STYLE
+from kappaccino.io import artifacts
+from kappaccino.io.hdf5 import save_arrays
+from kappaccino.likelihood.evaluator import Evaluator
+from kappaccino.core.state import build_state, with_member_classes
+from kappaccino.diagnostics.truth_recovery import load_truth_fits, mass_per_kappa_pixel_msun
+from kappaccino.plotting.style import PAPER_STYLE
 
 
 def polar_rule(nr, nt):
@@ -62,7 +63,7 @@ def write_report(out, summary, provenance):
         '- best_normalization_recovery.pdf: mass recovery and magnitude dependence at the all-member best normalization.',
         '- member_aperture_masses.csv: sizes, masses, ratios, sample masks, and numerical integration errors per galaxy.',
         '- normalization_comparison.csv: aggregate metrics for both samples.',
-        '- aperture_arrays.npz: full mass arrays, identities, masks, radii, and the physical median parameter vector.',
+        '- aperture_arrays.h5: full mass arrays, identities, masks, radii, and the physical median parameter vector.',
         '- provenance.json: assumptions, run identity, timing, input hash, and numerical precision.',
         '- quadrature_validation.json: independent analytic area versus boundary integration checks (when run).']
     (out/'REPORT.md').write_text('\n'.join(text)+'\n')
@@ -176,11 +177,11 @@ def main():
     table=pd.DataFrame(rows); summary=pd.DataFrame(summaries)
     table.to_csv(out/'member_aperture_masses.csv',index=False)
     summary.to_csv(out/'normalization_comparison.csv',index=False)
-    np.savez_compressed(out/'aperture_arrays.npz',model_mass=model*mass_factor,truth_mass=truth*mass_factor,
+    save_arrays(out/'aperture_arrays.h5',model_mass=model*mass_factor,truth_mass=truth*mass_factor,
         normalizations_kpc=normalizations,radii_arcsec=radii,member_ids=members.member_id.to_numpy(dtype=str),
         complete_aperture=valid,inside_image_hull=inside,median_physical=physical)
     print(summary.to_string(index=False),flush=True)
-    plt.style.use(Path(__file__).resolve().parents[1]/'src/kappaccino/style.mplstyle')
+    plt.style.use(Path(__file__).resolve().parents[1]/'src/kappaccino/plotting/style.mplstyle')
     plt.rcParams.update(PAPER_STYLE)
     fig,axs=plt.subplots(1,2,figsize=(7.1,3.2),layout='constrained')
     for label,color,text in [('all','tab:blue','All members'),('image_hull','tab:orange','Inside image hull')]:
@@ -216,7 +217,7 @@ def main():
         model_quadrature_max=float(np.nanmax(model_error[:,valid])),truth_quadrature_max=float(np.nanmax(truth_error[:,valid])),
         truth_pixel_arcsec=float(np.sqrt(pixel_area)),mass_factor_msun_per_kappa_arcsec2=mass_factor,
         elapsed_seconds=time.perf_counter()-started,
-        posterior_sha256=hashlib.sha256((a.run/'final/artifacts/posterior.npz').read_bytes()).hexdigest())
+        posterior_sha256=hashlib.sha256((a.run/'final/artifacts/posterior.h5').read_bytes()).hexdigest())
     (out/'provenance.json').write_text(json.dumps(provenance,indent=2))
     write_report(out, summary, provenance)
 

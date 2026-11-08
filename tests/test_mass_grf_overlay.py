@@ -1,11 +1,11 @@
 from types import SimpleNamespace
 import numpy as np
-from kappaccino.mass_figure import shared_grf_convergence
+from kappaccino.plotting.mass_figure import shared_grf_convergence
 
 
 def test_shared_grf_redshift_scaling_and_chunk_padding(monkeypatch):
-    from kappaccino import jax_cosmology
-    monkeypatch.setattr(jax_cosmology, 'dpie_sigma0_factor_from_config', lambda zl,z,c: z)
+    from kappaccino.lens import cosmology
+    monkeypatch.setattr(cosmology, 'dpie_sigma0_factor_from_config', lambda zl,z,c: z)
     def correction(x,y,f):
         # Family zero has weight 3: alpha_x=3*x^2, alpha_y=3*y^2.
         return 3*x*x,3*y*y,6*x,np.zeros_like(x),np.zeros_like(x),6*y

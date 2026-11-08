@@ -14,7 +14,7 @@ from kappaccino.mock_validation import (MockConfig, MockValidationConfig, MockVa
 from kappaccino.mock_validation.aperture import APERTURE_RADII_KPC, aperture_profiles, truth_groups
 from kappaccino.mock_validation.images import jacobian, lens_state
 from kappaccino import priors
-from kappaccino.state import build_state
+from kappaccino.core.state import build_state
 
 SMALL = MockConfig(seed=7, n_members=12, n_primary_families=4, n_member_families=1, unmodelled_members=2, sigma_def_arcsec=0.03)
 
@@ -125,8 +125,8 @@ def test_map_search_from_the_prior_recovers_the_truth(tmp_path):
     for bias in about half a minute.  The members (four, far from the images) and the error scales are not constrained
     by twelve images and are not checked."""
     import jax.numpy as jnp
-    from kappaccino.evaluator import Evaluator
-    from kappaccino.search import multistart_map, prior_starts
+    from kappaccino.likelihood.evaluator import Evaluator
+    from kappaccino.inference.search import multistart_map, prior_starts
     config = MockConfig(seed=11, n_members=4, n_primary_families=3, n_member_families=0, mode="idealized",
                         sigma_inst_arcsec=0.01, sigma_def_arcsec=0.0)
     paths = generate_mock(tmp_path / "mock", config, 11)

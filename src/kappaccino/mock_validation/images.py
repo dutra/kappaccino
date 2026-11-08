@@ -13,9 +13,9 @@ import pandas as pd
 from matplotlib.path import Path as MplPath
 from skimage.measure import find_contours
 
-from .. import jax_lensing
-from ..inputs import lenstool_shape_to_e1e2
-from ..jax_cosmology import dpie_sigma0_factor_from_config
+from ..lens import lensing
+from ..core.inputs import lenstool_shape_to_e1e2
+from ..lens.cosmology import dpie_sigma0_factor_from_config
 from .config import MockConfig
 from .field import field_alpha_hessian, field_alpha_hessian_tiled, field_arrays, image_plane_displacements
 from .truth import DPIEComponent, MockTruth
@@ -33,7 +33,7 @@ def lensing_efficiency(truth: MockTruth, z_source: float) -> float:
 class TruthLens(NamedTuple):
     """The truth for one source redshift: the dPIE components as a static lens plus the injected mass field (its plane
     waves, or None) times its redshift weight."""
-    state: jax_lensing.StaticLensState
+    state: lensing.StaticLensState
     field: tuple | None
     weight: float
 
@@ -48,7 +48,7 @@ def lens_state(truth: MockTruth, z_source: float, components: list[DPIEComponent
         e1, e2 = lenstool_shape_to_e1e2(c.ellipticite, c.angle_pos)
         kwargs.append({"sigma0": float(c.v_disp) ** 2 * factor / ra, "Ra": float(ra), "Rs": float(rs), "e1": float(e1), "e2": float(e2),
                        "center_x": float(c.x_centre), "center_y": float(c.y_centre)})
-    state = jax_lensing.static_lens_state_from_kwargs([jax_lensing.ORIGINAL_DPIE_PROFILE_NAME] * len(kwargs), kwargs)
+    state = lensing.static_lens_state_from_kwargs([lensing.ORIGINAL_DPIE_PROFILE_NAME] * len(kwargs), kwargs)
     if truth.field is None:
         return TruthLens(state, None, 0.0)
     return TruthLens(state, field_arrays(truth.field), factor / lensing_efficiency(truth, float(truth.field["reference_redshift"])))
@@ -56,7 +56,7 @@ def lens_state(truth: MockTruth, z_source: float, components: list[DPIEComponent
 
 def _alpha_hessian(lens: TruthLens, x, y):
     """Total deflection and Hessian at the points (traceable): the dPIE lens plus the weighted field."""
-    out = jax_lensing.alpha_and_hessian(x, y, lens.state)
+    out = lensing.alpha_and_hessian(x, y, lens.state)
     if lens.field is None:
         return out
     return tuple(a + b for a, b in zip(out, field_alpha_hessian(x, y, lens.field, lens.weight)))
@@ -80,7 +80,7 @@ def ray_shoot(lens: TruthLens, x: np.ndarray, y: np.ndarray) -> tuple[np.ndarray
     x, y = np.asarray(x, float).ravel(), np.asarray(y, float).ravel()
     n = max(RAY_SHOOT_PAD, int(math.ceil(x.size / RAY_SHOOT_PAD)) * RAY_SHOOT_PAD)
     xp, yp = np.pad(x, (0, n - x.size), mode="edge"), np.pad(y, (0, n - y.size), mode="edge")
-    bx, by = jax_lensing.ray_shooting_tiled(jnp.asarray(xp), jnp.asarray(yp), lens.state, chunk_size=jax_lensing.estimated_alpha_hessian_chunk_size(1.0))
+    bx, by = lensing.ray_shooting_tiled(jnp.asarray(xp), jnp.asarray(yp), lens.state, chunk_size=lensing.estimated_alpha_hessian_chunk_size(1.0))
     bx, by = np.asarray(bx, float)[:x.size], np.asarray(by, float)[:x.size]
     field = _field_tiled(lens, x, y)
     return (bx, by) if field is None else (bx - field[0], by - field[1])
@@ -127,8 +127,8 @@ def convergence_grid(lens: TruthLens, config: MockConfig, *, centre: tuple[float
     axis_x = np.linspace(centre[0] - window / 2, centre[0] + window / 2, n)
     axis_y = np.linspace(centre[1] - window / 2, centre[1] + window / 2, n)
     xx, yy = np.meshgrid(axis_x, axis_y)
-    chunk = jax_lensing.estimated_alpha_hessian_chunk_size(1.0)
-    _, _, fxx, fxy, fyx, fyy = jax_lensing.alpha_and_hessian_tiled(jnp.asarray(xx.ravel()), jnp.asarray(yy.ravel()), lens.state, chunk_size=chunk)
+    chunk = lensing.estimated_alpha_hessian_chunk_size(1.0)
+    _, _, fxx, fxy, fyx, fyy = lensing.alpha_and_hessian_tiled(jnp.asarray(xx.ravel()), jnp.asarray(yy.ravel()), lens.state, chunk_size=chunk)
     fxx, fxy, fyx, fyy = (np.asarray(v, float) for v in (fxx, fxy, fyx, fyy))
     field = _field_tiled(lens, xx.ravel(), yy.ravel())
     if field is not None:

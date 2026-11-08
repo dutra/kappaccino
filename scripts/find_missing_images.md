@@ -15,7 +15,7 @@ The search predicts every image of every catalog family, then checks the JWST da
 
 Catalogs are read from `RedshiftCatalogs/M0416` under the synced `GalaxyClusterImaging` folder, `/Users/isaque.dutra/sync/` on the Mac or `/data/sync/` on Linux (`SYNC` and `CATALOGS` in `find_missing_images.py`). Where that folder is missing, the full CANUCS image catalog comes from `catalogs/m0416/canucs2025/source`, the DR1 photometry from `data/CANUCS/M0416_Rihtarsic2025/canucs_dr1` (31 MB, not in the repository), and the Rihtarsic tables, Bergamini 2023 and Caminha 2017 are skipped. Diego et al. 2024 is read from `catalogs/m0416/diego2024`. The model, the CANUCS catalogs, the DR1 photometry and Diego 2024 share the JWST frame to 0.04". Bergamini 2023 and Caminha 2017 are HST-frame, so their positions are shifted by (−0.220″ east, −0.084″ north) before matching. The JWST mosaics are in `data/JWST_Images/M0416` on the Mac; on the Linux machine use `--image-dir /data/sync/GalaxyClusterImaging/JWST_Images/M0416`, which has F115W, F150W, F200W and F444W.
 
-Runs pickled before a config field existed load with that field's default, except the two sigma_white priors, which load as None (the half-normal those runs used). The loader checks the rebuilt parameters against the run's saved state.
+The loader checks the rebuilt parameters against the run's saved state.
 
 ## Rerun
 
@@ -32,7 +32,7 @@ The search takes about 20 s per family, about 40 min for all 111 families on the
 
 - `predicted_images.csv`: every image the best draw predicts, with its distance to the family's and the system's catalog images.
 - `predicted_missing_images.csv`: every missing predicted image per family, with its positions over the draws, μ, parity and predicted F150W magnitude.
-- `missing_image_sites.csv` and `.pkl`: the merged sites.
+- `missing_image_sites.csv`: the merged sites; `missing_image_site_draws.h5`: the position draws of each site (`site_row`, `x`, `y`).
 - `missing_image_candidates.csv`: every scored CANUCS source near a site.
 - `missing_image_report.csv`: every site, with whether it is published and where.
 - `new_image_candidates_table.csv`: the unpublished sites, ranked, with the counterpart's CANUCS ID, RA, Dec, distance, F150W, photo-z with its 16–84% range, spec-z, colour χ² and chance.

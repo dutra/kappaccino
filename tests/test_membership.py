@@ -12,10 +12,10 @@ import numpyro.distributions as dist
 import pytest
 from scipy.special import logsumexp
 
-from kappaccino.evaluator import Evaluator
-from kappaccino.image_catalog import CatalogError
-from kappaccino.member_catalog import load_member_catalog, members_from_lenstool, write_member_catalog
-from kappaccino.state import build_state, with_member_classes
+from kappaccino.likelihood.evaluator import Evaluator
+from kappaccino.io.image_catalog import CatalogError
+from kappaccino.io.member_catalog import load_member_catalog, members_from_lenstool, write_member_catalog
+from kappaccino.core.state import build_state, with_member_classes
 from test_gp_knee import knee_config
 from test_member_catalog import SOURCES, _reference, _yaml_config
 

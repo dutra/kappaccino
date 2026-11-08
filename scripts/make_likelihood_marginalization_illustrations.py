@@ -17,7 +17,7 @@ from matplotlib.offsetbox import AnchoredOffsetbox, HPacker, TextArea
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'src'))
-from kappaccino.plot_style import PAPER_STYLE
+from kappaccino.plotting.style import PAPER_STYLE
 
 OUT = Path(__file__).resolve().parents[1] / 'output/pdf/likelihood_candidates'
 BLUE, GREEN, RED, PURPLE, INK = '#1674A4', '#218778', '#C44E35', '#77529B', '#252930'
@@ -44,7 +44,7 @@ def critical(ax, height=.84):
     ax.text(0, .98, 'Critical curve', transform=ax.get_xaxis_transform(),
             color=RED, ha='center', va='top', fontsize=10)
 
-@plt.rc_context(fname=ROOT / 'src/kappaccino/style.mplstyle',
+@plt.rc_context(fname=ROOT / 'src/kappaccino/plotting/style.mplstyle',
                 rc={**PAPER_STYLE, 'mathtext.fontset': 'dejavusans',
                     'mathtext.default': 'regular', 'axes.spines.top': False,
                     'axes.spines.right': False})
@@ -181,7 +181,7 @@ def smoothing():
 
 
 
-@plt.rc_context(fname=ROOT / 'src/kappaccino/style.mplstyle',
+@plt.rc_context(fname=ROOT / 'src/kappaccino/plotting/style.mplstyle',
                 rc={**PAPER_STYLE, 'mathtext.fontset': 'dejavusans',
                     'mathtext.default': 'regular', 'axes.spines.top': False,
                     'axes.spines.right': False})

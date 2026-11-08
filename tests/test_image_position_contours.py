@@ -2,9 +2,10 @@ from types import SimpleNamespace
 import numpy as np
 import pandas as pd
 import jax.numpy as jnp
-from kappaccino import image_position_contours as ipc
-from kappaccino.model import FamilyData
-from kappaccino.exact_images import ExactImageSolver
+from kappaccino.diagnostics import position_contours as ipc
+from kappaccino.core.model import FamilyData
+from kappaccino.diagnostics.exact_images import ExactImageSolver
+from kappaccino.io.hdf5 import load_arrays, save_arrays
 
 
 def test_extra_assignment_tolerance_and_empty():
@@ -48,7 +49,7 @@ def test_gaussian_contour_probabilities_and_no_covariance_fallback():
 
 def test_overview_contours_have_tiny_catalog_crosses(monkeypatch):
     import matplotlib.pyplot as plt
-    from kappaccino import mass_figure as mf
+    from kappaccino.plotting import mass_figure as mf
     monkeypatch.setattr(mf.cutouts,'rgb_cutout',lambda *a:np.ones((16,16,3)))
     monkeypatch.setattr(mf,'aligned_rgb',lambda rgb,*a:rgb)
     geometry=dict(resolution=16,xlim=(-10.,10.),ylim=(-10.,10.),center_xy=(0.,0.),center=None,size=20.)
@@ -85,9 +86,10 @@ def test_overview_draw_selection_and_cache_subset(tmp_path,monkeypatch):
     for _ in range(2):ipc.load_or_compute_contours(config,state,None,posterior,pd.DataFrame(),tmp_path,log=lambda _:None)
     assert seen==[256] and sizes==[256,256]
     # Older full-draw caches are reused and retained, while only 256 enter contours.
-    np.savez_compressed(tmp_path/'posterior_overview_positions.npz',recovered=np.zeros((4000,1,2)),extra=np.zeros((4000,0,2)))
+    save_arrays(tmp_path/'posterior_overview_positions.h5',recovered=np.zeros((4000,1,2)),extra=np.zeros((4000,0,2)))
     result=ipc.load_or_compute_contours(config,state,None,posterior,pd.DataFrame(),tmp_path,log=lambda _:None)
     np.testing.assert_array_equal(result["position_data"]["draw_indices"],ipc.overview_draw_indices(4000,3999))
     assert len(result["position_data"]["recovered"])==256 and result["fingerprint"]
     assert seen==[256] and sizes[-1]==256
-    with np.load(tmp_path/'posterior_overview_positions.npz') as saved:assert len(saved['recovered'])==4000
+    saved = load_arrays(tmp_path/'posterior_overview_positions.h5')
+    assert len(saved['recovered'])==4000

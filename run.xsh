@@ -276,46 +276,49 @@ def _parse_args(argv: list[str]) -> dict:
 # The solver's tuned defaults live in kappaccino.config; a cluster entry carries only what is specific to it: the
 # image catalog, the cosmology, where the cluster-scale halos sit, the member catalog, the truth maps and the
 # simulation's softening.  Both simulated clusters are at z = 0.5 with F160W magnitudes, where L* is m_F160W = 19.82.
-FF_SIMS_CLUSTERS = {
-    "ARES": {
-        "cluster_key": "ares",
-        "image_catalog": "catalogs/ares/images.yaml",
-        "cosmology": CosmologyConfig(H0=70.4, Om0=0.272, Ode0=0.728),
-        # One cluster-scale halo at the light peak of each clump of the MOKA cluster (Meneghetti et al. 2017) plus shear.
-        "halos": (
-            DPIEHaloConfig.cluster_scale("1", 20.0, -32.0, 0.5, v_disp=950.0),
-            DPIEHaloConfig.cluster_scale("2", -40.0, 40.0, 0.5, v_disp=950.0),
-            ShearHaloConfig.free("S1", 0.5),
-        ),
-        "member_population": MemberPopulationConfig.bergamini2019("potfile_1", "catalogs/ares/members.yaml", 0.5, prior_mag0=19.82),
-        # The brightest cluster galaxies stay in the scaling relation, as on Hera: independent halos cost parameters, made
-        # the chains multi-well and did not improve the fit.
-        "independent_member_halos": (),
-        "kappa_true_fits": "data/imaging/ares/ffsims/kappa_z9_0.fits",
-        "gammax_true_fits": "data/imaging/ares/ffsims/gammax_z9_0.fits",
-        "gammay_true_fits": "data/imaging/ares/ffsims/gammay_z9_0.fits",
-        # Ares is semi-analytic: its subhalos are analytic profiles, so there is no resolution softening to match.
-        "softening_length_kpc": 0.0,
-    },
-    "HERA": {
-        "cluster_key": "hera",
-        "image_catalog": "catalogs/hera/images.yaml",
-        "cosmology": CosmologyConfig(H0=72.0, Om0=0.24, Ode0=0.76),
-        "halos": (
-            DPIEHaloConfig.cluster_scale("1", 19.54080009, 2.37820005, 0.507, v_disp=800.0, softening_kpc=2.3 / 0.72),
-            DPIEHaloConfig.cluster_scale("2", 0.001, 0.003, 0.507, v_disp=700.0, softening_kpc=2.3 / 0.72),
-            ShearHaloConfig.free("S1", 0.507),
-        ),
-        "member_population": MemberPopulationConfig.bergamini2019("potfile_1", "catalogs/hera/members.yaml", 0.507, prior_mag0=19.82),
-        "independent_member_halos": (),
-        "kappa_true_fits": "data/imaging/hera/ffsims/kappa_z9_0.fits",
-        "gammax_true_fits": "data/imaging/hera/ffsims/gammax_z9_0.fits",
-        "gammay_true_fits": "data/imaging/hera/ffsims/gammay_z9_0.fits",
-        # Hera is an N-body cluster (H0 = 72, softening 2.3 h^-1 kpc = 3.19 kpc): added in quadrature to the member cores so
-        # that their cusps match the simulation's resolution; the dPIE total mass is independent of the core.
-        "softening_length_kpc": 2.3 / 0.72,
-    },
-}
+def _ff_sims_clusters():
+    # Built on call: the priors are numpyro distributions, whose construction starts JAX, and the launcher must
+    # configure the CPU devices first.
+    return {
+        "ARES": {
+            "cluster_key": "ares",
+            "image_catalog": "catalogs/ares/images.yaml",
+            "cosmology": CosmologyConfig(H0=70.4, Om0=0.272, Ode0=0.728),
+            # One cluster-scale halo at the light peak of each clump of the MOKA cluster (Meneghetti et al. 2017) plus shear.
+            "halos": (
+                DPIEHaloConfig.cluster_scale("1", 20.0, -32.0, 0.5, v_disp=950.0),
+                DPIEHaloConfig.cluster_scale("2", -40.0, 40.0, 0.5, v_disp=950.0),
+                ShearHaloConfig.free("S1", 0.5),
+            ),
+            "member_population": MemberPopulationConfig.bergamini2019("potfile_1", "catalogs/ares/members.yaml", 0.5, prior_mag0=19.82),
+            # The brightest cluster galaxies stay in the scaling relation, as on Hera: independent halos cost parameters, made
+            # the chains multi-well and did not improve the fit.
+            "independent_member_halos": (),
+            "kappa_true_fits": "data/imaging/ares/ffsims/kappa_z9_0.fits",
+            "gammax_true_fits": "data/imaging/ares/ffsims/gammax_z9_0.fits",
+            "gammay_true_fits": "data/imaging/ares/ffsims/gammay_z9_0.fits",
+            # Ares is semi-analytic: its subhalos are analytic profiles, so there is no resolution softening to match.
+            "softening_length_kpc": 0.0,
+        },
+        "HERA": {
+            "cluster_key": "hera",
+            "image_catalog": "catalogs/hera/images.yaml",
+            "cosmology": CosmologyConfig(H0=72.0, Om0=0.24, Ode0=0.76),
+            "halos": (
+                DPIEHaloConfig.cluster_scale("1", 19.54080009, 2.37820005, 0.507, v_disp=800.0, softening_kpc=2.3 / 0.72),
+                DPIEHaloConfig.cluster_scale("2", 0.001, 0.003, 0.507, v_disp=700.0, softening_kpc=2.3 / 0.72),
+                ShearHaloConfig.free("S1", 0.507),
+            ),
+            "member_population": MemberPopulationConfig.bergamini2019("potfile_1", "catalogs/hera/members.yaml", 0.507, prior_mag0=19.82),
+            "independent_member_halos": (),
+            "kappa_true_fits": "data/imaging/hera/ffsims/kappa_z9_0.fits",
+            "gammax_true_fits": "data/imaging/hera/ffsims/gammax_z9_0.fits",
+            "gammay_true_fits": "data/imaging/hera/ffsims/gammay_z9_0.fits",
+            # Hera is an N-body cluster (H0 = 72, softening 2.3 h^-1 kpc = 3.19 kpc): added in quadrature to the member cores so
+            # that their cusps match the simulation's resolution; the dPIE total mass is independent of the core.
+            "softening_length_kpc": 2.3 / 0.72,
+        },
+    }
 
 
 # Native configuration transcribed from
@@ -629,7 +632,8 @@ def _m0416_bergamini2023_cluster():
     }
 
 
-CLUSTERS = set(FF_SIMS_CLUSTERS) | {"AS1063", "AS1063_JWST", "M0416_BERGAMINI2023", "M0416_CANUCS2025"}
+FF_SIMS = {"ARES", "HERA"}
+CLUSTERS = FF_SIMS | {"AS1063", "AS1063_JWST", "M0416_BERGAMINI2023", "M0416_CANUCS2025"}
 
 
 def build_runtime(cores: int) -> RuntimeConfig:
@@ -674,8 +678,8 @@ def build_config(
     with ``fast``, the exploratory overrides."""
     if cluster not in CLUSTERS:
         raise ValueError(f"cluster must be one of {', '.join(sorted(CLUSTERS))}; got {cluster!r}.")
-    is_hff = cluster not in FF_SIMS_CLUSTERS
-    cluster_config = _hff_clusters()[cluster] if is_hff else FF_SIMS_CLUSTERS[cluster]
+    is_hff = cluster not in FF_SIMS
+    cluster_config = _hff_clusters()[cluster] if is_hff else _ff_sims_clusters()[cluster]
     imaging = imaging or cluster_config.get("imaging", "hst")
     config = LensClusterSolverConfig(
         model=LensModelConfig(

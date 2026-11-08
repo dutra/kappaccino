@@ -17,17 +17,17 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
-from lenscluster import artifacts
-from lenscluster.state import build_state, with_member_classes
-from lenscluster.model import convert_theta_to_latent
-from lenscluster.evaluator import Evaluator
-from lenscluster.jax_cosmology import dpie_sigma0_factor_from_config
-from lenscluster.aperture_mass_histogram import render_histogram, aperture_masses
-from lenscluster.plot_style import PAPER_STYLE
+from kappaccino import artifacts
+from kappaccino.state import build_state, with_member_classes
+from kappaccino.model import convert_theta_to_latent
+from kappaccino.evaluator import Evaluator
+from kappaccino.jax_cosmology import dpie_sigma0_factor_from_config
+from kappaccino.aperture_mass_histogram import render_histogram, aperture_masses
+from kappaccino.plot_style import PAPER_STYLE
 
 
 def render_plots(out,parametric,truth,grf,norms,valid,inside,summary,table):
-    plt.style.use(Path(__file__).resolve().parents[1]/'src/lenscluster/style.mplstyle');plt.rcParams.update(PAPER_STYLE)
+    plt.style.use(Path(__file__).resolve().parents[1]/'src/kappaccino/style.mplstyle');plt.rcParams.update(PAPER_STYLE)
     with PdfPages(out/'radius_histograms.pdf') as pdf:
         for label,select in [('all',valid),('image_hull',valid&inside)]:
             fig,axes=plt.subplots(3,3,figsize=(7.1,6.3),sharex=True,sharey=True)

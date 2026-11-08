@@ -5,9 +5,9 @@ from dataclasses import replace
 
 import numpy as np
 
-from lenscluster import artifacts, pipeline
-from lenscluster.config import ImageDiagnosticsConfig, RuntimeConfig, SamplingConfig, SearchConfig
-from lenscluster.sampling import adaptation_diagnostics, e_bfmi
+from kappaccino import artifacts, pipeline
+from kappaccino.config import ImageDiagnosticsConfig, RuntimeConfig, SamplingConfig, SearchConfig
+from kappaccino.sampling import adaptation_diagnostics, e_bfmi
 
 
 def test_e_bfmi_separates_independent_and_random_walk_energies():
@@ -49,9 +49,9 @@ def test_dense_member_offsets_join_the_hessian_seeded_block(synthetic_config):
     """SamplingConfig.dense_member_offsets: the member-offset sites move from the diagonal into the dense block, whose
     Hessian seed (chunked forward-over-reverse) is symmetric positive definite; the sources stay diagonal."""
     import numpy as np
-    from lenscluster.evaluator import Evaluator
-    from lenscluster.sampling import block_mass_seed, posterior_model
-    from lenscluster.state import build_state
+    from kappaccino.evaluator import Evaluator
+    from kappaccino.sampling import block_mass_seed, posterior_model
+    from kappaccino.state import build_state
     state = build_state(synthetic_config)
     specs = state.parameter_specs
     model = posterior_model(specs, Evaluator(state).log_likelihood)
@@ -72,7 +72,7 @@ def test_stiffest_direction_finds_the_largest_whitened_curvature():
     """Power iteration on W^T H W: for a quadratic with curvatures (1, 100, 4) the stiffest direction is the second axis
     (step limit 2/10); whitening that axis by 1/10 makes the third the stiffest (curvature 4)."""
     import jax.numpy as jnp
-    from lenscluster.sampling import stiffest_direction
+    from kappaccino.sampling import stiffest_direction
     curvature = jnp.asarray([1.0, 100.0, 4.0])
     potential = lambda x: 0.5 * jnp.sum(curvature * x * x)
     x0 = jnp.asarray([0.3, -0.2, 0.1])

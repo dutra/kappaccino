@@ -21,10 +21,10 @@ def main():
     import jax
     jax.config.update('jax_enable_x64', True)
     import numpy as np
-    from lenscluster import artifacts
-    from lenscluster.evaluator import Evaluator
-    from lenscluster.state import build_state, with_member_classes
-    from lenscluster.member_diagnostic_plots import write_member_diagnostic_plots
+    from kappaccino import artifacts
+    from kappaccino.evaluator import Evaluator
+    from kappaccino.state import build_state, with_member_classes
+    from kappaccino.member_diagnostic_plots import write_member_diagnostic_plots
 
     run = args.run_directory.resolve()
     init = run / 'init/artifacts'

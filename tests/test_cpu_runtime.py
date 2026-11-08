@@ -7,7 +7,7 @@ import sys
 
 import pytest
 
-from lenscluster import cpu_runtime as cpu
+from kappaccino import cpu_runtime as cpu
 
 
 @pytest.mark.parametrize("chains", [1, 2, 4, 8])
@@ -48,7 +48,7 @@ def test_parallel_backend_without_affinity_limits_loaded_and_future_blas():
 import os
 import numpy as np
 from threadpoolctl import threadpool_info
-from lenscluster import cpu_runtime as cpu
+from kappaccino import cpu_runtime as cpu
 cpu.affinity_supported = lambda: False
 plan = cpu.configure_cpu_runtime(4, 'parallel', None)
 assert plan.blas_threads == 1
@@ -87,7 +87,7 @@ def test_fresh_backend_and_spawned_worker_follow_resolved_chains(tmp_path, chain
     script = tmp_path / "cpu_spawn_check.py"
     script.write_text('''
 import json, multiprocessing, os
-from lenscluster.cpu_runtime import configure_cpu_runtime
+from kappaccino.cpu_runtime import configure_cpu_runtime
 def inspect_backend():
     import jax
     import jax.numpy as jnp
@@ -133,7 +133,7 @@ def test_late_backend_setup_fails_actionably():
     code = """
 import jax
 jax.devices('cpu')
-from lenscluster.cpu_runtime import configure_cpu_runtime
+from kappaccino.cpu_runtime import configure_cpu_runtime
 try:
     configure_cpu_runtime(1, 'parallel', 1)
 except RuntimeError as error:
@@ -164,7 +164,7 @@ def check_run(config, stage="both"):
     assert config.runtime.chains == 2
     assert len(jax.devices('cpu')) == 2
     assert len(os.sched_getaffinity(0)) <= 4
-import lenscluster.pipeline as pipeline
+import kappaccino.pipeline as pipeline
 pipeline.run = check_run
 assert namespace['main'](['run.xsh', sys.argv[1]]) == 0
 """
@@ -173,7 +173,7 @@ assert namespace['main'](['run.xsh', sys.argv[1]]) == 0
 
 
 def test_plan_prefers_idle_cores():
-    import lenscluster.cpu_runtime as cpu
+    import kappaccino.cpu_runtime as cpu
     idle = cpu.resolve_cpu_plan(4, "parallel", 2, avoid=set(), load={})
     if len(idle.available_cpu_ids) < 2 * len(idle.selected_cpu_ids):
         pytest.skip("not enough CPUs to test load-aware pinning")
@@ -185,7 +185,7 @@ def test_plan_prefers_idle_cores():
 
 
 def test_plan_skips_cores_claimed_by_other_runs():
-    import lenscluster.cpu_runtime as cpu
+    import kappaccino.cpu_runtime as cpu
     base = cpu.resolve_cpu_plan(4, "parallel", 2, avoid=set(), load={})
     if len(base.available_cpu_ids) < 2 * len(base.selected_cpu_ids):
         pytest.skip("not enough CPUs to test disjoint pinning")

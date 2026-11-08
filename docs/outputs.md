@@ -3,7 +3,7 @@
 This page lists the files a run writes; {doc}`posterior` defines each posterior parameter and derived quantity.
 
 A run writes everything under its run root, `<output_dir>/<run_name>/` from
-{class}`~lenscluster.config.RunPathsConfig`. Figure names start with `RunPathsConfig.figure_prefix`, for example
+{class}`~kappaccino.config.RunPathsConfig`. Figure names start with `RunPathsConfig.figure_prefix`, for example
 `m0416_critical_curves.pdf`.
 
 ## Directory layout
@@ -123,7 +123,7 @@ in the text. Names contain letters only: M0416 uses `MJZeroFourOneSix`, AS1063 u
 Regenerate from saved artifacts, without inference or plotting:
 
 ```bash
-PYTHONPATH=src python -m lenscluster.results_tex path/to/run/final
+PYTHONPATH=src python -m kappaccino.results_tex path/to/run/final
 ```
 
 To regenerate individual figures without rerunning inference, see {doc}`scripts`.

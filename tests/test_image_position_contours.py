@@ -2,9 +2,9 @@ from types import SimpleNamespace
 import numpy as np
 import pandas as pd
 import jax.numpy as jnp
-from lenscluster import image_position_contours as ipc
-from lenscluster.model import FamilyData
-from lenscluster.exact_images import ExactImageSolver
+from kappaccino import image_position_contours as ipc
+from kappaccino.model import FamilyData
+from kappaccino.exact_images import ExactImageSolver
 
 
 def test_extra_assignment_tolerance_and_empty():
@@ -48,7 +48,7 @@ def test_gaussian_contour_probabilities_and_no_covariance_fallback():
 
 def test_overview_contours_have_tiny_catalog_crosses(monkeypatch):
     import matplotlib.pyplot as plt
-    from lenscluster import mass_figure as mf
+    from kappaccino import mass_figure as mf
     monkeypatch.setattr(mf.cutouts,'rgb_cutout',lambda *a:np.ones((16,16,3)))
     monkeypatch.setattr(mf,'aligned_rgb',lambda rgb,*a:rgb)
     geometry=dict(resolution=16,xlim=(-10.,10.),ylim=(-10.,10.),center_xy=(0.,0.),center=None,size=20.)

@@ -8,13 +8,13 @@ from dataclasses import replace
 import numpy as np
 import pytest
 
-from lenscluster import search_split
+from kappaccino import search_split
 import numpyro.distributions as dist
 
-from lenscluster import priors
-from lenscluster.config import LikelihoodConfig, SearchConfig
-from lenscluster.evaluator import Evaluator
-from lenscluster.state import build_state
+from kappaccino import priors
+from kappaccino.config import LikelihoodConfig, SearchConfig
+from kappaccino.evaluator import Evaluator
+from kappaccino.state import build_state
 from test_gp_knee import knee_config
 
 

@@ -9,9 +9,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from lenscluster.covariance_plots import write_covariance_plots
-from lenscluster.evaluator import Evaluator
-from lenscluster.state import build_state
+from kappaccino.covariance_plots import write_covariance_plots
+from kappaccino.evaluator import Evaluator
+from kappaccino.state import build_state
 
 
 @pytest.mark.parametrize('selection', [True, False])
@@ -47,7 +47,7 @@ def test_covariance_outputs_and_best_only(synthetic_config, tmp_path, selection)
 
 
 def test_normal_output_calls_covariance_suite(monkeypatch, synthetic_config, tmp_path):
-    from lenscluster import outputs
+    from kappaccino import outputs
     class ReachedCovariance(Exception):
         pass
     def reached(*args, **kwargs):

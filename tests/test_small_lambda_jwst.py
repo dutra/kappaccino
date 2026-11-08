@@ -2,7 +2,7 @@
 import numpy as np
 import pytest
 
-from lenscluster import small_lambda_jwst as module
+from kappaccino import small_lambda_jwst as module
 
 
 def test_near_zero_eigenvalue_not_most_negative():
@@ -32,7 +32,7 @@ def test_render_and_reuse_without_new_fields(tmp_path, monkeypatch):
              family_data=[NS(family_id='f',z_source=2.)],reference=None)
     config=NS(paths=NS(figure_prefix='test'),image_catalog=NS(image_dir='test'))
     paths=NS(tables=tmp_path,figures=tmp_path)
-    from lenscluster import cutout_critical_fields
+    from kappaccino import cutout_critical_fields
     monkeypatch.setattr(cutout_critical_fields,'median_cutout_determinants',
         lambda *a,**k:(np.zeros((1,2,2,2)),np.ones((1,2,2)),np.arange(32),np.ones((1,2,2)),np.ones((1,2,2))))
     calls=[]

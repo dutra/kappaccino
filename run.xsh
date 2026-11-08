@@ -14,18 +14,18 @@ seed = 12345
 # Counterimages: K66.c1, K67.c1, K20.c1; weaker: K28.c1, K34.c1, K34.c2, K115.c1.
 # New family A: A.1, A.2, A.3; geometric z=1.3847046874, no spectroscopic redshift.
 # This catalog controls RGB overlays (family-matched circles/squares; green family-A squares).
-M0416_CANDIDATES = "src/lenscluster/data/m0416_candidates.json"
+M0416_CANDIDATES = "src/kappaccino/data/m0416_candidates.json"
 # Critical-curve RGB composite: top left-to-right, then right top-to-bottom.
 M0416_RGB_IMAGE_CUTOUTS = ("K34.b", "K34.a", "K33.e", "K77.b")
 M0416_RGB_FOLD_CUTOUTS = ("K1", "K6", "K8", "K12")
 
-$MPLCONFIGDIR = "/tmp/matplotlib-lenscluster"
-os.environ["MPLCONFIGDIR"] = "/tmp/matplotlib-lenscluster"
+$MPLCONFIGDIR = "/tmp/matplotlib-kappaccino"
+os.environ["MPLCONFIGDIR"] = "/tmp/matplotlib-kappaccino"
 sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
 
 from dataclasses import replace
 
-from lenscluster.config import (
+from kappaccino.config import (
     CosmologyConfig,
     DPIEHaloConfig,
     ImageCatalogCutoutConfig,
@@ -46,9 +46,9 @@ from lenscluster.config import (
     ShearHaloConfig,
     TruthRecoveryConfig,
 )
-from lenscluster.cpu_runtime import configure_cpu_runtime, resolve_cpu_plan, threads_per_chain_if_supported
-from lenscluster.jax_cosmology import kpc_per_arcsec_from_config
-from lenscluster.priors import ellipticity_box, lognormal_from_moments, truncated_lognormal
+from kappaccino.cpu_runtime import configure_cpu_runtime, resolve_cpu_plan, threads_per_chain_if_supported
+from kappaccino.jax_cosmology import kpc_per_arcsec_from_config
+from kappaccino.priors import ellipticity_box, lognormal_from_moments, truncated_lognormal
 import numpyro.distributions as dist
 
 OUTPUT_DIR_LABEL = "oct22_single_stage"
@@ -59,7 +59,7 @@ OUTPUT_DIR_LABEL = "oct22_single_stage"
 BCG_CUT_PRIOR = "lognormal"
 
 
-# Prior helpers in the coordinates the solver samples (lenscluster.priors): radii and dispersions in log.
+# Prior helpers in the coordinates the solver samples (kappaccino.priors): radii and dispersions in log.
 def _log_uniform(low: float, high: float):
     """A radius log-uniform on [low, high] kpc."""
     return dist.LogUniform(max(float(low), 1.0e-3), float(high))
@@ -99,7 +99,7 @@ SIGMA_INST_ARCSEC = 0.001
 
 # HFF display settings for observed clusters.
 HFF_RGB_BANDS = ["F435W", "F606W", "F814W", "F105W", "F125W", "F140W", "F160W"]
-HFF_RGB_DISPLAY = {}      # library defaults: f_nu-scaled Lupton display with the warm-white balance of lenscluster.rgb
+HFF_RGB_DISPLAY = {}      # library defaults: f_nu-scaled Lupton display with the warm-white balance of kappaccino.rgb
 # --imaging jwst: NIRCam mosaics (CANUCS for MACS0416, DJA for AS1063) under data/imaging/<cluster>/{canucs_dr1,dja_v7.5} (scripts/download_imaging.py); blue F115W+F150W, green
 # F150W+F200W, red F444W, the STScI/UNCOVER hue assignment with the four bands we hold.
 JWST_RGB_BANDS = ["F115W", "F150W", "F200W", "F444W"]
@@ -273,7 +273,7 @@ def _parse_args(argv: list[str]) -> dict:
                 bcg_cut_prior=values["bcg_cut_prior"], skip_plots=values["skip_plots"])
 
 
-# The solver's tuned defaults live in lenscluster.config; a cluster entry carries only what is specific to it: the
+# The solver's tuned defaults live in kappaccino.config; a cluster entry carries only what is specific to it: the
 # image catalog, the cosmology, where the cluster-scale halos sit, the member catalog, the truth maps and the
 # simulation's softening.  Both simulated clusters are at z = 0.5 with F160W magnitudes, where L* is m_F160W = 19.82.
 FF_SIMS_CLUSTERS = {
@@ -409,7 +409,7 @@ def _hff_clusters():
     # Carry over Bergamini member 1809 as a separate round dPIE at its light
     # position. Its initial mass and prior scales follow the existing neutral
     # relation evaluated at m_F160W=16.176, with alpha=0.25 and beta=0.5.
-    from lenscluster.sky import radec_to_offsets_arcsec
+    from kappaccino.sky import radec_to_offsets_arcsec
     old = clusters["AS1063"]
     pop = old["member_population"]
     bcg_x, bcg_y = radec_to_offsets_arcsec(342.183237, -44.530870,
@@ -796,7 +796,7 @@ def build_config(
     if relation_prior:
         # k=mean:std at prior_mag0 for cutkpc or sigma (log-normal with those moments inside the existing bounds); mean:std for
         # alpha_sigma, beta_radius (truncated normal inside the existing bounds).
-        from lenscluster.priors import physical_bounds
+        from kappaccino.priors import physical_bounds
         given = {k.strip(): tuple(float(x) for x in v.split(":")) for k, v in (item.split("=") for item in relation_prior.split(","))}
         pops = list(config.model.member_populations)
         for key in ("sigma", "cutkpc"):
@@ -814,7 +814,7 @@ def build_config(
         fixed = {k.strip(): float(v) for k, v in (item.split("=") for item in fix_relation.split(","))}
         pops = list(config.model.member_populations)
         pops[0] = replace(pops[0], **{k: fixed[k] for k in ("sigma", "cutkpc") if k in fixed})
-        from lenscluster.priors import physical_bounds
+        from kappaccino.priors import physical_bounds
         slopes = {f"{k}_prior": dist.TruncatedNormal(fixed[k], float(getattr(config.scaling, f"{k}_prior").base_dist.scale),
                                                      low=physical_bounds(getattr(config.scaling, f"{k}_prior"))[0],
                                                      high=physical_bounds(getattr(config.scaling, f"{k}_prior"))[1])
@@ -880,10 +880,10 @@ def main(argv=None):
         config = replace(config, scaling=replace(config.scaling, member_deviation_tail=options["offset_tail"]))
     config = config.validate()
     if options["dry_run"]:
-        from lenscluster.pipeline import dry_run
+        from kappaccino.pipeline import dry_run
         print(json.dumps({"dry_run": True, "cpu_plan": cpu_plan.to_dict(), **dry_run(config)}, indent=2, default=str))
         return 0
-    from lenscluster.pipeline import run
+    from kappaccino.pipeline import run
     if options["fast"]:
         _fast_mode_warning(config)
     print(f"[config] cluster={cluster} run_name={config.paths.run_name} output_dir={config.paths.output_dir} "

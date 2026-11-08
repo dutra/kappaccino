@@ -29,9 +29,9 @@ PROJECT_MODES = ("translation", "convergence", "shear")
 def _evaluator(config, blocks, project, classes, init, start):
     from dataclasses import replace
     import numpy as np
-    from lenscluster import artifacts
-    from lenscluster.evaluator import Evaluator
-    from lenscluster.state import build_state, with_member_classes
+    from kappaccino import artifacts
+    from kappaccino.evaluator import Evaluator
+    from kappaccino.state import build_state, with_member_classes
     likelihood = replace(config.likelihood, gp_blocks=blocks)
     if project is not None:
         likelihood = replace(likelihood, gp_knee_project_modes=project)
@@ -78,8 +78,8 @@ def main():
     from matplotlib.colors import TwoSlopeNorm
     import numpy as np
     import pandas as pd
-    from lenscluster import artifacts
-    from lenscluster.plot_style import PAPER_STYLE
+    from kappaccino import artifacts
+    from kappaccino.plot_style import PAPER_STYLE
 
     run = args.run_directory.resolve()
     init, final = run / "init" / "artifacts", run / "final"
@@ -178,7 +178,7 @@ def main():
     np.savez_compressed(tables / "shared_grf_map.npz", x=gx, y=gy, deflection_x=gdx, deflection_y=gdy, kappa=kappa, gamma1=gamma1, gamma2=gamma2)
     table.to_csv(tables / "shared_grf_images.csv", index=False)
 
-    plt.style.use(str(ROOT / "src/lenscluster/style.mplstyle"))
+    plt.style.use(str(ROOT / "src/kappaccino/style.mplstyle"))
     plt.rcParams.update(PAPER_STYLE)
     fig, axes = plt.subplots(1, 2, figsize=(7.1, 3.7), constrained_layout=True)
     lim = float(np.percentile(np.abs(kappa), 99.5)) or 1e-6

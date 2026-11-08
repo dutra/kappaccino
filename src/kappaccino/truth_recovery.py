@@ -177,7 +177,7 @@ def lens_quantities(evaluator: Evaluator, theta: np.ndarray, z_source: float, x:
 
     Every lens component is evaluated exactly (no far-field series) for a source at ``z_source``.  With the knee GP
     likelihood on all-image blocks, ``include_grf`` adds the draw's conditional-mean deflection field
-    (:meth:`Evaluator.gp_deflection_correction <lenscluster.evaluator.Evaluator.gp_deflection_correction>`); other
+    (:meth:`Evaluator.gp_deflection_correction <kappaccino.evaluator.Evaluator.gp_deflection_correction>`); other
     likelihoods are unaffected.  From :math:`A = I - \\partial\\alpha/\\partial\\theta`:
     :math:`\\kappa = 1 - (A_{11} + A_{22})/2`, :math:`\\gamma_1 = (A_{22} - A_{11})/2`,
     :math:`\\gamma_2 = -(A_{12} + A_{21})/2`, :math:`\\mu = 1/\\det A`.

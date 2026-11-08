@@ -8,16 +8,16 @@ import jax.numpy as jnp
 import numpy as np
 from jaxtronomy.LensModel.Profiles.nfw_ellipse_cse import NFW_ELLIPSE_CSE
 
-from lenscluster import jax_lensing
+from kappaccino import jax_lensing
 import numpyro.distributions as dist
 
-from lenscluster import priors
-from lenscluster.config import NFWHaloConfig
-from lenscluster.evaluator import Evaluator
-from lenscluster.exact_images import packed_to_kwargs_lens
-from lenscluster.jax_cosmology import flat_wcdm_config, kpc_per_arcsec_from_config
-from lenscluster.profiles import nfw_lenstronomy_parameters
-from lenscluster.state import build_state
+from kappaccino import priors
+from kappaccino.config import NFWHaloConfig
+from kappaccino.evaluator import Evaluator
+from kappaccino.exact_images import packed_to_kwargs_lens
+from kappaccino.jax_cosmology import flat_wcdm_config, kpc_per_arcsec_from_config
+from kappaccino.profiles import nfw_lenstronomy_parameters
+from kappaccino.state import build_state
 
 
 def test_nfw_kernel_matches_jaxtronomy_and_finite_differences():

@@ -43,7 +43,7 @@ def write_mock(root: Path, truth: MockTruth, sources: list[dict[str, Any]], imag
     root = Path(root)
     root.mkdir(parents=True, exist_ok=True)
     paths = MockPaths(root)
-    # Image catalog (lenscluster.image_catalog): one system per source galaxy, observed positions and magnitudes; a
+    # Image catalog (kappaccino.image_catalog): one system per source galaxy, observed positions and magnitudes; a
     # galaxy with knots is one system whose images list their knots (one family per knot).
     rows, knotted = [], []
     for r in images.itertuples(index=False):

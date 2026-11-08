@@ -1,4 +1,4 @@
-"""Typed configuration of a lenscluster run.
+"""Typed configuration of a kappaccino run.
 
 A run is described by one :class:`LensClusterSolverConfig`, which groups the lens model
 (:class:`LensModelConfig`: reference frame, cosmology, cluster-scale halos, member populations and image
@@ -16,7 +16,7 @@ Image-plane coordinates are offsets in arcsec from the reference point of :class
 the +x axis toward +y.
 
 Priors are ``numpyro.distributions`` objects of the physical value of each sampled quantity (see
-:mod:`lenscluster.priors`).  A prior transformed by ``exp`` (``dist.LogNormal``, ``dist.LogUniform``,
+:mod:`kappaccino.priors`).  A prior transformed by ``exp`` (``dist.LogNormal``, ``dist.LogUniform``,
 ``priors.truncated_lognormal``, ``priors.lognormal_from_moments``) is sampled as the natural log of the value; any
 other supported prior (``dist.Uniform``, ``dist.Normal``, ``dist.TruncatedNormal``, ``dist.StudentT``) is sampled as
 the value itself.  Creating one of the exp-transformed priors starts JAX, so call
@@ -408,7 +408,7 @@ class MemberPopulationConfig:
     id : str
         Name of the population; must be unique.
     catalog_path : str or pathlib.Path
-        Member catalog: a YAML catalog (``.yaml``/``.yml``, see ``lenscluster.member_catalog``) or a Lenstool potfile
+        Member catalog: a YAML catalog (``.yaml``/``.yml``, see ``kappaccino.member_catalog``) or a Lenstool potfile
         (``.cat``).  Must exist.  Members with catalog ``treatment`` ``exclude`` are left out of the model.
     mag0 : float or str
         Pivot magnitude :math:`m_0` (mag, in the relation's band) at which ``sigma``, ``cutkpc``, ``corekpc`` and their
@@ -556,7 +556,7 @@ class ImageConstraintsConfig:
     Parameters
     ----------
     catalog_path : str or pathlib.Path
-        YAML image catalog (see ``lenscluster.image_catalog``); convert Lenstool files with
+        YAML image catalog (see ``kappaccino.image_catalog``); convert Lenstool files with
         ``scripts/convert_lenstool_catalog.py``.  Must exist.
     sigma_inst_arcsec : float, optional
         Astrometric error :math:`\\sigma_{inst}`, in arcsec, of images whose catalog entry (and the catalog's
@@ -1498,7 +1498,7 @@ class ImageCatalogCutoutConfig:
 
 @dataclass(frozen=True)
 class LensClusterSolverConfig:
-    """Complete configuration of a lenscluster run.
+    """Complete configuration of a kappaccino run.
 
     Parameters
     ----------
@@ -1887,7 +1887,7 @@ def _positive_prior(label: str, prior: Any) -> None:
         return
     _supported_prior(label, prior)
     if not physical_bounds(prior)[0] >= 0.0:
-        raise ValueError(f"{label} must be a prior of a positive quantity (e.g. dist.LogNormal or lenscluster.priors.truncated_lognormal).")
+        raise ValueError(f"{label} must be a prior of a positive quantity (e.g. dist.LogNormal or kappaccino.priors.truncated_lognormal).")
 
 
 def _bounded_prior(label: str, prior: Any) -> tuple[float, float]:

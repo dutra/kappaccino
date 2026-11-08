@@ -63,11 +63,11 @@ import blackjax                                                                #
 from dataclasses import replace                                               # noqa: E402
 from numpyro.diagnostics import effective_sample_size, split_gelman_rubin     # noqa: E402
 
-from lenscluster import artifacts                                              # noqa: E402
-from lenscluster.evaluator import Evaluator                                    # noqa: E402
-from lenscluster.sampling import LATENT_FAMILIES, block_mass_seed, sample_sites   # noqa: E402
-from lenscluster.search import Objective                                       # noqa: E402
-from lenscluster.state import build_state, with_member_classes                 # noqa: E402
+from kappaccino import artifacts                                              # noqa: E402
+from kappaccino.evaluator import Evaluator                                    # noqa: E402
+from kappaccino.sampling import LATENT_FAMILIES, block_mass_seed, sample_sites   # noqa: E402
+from kappaccino.search import Objective                                       # noqa: E402
+from kappaccino.state import build_state, with_member_classes                 # noqa: E402
 
 KEY_PARAMETERS = ("4.x_centre", "4.y_centre", "4.v_disp", "1.v_disp", "2.v_disp", "potfile_1.sigma", "potfile_1.cutkpc",
                   "potfile_1.velocity_log_scatter", "potfile_1.radius_log_scatter", "images.gp_sigma_alpha", "images.gp_knee",

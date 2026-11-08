@@ -21,20 +21,20 @@ def main():
     import matplotlib.pyplot as plt
     import numpy as np
     import pandas as pd
-    from lenscluster import artifacts, plots
-    from lenscluster.cutouts import imaging_variants, load_cluster_imaging
-    from lenscluster.evaluator import Evaluator
-    from lenscluster.state import build_state, with_member_classes
+    from kappaccino import artifacts, plots
+    from kappaccino.cutouts import imaging_variants, load_cluster_imaging
+    from kappaccino.evaluator import Evaluator
+    from kappaccino.state import build_state, with_member_classes
 
     run = args.run_directory.resolve()
     init, final = run / "init" / "artifacts", run / "final"
     config = artifacts.load_config(final / "artifacts")
     if args.imaging != "saved":
         from dataclasses import replace
-        from lenscluster.rgb import DEFAULT_HFF_RGB_BANDS, DEFAULT_JWST_RGB_BANDS
+        from kappaccino.rgb import DEFAULT_HFF_RGB_BANDS, DEFAULT_JWST_RGB_BANDS
         jwst = args.imaging == "jwst"
-        from lenscluster.config import RGBDisplayConfig
-        from lenscluster.cutouts import cluster_from_config
+        from kappaccino.config import RGBDisplayConfig
+        from kappaccino.cutouts import cluster_from_config
         cluster = cluster_from_config(config.model, config.paths.run_name)
         jwst_dir = f"data/imaging/{cluster}/{'canucs_dr1' if cluster == 'm0416' else 'dja_v7.5'}"
         hst_dir = f"data/imaging/{cluster}/buffalo"
@@ -66,7 +66,7 @@ def main():
         extra = pd.read_csv(final / "tables" / "image_recovery_extra_images.csv", dtype={"family_id": str})
     except pd.errors.EmptyDataError:
         extra = pd.DataFrame()  # No extra images were recovered in this saved run.
-    from lenscluster.jwst_rgb_figure import render_jwst_rgb_critical
+    from kappaccino.jwst_rgb_figure import render_jwst_rgb_critical
     imaging = load_cluster_imaging(config.image_catalog, config.model, config.paths.run_name)
     render_jwst_rgb_critical(config,state,evaluator,theta,catalog,extra,imaging,
         plots.figure_path(final/'figures','hst_rgb_critical_z9.pdf' if imaging[3].lower() in {'hera','ares'} else 'jwst_rgb_critical_z9.pdf',config.paths.figure_prefix),

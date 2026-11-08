@@ -8,12 +8,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 
-from lenscluster.evaluator import Evaluator
-from lenscluster.member_diagnostics import (compute_member_diagnostics, diagnostic_draw_indices, deviation_draws,
+from kappaccino.evaluator import Evaluator
+from kappaccino.member_diagnostics import (compute_member_diagnostics, diagnostic_draw_indices, deviation_draws,
     neighbor_variables, prior_deviation_draws, reporting_fields, whiten)
-from lenscluster.member_diagnostic_plots import write_member_diagnostic_plots
-from lenscluster.model import member_log_deviations
-from lenscluster.state import build_state, with_member_classes
+from kappaccino.member_diagnostic_plots import write_member_diagnostic_plots
+from kappaccino.model import member_log_deviations
+from kappaccino.state import build_state, with_member_classes
 
 
 def posterior_for(state, evaluator, n=12):
@@ -118,7 +118,7 @@ def test_hierarchical_prior_width_against_independent_quadrature(synthetic_confi
     # (the default is Student-t with 4 degrees of freedom, whose 84th percentile is wider).
     config = replace(synthetic_config, scaling=replace(synthetic_config.scaling, member_deviation='sigma', member_deviation_tail='normal'))
     state = build_state(config)
-    from lenscluster import priors
+    from kappaccino import priors
     values = priors.parameters(priors.split(config.scaling.member_velocity_scatter_prior)[0])
     median, log_sigma = np.exp(values["loc"]), values["scale"]
     def cdf(q):
@@ -131,7 +131,7 @@ def test_hierarchical_prior_width_against_independent_quadrature(synthetic_confi
 
 
 def test_normal_output_hook(synthetic_config, tmp_path, monkeypatch):
-    from lenscluster import outputs
+    from kappaccino import outputs
     import pandas as pd
     state = build_state(synthetic_config)
     evaluator = Evaluator(state)
@@ -155,7 +155,7 @@ def test_normal_output_hook(synthetic_config, tmp_path, monkeypatch):
 
 
 def test_multiple_populations_without_large_halo(synthetic_config):
-    from lenscluster.config import ShearHaloConfig
+    from kappaccino.config import ShearHaloConfig
     first = synthetic_config.model.member_populations[0]
     model = replace(synthetic_config.model, large_halos=(ShearHaloConfig('shear', .03, 0., .3),),
                     member_populations=(first, replace(first, id='second')))

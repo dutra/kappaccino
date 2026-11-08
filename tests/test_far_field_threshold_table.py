@@ -3,10 +3,10 @@ from __future__ import annotations
 
 import numpy as np
 
-from lenscluster.evaluator import Evaluator
-from lenscluster.pipeline import classify
-from lenscluster.report import far_field_threshold_table
-from lenscluster.state import build_state
+from kappaccino.evaluator import Evaluator
+from kappaccino.pipeline import classify
+from kappaccino.report import far_field_threshold_table
+from kappaccino.state import build_state
 
 
 def test_threshold_study_rows_and_table(synthetic_config):

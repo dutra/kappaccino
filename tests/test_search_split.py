@@ -7,11 +7,11 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from lenscluster.config import SearchConfig
-from lenscluster.evaluator import Evaluator
-from lenscluster.search import prior_starts
-from lenscluster.search_split import split_map, transfer_by_name
-from lenscluster.state import build_state
+from kappaccino.config import SearchConfig
+from kappaccino.evaluator import Evaluator
+from kappaccino.search import prior_starts
+from kappaccino.search_split import split_map, transfer_by_name
+from kappaccino.state import build_state
 
 
 @pytest.mark.parametrize("methods", [("lbfgs", "lbfgs"), ("adam", "svi")])
@@ -42,7 +42,7 @@ def test_transfer_by_name_copies_shared_parameters_only(synthetic_config):
 
 
 def test_optax_lbfgs_matches_scipy_on_the_synthetic_cluster(synthetic_config):
-    from lenscluster.search import multistart_map
+    from kappaccino.search import multistart_map
     state = build_state(synthetic_config)
     evaluator = Evaluator(state)
     starts = prior_starts(state, 4, 5)
@@ -55,7 +55,7 @@ def test_optax_lbfgs_matches_scipy_on_the_synthetic_cluster(synthetic_config):
 
 
 def test_search_summary_table_lists_the_three_stages(synthetic_config):
-    from lenscluster.report import search_summary_table
+    from kappaccino.report import search_summary_table
     search = SearchConfig(n_starts=3, member_starts=2, lbfgs_max_iter=20, polish_max_iter=5)
     config = replace(synthetic_config, search=search)
     state = build_state(config)
@@ -82,7 +82,7 @@ def test_search_target_drops_the_source_transport_jacobian(synthetic_config):
 
 
 def test_degenerate_modes_cannot_seed_chains(synthetic_config):
-    from lenscluster.search import multistart_map
+    from kappaccino.search import multistart_map
     state = build_state(synthetic_config)
     evaluator = Evaluator(state)
     starts = prior_starts(state, 3, 7)
@@ -106,5 +106,5 @@ def test_degenerate_modes_cannot_seed_chains(synthetic_config):
 def test_sigma_shared_prior_is_truncated_at_one_arcsec(synthetic_config):
     state = build_state(replace(synthetic_config, likelihood=replace(synthetic_config.likelihood, likelihood_mode="gp_image_plane")))
     spec = state.parameter_specs[state.sigma_shared_param_index]
-    from lenscluster import priors
+    from kappaccino import priors
     assert priors.family(spec.latent_prior) == "TruncatedNormal" and np.isclose(priors.physical_bounds(spec.prior)[1], 1.0)

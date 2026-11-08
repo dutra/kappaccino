@@ -20,8 +20,8 @@ from matplotlib.patches import Patch, Rectangle
 from matplotlib.collections import Collection
 import numpy as np
 
-from lenscluster.block_corner import render_block_corner, BLOCK_COLORS, STYLE, PAPER_STYLE
-from lenscluster.mock_validation.aggregate_plots import PARAMETER_LABELS
+from kappaccino.block_corner import render_block_corner, BLOCK_COLORS, STYLE, PAPER_STYLE
+from kappaccino.mock_validation.aggregate_plots import PARAMETER_LABELS
 
 
 def published_palettes():

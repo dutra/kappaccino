@@ -1,50 +1,50 @@
 # Configuration
 
 ```{eval-rst}
-.. automodule:: lenscluster.config
+.. automodule:: kappaccino.config
    :no-members:
 
 Top level
 ---------
 
-.. autoclass:: lenscluster.config.LensClusterSolverConfig
-.. autoclass:: lenscluster.config.RunPathsConfig
-.. autoclass:: lenscluster.config.RuntimeConfig
+.. autoclass:: kappaccino.config.LensClusterSolverConfig
+.. autoclass:: kappaccino.config.RunPathsConfig
+.. autoclass:: kappaccino.config.RuntimeConfig
 
 Lens model
 ----------
 
-.. autoclass:: lenscluster.config.LensModelConfig
-.. autoclass:: lenscluster.config.ReferenceFrameConfig
-.. autoclass:: lenscluster.config.CosmologyConfig
-.. autoclass:: lenscluster.config.DPIEHaloConfig
-.. autoclass:: lenscluster.config.NFWHaloConfig
-.. autoclass:: lenscluster.config.ShearHaloConfig
-.. autoclass:: lenscluster.config.MassSheetConfig
-.. autoclass:: lenscluster.config.MemberPopulationConfig
-.. autoclass:: lenscluster.config.IndependentMemberHaloConfig
-.. autoclass:: lenscluster.config.ImageConstraintsConfig
+.. autoclass:: kappaccino.config.LensModelConfig
+.. autoclass:: kappaccino.config.ReferenceFrameConfig
+.. autoclass:: kappaccino.config.CosmologyConfig
+.. autoclass:: kappaccino.config.DPIEHaloConfig
+.. autoclass:: kappaccino.config.NFWHaloConfig
+.. autoclass:: kappaccino.config.ShearHaloConfig
+.. autoclass:: kappaccino.config.MassSheetConfig
+.. autoclass:: kappaccino.config.MemberPopulationConfig
+.. autoclass:: kappaccino.config.IndependentMemberHaloConfig
+.. autoclass:: kappaccino.config.ImageConstraintsConfig
 
 Members and scaling relation
 ----------------------------
 
-.. autoclass:: lenscluster.config.MemberConfig
-.. autoclass:: lenscluster.config.ScalingModelConfig
+.. autoclass:: kappaccino.config.MemberConfig
+.. autoclass:: kappaccino.config.ScalingModelConfig
 
 Likelihood, search and sampling
 -------------------------------
 
-.. autoclass:: lenscluster.config.LikelihoodConfig
-.. autoclass:: lenscluster.config.SearchConfig
-.. autoclass:: lenscluster.config.SamplingConfig
+.. autoclass:: kappaccino.config.LikelihoodConfig
+.. autoclass:: kappaccino.config.SearchConfig
+.. autoclass:: kappaccino.config.SamplingConfig
 
 Diagnostics and figures
 -----------------------
 
-.. autoclass:: lenscluster.config.ImageDiagnosticsConfig
-.. autoclass:: lenscluster.config.TruthRecoveryConfig
-.. autoclass:: lenscluster.config.ImageCatalogCutoutConfig
-.. autoclass:: lenscluster.config.RGBDisplayConfig
+.. autoclass:: kappaccino.config.ImageDiagnosticsConfig
+.. autoclass:: kappaccino.config.TruthRecoveryConfig
+.. autoclass:: kappaccino.config.ImageCatalogCutoutConfig
+.. autoclass:: kappaccino.config.RGBDisplayConfig
 ```
 
 Priors are `numpyro.distributions` objects; see {doc}`priors`. A configuration can also be read from a Lenstool parameter

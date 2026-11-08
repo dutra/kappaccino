@@ -1,8 +1,8 @@
 # Configuration
 
-Every fit is described by one frozen dataclass, {class}`~lenscluster.config.LensClusterSolverConfig`. It groups the
+Every fit is described by one frozen dataclass, {class}`~kappaccino.config.LensClusterSolverConfig`. It groups the
 lens model, the likelihood, the search and the sampler, the run paths and the figure options. Build it, call
-`validate()`, and pass it to {func}`lenscluster.pipeline.run`. Build it in Python, as on this page, or read the lens
+`validate()`, and pass it to {func}`kappaccino.pipeline.run`. Build it in Python, as on this page, or read the lens
 model from a Lenstool parameter file (see {ref}`lenstool-par`). Change a field of a frozen config with
 `dataclasses.replace`:
 
@@ -65,7 +65,7 @@ convention.
 : A uniform convergence `kappa` (for a source at infinite redshift; each family sees $\kappa\, D_{ls}/D_s$). Several
   source redshifts constrain it; one cannot, because of the mass-sheet degeneracy.
 
-The profiles the solver knows are registered in `lenscluster/profiles.py`.
+The profiles the solver knows are registered in `kappaccino/profiles.py`.
 
 ### Priors
 
@@ -75,7 +75,7 @@ its configured value.
 
 ```python
 import numpyro.distributions as dist
-from lenscluster.priors import ellipticity_box, lognormal_from_moments, truncated_lognormal
+from kappaccino.priors import ellipticity_box, lognormal_from_moments, truncated_lognormal
 
 priors = {
     "x_centre": dist.Uniform(-2.0, 4.0),                      # arcsec
@@ -209,7 +209,7 @@ The library defaults are conservative. The production fits of the supported clus
 
 ```python
 from dataclasses import replace
-from lenscluster.config import MemberConfig, SamplingConfig, SearchConfig
+from kappaccino.config import MemberConfig, SamplingConfig, SearchConfig
 
 config = replace(
     config,
@@ -244,11 +244,11 @@ Common changes on an existing configuration:
 (lenstool-par)=
 ## From a Lenstool `.par` file
 
-{func}`~lenscluster.lenstool_par.config_from_lenstool_par` reads a Lenstool parameter file and returns a
+{func}`~kappaccino.lenstool_par.config_from_lenstool_par` reads a Lenstool parameter file and returns a
 `LensClusterSolverConfig` with library defaults outside the lens model:
 
 ```python
-from lenscluster.lenstool_par import config_from_lenstool_par
+from kappaccino.lenstool_par import config_from_lenstool_par
 
 config = config_from_lenstool_par(
     "model.par",
@@ -299,4 +299,4 @@ config = replace(config, scaling=replace(config.scaling, fixed_relation_fields=(
 
 - The `.par` file does not set the likelihood, search or sampler. Apply the recommended settings above.
 - Reading the file starts JAX (for the distance calculation), so call
-  {func}`~lenscluster.cpu_runtime.configure_cpu_runtime` before it.
+  {func}`~kappaccino.cpu_runtime.configure_cpu_runtime` before it.

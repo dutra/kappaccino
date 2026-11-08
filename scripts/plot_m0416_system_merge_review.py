@@ -11,10 +11,10 @@ from matplotlib.transforms import Bbox
 import numpy as np
 import astropy.units as u
 from astropy.coordinates import SkyCoord
-from lenscluster import artifacts
-from lenscluster.image_catalog import load_image_catalog
-from lenscluster.cutouts import imaging_variants,load_cluster_imaging,rgb_reference_band,rgb_cutout,cutout_window
-from lenscluster.plot_style import PAPER_STYLE
+from kappaccino import artifacts
+from kappaccino.image_catalog import load_image_catalog
+from kappaccino.cutouts import imaging_variants,load_cluster_imaging,rgb_reference_band,rgb_cutout,cutout_window
+from kappaccino.plot_style import PAPER_STYLE
 
 # Explicit proposed image associations from the supplied review notes, not inferred by label suffix.
 GROUPS=[
@@ -51,7 +51,7 @@ def main():
  config=artifacts.load_config(Path('results/nov5a_nosigmainst/m0416_canucs2025/w500s250_allblocks/final/artifacts'))
  view=next(v for v in imaging_variants(config,overview_only=True)if v.figure_suffix=='_jwst')
  images,bands,display,_=load_cluster_imaging(view,config.model,config.paths.run_name);ref=images[rgb_reference_band(bands)]
- plt.style.use(Path(__file__).resolve().parents[1]/'src/lenscluster/style.mplstyle');plt.rcParams.update(PAPER_STYLE)
+ plt.style.use(Path(__file__).resolve().parents[1]/'src/kappaccino/style.mplstyle');plt.rcParams.update(PAPER_STYLE)
  out=args.output_dir;out.mkdir(parents=True,exist_ok=True);records=[]
  with PdfPages(out/'m0416_system_merge_review.pdf')as combined:
   for gid,systems,panels,note in GROUPS:

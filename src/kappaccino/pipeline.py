@@ -102,7 +102,7 @@ class InitResult:
         ``init/artifacts/modes.json``.
     theta : numpy.ndarray
         The chain start, shape ``(n_parameters,)``, in latent coordinates (ln of
-        log-sampled quantities; see :mod:`lenscluster.priors`). Saved as
+        log-sampled quantities; see :mod:`kappaccino.priors`). Saved as
         ``init/artifacts/start.json``.
     resumed : bool
         True if the saved init stage was loaded instead of recomputed.
@@ -864,7 +864,7 @@ def run(config: LensClusterSolverConfig, stage: str = "both") -> RunResult | Ini
     writes ``final/tables/runtime.json`` (only when neither stage was resumed,
     so a reload keeps the original timing), the LaTeX macros
     ``final/figures/<figure_prefix>_results.tex`` (see
-    :func:`lenscluster.results_tex.write_run_results`) and
+    :func:`kappaccino.results_tex.write_run_results`) and
     ``final/tables/run_summary.txt``, which is also printed unless
     ``runtime.quiet``.
 

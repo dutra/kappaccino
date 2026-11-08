@@ -10,7 +10,7 @@ SRC_ROOT = REPO_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from lenscluster.image_tools import (
+from kappaccino.image_tools import (
     ImagePhotometryConfig,
     band_photometry_wide_table,
     calibrate_band_zeropoints,

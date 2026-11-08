@@ -32,7 +32,7 @@ class ParameterSpec:
     ``prior`` is the NumPyro distribution of the parameter's physical value.  The parameter is sampled in that
     distribution's base coordinate, the "latent" value: :math:`\\ln` of the physical value for an exp-transformed prior
     (``dist.LogNormal``, ``dist.LogUniform``, ``priors.truncated_lognormal``, ``priors.lognormal_from_moments``), the
-    physical value itself otherwise (see :mod:`lenscluster.priors`).  The ordered list of specs in
+    physical value itself otherwise (see :mod:`kappaccino.priors`).  The ordered list of specs in
     ``ModelState.parameter_specs`` defines the parameter axis of every latent vector ``theta``, of
     ``PosteriorResults.samples`` and of ``PosteriorResults.physical``.
 
@@ -109,7 +109,7 @@ class ParameterSpec:
         Raises
         ------
         ValueError
-            If ``prior`` is not a supported distribution (see :func:`lenscluster.priors.split`).
+            If ``prior`` is not a supported distribution (see :func:`kappaccino.priors.split`).
         """
         return priors.split(self.prior)[0]
 
@@ -126,7 +126,7 @@ class ParameterSpec:
         Raises
         ------
         ValueError
-            If ``prior`` is not a supported distribution (see :func:`lenscluster.priors.split`).
+            If ``prior`` is not a supported distribution (see :func:`kappaccino.priors.split`).
         """
         return priors.split(self.prior)[1]
 
@@ -292,7 +292,7 @@ class ImageData:
 
     Images are ordered by source redshift, then family (families sorted by id within a redshift), then catalog order.
     The family axis of ``family_ids``, ``source_x_param_index``, ``source_y_param_index`` and of the per-family
-    outputs of :class:`~lenscluster.evaluator.Evaluator` (for example ``source_positions``) follows this order, which
+    outputs of :class:`~kappaccino.evaluator.Evaluator` (for example ``source_positions``) follows this order, which
     can differ from the order of ``ModelState.family_data``.  Positions are arcsec offsets from the reference
     (:math:`x` positive west, :math:`y` positive north).
 
@@ -412,8 +412,8 @@ class MemberModel:
 class ModelState:
     """Everything fixed about one lens model: parameters, lens components, images, members and error model.
 
-    Built by :func:`lenscluster.state.build_state` from a configuration and passed to
-    :class:`~lenscluster.evaluator.Evaluator`.  Sky positions throughout are arcsec offsets from the reference
+    Built by :func:`kappaccino.state.build_state` from a configuration and passed to
+    :class:`~kappaccino.evaluator.Evaluator`.  Sky positions throughout are arcsec offsets from the reference
     (``reference``): :math:`x = (\\alpha_0 - \\alpha)\\cos\\delta_0 \\cdot 3600` (positive west) and
     :math:`y = (\\delta - \\delta_0) \\cdot 3600`.
 
@@ -590,7 +590,7 @@ class PosteriorResults:
         Reported physical draws, shape (draw, parameter), in the units of each parameter (arcsec, kpc, km s^-1,
         :math:`\\log_{10} M_\\odot` for ``log10_m200``, dimensionless; see :class:`ParameterSpec`).  Source
         coordinates are the physical source positions in source-plane arcsec
-        (:meth:`Evaluator.reported_physical <lenscluster.evaluator.Evaluator.reported_physical>`).
+        (:meth:`Evaluator.reported_physical <kappaccino.evaluator.Evaluator.reported_physical>`).
     log_prob : numpy.ndarray
         Unnormalized log posterior density of each draw (minus the NumPyro potential energy, in NumPyro's
         unconstrained coordinates), shape (draw,).
@@ -612,7 +612,7 @@ class PosteriorResults:
         Adapted step size of each chain at the end of warmup, shape (chain,).
     grouped_samples : numpy.ndarray or None, optional
         Latent draws grouped by chain, shape (chain, draw per chain, parameter).  After
-        :func:`~lenscluster.artifacts.load_posterior` a missing value is a 0-d object array holding None.
+        :func:`~kappaccino.artifacts.load_posterior` a missing value is a 0-d object array holding None.
     diagnostics : dict, optional
         Sampler diagnostics (``posterior_diagnostics.json``): split R-hat ``r_hat`` and effective sample size
         ``n_eff`` per parameter (lists of length parameter), ``max_r_hat``, ``min_n_eff``, ``adaptation`` (per-chain step
@@ -700,7 +700,7 @@ def convert_theta_to_physical(theta: np.ndarray, parameter_specs: list[Parameter
     """Physical values of one latent parameter vector, parameter by parameter.
 
     Source coordinates stay whitened unit offsets; use
-    :meth:`Evaluator.reported_physical <lenscluster.evaluator.Evaluator.reported_physical>` for physical source
+    :meth:`Evaluator.reported_physical <kappaccino.evaluator.Evaluator.reported_physical>` for physical source
     positions.
 
     Parameters
@@ -728,7 +728,7 @@ def convert_theta_to_latent(theta: np.ndarray, parameter_specs: list[ParameterSp
     theta : array_like
         Physical vector, shape (parameter,).  Source entries are taken as unit offsets, unchanged; use
         :meth:`Evaluator.latent_from_reported_physical
-        <lenscluster.evaluator.Evaluator.latent_from_reported_physical>` for a vector holding source positions.
+        <kappaccino.evaluator.Evaluator.latent_from_reported_physical>` for a vector holding source positions.
     parameter_specs : list of ParameterSpec
         ``ModelState.parameter_specs``, the same order as ``theta``.
 
@@ -811,7 +811,7 @@ def clip_theta_to_support(theta: np.ndarray, parameter_specs: list[ParameterSpec
 def default_theta(parameter_specs: list[ParameterSpec], boundary_frac: float = 0.02) -> np.ndarray:
     """Latent vector at the prior centers: the configured values for lens parameters, zero offsets.
 
-    Each value is the center of the latent prior (:func:`lenscluster.priors.center`), clipped into the prior support
+    Each value is the center of the latent prior (:func:`kappaccino.priors.center`), clipped into the prior support
     and at least ``boundary_frac`` of the prior width away from a bound.
 
     Parameters

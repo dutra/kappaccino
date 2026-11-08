@@ -1,8 +1,8 @@
 from types import SimpleNamespace
 import numpy as np
 import jax.numpy as jnp
-from lenscluster import gp_knee
-from lenscluster.grf_plotting import SmoothPlotDeflection
+from kappaccino import gp_knee
+from kappaccino.grf_plotting import SmoothPlotDeflection
 
 
 def toy_field(monkeypatch,modes=()):
@@ -67,7 +67,7 @@ def test_radial_refinement_converges_to_analytic_potential_kernel(monkeypatch):
 
 
 def test_wide_plot_extends_tables_without_changing_conditioning():
-    from lenscluster.grf_plotting import plot_deflection_correction
+    from kappaccino.grf_plotting import plot_deflection_correction
     tables=gp_knee.knee_tables(r_max=2.,r_step=.05,lam_min=1.,lam_max=4.,n_lam=4,
         scale_min=.5,scale_max=10.,gamma=4.)
     layout=dict(xy=jnp.zeros((1,1,2)),mask=jnp.ones((1,1),bool),

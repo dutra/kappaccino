@@ -17,7 +17,7 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "plots" / "paper" / "covariance.pdf"
-STYLE = ROOT / "src" / "lenscluster" / "style.mplstyle"
+STYLE = ROOT / "src" / "kappaccino" / "style.mplstyle"
 BLUE, ORANGE, INK = "#1674A4", "#C44E35", "#252930"
 PURPLE, MUTED = "#77529B", "#626971"
 ANGLE = 25.0

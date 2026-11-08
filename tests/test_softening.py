@@ -8,9 +8,9 @@ import numpy as np
 
 import numpyro.distributions as dist
 
-from lenscluster.evaluator import Evaluator
-from lenscluster.priors import lognormal_from_moments
-from lenscluster.state import build_state
+from kappaccino.evaluator import Evaluator
+from kappaccino.priors import lognormal_from_moments
+from kappaccino.state import build_state
 
 
 def _evaluator(config, softening_kpc):

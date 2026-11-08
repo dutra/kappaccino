@@ -6,7 +6,7 @@ import pandas as pd
 from scipy.optimize import minimize_scalar
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/'scripts'))
 import fit_arc_source as fas
-from lenscluster.jax_cosmology import dpie_sigma0_factor_from_config
+from kappaccino.jax_cosmology import dpie_sigma0_factor_from_config
 RUN=ROOT/'results/nov4b_densemass_notfast_parity/m0416_canucs2025/w2000s1000t8_gamma4_allblocks_shear'
 BASE=ROOT/'output/apj_counterimages';OUT=BASE/'latest_model';OUT.mkdir(exist_ok=True);(OUT/'new_families').mkdir(exist_ok=True)
 config,state,ev,post=fas.load_model(RUN)

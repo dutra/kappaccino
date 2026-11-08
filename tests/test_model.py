@@ -1,7 +1,7 @@
 import numpy as np
 import numpyro.distributions as dist
 
-from lenscluster.model import ParameterSpec, latent_array_to_physical, latent_to_physical, physical_to_latent
+from kappaccino.model import ParameterSpec, latent_array_to_physical, latent_to_physical, physical_to_latent
 
 
 def spec(prior) -> ParameterSpec:

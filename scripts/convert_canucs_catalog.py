@@ -28,8 +28,8 @@ import pandas as pd
 from scipy.optimize import linear_sum_assignment
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from lenscluster.image_catalog import load_image_catalog, write_image_catalog  # noqa: E402
-from lenscluster.sky import radec_to_offsets_arcsec  # noqa: E402
+from kappaccino.image_catalog import load_image_catalog, write_image_catalog  # noqa: E402
+from kappaccino.sky import radec_to_offsets_arcsec  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1] / "catalogs/m0416/canucs2025"
 CATALOG = ROOT / "source" / "hlsp_canucs_jwst-hst_multi_macs0416-allmultim-cat_multi_v1_model.txt"

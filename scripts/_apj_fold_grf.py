@@ -5,8 +5,8 @@ from _covariance_plot_cli import load_run
 
 
 def prepare(run, data):
-    from lenscluster.fold_diagnostics import load_fold_data, save_fold_data, add_best_grf_critical_curves
-    from lenscluster.grf_plotting import PLOT_FIELD_VERSION
+    from kappaccino.fold_diagnostics import load_fold_data, save_fold_data, add_best_grf_critical_curves
+    from kappaccino.grf_plotting import PLOT_FIELD_VERSION
     final = Path(run).resolve()/'final'
     cache = final/'tables/apj_fold_grf'
     digest = hashlib.sha256(PLOT_FIELD_VERSION.encode()+b'apj-physical-draws-quantile-curves-v3')

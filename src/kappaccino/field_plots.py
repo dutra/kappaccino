@@ -74,7 +74,7 @@ def render_grf(data, output):
     from matplotlib.colors import LogNorm,TwoSlopeNorm
     from matplotlib.lines import Line2D
     from matplotlib.ticker import MultipleLocator,LogLocator,NullFormatter
-    from lenscluster.plot_style import PAPER_STYLE
+    from kappaccino.plot_style import PAPER_STYLE
     from cmcrameri import cm
     plt.style.use(Path(__file__).with_name('style.mplstyle'));plt.rcParams.update(PAPER_STYLE)
     fig=plt.figure(figsize=(7.1,2.8));bottom=.20;width=.235;height=width*7.1/2.8*np.ptp(y)/np.ptp(x)
@@ -117,7 +117,7 @@ def render_gp(a, output):
     import matplotlib.pyplot as plt
     from matplotlib.colors import Normalize
     from matplotlib.ticker import MultipleLocator,MaxNLocator
-    from lenscluster.plot_style import PAPER_STYLE
+    from kappaccino.plot_style import PAPER_STYLE
     plt.style.use(Path(__file__).with_name('style.mplstyle'));plt.rcParams.update(PAPER_STYLE)
     from scipy.spatial.distance import cdist
     from matplotlib.lines import Line2D

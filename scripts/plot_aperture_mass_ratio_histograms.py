@@ -9,7 +9,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
-from lenscluster.plot_style import PAPER_STYLE
+from kappaccino.plot_style import PAPER_STYLE
 
 
 def main():
@@ -19,13 +19,13 @@ def main():
     args = parser.parse_args()
     data = pd.read_csv(args.directory/'member_aperture_masses.csv')
     data = data[data.complete_aperture]
-    plt.style.use(Path(__file__).resolve().parents[1]/'src/lenscluster/style.mplstyle')
+    plt.style.use(Path(__file__).resolve().parents[1]/'src/kappaccino/style.mplstyle')
     plt.rcParams.update(PAPER_STYLE)
     selected = data[np.isclose(data.normalization_kpc, args.normalization)]
     if selected.empty:
         raise ValueError(f'No saved masses for normalization {args.normalization:g} kpc')
     hull = selected[selected.inside_image_hull]
-    from lenscluster.aperture_mass_histogram import render_histogram
+    from kappaccino.aperture_mass_histogram import render_histogram
     counts = render_histogram(selected, args.directory/'all_vs_image_footprint_histogram.pdf')
     counts.to_csv(args.directory/'all_vs_image_footprint_histogram.csv', index=False)
     display_limits = np.quantile(selected.ratio, [.005, .995])
@@ -80,7 +80,7 @@ def main():
                        posterior_sha256=posterior_hash,
                        model=provenance['model'],grf=provenance['grf'],equation=provenance['equation'])
         (final/'tables/aperture_mass_histogram.json').write_text(json.dumps(payload,indent=2)+'\n')
-        from lenscluster.results_tex import write_run_results
+        from kappaccino.results_tex import write_run_results
         print(write_run_results(final))
     (args.directory/'histogram_notes.md').write_text(
         '# Aperture-ratio histograms\n\nPage 1: all 340 saved population members. Page 2: 42 centers inside the image convex hull. '

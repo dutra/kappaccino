@@ -8,9 +8,9 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from lenscluster import gp_knee
-from lenscluster.evaluator import Evaluator
-from lenscluster.state import build_state
+from kappaccino import gp_knee
+from kappaccino.evaluator import Evaluator
+from kappaccino.state import build_state
 from test_gp_knee import knee_config, two_knot_config
 
 MODES = ("translation", "shear")

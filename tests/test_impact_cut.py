@@ -6,11 +6,11 @@ from dataclasses import replace
 
 import numpy as np
 
-from lenscluster import artifacts, pipeline
-from lenscluster.classification import member_max_deflection_arcsec
-from lenscluster.config import ImageDiagnosticsConfig, RuntimeConfig, SamplingConfig, SearchConfig
-from lenscluster.evaluator import Evaluator
-from lenscluster.state import build_state
+from kappaccino import artifacts, pipeline
+from kappaccino.classification import member_max_deflection_arcsec
+from kappaccino.config import ImageDiagnosticsConfig, RuntimeConfig, SamplingConfig, SearchConfig
+from kappaccino.evaluator import Evaluator
+from kappaccino.state import build_state
 
 
 def test_drop_member_ids_removes_members_but_keeps_the_pivot(synthetic_config):

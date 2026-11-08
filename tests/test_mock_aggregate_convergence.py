@@ -1,7 +1,7 @@
 import json
 import pytest
 
-from lenscluster.mock_validation.aggregate_plots import load_campaign
+from kappaccino.mock_validation.aggregate_plots import load_campaign
 
 
 def test_completed_selection_does_not_shrink_when_first_mock_converges(tmp_path):
@@ -40,7 +40,7 @@ def test_aggregate_rechecks_saved_verdict_at_current_cut(tmp_path):
 def test_correlated_error_parameters_in_aggregate_figures(tmp_path):
     import pandas as pd
     from types import SimpleNamespace
-    from lenscluster.mock_validation import aggregate_plots as plots
+    from kappaccino.mock_validation import aggregate_plots as plots
 
     names = ['images.gp_sigma_alpha', 'images.gp_knee', 'images.gp_knee_gamma',
              'images.sigma_shared', 'images.gp_ell', 'images.sigma_white']
@@ -65,7 +65,7 @@ def test_halo_aperture_uses_inside_radius_and_preserves_unknown_coverage():
     import numpy as np
     import pandas as pd
     from types import SimpleNamespace
-    from lenscluster.mock_validation.aggregate_plots import halo_aperture_parameters, coverage_table
+    from kappaccino.mock_validation.aggregate_plots import halo_aperture_parameters, coverage_table
     rows = [dict(seed=1, component='halo', radius_kpc=r, outer_image_radius_kpc=255,
                  truth_m2d_msun=1e14, model_q16=8e13, model_q50=1.01e14, model_q84=1.2e14)
             for r in (100, 230, 280)]
@@ -87,7 +87,7 @@ def test_halo_aperture_uses_inside_radius_and_preserves_unknown_coverage():
 def test_grouped_recovery_separates_components(tmp_path, monkeypatch):
     import pandas as pd
     from types import SimpleNamespace
-    from lenscluster.mock_validation import aggregate_plots as plots
+    from kappaccino.mock_validation import aggregate_plots as plots
     names = ['halo.log10_mass_msun', 'halo.log10_aperture_mass_msun', 'bcg.v_disp',
              'images.gp_knee_gamma', 'potfile.alpha_sigma', 'source.001.beta_x',
              'source.001.beta_y', 'halo.x_centre', 'halo.y_centre', 'bcg.x_centre', 'bcg.y_centre']

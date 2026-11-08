@@ -2,7 +2,7 @@
 from types import SimpleNamespace as NS
 import matplotlib.pyplot as plt
 import numpy as np
-from lenscluster import rgb_overview_cutouts as rc
+from kappaccino import rgb_overview_cutouts as rc
 IMAGE_LABELS=('K34.b','K34.a','K33.e','K77.b')
 SYSTEM_IDS=('K1','K6','K8','K12')
 
@@ -38,7 +38,7 @@ def test_panel_order_and_only_two_sigma(monkeypatch):
 
 def test_configured_panel_order_roundtrip_and_limit(tmp_path):
     from dataclasses import asdict
-    from lenscluster.config import ImageCatalogCutoutConfig
+    from kappaccino.config import ImageCatalogCutoutConfig
     import json
     import pytest
     config=ImageCatalogCutoutConfig(rgb_critical_image_cutouts=IMAGE_LABELS,
@@ -65,7 +65,7 @@ def test_launcher_declares_ordered_panels():
 def test_explicit_panels_compute_missing_critical_fields(tmp_path,monkeypatch):
     import json
     import pandas as pd
-    from lenscluster import cutout_critical_fields
+    from kappaccino import cutout_critical_fields
     pd.DataFrame(dict(image_label=['a','b'],x_arcsec=[0.,1.],y_arcsec=[0.,0.],z_source=[2.,3.],
                       shown=[False,False])).to_csv(tmp_path/'toy_small_lambda_a_image_posteriors_jwst.csv',index=False)
     np.savez(tmp_path/'posterior_overview_positions.npz',image_labels=np.array(['a','b']),

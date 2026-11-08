@@ -10,8 +10,8 @@ from matplotlib.patches import Ellipse
 from matplotlib.lines import Line2D
 from scipy.stats import chi2
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
-from lenscluster.inputs import lenstool_shape_to_e1e2
-from lenscluster.plot_style import PAPER_STYLE
+from kappaccino.inputs import lenstool_shape_to_e1e2
+from kappaccino.plot_style import PAPER_STYLE
 
 BLUE='#0072B2';ORANGE='#D55E00';GRAY='.65';CHAIN=['#0072B2','#D55E00','#009E73','#CC79A7']
 def wrap(a):return (a+90)%180-90
@@ -82,7 +82,7 @@ def main():
    summary[f'e{k+1}_posterior_{suffix}']=np.where(active,cart_q[qi,:,k],np.nan)
  summary.to_csv(tables/'member_shape_recovery.csv',index=False)
  np.savez_compressed(tables/'member_shape_recovery_draws.npz',unit_offsets=offset,base_e1e2=base,active=active,ellipticity=eps[:,active],delta_pa_deg=delta_pa[:,active],active_member_ids=members.member_id[active].to_numpy(dtype=str))
- plt.style.use(Path(__file__).resolve().parents[1]/'src/lenscluster/style.mplstyle');plt.rcParams.update(PAPER_STYLE)
+ plt.style.use(Path(__file__).resolve().parents[1]/'src/kappaccino/style.mplstyle');plt.rcParams.update(PAPER_STYLE)
  def finish(fig,path):
   for ax in fig.axes:ax.grid(False);ax.tick_params(which='both',top=True,right=True)
   fig.savefig(path,dpi=300,bbox_inches='tight',pad_inches=.04);plt.close(fig);print(path,flush=True)

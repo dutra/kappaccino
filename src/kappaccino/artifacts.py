@@ -11,8 +11,8 @@ here take that directory.
 ``state.json``
     A summary of the model state (:func:`save_state`): parameter specs with their priors, families, member ids, the
     exact/far-field member positions and the initial latent vector.  The state itself is rebuilt from the
-    configuration: :func:`lenscluster.state.build_state` (with the ``dropped_members`` of ``classification.json``),
-    then :func:`lenscluster.state.with_member_classes` with :func:`load_exact_positions`.
+    configuration: :func:`kappaccino.state.build_state` (with the ``dropped_members`` of ``classification.json``),
+    then :func:`kappaccino.state.with_member_classes` with :func:`load_exact_positions`.
 ``classification.json``
     The exact/far-field member classification record.
 ``search.npz``, ``modes.json``
@@ -127,7 +127,7 @@ def spec_to_json(spec) -> dict[str, Any]:
     dict
         Every ``ParameterSpec`` field by name (``name``, ``sample_name``, ``potential_id``, ``profile_type``,
         ``field``, ``component_family``, ``sample_site_name``, ``sample_site_index``, ``centered``,
-        ``scale_site_name``), and ``"prior"``: the prior as :func:`lenscluster.priors.to_dict`.
+        ``scale_site_name``), and ``"prior"``: the prior as :func:`kappaccino.priors.to_dict`.
     """
     return {**{f.name: getattr(spec, f.name) for f in fields(spec) if f.name != "prior"}, "prior": priors.to_dict(spec.prior)}
 
@@ -187,7 +187,7 @@ def save_search(directory: Path, search: dict[str, Any]) -> None:
 def save_posterior(directory: Path, posterior: PosteriorResults) -> None:
     """Write ``posterior.npz`` and ``posterior_diagnostics.json``.
 
-    ``posterior.npz`` holds every :class:`~lenscluster.model.PosteriorResults` field except ``diagnostics`` under its
+    ``posterior.npz`` holds every :class:`~kappaccino.model.PosteriorResults` field except ``diagnostics`` under its
     own name (``samples`` and ``physical`` of shape (draw, parameter), the per-draw sampler arrays, ``step_size``,
     ``grouped_samples``, ``median_fit``, ``maximum_likelihood_fit`` and the scalar ``warmup_steps``,
     ``sample_steps``, ``num_chains``); ``diagnostics`` goes to ``posterior_diagnostics.json``.

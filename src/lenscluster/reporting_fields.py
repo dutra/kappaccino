@@ -11,10 +11,12 @@ from . import jax_cosmology
 def _sigma0_factor(state, z_source):
     """The dPIE sigma0 factor at ``z_source``, from the state's table; computed (a cosmology quadrature) and stored the
     first time a redshift is asked for, as ``Evaluator.packed_state_for_z`` does."""
-    factor = state.dpie_sigma0_factor_by_z.get(float(z_source))
+    table = getattr(state, "dpie_sigma0_factor_by_z", None)
+    factor = None if table is None else table.get(float(z_source))
     if factor is None:
         factor = float(jax_cosmology.dpie_sigma0_factor_from_config(state.z_lens, float(z_source), state.cosmo_config))
-        state.dpie_sigma0_factor_by_z[float(z_source)] = factor
+        if table is not None:
+            table[float(z_source)] = factor
     return float(factor)
 
 

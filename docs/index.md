@@ -10,7 +10,7 @@ the posterior from there.
 The code runs on real clusters (MACS J0416, Abell S1063) and on the simulated FF-SIMS clusters Hera and Ares, and
 ships a mock-validation harness that generates analytic clusters, fits them and scores the recovery.
 
-Start with {doc}`installation` and {doc}`quickstart`. The remaining pages describe each part in more detail.
+Start with {doc}`installation` and {doc}`quickstart`, then the {doc}`tutorials`. The remaining pages describe each part in more detail.
 
 ```{toctree}
 :maxdepth: 2
@@ -18,6 +18,7 @@ Start with {doc}`installation` and {doc}`quickstart`. The remaining pages descri
 
 installation
 quickstart
+tutorials
 ```
 
 ```{toctree}

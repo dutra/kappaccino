@@ -20,11 +20,13 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
+    "nbsphinx",
+    "nbsphinx_link",
 ]
 
 source_suffix = {".md": "markdown", ".rst": "restructuredtext"}
 master_doc = "index"
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "**.ipynb_checkpoints"]
 
 # MyST: $...$ and $$...$$ math, ::: fenced directives, heading anchors for cross-references.
 myst_enable_extensions = ["dollarmath", "amsmath", "colon_fence", "deflist", "tasklist"]
@@ -56,6 +58,11 @@ autodoc_mock_imports = [
     "tqdm",
     "yaml",
 ]
+
+# Tutorial notebooks (notebooks/, linked from docs/notebooks/*.nblink) are stored with their outputs and rendered as
+# they are: a fit takes far longer than a documentation build. NBSPHINX_EXECUTE=always re-runs them locally.
+nbsphinx_execute = os.environ.get("NBSPHINX_EXECUTE", "never")
+nbsphinx_allow_errors = False
 
 html_theme = "sphinx_book_theme"
 html_title = "kappaccino Documentation"

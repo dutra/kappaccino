@@ -298,6 +298,7 @@ def test_fold_pair_in_a_two_knot_system_survives_a_displaced_source(tmp_path):
 
 
 # ----------------------------------------------------------------------------- 4. speed
+@pytest.mark.slow                       # wall-clock timing: machine-dependent, flaky on shared runners
 def test_knee_on_all_images_costs_under_three_times_the_family_gp(tmp_path):
     base = big_config(tmp_path)                                  # 40 families, 160 images
     timings = {}

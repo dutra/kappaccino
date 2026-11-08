@@ -57,6 +57,7 @@ def test_normal_output_calls_covariance_suite(monkeypatch, synthetic_config, tmp
     monkeypatch.setattr(outputs, 'classification_table', lambda *a: pd.DataFrame())
     monkeypatch.setattr(outputs, 'write_chain_traces', lambda *a, **k: None)
     monkeypatch.setattr(outputs, 'write_potfile_plots', lambda *a, **k: None)
+    monkeypatch.setattr(outputs, 'write_posterior_block_corner', lambda *a, **k: None)
     monkeypatch.setattr(outputs.plots, 'member_scaling_table', lambda *a: pd.DataFrame())
     state = SimpleNamespace(parameter_specs=[])
     posterior = SimpleNamespace(samples=np.zeros((1, 1)), physical=np.ones((1, 1)), log_prob=np.zeros(1))

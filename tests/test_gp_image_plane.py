@@ -343,6 +343,7 @@ def timed_gradient(evaluator, theta, repeats=30):
     return best
 
 
+@pytest.mark.slow                       # wall-clock timing: machine-dependent, flaky on shared runners
 def test_gradient_overhead_below_five_percent(tmp_path):
     base = big_config(tmp_path)
     old_state, new_state = build_state(base), build_state(gp_config(base))

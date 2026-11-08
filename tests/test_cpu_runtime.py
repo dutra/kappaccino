@@ -14,7 +14,9 @@ from kappaccino import cpu_runtime as cpu
 @pytest.mark.parametrize("method", ["parallel", "sequential", "vectorized"])
 def test_budget_follows_concurrent_chain_count(monkeypatch, chains, method):
     monkeypatch.setattr(cpu, "_ACTIVE_PLAN", None)
-    monkeypatch.setattr(os, "sched_getaffinity", lambda _: {8, 9, 10, 11, 12, 13})
+    # A fake six-CPU affinity mask, also on platforms without CPU affinity (macOS): the plan's arithmetic is the same.
+    monkeypatch.setattr(cpu, "affinity_supported", lambda: True)
+    monkeypatch.setattr(os, "sched_getaffinity", lambda _: {8, 9, 10, 11, 12, 13}, raising=False)
     monkeypatch.setattr(cpu, "_physical_core_order", lambda ids: tuple(ids))
     plan = cpu.resolve_cpu_plan(chains, method, 2)
     expected = min(6, 2 * (1 if method == "sequential" else chains))
@@ -60,7 +62,7 @@ a = np.array([[4., 1.], [1., 3.]])
 result = jax.pmap(jnp.linalg.cholesky)(jnp.asarray(np.stack([a] * 4)))
 np.testing.assert_allclose(result, np.stack([np.linalg.cholesky(a)] * 4), rtol=1e-12)
 blas = [p['num_threads'] for p in threadpool_info() if p['user_api'] == 'blas']
-assert blas and set(blas) == {1}
+assert set(blas) <= {1}          # empty where threadpoolctl cannot see the BLAS (Apple Accelerate); the variables above still hold
 assert cpu.configure_cpu_runtime(4, 'parallel', None) == plan
 """
     env = dict(os.environ, PYTHONPATH=str(Path('src').resolve()), OMP_NUM_THREADS='4', OPENBLAS_NUM_THREADS='4')
@@ -82,6 +84,7 @@ def test_prefer_physical_cores_within_allowed_mask(monkeypatch):
     assert cpu._physical_core_order([0, 2, 3]) == (0, 3, 2)
 
 
+@pytest.mark.skipif(not cpu.affinity_supported(), reason="needs CPU affinity (os.sched_getaffinity), Linux only")
 @pytest.mark.parametrize("chains", [1, 2, 4])
 def test_fresh_backend_and_spawned_worker_follow_resolved_chains(tmp_path, chains):
     script = tmp_path / "cpu_spawn_check.py"
@@ -145,6 +148,7 @@ else:
                    env=dict(os.environ, PYTHONPATH=str(Path("src").resolve())))
 
 
+@pytest.mark.skipif(not cpu.affinity_supported(), reason="needs CPU affinity (os.sched_getaffinity), Linux only")
 @pytest.mark.parametrize("cluster", ["HERA", "AS1063"])
 def test_launcher_uses_resolved_runtime_before_cosmology(cluster):
     code = """

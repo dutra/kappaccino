@@ -1,0 +1,17 @@
+# Papers merged into the Abell 370 master catalog (scripts/build_master_catalog.py).  Paths are relative to this folder.
+cluster: a370
+base: gledhill2024            # CANUCS (JWST frame, knots, new spectroscopic z for systems 8 and 11); its systems enter unchanged
+match_radius_arcsec: 0.5      # after each paper is shifted onto the base frame
+dz_max: 0.01                  # |dz| / (1 + z) above which two spectroscopic redshifts conflict
+papers:
+  gledhill2024:
+    images: ../gledhill2024/images.yaml
+    members: ../gledhill2024/members.yaml
+    # z_kind left unknown: the multim header gives spectroscopic z for systems 1-4 and 6, the rest from Diego / Strait
+  lagattuta2019:
+    images: ../lagattuta2019/images.yaml
+    members: ../lagattuta2019/members.yaml
+    prefix: L
+    add_systems: spec         # its spectroscopic (MUSE) systems the CANUCS set lacks
+    drop_images_with_notes:   # copper class, and the images their own model did not use (Note 1)
+      ['class copper, note -', 'class copper, note 2', 'class -, note 1', 'class -, note 1,2']

@@ -103,3 +103,10 @@ def test_free_z_base_system_left_out_until_decided(tmp_path):
     (master / "decisions.yaml").write_text(yaml.safe_dump([{"set_z": "S9", "z": 2.0, "reason": "test"}]))
     builder.build(master)
     assert "S9" in set(load_image_catalog(master / "images.yaml", sigma_inst_arcsec=0.05)["system_id"])
+
+
+def test_link_decision_joins_unmatched_systems(tmp_path):
+    master = _cluster(tmp_path, [{"link": ["base:S5", "third:7"], "reason": "test"}])
+    builder.build(master)
+    crossmatch = yaml.safe_load((master / "crossmatch.yaml").read_text())
+    assert crossmatch["systems"]["S5"]["papers"] == {"base": ["S5"], "other": ["5"], "third": ["7"]}

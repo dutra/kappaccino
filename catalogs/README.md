@@ -31,6 +31,9 @@ catalogs/<cluster>/<source>/
 | `m0717/limousin2016/` | (not an entry) | images.yaml (41 systems with model z) | members.yaml (90) | CATS v4.1 release of Limousin et al. 2016, MAST |
 | `m0717/kawamata2016/` | (not an entry) | images.yaml | | Kawamata et al. 2016, ApJ 819, 114 Table 8, VizieR |
 | `m0717/master/` | (not an entry yet) | images.yaml, images_gold.yaml | members.yaml | built from the two folders above, base limousin2016 |
+| `a370/gledhill2024/` | (not an entry) | images.yaml (knots) | members.yaml (277, band unstated) | CANUCS DR1 Lenstool files of Gledhill et al. 2024, MAST |
+| `a370/lagattuta2019/` | (not an entry) | images.yaml (classes) | members.yaml (120, with shapes) | Lagattuta et al. 2019 Table 1 (VizieR) and their potfile (MUSE atlas) |
+| `a370/master/` | (not an entry yet) | images.yaml, images_gold.yaml | members.yaml | built from the two folders above, base gledhill2024 |
 
 Hera and Ares positions are offsets about (0, 0) in degrees (the par files' `reference 3 0 0`), not sky coordinates.
 Positions of the real clusters are ICRS RA/Dec; the CANUCS catalog is in the frame of the CANUCS lenstool input,
@@ -88,6 +91,7 @@ catalogs/<cluster>/master/
   `dz_max` apart in |dz|/(1+z) are listed under `conflicts` until a `set_z` decision settles them. Lenstool's z = 0 (a
   free redshift) is never added; a base system with a free z enters only with a spectroscopic z from a linked
   system or a `set_z` decision, and is otherwise listed under `free_z`.
+- A `link` decision joins paper systems that are one source when no image matched within the radius (A370 7, 25).
 - `members_base` names the paper whose members the master keeps, when the base paper has none (A2744).
 - A paper that reused another's image positions has `derived_from: <paper>` and does not count as independent for the
   gold catalog (Bergamini 2019 uses the Caminha 2016 positions).

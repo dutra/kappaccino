@@ -1,0 +1,5 @@
+# Hand-made choices for the Abell 370 master catalog; each needs a reason.  See scripts/build_master_catalog.py.
+- link: [gledhill2024:7, lagattuta2019:7, lagattuta2019:10]
+  reason: same source (z 2.7512); L19 7a, 7b lie 0.5-0.7" from CANUCS 7a (JWST knot vs HST centroid), and CANUCS merged L19 system 10 into 7 (its 7.6 is L19 10.2)
+- link: [gledhill2024:25, lagattuta2019:25]
+  reason: same source (z 3.8145); L19 25a, 25b lie 0.7-0.8" from CANUCS 25a, 25b

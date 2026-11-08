@@ -35,6 +35,9 @@ catalogs/<cluster>/<source>/
 | `m0717/limousin2016/` | images.yaml | members.yaml | Limousin et al. 2016 (CATS v4.1) |
 | `m0717/kawamata2016/` | images.yaml | | Kawamata et al. 2016 |
 | `m0717/master/` | images.yaml, images_gold.yaml | members.yaml | our merge of the two M0717 catalogs |
+| `a370/gledhill2024/` | images.yaml | members.yaml | Gledhill et al. 2024 (CANUCS) |
+| `a370/lagattuta2019/` | images.yaml | members.yaml | Lagattuta et al. 2019 |
+| `a370/master/` | images.yaml, images_gold.yaml | members.yaml | our merge of the two A370 catalogs |
 
 Positions of the real clusters are ICRS RA/Dec in degrees. Hera and Ares positions are offsets about (0, 0) in degrees
 (the Lenstool `reference 3 0 0` convention), not sky coordinates. `catalogs/README.md` records the astrometric frames

@@ -1,0 +1,375 @@
+# Built on 2026-11-08 by scripts/build_master_catalog.py; do not edit.
+cluster: a370
+built: '2026-11-08'
+base: gledhill2024
+match_radius_arcsec: 0.5
+dz_max: 0.01
+frames:
+  gledhill2024:
+    applied_arcsec: [0.0, 0.0]
+    note: base frame
+  lagattuta2019:
+    applied_arcsec: [0.0318, 0.0031]
+    n_matches: 56
+    median_residual_arcsec: 0.0591
+counts: {master_systems: 38, gold_systems: 24, images: 102, left_out_groups: 4, free_z_systems: 0, candidate_images: 19, conflicts: 0}
+systems:
+  '1':
+    from: gledhill2024
+    papers:
+      gledhill2024: ['1']
+      lagattuta2019: ['1']
+    z:
+      gledhill2024:1: [0.8041, unknown]
+      lagattuta2019:1: [0.8041, spec]
+  '2':
+    from: gledhill2024
+    papers:
+      gledhill2024: ['2']
+      lagattuta2019: ['2']
+    z:
+      gledhill2024:2: [0.7251, unknown]
+      lagattuta2019:2: [0.7251, spec]
+  '3':
+    from: gledhill2024
+    papers:
+      gledhill2024: ['3']
+      lagattuta2019: ['3']
+    z:
+      gledhill2024:3: [1.9553, unknown]
+      lagattuta2019:3: [1.9553, spec]
+  '4':
+    from: gledhill2024
+    papers:
+      gledhill2024: ['4']
+      lagattuta2019: ['4']
+    z:
+      gledhill2024:4: [1.2728, unknown]
+      lagattuta2019:4: [1.2728, spec]
+  '5':
+    from: gledhill2024
+    papers:
+      gledhill2024: ['5']
+      lagattuta2019: ['5']
+    z:
+      gledhill2024:5: [1.2775, unknown]
+      lagattuta2019:5: [1.2775, spec]
+  '6':
+    from: gledhill2024
+    papers:
+      gledhill2024: ['6']
+      lagattuta2019: ['6']
+    z:
+      gledhill2024:6: [1.0633, unknown]
+      lagattuta2019:6: [1.0633, spec]
+  '7':
+    from: gledhill2024
+    papers:
+      gledhill2024: ['7']
+      lagattuta2019: ['10', '7']
+    z:
+      gledhill2024:7: [2.7512, unknown]
+      lagattuta2019:7: [2.7512, spec]
+      lagattuta2019:10: [2.7512, spec]
+  '8':
+    from: gledhill2024
+    papers:
+      gledhill2024: ['8']
+      lagattuta2019: ['8']
+    z:
+      gledhill2024:8: [2.8659, unknown]
+      lagattuta2019:8: [2.884, model]
+  '9':
+    from: gledhill2024
+    papers:
+      gledhill2024: ['9']
+      lagattuta2019: ['9']
+    z:
+      gledhill2024:9: [1.5182, unknown]
+      lagattuta2019:9: [1.5182, spec]
+  '11':
+    from: gledhill2024
+    papers:
+      gledhill2024: ['11']
+      lagattuta2019: ['11']
+    z:
+      gledhill2024:11: [7.6476, unknown]
+      lagattuta2019:11: [7.04, model]
+  '12':
+    from: gledhill2024
+    papers:
+      gledhill2024: ['12']
+      lagattuta2019: ['12']
+    z:
+      gledhill2024:12: [3.4809, unknown]
+      lagattuta2019:12: [3.4809, spec]
+  '13':
+    from: gledhill2024
+    papers:
+      gledhill2024: ['13']
+      lagattuta2019: ['13']
+    z:
+      gledhill2024:13: [4.248, unknown]
+      lagattuta2019:13: [4.248, spec]
+  '14':
+    from: gledhill2024
+    papers:
+      gledhill2024: ['14']
+      lagattuta2019: ['14']
+    z:
+      gledhill2024:14: [3.1309, unknown]
+      lagattuta2019:14: [3.1309, spec]
+  '17':
+    from: gledhill2024
+    papers:
+      gledhill2024: ['17']
+      lagattuta2019: ['17']
+    z:
+      gledhill2024:17: [4.2567, unknown]
+      lagattuta2019:17: [4.2567, spec]
+  '18':
+    from: gledhill2024
+    papers:
+      gledhill2024: ['18']
+      lagattuta2019: ['18']
+    z:
+      gledhill2024:18: [4.4296, unknown]
+      lagattuta2019:18: [4.4296, spec]
+  '20':
+    from: gledhill2024
+    papers:
+      gledhill2024: ['20']
+      lagattuta2019: ['20']
+    z:
+      gledhill2024:20: [5.7505, unknown]
+      lagattuta2019:20: [5.7505, spec]
+  '22':
+    from: gledhill2024
+    papers:
+      gledhill2024: ['22']
+      lagattuta2019: ['22']
+    z:
+      gledhill2024:22: [3.1309, unknown]
+      lagattuta2019:22: [3.1309, spec]
+  '24':
+    from: gledhill2024
+    papers:
+      gledhill2024: ['24']
+      lagattuta2019: ['24']
+    z:
+      gledhill2024:24: [4.91565, unknown]
+      lagattuta2019:24: [4.916, spec]
+  '25':
+    from: gledhill2024
+    papers:
+      gledhill2024: ['25']
+      lagattuta2019: ['25']
+    z:
+      gledhill2024:25: [3.8145, unknown]
+      lagattuta2019:25: [3.8145, spec]
+  '26':
+    from: gledhill2024
+    papers:
+      gledhill2024: ['26']
+      lagattuta2019: ['26']
+    z:
+      gledhill2024:26: [3.9359, unknown]
+      lagattuta2019:26: [3.9359, spec]
+  '27':
+    from: gledhill2024
+    papers:
+      gledhill2024: ['27']
+      lagattuta2019: ['27']
+    z:
+      gledhill2024:27: [3.0161, unknown]
+      lagattuta2019:27: [3.0161, spec]
+  '28':
+    from: gledhill2024
+    papers:
+      gledhill2024: ['28']
+      lagattuta2019: ['28']
+    z:
+      gledhill2024:28: [2.9101, unknown]
+      lagattuta2019:28: [2.9101, spec]
+  '29':
+    from: gledhill2024
+    papers:
+      gledhill2024: ['29']
+      lagattuta2019: ['29']
+    z:
+      gledhill2024:29: [4.4897, unknown]
+      lagattuta2019:29: [4.4897, spec]
+  '38':
+    from: gledhill2024
+    papers:
+      gledhill2024: ['38']
+      lagattuta2019: ['38']
+    z:
+      gledhill2024:38: [3.2, unknown]
+      lagattuta2019:38: [3.2, spec]
+  L15:
+    from: lagattuta2019
+    papers:
+      lagattuta2019: ['15']
+    z:
+      lagattuta2019:15: [3.7084, spec]
+  L16:
+    from: lagattuta2019
+    papers:
+      lagattuta2019: ['16']
+    z:
+      lagattuta2019:16: [3.7743, spec]
+  L19:
+    from: lagattuta2019
+    papers:
+      lagattuta2019: ['19']
+    z:
+      lagattuta2019:19: [5.6493, spec]
+  L21:
+    from: lagattuta2019
+    papers:
+      lagattuta2019: ['21']
+    z:
+      lagattuta2019:21: [1.2567, spec]
+  L23:
+    from: lagattuta2019
+    papers:
+      lagattuta2019: ['23']
+    z:
+      lagattuta2019:23: [5.9386, spec]
+  L30:
+    from: lagattuta2019
+    papers:
+      lagattuta2019: ['30']
+    z:
+      lagattuta2019:30: [5.6459, spec]
+  L31:
+    from: lagattuta2019
+    papers:
+      lagattuta2019: ['31']
+    z:
+      lagattuta2019:31: [5.4476, spec]
+  L32:
+    from: lagattuta2019
+    papers:
+      lagattuta2019: ['32']
+    z:
+      lagattuta2019:32: [4.4953, spec]
+  L33:
+    from: lagattuta2019
+    papers:
+      lagattuta2019: ['33']
+    z:
+      lagattuta2019:33: [4.882, spec]
+  L34:
+    from: lagattuta2019
+    papers:
+      lagattuta2019: ['34']
+    z:
+      lagattuta2019:34: [5.2437, spec]
+  L35:
+    from: lagattuta2019
+    papers:
+      lagattuta2019: ['35']
+    z:
+      lagattuta2019:35: [6.1735, spec]
+  L36:
+    from: lagattuta2019
+    papers:
+      lagattuta2019: ['36']
+    z:
+      lagattuta2019:36: [6.2855, spec]
+  L37:
+    from: lagattuta2019
+    papers:
+      lagattuta2019: ['37']
+    z:
+      lagattuta2019:37: [5.6489, spec]
+  L42:
+    from: lagattuta2019
+    papers:
+      lagattuta2019: ['42']
+    z:
+      lagattuta2019:42: [1.0315, spec]
+excluded: {}
+conflicts: []
+candidate_images:
+- paper_image: lagattuta2019:2.d
+  base_systems: ['2']
+  also_in: []
+- paper_image: lagattuta2019:2.e
+  base_systems: ['2']
+  also_in: []
+- paper_image: lagattuta2019:5.b
+  base_systems: ['5']
+  also_in: []
+- paper_image: lagattuta2019:5.c
+  base_systems: ['5']
+  also_in: []
+- paper_image: lagattuta2019:5.d
+  base_systems: ['5']
+  also_in: []
+- paper_image: lagattuta2019:7.a
+  base_systems: ['7']
+  also_in: []
+- paper_image: lagattuta2019:7.b
+  base_systems: ['7']
+  also_in: []
+- paper_image: lagattuta2019:7.c
+  base_systems: ['7']
+  also_in: []
+- paper_image: lagattuta2019:7.d
+  base_systems: ['7']
+  also_in: []
+- paper_image: lagattuta2019:7.e
+  base_systems: ['7']
+  also_in: []
+- paper_image: lagattuta2019:10.b
+  base_systems: ['7']
+  also_in: []
+- paper_image: lagattuta2019:18.c
+  base_systems: ['18']
+  also_in: []
+- paper_image: lagattuta2019:22.c
+  base_systems: ['22']
+  also_in: []
+- paper_image: lagattuta2019:25.a
+  base_systems: ['25']
+  also_in: []
+- paper_image: lagattuta2019:25.b
+  base_systems: ['25']
+  also_in: []
+- paper_image: lagattuta2019:25.c
+  base_systems: ['25']
+  also_in: []
+- paper_image: lagattuta2019:26.c
+  base_systems: ['26']
+  also_in: []
+- paper_image: lagattuta2019:28.c
+  base_systems: ['28']
+  also_in: []
+- paper_image: lagattuta2019:29.c
+  base_systems: ['29']
+  also_in: []
+left_out:
+- papers:
+    lagattuta2019: ['41']
+  z:
+    lagattuta2019:41: [1.272, model]
+- papers:
+    lagattuta2019: ['43']
+  z:
+    lagattuta2019:43: [1.973, model]
+- papers:
+    lagattuta2019: ['44']
+  z:
+    lagattuta2019:44: [2.336, model]
+- papers:
+    lagattuta2019: ['45']
+  z:
+    lagattuta2019:45: [8.593, model]
+free_z: []
+members:
+  counts: {gledhill2024: 277, lagattuta2019: 120}
+  only_in:
+    lagattuta2019: ['157', '161', '163', '172', '188192', '228', '318', '349', '364', '534', '593', '6385', '640', '657', '677', '683', '684', '704']

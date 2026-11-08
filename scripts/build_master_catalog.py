@@ -28,6 +28,7 @@ decisions.yaml is a list of entries, each with a ``reason``:
     - {set_z: K14, z: 2.311, reason: ...}          # master system name
     - {exclude: B12, reason: ...}                   # a master system
     - {include: diego2024:45, reason: ...}          # a group, by any of its paper systems, added despite the policy
+    - {link: [gledhill2024:7, lagattuta2019:10], reason: ...}   # paper systems that are one source
 
 Example:
     python scripts/build_master_catalog.py catalogs/m0416/master
@@ -166,6 +167,14 @@ def build(master_dir: Path) -> None:
             for i, j, _ in mutual_nearest(papers[a].shifted(), papers[b].shifted(), radius):
                 positions.union((a, i), (b, j))
                 systems.union((a, papers[a].rows[i][0]), (b, papers[b].rows[j][0]))
+    for d in decisions:
+        if "link" in d:   # systems the same source although no image matched within the radius
+            first, *rest = [tuple(key.split(":", 1)) for key in d["link"]]
+            for other in rest:
+                for paper, system in (first, other):
+                    if paper not in papers or system not in papers[paper].systems:
+                        raise SystemExit(f"decisions.yaml: link {paper}:{system} is not a paper system.")
+                systems.union(first, other)
     groups: dict = defaultdict(list)
     for name, paper in papers.items():
         for system in paper.systems:

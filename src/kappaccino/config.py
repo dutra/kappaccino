@@ -1518,6 +1518,64 @@ class ImageCatalogCutoutConfig:
 
 
 @dataclass(frozen=True)
+class PartitionConfig:
+    """Uncertain images whose sources are inferred jointly with the lens (``lenscluster.partition.slots``).
+
+    Each uncertain image may be a new image of a trusted family, an image of a new source shared with other uncertain
+    images (a source slot, sampled), or unrelated; the choice is summed out per image, so NUTS samples the lens and the
+    slot sources with the assignment marginalized, and assignments are drawn after sampling.  The trusted families are
+    kept as given; knots are not supported for uncertain images.
+
+    Parameters
+    ----------
+    catalog_path : str or pathlib.Path
+        CSV table of the uncertain images: ``image_label``, ``ra``, ``dec`` (degrees); optional ``sigma_arcsec``
+        (astrometric error), ``parity`` (-1, 0, +1), redshifts (``zspec_best``, ``catalog_z``, ``zphot_best`` with
+        ``catalog_z_sigma`` or ``pagul_zpdf_low``/``pagul_zpdf_high``), ``mag_<band>`` and ``mag_err_<band>``.  Must exist.
+    population_catalog_path : str or pathlib.Path or None, optional
+        CSV photometric catalog of the field (a redshift column and the same ``mag_<band>`` columns) for the prior of a
+        source's redshift and colors.  None fits it on the trusted and uncertain images themselves.  Default None.
+    bands : tuple of str or None, optional
+        Bands whose adjacent differences are the colors.  None: bands measured for at least half the uncertain images.
+    redshift_grid : tuple of (float, float, int) or None, optional
+        (z_min, z_max, points) of the quadrature of an unrelated image's evidence.  None spans the catalog redshifts
+        +- 2 sigma with 12 points, above z_lens + 0.05.  Default None.
+    source_prior_sigma_arcsec : float or None, optional
+        Width per axis of the Gaussian prior on a new or unrelated source's position: the evidence cost of a source.
+        None uses ``likelihood.source_position_prior_sigma_arcsec``.  Default None.
+    sigma_inst_arcsec : float, optional
+        Astrometric error of images without ``sigma_arcsec``.  Default 0.1.
+    color_scatter : float or None, optional
+        Same-source color scatter in mag; None fits it on the trusted families.  Default None.
+    outlier_fraction, outlier_scatter : float, optional
+        Fraction of images whose colors scatter by ``outlier_scatter`` mag instead.  Defaults 0.05 and 1.0.
+    population_components : int, optional
+        Components of the population mixture.  Default 6.
+    unrelated_fraction : float, optional
+        Prior probability that an uncertain image is unrelated to every other image; the rest is shared equally by the
+        trusted and new slots.  Default 0.5.
+    slot_gain_threshold : float, optional
+        New slots are seeded on groups of uncertain images linked by pairs whose evidence as one source beats two
+        unrelated sources by more than this (log) at the start lens.  Default 0.0.
+    posterior_draws : int, optional
+        Posterior draws used for the assignment probabilities and joint draws.  Default 500.
+    """
+    catalog_path: str | Path
+    population_catalog_path: str | Path | None = None
+    bands: tuple[str, ...] | None = None
+    redshift_grid: tuple[float, float, int] | None = None
+    source_prior_sigma_arcsec: float | None = None
+    sigma_inst_arcsec: float = 0.1
+    color_scatter: float | None = None
+    outlier_fraction: float = 0.05
+    outlier_scatter: float = 1.0
+    population_components: int = 6
+    unrelated_fraction: float = 0.5
+    slot_gain_threshold: float = 0.0
+    posterior_draws: int = 500
+
+
+@dataclass(frozen=True)
 class LensClusterSolverConfig:
     """Complete configuration of a kappaccino run.
 
@@ -1545,6 +1603,8 @@ class LensClusterSolverConfig:
         Truth comparison and critical-curve redshift.  Default: ``TruthRecoveryConfig()``.
     image_catalog : ImageCatalogCutoutConfig, optional
         Imaging for the figures.  Default: ``ImageCatalogCutoutConfig()``.
+    partition : PartitionConfig or None, optional
+        Uncertain images assigned to families jointly with the lens.  Default None (none).
     """
     model: LensModelConfig | None = None
     paths: RunPathsConfig = field(default_factory=RunPathsConfig)
@@ -1557,6 +1617,7 @@ class LensClusterSolverConfig:
     image_diagnostics: ImageDiagnosticsConfig = field(default_factory=ImageDiagnosticsConfig)
     truth: TruthRecoveryConfig = field(default_factory=TruthRecoveryConfig)
     image_catalog: ImageCatalogCutoutConfig = field(default_factory=ImageCatalogCutoutConfig)
+    partition: PartitionConfig | None = None
 
     def with_updates(self, **updates: Any) -> "LensClusterSolverConfig":
         """Return a copy with some top-level sections replaced.
@@ -1900,6 +1961,34 @@ def validate_config(config: LensClusterSolverConfig) -> None:
     _positive("image_diagnostics.exact_image_seed_tolerance_pitches", diagnostics.exact_image_seed_tolerance_pitches)
     if int(config.truth.posterior_truth_recovery_draws) < 0 or int(config.truth.truth_grid_size) < 0:
         raise ValueError("truth.posterior_truth_recovery_draws and truth.truth_grid_size must be nonnegative.")
+    if config.partition is not None:
+        _validate_partition_config(config.partition, config)
+
+
+def _validate_partition_config(partition: PartitionConfig, config: LensClusterSolverConfig) -> None:
+    for label in ("catalog_path", "population_catalog_path"):
+        path = getattr(partition, label)
+        if path is not None and not Path(path).exists():
+            raise ValueError(f"partition.{label} does not exist: {path}")
+    if partition.redshift_grid is not None:
+        z_min, z_max, points = partition.redshift_grid
+        z_lens = float(config.model.large_halos[0].z_lens)
+        if not z_lens < float(z_min) < float(z_max):
+            raise ValueError(f"partition.redshift_grid needs z_lens ({z_lens}) < z_min < z_max.")
+        _positive_int("partition.redshift_grid points", points)
+    for label in ("source_prior_sigma_arcsec", "color_scatter"):
+        if getattr(partition, label) is not None:
+            _positive(f"partition.{label}", getattr(partition, label))
+    _positive("partition.sigma_inst_arcsec", partition.sigma_inst_arcsec)
+    _positive("partition.outlier_scatter", partition.outlier_scatter)
+    if not 0.0 <= float(partition.outlier_fraction) < 1.0:
+        raise ValueError("partition.outlier_fraction must be in [0, 1).")
+    if not 0.0 < float(partition.unrelated_fraction) < 1.0:
+        raise ValueError("partition.unrelated_fraction must be in (0, 1).")
+    if not math.isfinite(float(partition.slot_gain_threshold)):
+        raise ValueError("partition.slot_gain_threshold must be finite.")
+    _positive_int("partition.population_components", partition.population_components)
+    _positive_int("partition.posterior_draws", partition.posterior_draws)
 
 
 def _supported_prior(label: str, prior: Any) -> None:

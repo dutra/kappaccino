@@ -837,6 +837,11 @@ def run_final(config: LensClusterSolverConfig, init: InitResult) -> RunResult:
     _seed(config)
     state, evaluator = init.state, init.evaluator
     try:
+        if config.partition is not None:
+            # Uncertain images and their source slots (lenscluster.partition.slots): extra parameters after the init
+            # stage's, seeded deterministically at its start so a resumed stage rebuilds the same model.
+            from .partition.slots import add_slots
+            state, evaluator = add_slots(config, state, evaluator, init.theta, log=log)
         if runtime.resume and artifacts.is_final_complete(stage.artifacts):
             saved = artifacts.load_config(stage.artifacts)
             if saved.to_json_dict() != config.to_json_dict():
@@ -852,10 +857,14 @@ def run_final(config: LensClusterSolverConfig, init: InitResult) -> RunResult:
 
         artifacts.save_config(stage.artifacts, config)
         starts = chain_starts(init.search, runtime.chains, config.search.max_chain_modes)
+        init_theta = init.theta
+        if state.slots is not None:
+            from .partition.slots import extend_theta
+            starts, init_theta = extend_theta(state, starts), extend_theta(state, init.theta)
         sampling = config.sampling
         log(f"[final] NUTS from {len({tuple(s) for s in starts.tolist()})} distinct start(s), chains={runtime.chains} "
             f"warmup={sampling.warmup} samples={sampling.samples}")
-        start_check = chain_start_check(evaluator, starts, init.theta, margin=config.search.mode_margin)
+        start_check = chain_start_check(evaluator, starts, init_theta, margin=config.search.mode_margin)
         log(f"[final] chain-start log-likelihoods {', '.join(f'{v:.2f}' for v in start_check['start_log_likelihoods'])} "
             f"(saved init start {start_check['reference_log_likelihood']:.2f})")
         for warning in start_check["warnings"]:
@@ -872,6 +881,9 @@ def run_final(config: LensClusterSolverConfig, init: InitResult) -> RunResult:
         posterior.diagnostics["start_check"] = start_check
         artifacts.save_posterior(stage.artifacts, posterior)
         sampling_seconds = time.perf_counter() - sampling_started
+        if state.slots is not None:
+            from .partition.slots import write_slot_outputs
+            write_slot_outputs(state, evaluator, posterior, stage, draws=config.partition.posterior_draws, seed=runtime.seed, log=log)
 
         audit = audit_posterior(state, evaluator, posterior.samples, tolerance=config.members.template_tolerance,
                                 guard_cut_radii=config.members.far_field_cut_radii)

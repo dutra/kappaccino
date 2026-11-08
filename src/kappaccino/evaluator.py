@@ -580,6 +580,8 @@ class Evaluator:
             value = jnp.sum(stats["loglike"]) + stats["source_correction"]
             if not source_jacobian:
                 value = value - stats["source_jacobian"]
+            if self.state.slots is not None:              # the uncertain images see the same member configuration
+                value = value + self.state.slots.log_likelihood(self, params, stats, membership=membership)
             return value, jnp.all(stats["valid"]) & jnp.all(stats["transport_valid"])
 
         values, valid = jax.vmap(image_terms)(self.membership_configurations)
@@ -1141,7 +1143,8 @@ class Evaluator:
         """Log-likelihood plus the source transport correction, or BAD_LOG_LIKE / -inf when rejected.
 
         The value is the sum of the per-image (or per-family) likelihood terms, the source-transport correction, the
-        member-kinematics term, the far-field guard barrier and the smooth ellipticity caps.  It is the target the
+        member-kinematics term, the far-field guard barrier, the smooth ellipticity caps and, when the state carries
+        source slots (``partition.slots``), the slot-mixture likelihood of the uncertain images.  It is the target the
         sampler adds to the priors of the latent parameters.  ``loglike`` and ``value_and_grad`` are jitted versions.
 
         With enumerated uncertain members (``MemberConfig.membership="marginalize"``) the image terms are the log of the
@@ -1190,6 +1193,8 @@ class Evaluator:
             value = jnp.sum(stats["loglike"]) + stats["source_correction"]
             if not source_jacobian:
                 value = value - stats["source_jacobian"]
+            if self.state.slots is not None:
+                value = value + self.state.slots.log_likelihood(self, safe_params, stats)
             valid = jnp.all(stats["valid"]) & jnp.all(stats["transport_valid"])
             far_cut_radii = stats["fields"]["far_cut_radii"]
         value = value + self.kinematics_log_likelihood(safe_physical)

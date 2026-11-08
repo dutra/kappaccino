@@ -25,6 +25,7 @@ config = replace(config, sampling=replace(config.sampling, warmup=500, samples=2
 | `image_diagnostics` | `ImageDiagnosticsConfig` | the exact-image finder and posterior image diagnostics |
 | `truth` | `TruthRecoveryConfig` | truth maps of simulated clusters |
 | `image_catalog` | `ImageCatalogCutoutConfig` | imaging, RGB display and cutout figures |
+| `partition` | `PartitionConfig` or None | uncertain images assigned to sources with the lens (see {doc}`likelihoods`) |
 
 ## Lens model
 

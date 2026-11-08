@@ -16,7 +16,8 @@ A run writes everything under its run root, `<output_dir>/<run_name>/` from
 : `classification_report.txt`, `shallow_fold_pairs.json`.
 
 `final/artifacts/`
-: `config.json` and `config.pkl`, `posterior.npz`, `audit.json`, `summary.json`.
+: `config.json` and `config.pkl`, `posterior.npz`, `audit.json`, `summary.json`, and with uncertain images
+  `slots.npz` (see {doc}`likelihoods`).
 
 `final/tables/`
 : `posterior_summary.csv`, `member_classification.csv`, `member_scaling_relation.csv`, `image_fit_quality.csv`,
@@ -26,7 +27,7 @@ A run writes everything under its run root, `<output_dir>/<run_name>/` from
   `member_membership.csv`: one row per member with `treatment` (`certain`, `enumerated` or `marginalized`),
   `p_catalog`, `p_prior` (after any calibration shift, averaged over the draws), and `p_posterior` with
   `p_posterior_std` over the draws. A marginalized member's posterior equals its prior. This table is written even with
-  `runtime.skip_plots`.
+  `runtime.skip_plots`. With uncertain images, `uncertain_images.csv` and `uncertain_pairs.csv`.
 
 `final/figures/`
 : The figures listed below and `<prefix>_results.tex`.

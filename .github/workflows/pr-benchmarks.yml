@@ -1,0 +1,84 @@
+name: Run benchmarks for PR
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: benchmarks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  likelihood-benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          path: benchmark-head
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Checkout base
+        uses: actions/checkout@v4
+        with:
+          path: benchmark-base
+          ref: ${{ github.event.pull_request.base.sha || 'main' }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: benchmark-head/pyproject.toml
+
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e benchmark-head
+
+      - name: Run likelihood benchmarks
+        env:
+          LENSCLUSTER_BENCH_REPEATS: "50"
+          LENSCLUSTER_BENCH_TRIALS: "3"
+          LENSCLUSTER_BENCH_LBFGS_ITERS: "25"
+          MPLCONFIGDIR: ${{ runner.temp }}/matplotlib
+        run: |
+          mkdir -p benchmark-artifacts
+          script=benchmark-head/benchmarks/lenscluster_pr_benchmark.py
+
+          # The base keeps its own dependency pins; the inputs come from the PR checkout so both runs see the same catalogs.
+          pip install -e benchmark-base
+          python "$script" run \
+            --output-dir benchmark-artifacts/base \
+            --label base \
+            --sha "${{ github.event.pull_request.base.sha || 'main' }}" \
+            --catalog-root benchmark-head \
+            || echo "::warning::Base benchmark failed; the comment will show PR timings only."
+
+          pip install -e benchmark-head
+          python "$script" run \
+            --output-dir benchmark-artifacts/head \
+            --label pr \
+            --sha "${{ github.event.pull_request.head.sha || github.sha }}" \
+            --catalog-root benchmark-head
+
+          python "$script" compare \
+            --baseline-json benchmark-artifacts/base/benchmark.json \
+            --candidate-json benchmark-artifacts/head/benchmark.json \
+            --output-dir benchmark-artifacts
+          cat benchmark-artifacts/output >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Store PR number
+        run: |
+          printf "%s" "${{ github.event.pull_request.number || 0 }}" > benchmark-artifacts/pr
+
+      - name: Upload benchmark artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-artifacts
+          path: benchmark-artifacts/

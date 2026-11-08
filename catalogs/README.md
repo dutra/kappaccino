@@ -35,3 +35,43 @@ on Linux). Imaging lives under `data/imaging/<cluster>/<source>` (scripts/downlo
 Converters: `scripts/convert_lenstool_catalog.py` (Lenstool arcs to images.yaml), `scripts/convert_member_catalog.py`
 (potfile to members.yaml, with kinematics), `scripts/convert_canucs_catalog.py`, `scripts/convert_as1063_jwst_catalog.py`,
 `scripts/add_member_shapes.py` (DR1 light shapes into members.yaml), `scripts/group_bergamini_knots.py`.
+
+## Adding a published catalog
+
+Catalogs only: multiple images, cluster members and their redshifts, as small text tables. Not lens-model products
+(mass, magnification and deflection maps, `bayes.dat`, chains) or imaging. A par file a few kB in size may go in `source/`
+when the converter needs its cosmology or reference point.
+
+One folder per paper, `catalogs/<cluster>/<author><year>/`, with the cluster named as in `download_catalogs.py`
+(`a2744`, `a370`, `m0416`, `m0717`, `m1149`, `as1063`). The folder is faithful to the paper:
+
+- `source/` holds the published tables as downloaded, unedited.
+- `images.yaml` and `members.yaml` are converted from `source/` by a script, keeping the paper's systems, names,
+  redshifts and positions. No corrections, renames or rejections here.
+- `README.md` gives the bibcode, the URL and date of the download, the converter and its arguments, and the astrometric
+  frame (the offset from the cluster's reference frame, when known).
+
+## Master catalogs (planned)
+
+Each cluster with more than one paper gets a `master/` folder, our own catalog built from the paper folders:
+
+```
+catalogs/<cluster>/master/
+    images.yaml        the merged images, with reliability and the papers each image is in
+    members.yaml       the merged members, spectroscopic over photometric redshifts
+    crossmatch.yaml    our system/image id -> {paper: its id}, for every image in any paper
+    decisions.yaml     each conflict and how it was resolved (redshift, membership of a system, rejected image)
+```
+
+- `master/` is written by a script from the paper folders and `decisions.yaml`, never edited by hand, so a new paper
+  means rerunning the script.
+- Each paper's positions are shifted to the cluster's reference frame (the offsets in its README) before matching.
+- `crossmatch.yaml` handles renamed, split and merged systems (1.1 / 1a / knots A and B). The number of papers an image
+  is in, and how they agree, sets its `reliability`, so a fit can select the gold or the gold and silver images.
+- Entries in `decisions.yaml` name the system or image, the papers in conflict, the choice and the reason, for example
+  system 14 takes the Bergamini spectroscopic redshift over the Diego photometric one.
+
+Existing pieces to build on: `as1063/diego2026/image_mapping.json` (Diego labels to our systems and knots) and
+`validation.json`, and `scripts/match_published_images.py` (published M0416 images matched to our systems).
+`scripts/build_hff_master_catalog.py` is different: it finds candidate families in the BUFFALO photometry and writes
+to `results/`, not here.

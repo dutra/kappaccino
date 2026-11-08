@@ -10,7 +10,7 @@ offsets, i.e. the field mean marginalized over the sources).  It writes:
                                                deflection at the images under the shared field and under system blocks
   final/tables/shared_grf_map.json            hyperparameters, log-likelihoods under both block layouts, map extremes and
                                                the image-level agreement of the two layouts
-  final/tables/shared_grf_map.npz             the grid maps (deflection, convergence, shear at z_ref)
+  final/tables/shared_grf_map.h5             the grid maps (deflection, convergence, shear at z_ref)
   final/tables/shared_grf_images.csv          per image: shared and system-block mean deflection
 
 Usage: python scripts/make_shared_grf_map.py results/<campaign>/<cluster>/<run> [--project] [--draw best|median]
@@ -29,9 +29,10 @@ PROJECT_MODES = ("translation", "convergence", "shear")
 def _evaluator(config, blocks, project, classes, init, start):
     from dataclasses import replace
     import numpy as np
-    from kappaccino import artifacts
-    from kappaccino.evaluator import Evaluator
-    from kappaccino.state import build_state, with_member_classes
+    from kappaccino.io import artifacts
+    from kappaccino.io.hdf5 import save_arrays
+    from kappaccino.likelihood.evaluator import Evaluator
+    from kappaccino.core.state import build_state, with_member_classes
     likelihood = replace(config.likelihood, gp_blocks=blocks)
     if project is not None:
         likelihood = replace(likelihood, gp_knee_project_modes=project)
@@ -78,8 +79,8 @@ def main():
     from matplotlib.colors import TwoSlopeNorm
     import numpy as np
     import pandas as pd
-    from kappaccino import artifacts
-    from kappaccino.plot_style import PAPER_STYLE
+    from kappaccino.io import artifacts
+    from kappaccino.plotting.style import PAPER_STYLE
 
     run = args.run_directory.resolve()
     init, final = run / "init" / "artifacts", run / "final"
@@ -175,10 +176,10 @@ def main():
     tables.mkdir(parents=True, exist_ok=True)
     figures.mkdir(parents=True, exist_ok=True)
     (tables / "shared_grf_map.json").write_text(json.dumps(summary, indent=1))
-    np.savez_compressed(tables / "shared_grf_map.npz", x=gx, y=gy, deflection_x=gdx, deflection_y=gdy, kappa=kappa, gamma1=gamma1, gamma2=gamma2)
+    save_arrays(tables / "shared_grf_map.h5", x=gx, y=gy, deflection_x=gdx, deflection_y=gdy, kappa=kappa, gamma1=gamma1, gamma2=gamma2)
     table.to_csv(tables / "shared_grf_images.csv", index=False)
 
-    plt.style.use(str(ROOT / "src/kappaccino/style.mplstyle"))
+    plt.style.use(str(ROOT / "src/kappaccino/plotting/style.mplstyle"))
     plt.rcParams.update(PAPER_STYLE)
     fig, axes = plt.subplots(1, 2, figsize=(7.1, 3.7), constrained_layout=True)
     lim = float(np.percentile(np.abs(kappa), 99.5)) or 1e-6

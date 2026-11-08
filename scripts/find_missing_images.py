@@ -28,6 +28,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 import fit_arc_source as fas  # noqa: E402  (sets up paths, x64 and the working directory)
 from predict_counter_images import lens_at, stamp_rgb  # noqa: E402
+from kappaccino.io.hdf5 import save_arrays  # noqa: E402
 
 jnp, np, pd, cutouts = fas.jnp, fas.np, fas.pd, fas.cutouts
 
@@ -439,7 +440,11 @@ def main():
     site_df = site_df.sort_values(["in_jwst", "rank_key"], ascending=[False, True])
     site_df.drop(columns=["x_draws", "y_draws"]).to_csv(out / "missing_image_sites.csv", index=False)
     pd.DataFrame(cand_rows).to_csv(out / "missing_image_candidates.csv", index=False)
-    site_df.to_pickle(out / "missing_image_sites.pkl")
+    # Each site's position draws, flat, with the site's row in missing_image_sites.csv.
+    rows = np.concatenate([np.full(len(x), i) for i, x in enumerate(site_df["x_draws"])]) if len(site_df) else np.zeros(0, int)
+    save_arrays(out / "missing_image_site_draws.h5", site_row=rows,
+                x=np.concatenate([np.asarray(x, float) for x in site_df["x_draws"]]) if len(site_df) else np.zeros(0),
+                y=np.concatenate([np.asarray(y, float) for y in site_df["y_draws"]]) if len(site_df) else np.zeros(0))
     print(f"[done] {len(site_df)} sites in {out}")
 
 

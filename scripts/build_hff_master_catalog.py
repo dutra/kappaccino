@@ -46,24 +46,12 @@ for import_path in (REPO_ROOT / "src",):
     if str(import_path) not in sys.path:
         sys.path.insert(0, str(import_path))
 
-from kappaccino.rgb import (  # noqa: E402
-    CALIBRATED_RGB_MINIMUM_SKY_SIGMA,
-    DEFAULT_HFF_RGB_BANDS,
-    DEFAULT_HFF_RGB_CHANNEL_GAINS,
-    DEFAULT_HFF_RGB_CHANNEL_WEIGHTS,
-    DEFAULT_HFF_RGB_HIGHLIGHT_CEILING,
-    DEFAULT_HFF_RGB_HIGHLIGHT_KNEE,
-    DEFAULT_HFF_RGB_HIGHLIGHT_SOFTNESS,
-    DEFAULT_HFF_RGB_MINIMUM,
-    DEFAULT_HFF_RGB_Q,
-    DEFAULT_HFF_RGB_REFERENCE_BAND,
-    DEFAULT_HFF_RGB_STRETCH,
-    DEFAULT_HFF_RGB_WARM_HIGHLIGHT_DESATURATION,
-    CalibratedRGBDisplayConfig,
-    RGBDisplayConfig,
-    build_rgb_display_from_band_images,
-    compute_fnu_band_fluxscales,
-    make_natural_rgb,
+from kappaccino.imaging.rgb import (
+    CALIBRATED_RGB_MINIMUM_SKY_SIGMA, DEFAULT_HFF_RGB_BANDS, DEFAULT_HFF_RGB_CHANNEL_GAINS,
+    DEFAULT_HFF_RGB_CHANNEL_WEIGHTS, DEFAULT_HFF_RGB_HIGHLIGHT_CEILING, DEFAULT_HFF_RGB_HIGHLIGHT_KNEE,
+    DEFAULT_HFF_RGB_HIGHLIGHT_SOFTNESS, DEFAULT_HFF_RGB_MINIMUM, DEFAULT_HFF_RGB_Q, DEFAULT_HFF_RGB_REFERENCE_BAND,
+    DEFAULT_HFF_RGB_STRETCH, DEFAULT_HFF_RGB_WARM_HIGHLIGHT_DESATURATION, CalibratedRGBDisplayConfig,
+    RGBDisplayConfig, build_rgb_display_from_band_images, compute_fnu_band_fluxscales, make_natural_rgb,
 )
 
 

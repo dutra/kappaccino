@@ -34,10 +34,12 @@ from astropy.io import fits
 from astropy.stats import sigma_clipped_stats
 from scipy.optimize import minimize
 
-from kappaccino import artifacts, cutouts
-from kappaccino.evaluator import Evaluator
-from kappaccino.sky import radec_to_offsets_arcsec
-from kappaccino.state import build_state, with_member_classes
+from kappaccino.io import artifacts
+from kappaccino.io.hdf5 import load_arrays, save_arrays
+from kappaccino.imaging import cutouts
+from kappaccino.likelihood.evaluator import Evaluator
+from kappaccino.io.sky import radec_to_offsets_arcsec
+from kappaccino.core.state import build_state, with_member_classes
 
 NIRCAM_FWHM_ARCSEC = {"F115W": 0.040, "F150W": 0.050, "F200W": 0.066, "F277W": 0.092, "F356W": 0.116, "F444W": 0.145}
 GAIN_E_PER_DN = 2.0        # NIRCam, approximate; only the Poisson part of the noise map depends on it
@@ -69,7 +71,7 @@ def parse_args():
     p.add_argument("--lam", type=float, default=0.0, help="pixels: regularisation strength; 0 = largest lambda with chi2_nu <= 1 on the arc pixels")
     p.add_argument("--zoom-width", type=float, default=1.4, help="width in arcsec of the zoomed strip along the arc")
     p.add_argument("--grid-from", default="", help="pixels: reuse the source grid (per-draw origins, pixel, size) of another run's "
-                                                    "pixel_sources.npz, e.g. the F150W fit, so several bands share one source grid")
+                                                    "pixel_sources.h5, e.g. the F150W fit, so several bands share one source grid")
     p.add_argument("--shapelet-nmax", type=int, default=6)
     p.add_argument("--knots", type=int, default=0, help="number of Gaussian knots (0 = one per catalog knot of image a)")
     p.add_argument("--members", default="auto", help="'auto' (catalog members within the cutout + 1.5\"), 'none', or ids 7764,...")
@@ -120,38 +122,9 @@ def parse_args():
 
 
 # ----------------------------------------------------------------------------------------------------------------- lens
-# Config fields added after a run was pickled take their default, except these: the run predates them and used the
-# half-normal sigma_white prior they replace, so None keeps its parameterisation.
-OLD_RUN_FIELDS = {"sigma_white_prior": None, "gp_knee_sigma_white_prior": None}
-
-
-def _backfill(obj):
-    """Fill the dataclass fields an old pickle lacks (recursively); returns the dotted names filled."""
-    import dataclasses
-    filled = []
-    if not dataclasses.is_dataclass(obj):
-        return filled
-    for f in dataclasses.fields(obj):
-        if f.name not in obj.__dict__:
-            if f.name in OLD_RUN_FIELDS:
-                value = OLD_RUN_FIELDS[f.name]
-            elif f.default is not dataclasses.MISSING:
-                value = f.default
-            else:
-                value = f.default_factory()
-            object.__setattr__(obj, f.name, value)
-            filled.append(f.name)
-        else:
-            filled += [f"{f.name}.{n}" for n in _backfill(obj.__dict__[f.name])]
-    return filled
-
-
 def load_model(run: Path):
     init = run / "init" / "artifacts"
     config = artifacts.load_config(init)
-    filled = _backfill(config)
-    if filled:
-        print(f"[load_model] config predates {len(filled)} fields, filled: {', '.join(filled)}", flush=True)
     classes = json.loads((init / artifacts.CLASSIFICATION_FILE).read_text())
     state = build_state(config, drop_member_ids=classes.get("dropped_members", ()))
     saved = json.loads((init / artifacts.STATE_FILE).read_text())["parameter_specs"]
@@ -195,9 +168,9 @@ def beta_maps(evaluator, state, samples, draws, xy, z_source, family_index, cach
     With ``image_gp`` = (obs, obs_family, sigma_inst) the image-plane GP's conditional mean offset is interpolated from the
     system's catalog images and the lens is evaluated at the corrected positions, beta(x) -= A(x) delta(x)."""
     if cache.exists() and not rebuild:
-        with np.load(cache) as f:
-            if list(f["draws"]) == list(draws) and f["beta"].shape[1] == len(xy):
-                return f["beta"], f["det"]
+        f = load_arrays(cache)
+        if list(f["draws"]) == list(draws) and f["beta"].shape[1] == len(xy):
+            return f["beta"], f["det"]
     beta = np.empty((len(draws), len(xy), 2)); det = np.empty((len(draws), len(xy)))
     fam = np.full(len(xy), family_index, dtype=np.int32)
     for k, d in enumerate(draws):
@@ -226,7 +199,7 @@ def beta_maps(evaluator, state, samples, draws, xy, z_source, family_index, cach
                     f"ell {ell:.2f}\", |delta| on the grid up to {np.abs(delta).max() * 1000:.0f} mas")
         det[k] = a[:, 0, 0] * a[:, 1, 1] - a[:, 0, 1] * a[:, 1, 0]
         print(f"[lens] draw {d}: beta map in {time.time() - t0:.0f} s, field mean {'on' if mean is not None else 'off'}{note}", flush=True)
-    np.savez_compressed(cache, beta=beta, det=det, draws=np.asarray(draws))
+    save_arrays(cache, beta=beta, det=det, draws=np.asarray(draws))
     return beta, det
 
 
@@ -705,8 +678,8 @@ def figure(out, args, cut, model, params, betas, det, tags, source_extent):
     import matplotlib
     matplotlib.use("pdf")
     import matplotlib.pyplot as plt
-    from kappaccino.plot_style import PAPER_STYLE
-    plt.style.use(str(ROOT / "src/kappaccino/style.mplstyle")); plt.rcParams.update(PAPER_STYLE)
+    from kappaccino.plotting.style import PAPER_STYLE
+    plt.style.use(str(ROOT / "src/kappaccino/plotting/style.mplstyle")); plt.rcParams.update(PAPER_STYLE)
     rows = min(len(params), 4)
     fig, axes = plt.subplots(rows, 4, figsize=(7.2, 1.85 * rows), constrained_layout=True, squeeze=False)
     xc, yc = cut["xc"], cut["yc"]
@@ -749,8 +722,8 @@ def figure_pixels(out, cut, model, sources, members_pm, betas, origins, det, tag
     import matplotlib
     matplotlib.use("pdf")
     import matplotlib.pyplot as plt
-    from kappaccino.plot_style import PAPER_STYLE
-    plt.style.use(str(ROOT / "src/kappaccino/style.mplstyle")); plt.rcParams.update(PAPER_STYLE)
+    from kappaccino.plotting.style import PAPER_STYLE
+    plt.style.use(str(ROOT / "src/kappaccino/plotting/style.mplstyle")); plt.rcParams.update(PAPER_STYLE)
     rows = min(len(sources), 4)
     fig, axes = plt.subplots(rows, 4, figsize=(7.2, 1.85 * rows), constrained_layout=True, squeeze=False)
     xc, yc = cut["xc"], cut["yc"]; ext = [xc[0, 0], xc[0, -1], yc[0, 0], yc[-1, 0]]
@@ -794,8 +767,8 @@ def figure_zoom(out, cut, model_image, knots_xy, knot_labels, width):
     matplotlib.use("pdf")
     import matplotlib.pyplot as plt
     from scipy.ndimage import map_coordinates
-    from kappaccino.plot_style import PAPER_STYLE
-    plt.style.use(str(ROOT / "src/kappaccino/style.mplstyle")); plt.rcParams.update(PAPER_STYLE)
+    from kappaccino.plotting.style import PAPER_STYLE
+    plt.style.use(str(ROOT / "src/kappaccino/plotting/style.mplstyle")); plt.rcParams.update(PAPER_STYLE)
     data, noise, mask = (np.asarray(cut[k]) for k in ("data", "noise", "mask"))
     xc, yc, scale = cut["xc"], cut["yc"], cut["scale"]
     bright = mask & (data > 5 * noise)
@@ -829,11 +802,11 @@ def figure_zoom(out, cut, model_image, knots_xy, knot_labels, width):
 
 def run_pixels(args, out, cut, psf, members, beta, det, draws, obs, src_labels):
     if args.grid_from:
-        with np.load(args.grid_from) as f:
-            if list(f["draws"]) != list(draws):
-                raise SystemExit(f"--grid-from was made with draws {list(f['draws'])}, this run uses {list(draws)}; use the same --draws")
-            origins = [tuple(float(v) for v in o) for o in f["origins"]]
-            h = float(f["pixel"]); ny_s, nx_s = f["sources"].shape[1:]
+        f = load_arrays(args.grid_from)
+        if list(f["draws"]) != list(draws):
+            raise SystemExit(f"--grid-from was made with draws {list(f['draws'])}, this run uses {list(draws)}; use the same --draws")
+        origins = [tuple(float(v) for v in o) for o in f["origins"]]
+        h = float(f["pixel"]); ny_s, nx_s = f["sources"].shape[1:]
         print(f"[source] grid {ny_s} x {nx_s} px of {h * 1000:.2f} mas reused from {args.grid_from}")
     else:
         origins, h, nx_s, ny_s = source_grid(args, cut, beta, members)
@@ -871,7 +844,7 @@ def run_pixels(args, out, cut, psf, members, beta, det, draws, obs, src_labels):
               f"cg {cg:.1e}, {row['seconds']:.0f} s", flush=True)
     table = pd.DataFrame(rows); table.to_csv(out / "fits_per_draw.csv", index=False)
     best_image = np.asarray(model._forward(jnp.asarray(sources[0]), jnp.asarray(beta[0]), jnp.asarray(origins[0])))
-    np.savez_compressed(out / "pixel_sources.npz", sources=np.asarray(sources), members=np.asarray(pms), draws=np.asarray(draws),
+    save_arrays(out / "pixel_sources.h5", sources=np.asarray(sources), members=np.asarray(pms), draws=np.asarray(draws),
                         origins=np.asarray(origins), pixel=h, member_names=np.asarray(model.member_names),
                         band=args.band.upper(), image_pixel=cut["scale"], arc_model=best_image,
                         extent=np.asarray([cut["xc"][0, 0], cut["xc"][0, -1], cut["yc"][0, 0], cut["yc"][-1, 0]]),
@@ -1039,9 +1012,9 @@ def run_colour(args, out, setup, obs, src_labels):
         per[b] = dict(args=a, **dict(zip(("cut", "psf", "members", "beta", "det"), prepare_band(a, out, **setup))))
     ref = per[reference]
     if args.grid_from:
-        with np.load(args.grid_from) as f:
-            origins = [tuple(float(v) for v in o) for o in f["grid_origins"]]
-            frame = dict(axes=f["grid_axes"], pixel=tuple(f["grid_pixel"])); ny_s, nx_s = f["grid_sources"].shape[1:]
+        f = load_arrays(args.grid_from)
+        origins = [tuple(float(v) for v in o) for o in f["grid_origins"]]
+        frame = dict(axes=f["grid_axes"], pixel=tuple(f["grid_pixel"])); ny_s, nx_s = f["grid_sources"].shape[1:]
     elif args.src_grid == "aligned":
         origins, frame, nx_s, ny_s = aligned_grid(args, ref["cut"], ref["beta"], ref["members"])
     else:
@@ -1148,7 +1121,7 @@ def run_colour(args, out, setup, obs, src_labels):
     d_origins, dh, dny, dnx = display_grid(origins, frame, ny_s, nx_s, smooth_all if smooth is not None else None)
     print(f"[display] {dny} x {dnx} px of {dh * 1000:.2f} mas")
     pd.DataFrame(rows).to_csv(out / "colour_fits.csv", index=False)
-    np.savez_compressed(out / "shape.npz", shapes=np.asarray(shapes), amplitudes=np.asarray(amps_all), bands=np.asarray(bands),
+    save_arrays(out / "shape.h5", shapes=np.asarray(shapes), amplitudes=np.asarray(amps_all), bands=np.asarray(bands),
                         draws=np.asarray(draws), origins=np.asarray(origins), axes=np.asarray(frame["axes"]),
                         pixel=np.asarray(frame["pixel"]), smooth=np.asarray(smooth_all), smooth_names=np.asarray(smooth.names if smooth else []))
     for i, b in enumerate(bands):
@@ -1156,7 +1129,7 @@ def run_colour(args, out, setup, obs, src_labels):
         disp = [to_display(p["sources"][k], origins[k], frame, d_origins[k], dh, dny, dnx, smooth,
                            smooth_all[k] if smooth is not None else None, amps_all[k][i]) for k in range(len(draws))]
         best_image = np.asarray(p["model"]._forward(jnp.asarray(p["sources"][0]), jnp.asarray(p["beta"][0]), jnp.asarray(origins[0]))) + p["extra"][0]
-        np.savez_compressed(folder / "pixel_sources.npz", sources=np.asarray(disp), members=np.asarray(p["pms"]),
+        save_arrays(folder / "pixel_sources.h5", sources=np.asarray(disp), members=np.asarray(p["pms"]),
                             draws=np.asarray(draws), origins=np.asarray(d_origins), pixel=dh, member_names=np.asarray(p["model"].member_names),
                             band=b, image_pixel=cut["scale"], arc_model=best_image,
                             extent=np.asarray([cut["xc"][0, 0], cut["xc"][0, -1], cut["yc"][0, 0], cut["yc"][-1, 0]]),
@@ -1471,7 +1444,7 @@ def run_joint(args, out, setup, obs, src_labels):
         print(f"[joint] draw {d} in {time.time() - t0:.0f} s", flush=True)
 
     pd.DataFrame(rows).to_csv(out / "joint_fits.csv", index=False)
-    np.savez_compressed(out / "shape.npz", amplitudes=np.asarray(amps_all), bands=np.asarray(bands), draws=np.asarray(draws),
+    save_arrays(out / "shape.h5", amplitudes=np.asarray(amps_all), bands=np.asarray(bands), draws=np.asarray(draws),
                         deltas=np.asarray([deltas[r["name"]] for r in regions[1:]]), regions=np.asarray([r["name"] for r in regions]))
     if not mesh:
         d_origins, dh, dny, dnx = display_grid(origins, frame, ny_s, nx_s)
@@ -1481,7 +1454,7 @@ def run_joint(args, out, setup, obs, src_labels):
             disp, d_origins, dh = mesh_display(nodes_all, u["sources"])
         else:
             disp = [to_display(u["sources"][k], origins[k], frame, d_origins[k], dh, dny, dnx) for k in range(len(draws))]
-        np.savez_compressed(folder / "pixel_sources.npz", sources=np.asarray(disp), members=np.asarray(u["pms"]), draws=np.asarray(draws),
+        save_arrays(folder / "pixel_sources.h5", sources=np.asarray(disp), members=np.asarray(u["pms"]), draws=np.asarray(draws),
                             origins=np.asarray(d_origins), pixel=dh, member_names=np.asarray(u["model"].member_names), band=u["band"],
                             image_pixel=cut["scale"], arc_model=u["best_image"],
                             extent=np.asarray([cut["xc"][0, 0], cut["xc"][0, -1], cut["yc"][0, 0], cut["yc"][-1, 0]]),
@@ -1512,7 +1485,7 @@ def prepare_band(args, out, state, evaluator, samples, draws, obs_xy, centre, z_
     print(f"[arc] arc region {cut['arc_region'].sum()} px within {args.arc_radius}\" of the catalog path; "
           f"{other.sum()} px of other sources masked")
     beta, det = beta_maps(evaluator, state, samples, draws, cut["xy"], z_source, family_index,
-                          out / f"beta_maps{'_imagegp' if args.image_gp_mean else ''}{'_' + args.band.upper() if args.bands else ''}{'_' + getattr(args, 'region_tag', 'fold') if args.add else ''}.npz", args.rebuild, image_gp)
+                          out / f"beta_maps{'_imagegp' if args.image_gp_mean else ''}{'_' + args.band.upper() if args.bands else ''}{'_' + getattr(args, 'region_tag', 'fold') if args.add else ''}.h5", args.rebuild, image_gp)
     return cut, psf, members, beta, det
 
 
@@ -1623,7 +1596,7 @@ def main():
               + " ".join(f"{l} {row[f'flux_ratio_{l}']:.2f}" for l in src_labels), flush=True)
     table = pd.DataFrame(rows)
     table.to_csv(out / "fits_per_draw.csv", index=False)
-    np.savez_compressed(out / "fit_params.npz", params=np.asarray(params), names=np.asarray(model.names), draws=np.asarray(draws))
+    save_arrays(out / "fit_params.h5", params=np.asarray(params), names=np.asarray(model.names), draws=np.asarray(draws))
     numeric = table.drop(columns=["draw"]).select_dtypes(float)
     summary = pd.DataFrame(dict(best=numeric.iloc[0], median=numeric.median(), q16=numeric.quantile(0.16), q84=numeric.quantile(0.84)))
     summary.to_csv(out / "source_summary.csv")

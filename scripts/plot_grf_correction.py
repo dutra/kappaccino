@@ -15,23 +15,24 @@ def main():
     matplotlib.use('Agg')
     import numpy as np
     import pandas as pd
-    from kappaccino.field_plots import render_grf_correction
-    from kappaccino.member_catalog import load_member_catalog
-    from kappaccino.sky import radec_to_offsets_arcsec
-    from kappaccino.jwst_rgb_figure import marker_photometry
-    from kappaccino.utils import log10_dpie_mass_msun
+    from kappaccino.plotting.fields import render_grf_correction
+    from kappaccino.io.hdf5 import load_arrays
+    from kappaccino.io.member_catalog import load_member_catalog
+    from kappaccino.io.sky import radec_to_offsets_arcsec
+    from kappaccino.plotting.jwst_rgb import marker_photometry
+    from kappaccino.core.utils import log10_dpie_mass_msun
     final = args.run_directory.resolve() / 'final'
-    source = final / 'tables/conditional_field_maps.npz'
+    source = final / 'tables/conditional_field_maps.h5'
     config = json.loads((final / 'artifacts/config.json').read_text())
     prefix = config['paths'].get('figure_prefix')
     output = final / 'figures' / f'{prefix + "_" if prefix else ""}grf_convergence.pdf'
-    with np.load(source) as archive:
-        data = {key: archive[key] for key in archive.files}
+    archive = load_arrays(source)
+    data = {key: archive[key] for key in archive.keys()}
     members = pd.read_csv(final / 'tables/member_diagnostics.csv')
     data['member_xy'] = members[['x_centre','y_centre']].to_numpy()
     state = json.loads((args.run_directory / 'init/artifacts/state.json').read_text())
-    with np.load(final / 'artifacts/posterior.npz') as archive:
-        physical = archive['physical'][int(data['draw_index'])]
+    archive = load_arrays(final / 'artifacts/posterior.h5')
+    physical = archive['physical'][int(data['draw_index'])]
     fitted = dict(zip((s['name'] for s in state['parameter_specs']),physical))
     model = config['model']
     centres, labels = [], []
@@ -49,8 +50,8 @@ def main():
     photometry = marker_photometry(images,reference,
         Path(__file__).resolve().parents[1]/'src/kappaccino/data/m0416_image_f200w_photometry.csv')
     data['image_sizes'] = photometry.marker_area_pt2.to_numpy()
-    with np.load(final / 'tables/member_diagnostic_draws.npz') as archive:
-        deviations = archive['deviations'][int(data['draw_index'])]
+    archive = load_arrays(final / 'tables/member_diagnostic_draws.h5')
+    deviations = archive['deviations'][int(data['draw_index'])]
     assert deviations.shape == (len(members),2)
     masses = []
     for j,row in members.iterrows():

@@ -2,7 +2,8 @@
 from types import SimpleNamespace as NS
 import matplotlib.pyplot as plt
 import numpy as np
-from kappaccino import rgb_overview_cutouts as rc
+from kappaccino.plotting import rgb_overview_cutouts as rc
+from kappaccino.io.hdf5 import save_arrays
 IMAGE_LABELS=('K34.b','K34.a','K33.e','K77.b')
 SYSTEM_IDS=('K1','K6','K8','K12')
 
@@ -65,20 +66,20 @@ def test_launcher_declares_ordered_panels():
 def test_explicit_panels_compute_missing_critical_fields(tmp_path,monkeypatch):
     import json
     import pandas as pd
-    from kappaccino import cutout_critical_fields
+    from kappaccino.plotting import critical_fields
     pd.DataFrame(dict(image_label=['a','b'],x_arcsec=[0.,1.],y_arcsec=[0.,0.],z_source=[2.,3.],
                       shown=[False,False])).to_csv(tmp_path/'toy_small_lambda_a_image_posteriors_jwst.csv',index=False)
-    np.savez(tmp_path/'posterior_overview_positions.npz',image_labels=np.array(['a','b']),
+    save_arrays(tmp_path/'posterior_overview_positions.h5',image_labels=np.array(['a','b']),
              recovered=np.random.default_rng(1).normal(0,.02,(32,2,2)),draw_indices=np.arange(32))
     (tmp_path/'posterior_overview_positions.json').write_text(json.dumps(dict(fingerprint='test')))
     (tmp_path/'fold_pairs_source_caustics.json').write_text('{}')
-    (tmp_path/'fold_pairs_source_caustics.npz').touch()
+    (tmp_path/'fold_pairs_source_caustics.h5').touch()
     monkeypatch.setattr(rc,'load_fold_data',lambda _:dict(systems=[]))
     calls=[]
     def compute(*args,**kwargs):
         calls.append(args)
         return None,np.ones((2,4,4)),np.arange(32),np.zeros((2,4,4)),np.ones((2,4,4))*2
-    monkeypatch.setattr(cutout_critical_fields,'median_cutout_determinants',compute)
+    monkeypatch.setattr(critical_fields,'median_cutout_determinants',compute)
     data=rc.overview_cutout_data(tmp_path,'toy',image_labels=('b','a'),state=object(),evaluator=object(),posterior=object())
     assert [item['label'] for item in data['images']]==['b','a']
     assert len(calls)==1 and calls[0][5]==[3.,2.]

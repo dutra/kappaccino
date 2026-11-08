@@ -7,14 +7,15 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/'src'))
-from kappaccino.plot_style import PAPER_STYLE
+from kappaccino.plotting.style import PAPER_STYLE
+from kappaccino.io.hdf5 import load_arrays
 
 out=ROOT/'plots/paper/grf_power_spectrum'
 provenance=json.loads((out/'provenance.json').read_text())
 run=Path(provenance['run']);state=json.loads((run/'init/artifacts/state.json').read_text())
 scale=float(state['kpc_per_arcsec']);z=float(state['z_lens'])
-with np.load(out/'spectrum_draws.npz') as d:
- k=d['k'];P=d['power'];knee=d['knee']
+d = load_arrays(out/'spectrum_draws.h5')
+k=d['k'];P=d['power'];knee=d['knee']
 k_phys=k/scale;P_phys=P*scale**2
 power=k_phys[None,:]**2*P_phys/(2*np.pi)
 np.testing.assert_allclose(power,k[None,:]**2*P/(2*np.pi),rtol=1e-14)
@@ -27,7 +28,7 @@ np.testing.assert_allclose(vk,vl,rtol=1e-12)
 peak=wavelength[np.argmax(power,axis=1)]
 assert np.max(np.abs(np.log(peak/(knee*scale)))) < np.log(k[1]/k[0])
 lo,med,hi=np.quantile(power,[.16,.5,.84],axis=0);q=np.quantile(knee*scale,[.16,.5,.84]);best=provenance['draw']
-plt.style.use(ROOT/'src/kappaccino/style.mplstyle');plt.rcParams.update(PAPER_STYLE)
+plt.style.use(ROOT/'src/kappaccino/plotting/style.mplstyle');plt.rcParams.update(PAPER_STYLE)
 fig,ax=plt.subplots(figsize=(7.1,4.2));order=np.argsort(wavelength);x=wavelength[order]
 ax.fill_between(x,lo[order],hi[order],color='#0072B2',alpha=.22,label=r'$\gamma_\kappa=4$: 16–84%')
 ax.loglog(x,med[order],c='#0072B2',label=r'$\gamma_\kappa=4$: median')

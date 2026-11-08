@@ -12,9 +12,12 @@ def main():
     parser.add_argument('--imaging', choices=('saved', 'jwst'), default='saved')
     parser.add_argument('--recompute', action='store_true', help='Recompute fold geometry instead of reusing saved diagnostics')
     args = parser.parse_args()
-    from kappaccino.cutouts import imaging_variants, load_cluster_imaging
-    from kappaccino.fold_diagnostics import compute_fold_diagnostics, save_fold_data, render_fold_diagnostics, load_fold_data
-    from kappaccino import artifacts
+    from kappaccino.imaging.cutouts import imaging_variants, load_cluster_imaging
+    from kappaccino.io.hdf5 import load_arrays
+    from kappaccino.plotting.fold_pairs import (
+        compute_fold_diagnostics, save_fold_data, render_fold_diagnostics, load_fold_data,
+    )
+    from kappaccino.io import artifacts
     import numpy as np
     log = lambda message: print(message, flush=True)
     final = Path(args.run_directory).resolve() / 'final'
@@ -25,9 +28,9 @@ def main():
         # A rendering operation must not reinterpret saved latent source coordinates.
         # The cache already contains image positions, sources, curves and bands.
         config = artifacts.load_config(final/'artifacts')
-        with np.load(final/'artifacts/posterior.npz') as posterior:
-            best = int(np.nanargmax(posterior['log_prob']))
-            count = len(posterior['samples'])
+        posterior = load_arrays(final/'artifacts/posterior.h5')
+        best = int(np.nanargmax(posterior['log_prob']))
+        count = len(posterior['samples'])
         if data['best_original_draw'] != best or data['posterior_draws_available'] != count:
             raise ValueError('Fold cache does not match the saved posterior; use --recompute')
         reference = config.model.reference

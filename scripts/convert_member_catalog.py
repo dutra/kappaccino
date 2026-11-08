@@ -24,7 +24,7 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from kappaccino.member_catalog import members_from_lenstool, write_member_catalog  # noqa: E402
+from kappaccino.io.member_catalog import members_from_lenstool, write_member_catalog  # noqa: E402
 
 
 def read_kinematics(path: Path) -> pd.DataFrame:

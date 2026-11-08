@@ -12,10 +12,10 @@ import pytest
 from scipy import stats
 
 from kappaccino import priors
-from kappaccino.evaluator import Evaluator
-from kappaccino.inputs import lenstool_ellipticite_to_axis_ratio
-from kappaccino.sampling import distribution_for_site, sample_sites
-from kappaccino.state import build_state
+from kappaccino.likelihood.evaluator import Evaluator
+from kappaccino.core.inputs import lenstool_ellipticite_to_axis_ratio
+from kappaccino.inference.sampling import distribution_for_site, sample_sites
+from kappaccino.core.state import build_state
 
 
 def _tail(config, tail="student_t", dof=4.0):

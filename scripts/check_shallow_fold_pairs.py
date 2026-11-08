@@ -23,7 +23,7 @@ def main():
     parser.add_argument('--max-separation', type=float, default=3.0, help='pairs closer than this (arcsec)')
     parser.add_argument('--output', default=None, help='JSON table; default final/tables/shallow_fold_pairs.json')
     args = parser.parse_args()
-    from kappaccino.gp_image_plane import shallow_fold_pair_report, shallow_fold_pairs
+    from kappaccino.likelihood.gp_image_plane import shallow_fold_pair_report, shallow_fold_pairs
     config, state, evaluator, posterior, paths = load_run(args.run_directory)
     likelihood = config.likelihood
     ell = args.ell if args.ell is not None else getattr(likelihood, 'gp_correlation_length_arcsec', 7.0)

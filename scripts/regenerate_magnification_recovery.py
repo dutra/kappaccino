@@ -17,9 +17,9 @@ def main():
     import pandas as pd
     from astropy.io import fits
     from astropy.wcs import WCS
-    from kappaccino.exact_images import astropy_cosmology
-    from kappaccino.truth_recovery import grid_arcsec
-    from kappaccino.magnification_recovery_plot import write_magnification_recovery
+    from kappaccino.diagnostics.exact_images import astropy_cosmology
+    from kappaccino.diagnostics.truth_recovery import grid_arcsec
+    from kappaccino.plotting.magnification_recovery import write_magnification_recovery
 
     for run in args.run_directories:
         final = run / 'final'

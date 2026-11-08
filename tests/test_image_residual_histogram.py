@@ -4,7 +4,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from kappaccino.plots import plot_image_residual_histogram, posterior_residual_spread
+from kappaccino.plotting.plots import plot_image_residual_histogram, posterior_residual_spread
 
 
 def _draws(counts):
@@ -31,7 +31,7 @@ def test_histogram_renders_with_error_bars_and_warning(tmp_path):
 
 
 def test_posterior_bin_counts_include_empty_draws_and_exclude_unrecovered():
-    from kappaccino.plots import posterior_residual_histogram_counts
+    from kappaccino.plotting.plots import posterior_residual_histogram_counts
     draws = pd.DataFrame({'draw_index': [0, 0, 1, 1, 2, 2],
                           'recovered': [True, False, True, True, False, False],
                           'image_residual_arcsec': [.1, .1, .1, .3, .1, np.nan]})
@@ -41,7 +41,7 @@ def test_posterior_bin_counts_include_empty_draws_and_exclude_unrecovered():
 
 
 def test_histogram_band_keeps_equal_or_better_recovery_counts():
-    from kappaccino.plots import posterior_residual_histogram_counts
+    from kappaccino.plotting.plots import posterior_residual_histogram_counts
     bins = np.array([0., .25, .5])
     draws = _draws([2, 3, 4])
     counts = posterior_residual_histogram_counts(draws, bins, min_recovered=3)

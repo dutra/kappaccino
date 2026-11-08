@@ -9,9 +9,9 @@ from typing import Any
 import numpy as np
 from scipy.special import gammainc, gammaincinv
 
-from ..inputs import lenstool_shape_to_e1e2
-from ..jax_cosmology import kpc_per_arcsec_from_config
-from ..utils import DPIE_MASS_GRAVITATIONAL_CONSTANT_KPC_KMS2_PER_MSUN as G_KPC, log10_dpie_mass_msun
+from ..core.inputs import lenstool_shape_to_e1e2
+from ..lens.cosmology import kpc_per_arcsec_from_config
+from ..core.utils import DPIE_MASS_GRAVITATIONAL_CONSTANT_KPC_KMS2_PER_MSUN as G_KPC, log10_dpie_mass_msun
 from .config import MockConfig
 from .field import draw_image_plane_error, draw_mass_field
 

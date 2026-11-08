@@ -49,6 +49,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import fit_arc_source as fas  # noqa: E402  (paths, x64, working directory)
 from find_missing_images import CLUSTER_Z, COLOUR_BANDS, HAS_PHOTOZ, load_photometry, load_published  # noqa: E402
 from predict_counter_images import lens_at  # noqa: E402
+from kappaccino.io.hdf5 import load_arrays, save_arrays  # noqa: E402
 
 jnp, np, pd = fas.jnp, fas.np, fas.pd
 Z_CLUSTER = 0.396
@@ -133,11 +134,11 @@ class LinearLens:
 def draw_fields(lens, theta, xy, cache: Path):
     """The two base deflections and Jacobians of one draw at the points ``xy``, cached in ``cache``."""
     if cache.exists():
-        with np.load(cache) as f:
-            if f["xy"].shape == xy.shape and np.allclose(f["xy"], xy):
-                return f["alpha_a"], f["alpha_b"], f["A_a"], f["A_b"]
+        f = load_arrays(cache)
+        if f["xy"].shape == xy.shape and np.allclose(f["xy"], xy):
+            return f["alpha_a"], f["alpha_b"], f["A_a"], f["A_b"]
     alpha_a, alpha_b, A_a, A_b = lens.fields(xy, theta)
-    np.savez_compressed(cache, xy=xy, alpha_a=alpha_a, alpha_b=alpha_b, A_a=A_a, A_b=A_b)
+    save_arrays(cache, xy=xy, alpha_a=alpha_a, alpha_b=alpha_b, A_a=A_a, A_b=A_b)
     return alpha_a, alpha_b, A_a, A_b
 
 
@@ -318,7 +319,7 @@ def main():
     best_fields = None
     for d_idx, theta in zip(draws, thetas):
         t1 = time.time()
-        fields = draw_fields(lens, theta, xy, cache / f"draw_{d_idx}_{args.mag_limit}_{args.field}{'_null' if args.null else ''}.npz")
+        fields = draw_fields(lens, theta, xy, cache / f"draw_{d_idx}_{args.mag_limit}_{args.field}{'_null' if args.null else ''}.h5")
         best_fields = best_fields or fields
         alpha_a, alpha_b, A_a, A_b = fields
         p0, dvec = xy - alpha_a, alpha_b - alpha_a
@@ -340,7 +341,7 @@ def main():
     gxx, gyy = np.meshgrid(g, g)
     grid_xy = np.column_stack([gxx.ravel(), gyy.ravel()])
     t2 = time.time()
-    ga, gb, gA, gB = draw_fields(lens, thetas[0], grid_xy, cache / f"grid_{draws[0]}_{args.grid_step}_{args.field}.npz")
+    ga, gb, gA, gB = draw_fields(lens, thetas[0], grid_xy, cache / f"grid_{draws[0]}_{args.grid_step}_{args.field}.h5")
     print(f"[grid] {len(grid_xy)} points in {time.time() - t2:.0f} s")
     grid_pa, grid_d = grid_xy - ga, gb - ga
     alpha_a, alpha_b, A_a, A_b = best_fields

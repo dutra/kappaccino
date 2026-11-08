@@ -18,10 +18,10 @@ configure_cpu_runtime(4, "parallel")    # 4 chains, matching RuntimeConfig.chain
 ## Option 1: from a Lenstool `.par` file
 
 If you already have a Lenstool model, read its halos, priors, member population and cosmology with
-{func}`~kappaccino.lenstool_par.config_from_lenstool_par`:
+{func}`~kappaccino.io.lenstool_par.config_from_lenstool_par`:
 
 ```python
-from kappaccino.lenstool_par import config_from_lenstool_par
+from kappaccino.io.lenstool_par import config_from_lenstool_par
 
 config = config_from_lenstool_par(
     "catalogs/as1063/bergamini2019/source/Bergamini_RXCJ2248_lenstool_Normal.par",
@@ -98,7 +98,7 @@ init/
   tables/      classification_report.txt
   logs/        init.log
 final/
-  artifacts/   posterior.npz, audit.json, summary.json
+  artifacts/   posterior.h5, audit.json, summary.json
   tables/      posterior_summary.csv, image_fit_quality.csv, run_summary.txt, ...
   figures/     <prefix>_critical_curves.pdf, <prefix>_corner_globals.pdf, ...
   fits/        convergence, shear, det A and magnification maps

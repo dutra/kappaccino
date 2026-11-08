@@ -21,21 +21,22 @@ def main():
     import matplotlib.pyplot as plt
     import numpy as np
     import pandas as pd
-    from kappaccino import artifacts, plots
-    from kappaccino.cutouts import imaging_variants, load_cluster_imaging
-    from kappaccino.evaluator import Evaluator
-    from kappaccino.mass_figure import render_cluster_mass_figure
-    from kappaccino.state import build_state, with_member_classes
+    from kappaccino.io import artifacts
+    from kappaccino.plotting import plots
+    from kappaccino.imaging.cutouts import imaging_variants, load_cluster_imaging
+    from kappaccino.likelihood.evaluator import Evaluator
+    from kappaccino.plotting.mass_figure import render_cluster_mass_figure
+    from kappaccino.core.state import build_state, with_member_classes
 
     run = args.run_directory.resolve()
     init, final = run / "init" / "artifacts", run / "final"
     config = artifacts.load_config(final / "artifacts")
     if args.imaging != "saved":
         from dataclasses import replace
-        from kappaccino.rgb import DEFAULT_HFF_RGB_BANDS, DEFAULT_JWST_RGB_BANDS
+        from kappaccino.imaging.rgb import DEFAULT_HFF_RGB_BANDS, DEFAULT_JWST_RGB_BANDS
         jwst = args.imaging == "jwst"
         from kappaccino.config import RGBDisplayConfig
-        from kappaccino.cutouts import cluster_from_config
+        from kappaccino.imaging.cutouts import cluster_from_config
         cluster = cluster_from_config(config.model, config.paths.run_name)
         jwst_dir = f"data/imaging/{cluster}/{'canucs_dr1' if cluster == 'm0416' else 'dja_v7.5'}"
         hst_dir = f"data/imaging/{cluster}/buffalo"
@@ -69,10 +70,10 @@ def main():
         extra = pd.DataFrame()  # No extra images were recovered in this saved run.
     position_contours = None
     if args.imaging == 'jwst' or config.image_catalog.figure_suffix == '_jwst':
-        from kappaccino.image_position_contours import load_or_compute_contours
+        from kappaccino.diagnostics.position_contours import load_or_compute_contours
         position_contours = load_or_compute_contours(config, state, evaluator, posterior, extra, final / 'tables', log=lambda x: print(x,flush=True))
     imaging = load_cluster_imaging(config.image_catalog, config.model, config.paths.run_name)
-    plt.style.use(str(ROOT / "src" / "kappaccino" / "style.mplstyle"))
+    plt.style.use(str(ROOT / "src" / "kappaccino" / "plotting" / "style.mplstyle"))
     output = plots.figure_path(final / "figures", f"image_catalog_family_cluster_mass{config.image_catalog.figure_suffix}.pdf", config.paths.figure_prefix)
     print(f"Rendering saved draw {best_index}: {output}", flush=True)
     provenance = render_cluster_mass_figure(evaluator, theta, catalog, extra, imaging,

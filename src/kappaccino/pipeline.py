@@ -23,21 +23,25 @@ import jax.numpy as jnp
 import numpy as np
 import pandas as pd
 
-from . import artifacts
-from .audit import audit_posterior
-from .classification import (classify_members, far_field_threshold_rows, conservative_cut_radii_arcsec, impact_cut, member_cut_radii_arcsec,
-                             prior_quantile_beta, prior_quantile_cut_kpc)
+from .io import artifacts
+from .diagnostics.audit import audit_posterior
+from .core.classification import (
+    classify_members, far_field_threshold_rows, conservative_cut_radii_arcsec, impact_cut, member_cut_radii_arcsec,
+    prior_quantile_beta, prior_quantile_cut_kpc,
+)
 from .config import LensClusterSolverConfig
-from .evaluator import Evaluator
-from .init_plots import write_init_plots
-from .model import ModelState, PosteriorResults
+from .likelihood.evaluator import Evaluator
+from .plotting.init import write_init_plots
+from .core.model import ModelState, PosteriorResults
 from .priors import physical_center
-from .outputs import write_outputs
-from .report import audit_report, classification_report, far_field_threshold_table, run_summary_table, start_parameter_report
-from .sampling import run_nuts
-from .search import chain_starts
-from .search_split import split_map
-from .state import build_state, deviation_constraint_ratio, with_member_classes, convert_member_centering
+from .reporting.outputs import write_outputs
+from .reporting.text import (
+    audit_report, classification_report, far_field_threshold_table, run_summary_table, start_parameter_report,
+)
+from .inference.sampling import run_nuts
+from .inference.search import chain_starts
+from .inference.search_split import split_map
+from .core.state import build_state, deviation_constraint_ratio, with_member_classes, convert_member_centering
 
 STAGES = ("init", "final", "both")
 
@@ -99,7 +103,7 @@ class InitResult:
         latent vector), ``modes`` (list of dicts with ``theta``,
         ``log_posterior``, ``within_margin``, ``count``, ...), ``method``,
         ``starts``, ``n_finite``, ``search_seconds``, ``polish_seconds`` and
-        stage diagnostics. Saved as ``init/artifacts/search.npz`` and
+        stage diagnostics. Saved as ``init/artifacts/search.h5`` and
         ``init/artifacts/modes.json``.
     theta : numpy.ndarray
         The chain start, shape ``(n_parameters,)``, in latent coordinates (ln of
@@ -137,7 +141,7 @@ class RunResult:
     posterior : PosteriorResults
         NUTS draws (latent ``samples`` and ``physical`` values, ``log_prob``,
         sampler statistics) and convergence ``diagnostics``. Saved as
-        ``final/artifacts/posterior.npz`` and
+        ``final/artifacts/posterior.h5`` and
         ``final/artifacts/posterior_diagnostics.json``.
     audit : dict
         Posterior audit of the member approximation, including
@@ -412,9 +416,9 @@ def converge_chain_starts(state: ModelState, evaluator: Evaluator, search: dict[
     non-degenerate point.  The modes are then ranked on the target: those within search.mode_margin of the best seed chains,
     the others are dropped (within_margin False, dropped_for_nuts).  Logs the global-block Hessian negative eigenvalues of
     the start."""
-    from .sampling import block_mass_seed, posterior_model
-    from . import search as search_module
-    from .search import Objective
+    from .inference.sampling import block_mass_seed, posterior_model
+    from .inference import search as search_module
+    from .inference.search import Objective
     max_iter = int(config.search.nuts_start_max_iter)
     if max_iter <= 0:
         return search
@@ -506,8 +510,8 @@ def chain_start_conditioning(state: ModelState, evaluator: Evaluator, search: di
     one line, and a WARNING when the decrement exceeds START_DECREMENT_WARNING or the negative eigenvalues exceed
     sampling.HESSIAN_NEGATIVE_FRACTION_WARNING of the dimension.  Returns ``search`` with ``start_conditioning`` added."""
     import jax
-    from .sampling import HESSIAN_NEGATIVE_FRACTION_WARNING
-    from .search import Objective
+    from .inference.sampling import HESSIAN_NEGATIVE_FRACTION_WARNING
+    from .inference.search import Objective
     started = time.perf_counter()
     theta = np.asarray(search["theta"], dtype=float)
     objective = Objective(state, evaluator, theta, include_latent=True, log_likelihood=evaluator.log_likelihood)
@@ -610,8 +614,8 @@ def run_init(config: LensClusterSolverConfig) -> InitResult:
     (init figures are redrawn only if missing).
 
     Files written (relative to the run root): ``init/artifacts/``
-    ``init_signature.json``, ``config.json``, ``config.pkl``, ``state.json``,
-    ``classification.json``, ``search.npz``, ``modes.json``, ``start.json``,
+    ``init_signature.json``, ``config.json``, ``state.json``,
+    ``classification.json``, ``search.h5``, ``modes.json``, ``start.json``,
     ``summary.json``; ``init/tables/classification_report.txt``,
     ``init/tables/start_parameters.txt``,
     ``init/tables/member_kinematics.csv`` (members with kinematics only),
@@ -746,7 +750,7 @@ def _run_init(config: LensClusterSolverConfig) -> InitResult:
                 f"({table.loc[np.argmax(np.abs(table['z'].to_numpy())), 'member']})")
         if evaluator.gp_mode:
             # Pre-run check of the shallow fold pairs at the start; sigma_fl is not changed here, the report says when to lower it.
-            from .gp_image_plane import shallow_fold_pair_report, shallow_fold_pairs
+            from .likelihood.gp_image_plane import shallow_fold_pair_report, shallow_fold_pairs
             if getattr(evaluator, "gp_knee", False):
                 scales = {k: float(v) for k, v in evaluator.error_scales(evaluator.physical(jnp.asarray(theta))).items()
                           if k in ("gp_sigma_alpha", "gp_knee", "gp_knee_gamma", "sigma_shared", "gp_ell", "sigma_white")}
@@ -801,7 +805,7 @@ def run_final(config: LensClusterSolverConfig, init: InitResult) -> RunResult:
     and only the outputs are rewritten.
 
     Files written (relative to the run root): ``final/artifacts/config.json``,
-    ``config.pkl``, ``posterior.npz``, ``posterior_diagnostics.json``,
+    ``config.json``, ``posterior.h5``, ``posterior_diagnostics.json``,
     ``audit.json``, ``summary.json``; ``final/tables/audit_report.txt``; unless
     ``runtime.skip_plots``, the tables, figures and FITS maps of
     ``final/tables/``, ``final/figures/`` and ``final/fits/`` (including
@@ -919,7 +923,7 @@ def run(config: LensClusterSolverConfig, stage: str = "both") -> RunResult | Ini
     writes ``final/tables/runtime.json`` (only when neither stage was resumed,
     so a reload keeps the original timing), the LaTeX macros
     ``final/figures/<figure_prefix>_results.tex`` (see
-    :func:`kappaccino.results_tex.write_run_results`) and
+    :func:`kappaccino.reporting.results_tex.write_run_results`) and
     ``final/tables/run_summary.txt``, which is also printed unless
     ``runtime.quiet``.
 
@@ -959,7 +963,7 @@ def run(config: LensClusterSolverConfig, stage: str = "both") -> RunResult | Ini
         return init
     result = run_final(config, init)
     result.timing.update(init=init.elapsed_seconds, total=time.perf_counter() - started)
-    from .results_tex import write_run_results
+    from .reporting.results_tex import write_run_results
     # Preserve original full-run timing when only reloading/replotting a run.
     if not result.resumed and not init.resumed:
         artifacts.write_json(result.paths.final.tables / "runtime.json", result.timing)

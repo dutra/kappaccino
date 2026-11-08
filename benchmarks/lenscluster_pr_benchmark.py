@@ -28,9 +28,9 @@ from scipy.optimize import minimize
 
 from kappaccino.config import (CosmologyConfig, DPIEHaloConfig, ImageConstraintsConfig, LensClusterSolverConfig, LensModelConfig,
                                 LikelihoodConfig, MemberPopulationConfig, ReferenceFrameConfig, RunPathsConfig, ShearHaloConfig)
-from kappaccino.evaluator import Evaluator
-from kappaccino.search import Objective
-from kappaccino.state import build_state
+from kappaccino.likelihood.evaluator import Evaluator
+from kappaccino.inference.search import Objective
+from kappaccino.core.state import build_state
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MARKER = "<!-- lenscluster benchmark -->"

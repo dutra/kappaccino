@@ -3,7 +3,7 @@ images as the images of one source with the source position integrated out (an u
 ``slots`` also uses groups to seed new slots).
 
 Each image i ray-shoots to beta_i(z) = x_i - alpha(x_i; z) with Jacobian A_i(z).  As for the trusted families
-(``smoothed_likelihood``), the image-plane density of the observed position given a source beta is, to first order,
+(``kappaccino.likelihood.smoothed``), the image-plane density of the observed position given a source beta is, to first order,
 
     p(x_i | beta, z, Theta) = N(beta | beta_i, C_i) h_i,    C_i = sigma_meas^2 A_i A_i^T + sigma_def^2 I + sigma_sel^2 R_i
 
@@ -35,8 +35,8 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from .. import smoothed_likelihood as sl
-from ..model import SHEAR_PROFILE
+from ..likelihood import smoothed as sl
+from ..core.model import SHEAR_PROFILE
 
 LOG_2PI = float(np.log(2.0 * np.pi))
 
@@ -83,7 +83,7 @@ class LensImages:
 
 def lens_images(state, xy, sigma_inst, parity, z_grid, *, prior_mean=None, prior_sigma: float | None = None) -> LensImages:
     """``LensImages`` for a model state; the source prior defaults to the trusted families' prior."""
-    from ..jax_cosmology import dpie_sigma0_factor_from_config
+    from ..lens.cosmology import dpie_sigma0_factor_from_config
     z_grid = np.asarray(z_grid, dtype=float)
     if np.any(z_grid <= float(state.z_lens)):
         raise ValueError(f"the redshift grid must lie behind the lens (z_lens = {state.z_lens}).")
@@ -148,7 +148,7 @@ def error_scales(evaluator, physical: jnp.ndarray, images: LensImages, ratio: jn
 def image_terms(fields: dict[str, jnp.ndarray], scales: dict[str, jnp.ndarray], images: LensImages) -> dict[str, jnp.ndarray]:
     """The per-image parts of the evidence that do not depend on the family, shape (grid, image, ...).
 
-    As in ``smoothed_likelihood.statistics``: the covariance C, its precision and log det, det A, p = C^-1 c with the
+    As in ``smoothed.statistics``: the covariance C, its precision and log det, det A, p = C^-1 c with the
     measurement cross-covariance c = -sigma_meas^2 A grad(det A), and the variance of the smoothed determinant (free of
     the residual r).  Its mean is det A + p . r with r = beta_i - source.
     """

@@ -17,17 +17,18 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
-from kappaccino import artifacts
-from kappaccino.state import build_state, with_member_classes
-from kappaccino.model import convert_theta_to_latent
-from kappaccino.evaluator import Evaluator
-from kappaccino.jax_cosmology import dpie_sigma0_factor_from_config
-from kappaccino.aperture_mass_histogram import render_histogram, aperture_masses
-from kappaccino.plot_style import PAPER_STYLE
+from kappaccino.io import artifacts
+from kappaccino.io.hdf5 import load_arrays, save_arrays
+from kappaccino.core.state import build_state, with_member_classes
+from kappaccino.core.model import convert_theta_to_latent
+from kappaccino.likelihood.evaluator import Evaluator
+from kappaccino.lens.cosmology import dpie_sigma0_factor_from_config
+from kappaccino.plotting.aperture_mass_histogram import render_histogram, aperture_masses
+from kappaccino.plotting.style import PAPER_STYLE
 
 
 def render_plots(out,parametric,truth,grf,norms,valid,inside,summary,table):
-    plt.style.use(Path(__file__).resolve().parents[1]/'src/kappaccino/style.mplstyle');plt.rcParams.update(PAPER_STYLE)
+    plt.style.use(Path(__file__).resolve().parents[1]/'src/kappaccino/plotting/style.mplstyle');plt.rcParams.update(PAPER_STYLE)
     with PdfPages(out/'radius_histograms.pdf') as pdf:
         for label,select in [('all',valid),('image_hull',valid&inside)]:
             fig,axes=plt.subplots(3,3,figsize=(7.1,6.3),sharex=True,sharey=True)
@@ -62,7 +63,7 @@ def main():
     started=time.perf_counter()
     base=args.baseline;out=base/'grf_correction';out.mkdir(exist_ok=True)
     if args.render_only:
-        cache=np.load(out/'aperture_arrays.npz')
+        cache=load_arrays(out/'aperture_arrays.h5')
         summary=pd.read_csv(out/'normalization_statistics.csv')
         table=pd.read_csv(out/'member_aperture_masses.csv')
         first=table[table.normalization_kpc==cache['normalizations_kpc'][0]]
@@ -71,8 +72,8 @@ def main():
         return
     provenance=json.loads((base/'provenance.json').read_text())
     run=Path(provenance['run']);init=run/'init/artifacts';final=run/'final'
-    assert hashlib.sha256((final/'artifacts/posterior.npz').read_bytes()).hexdigest()==provenance['posterior_sha256']
-    data=np.load(base/'aperture_arrays.npz')
+    assert hashlib.sha256((final/'artifacts/posterior.h5').read_bytes()).hexdigest()==provenance['posterior_sha256']
+    data=load_arrays(base/'aperture_arrays.h5')
     config=artifacts.load_config(final/'artifacts')
     classes=json.loads((init/artifacts.CLASSIFICATION_FILE).read_text())
     state=build_state(config,drop_member_ids=classes.get('dropped_members',()))
@@ -183,7 +184,7 @@ def main():
     summary=pd.DataFrame(rows);table=pd.concat(histograms,ignore_index=True)
     summary.to_csv(out/'normalization_statistics.csv',index=False)
     table.to_csv(out/'member_aperture_masses.csv',index=False)
-    np.savez_compressed(out/'aperture_arrays.npz',grf_mass=grf,parametric_mass=parametric,truth_mass=truth,
+    save_arrays(out/'aperture_arrays.h5',grf_mass=grf,parametric_mass=parametric,truth_mass=truth,
         normalizations_kpc=norms,member_ids=data['member_ids'],theta=theta,physical=physical)
     best=render_plots(out,parametric,truth,grf,norms,valid,inside,summary,table)
     metadata=dict(baseline=str(base.resolve()),posterior_sha256=provenance['posterior_sha256'],

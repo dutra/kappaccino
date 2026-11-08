@@ -5,13 +5,13 @@ from _covariance_plot_cli import load_run
 
 
 def prepare(run, data):
-    from kappaccino.fold_diagnostics import load_fold_data, save_fold_data, add_best_grf_critical_curves
-    from kappaccino.grf_plotting import PLOT_FIELD_VERSION
+    from kappaccino.plotting.fold_pairs import load_fold_data, save_fold_data, add_best_grf_critical_curves
+    from kappaccino.plotting.grf import PLOT_FIELD_VERSION
     final = Path(run).resolve()/'final'
     cache = final/'tables/apj_fold_grf'
     digest = hashlib.sha256(PLOT_FIELD_VERSION.encode()+b'apj-physical-draws-quantile-curves-v3')
-    for path in (final/'tables/fold_pairs_source_caustics.npz', final/'tables/fold_pairs_source_caustics.json',
-                 final/'artifacts/posterior.npz'):
+    for path in (final/'tables/fold_pairs_source_caustics.h5', final/'tables/fold_pairs_source_caustics.json',
+                 final/'artifacts/posterior.h5'):
         digest.update(path.read_bytes())
     key = digest.hexdigest()
     if (cache/'fold_pairs_source_caustics.json').exists():

@@ -17,7 +17,8 @@ SCALE=5.340068651570361
 def maps(run, system, step, out):
     from _covariance_plot_cli import load_run
     config,state,evaluator,posterior,paths=load_run(run)
-    from kappaccino.fold_diagnostics import load_fold_data
+    from kappaccino.plotting.fold_pairs import load_fold_data
+    from kappaccino.io.hdf5 import load_arrays, save_arrays
     data=load_fold_data(paths.tables)
     s=next(s for s in data['systems'] if s['system_id']==system)
     knots=np.asarray(s['observed'])
@@ -39,8 +40,8 @@ def maps(run, system, step, out):
         grf[start:start+n]=np.stack(c[2:],axis=-1)[:n].reshape(n,2,2)
         if start % (384*20)==0: print(f'GRF {start}/{len(points)}',flush=True)
     a=np.eye(2)-h; b=a-grf
-    dest=out/f'{system}_map_{step:g}.npz'
-    np.savez_compressed(dest,x=x,y=y,knots=knots,det_parametric=np.linalg.det(a).reshape(xx.shape),
+    dest=out/f'{system}_map_{step:g}.h5'
+    save_arrays(dest,x=x,y=y,knots=knots,det_parametric=np.linalg.det(a).reshape(xx.shape),
         det_grf=np.linalg.det(b).reshape(xx.shape),best_draw=best,z_source=s['z_source'],
         jac_parametric=a.reshape(*xx.shape,2,2),jac_grf=b.reshape(*xx.shape,2,2))
     return dest
@@ -53,7 +54,7 @@ def distribution(offset,weight,bins):
         q05_kpc=float(q[0]),q95_kpc=float(q[2]),negative_reference_fraction=float(w[d<0].sum()/w.sum()))
 
 def analyze(path,out,system):
-    d=np.load(path);x,y=d['x'],d['y'];xx,yy=np.meshgrid(x,y);points=np.column_stack([xx.ravel(),yy.ravel()])
+    d=load_arrays(path);x,y=d['x'],d['y'];xx,yy=np.meshgrid(x,y);points=np.column_stack([xx.ravel(),yy.ravel()])
     step=x[1]-x[0];knots=d['knots'];hp=ConvexHull(knots).equations
     inside=np.all(points@hp[:,:2].T+hp[:,2]<=1e-12,axis=1).reshape(xx.shape)
     distance=distance_transform_edt(~inside,sampling=(step,step))
@@ -135,13 +136,13 @@ def analyze(path,out,system):
         'Best draw of unconverged chain; conditional-mean field only; no absolute event rates'],
         baseline=records,selection_sensitivity=sens,aperture_and_cap_sensitivity=aperture)
     (out/f'{system}_estimate.json').write_text(json.dumps(result,indent=2)+'\n')
-    np.savez_compressed(out/f'{system}_event_proxy.npz',x=x,y=y,mask=mask,offset_kpc=offset,weights=np.asarray(weights),bins=bins)
+    save_arrays(out/f'{system}_event_proxy.h5',x=x,y=y,mask=mask,offset_kpc=offset,weights=np.asarray(weights),bins=bins)
     print(json.dumps(result['baseline'],indent=2),flush=True)
 
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--run',default=RUN);p.add_argument('--system',default='K1');p.add_argument('--step',type=float,default=.02);p.add_argument('--output',type=Path,default=OUT)
     args=p.parse_args();args.output.mkdir(parents=True,exist_ok=True)
-    path=args.output/f'{args.system}_map_{args.step:g}.npz'
+    path=args.output/f'{args.system}_map_{args.step:g}.h5'
     if not path.exists():path=maps(args.run,args.system,args.step,args.output)
     analyze(path,args.output,args.system)
 

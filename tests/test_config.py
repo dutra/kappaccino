@@ -4,7 +4,7 @@ from dataclasses import replace
 
 import pytest
 
-from kappaccino import artifacts
+from kappaccino.io import artifacts
 from kappaccino.config import ImageDiagnosticsConfig, MemberConfig, SamplingConfig
 
 

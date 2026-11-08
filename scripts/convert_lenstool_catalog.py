@@ -23,8 +23,8 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from kappaccino.image_catalog import write_image_catalog  # noqa: E402
-from kappaccino.sky import offsets_to_radec  # noqa: E402
+from kappaccino.io.image_catalog import write_image_catalog  # noqa: E402
+from kappaccino.io.sky import offsets_to_radec  # noqa: E402
 
 LABEL_RE = re.compile(r"^([A-Z0-9]+)\.([a-z]+)$")
 BASE = ["label", "x", "y", "a", "b", "theta", "z", "mag"]

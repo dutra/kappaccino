@@ -10,8 +10,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from ..image_catalog import systems_from_offsets, write_image_catalog
-from ..sky import offsets_to_radec
+from ..io.image_catalog import systems_from_offsets, write_image_catalog
+from ..io.sky import offsets_to_radec
 from .truth import MockTruth
 
 IMAGE_CATALOG = "images.yaml"
@@ -43,7 +43,7 @@ def write_mock(root: Path, truth: MockTruth, sources: list[dict[str, Any]], imag
     root = Path(root)
     root.mkdir(parents=True, exist_ok=True)
     paths = MockPaths(root)
-    # Image catalog (kappaccino.image_catalog): one system per source galaxy, observed positions and magnitudes; a
+    # Image catalog (kappaccino.io.image_catalog): one system per source galaxy, observed positions and magnitudes; a
     # galaxy with knots is one system whose images list their knots (one family per knot).
     rows, knotted = [], []
     for r in images.itertuples(index=False):

@@ -4,14 +4,15 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import make_covariance_revision as m
+from kappaccino.io.hdf5 import load_arrays
 
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('run_directory',type=Path);p.add_argument('--image',default='K1A.a');args=p.parse_args()
     run=args.run_directory.resolve();final=run/'final';tables=final/'tables'
     cfg=json.loads((final/'artifacts/config.json').read_text());lk=cfg['likelihood']
     specs=json.loads((run/'init/artifacts/state.json').read_text())['parameter_specs']
-    with np.load(final/'artifacts/posterior.npz',allow_pickle=True) as d:
-        best=int(np.nanargmax(d['log_prob']));physical=d['physical'][best]
+    d = load_arrays(final/'artifacts/posterior.h5')
+    best=int(np.nanargmax(d['log_prob']));physical=d['physical'][best]
     values={s['name']:float(v) for s,v in zip(specs,physical)}
     audit=json.loads((tables/'covariance_errors_both_planes.json').read_text());assert audit['best_draw']==best
     widths=pd.read_csv(tables/'covariance_errors_both_planes.csv');widths=widths[widths.image_label==args.image]
@@ -28,7 +29,7 @@ def main():
         l=float(row.singular_value_best);total=np.sqrt((sm**2+sh**2)*l*l+effective**2)
         if row.plane=='image':total/=l
         errors.append(abs(total-row.total_arcsec));np.testing.assert_allclose(total,row.total_arcsec,rtol=1e-11,atol=1e-12)
-    m.OUT.mkdir(parents=True,exist_ok=True);m.plt.style.use(m.ROOT/'src/kappaccino/style.mplstyle');m.plt.rcParams.update(m.PAPER_STYLE)
+    m.OUT.mkdir(parents=True,exist_ok=True);m.plt.style.use(m.ROOT/'src/kappaccino/plotting/style.mplstyle');m.plt.rcParams.update(m.PAPER_STYLE)
     fig=m.mapping(sm=sm,sa=sa,sh=sh,lt=lt,lr=lr,angle_deg=angle,floor=floor)
     fig.savefig(m.OUT/'covariance_local_mapping.pdf');m.plt.close(fig)
     provenance=dict(run=str(run),draw=best,selection='maximum saved log_prob',image=args.image,z_source=float(image.z_source),
@@ -36,7 +37,7 @@ def main():
         sigma_alpha_reference=alpha,redshift_weight_inferred_from_saved_diagonal=w,sigma_alpha_at_image=sa,source_floor=floor,
         deflection_plus_floor=effective,lambda_t_abs=lt,lambda_r_abs=lr,angle_deg=angle,
         gp_knee=values['images.gp_knee'],gp_ell=values['images.gp_ell'],max_saved_total_width_error=max(errors),
-        posterior_sha256=hashlib.sha256((final/'artifacts/posterior.npz').read_bytes()).hexdigest())
+        posterior_sha256=hashlib.sha256((final/'artifacts/posterior.h5').read_bytes()).hexdigest())
     (m.OUT/'latest_run_provenance.json').write_text(json.dumps(provenance,indent=2));print(json.dumps(provenance,indent=2))
     (m.OUT/'latest_run_caption.txt').write_text(
         r'\textbf{Image- and source-plane positional uncertainties.} Panels (a) and (b) show the marginal covariance ellipses for image '+args.image+

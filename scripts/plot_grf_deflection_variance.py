@@ -11,10 +11,12 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/'src'))
-from kappaccino.plot_style import PAPER_STYLE
+from kappaccino.plotting.style import PAPER_STYLE
+from kappaccino.io.hdf5 import load_arrays
 out=ROOT/'plots/paper/grf_power_spectrum';meta=json.loads((out/'provenance.json').read_text())
 state=json.loads((Path(meta['run'])/'init/artifacts/state.json').read_text());scale=state['kpc_per_arcsec']
-with np.load(out/'spectrum_draws.npz') as d:k=d['k'];P=d['power'];knee=d['knee'];sigma=d['sigma_alpha']
+d = load_arrays(out/'spectrum_draws.h5')
+k=d['k'];P=d['power'];knee=d['knee'];sigma=d['sigma_alpha']
 best=meta['draw'];x=(2*np.pi/k*scale)[::-1];lnx=np.log(x)
 def products(p):
  p=np.atleast_2d(p)
@@ -29,7 +31,7 @@ for gamma in [2,6]:
  spectrum=shape*np.pi*sigma[best]**2/simpson(shape,x=np.log(k))
  variants[gamma]=products(spectrum)
  np.testing.assert_allclose(variants[gamma][3][0,-1],sigma[best]**2,rtol=1e-11)
-plt.style.use(ROOT/'src/kappaccino/style.mplstyle');plt.rcParams.update(PAPER_STYLE)
+plt.style.use(ROOT/'src/kappaccino/plotting/style.mplstyle');plt.rcParams.update(PAPER_STYLE)
 fig,axes=plt.subplots(2,2,figsize=(7.1,6.4));axes=axes.ravel()
 labels=[r'$k_\theta^2P_\kappa/(2\pi)$',r'$P_\kappa/k_\theta^2$ [arcsec$^4$]',r'$d\sigma_{\alpha,x}^2/d\ln\lambda$ [arcsec$^2$]',r'$\sigma_{\alpha,x}^2(\lambda^\prime\leq\lambda)$ [arcsec$^2$]']
 for i,(ax,data,ylabel) in enumerate(zip(axes,curves,labels)):

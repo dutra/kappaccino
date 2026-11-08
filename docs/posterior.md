@@ -20,10 +20,10 @@ From the files of a finished run, without rebuilding the model:
 
 ```python
 import json
-import numpy as np
+from kappaccino.io.hdf5 import load_arrays
 
 root = "results/demo/hera"
-saved = np.load(f"{root}/final/artifacts/posterior.npz")
+saved = load_arrays(f"{root}/final/artifacts/posterior.h5")
 names = [spec["name"] for spec in json.load(open(f"{root}/init/artifacts/state.json"))["parameter_specs"]]
 physical = saved["physical"]                                          # (draw, parameter), same order as names
 ```
@@ -33,7 +33,7 @@ physical = saved["physical"]                                          # (draw, p
 Every array is in parameter order, the order of `state.parameter_specs` and of `names` above. Draws are concatenated
 chain by chain; `grouped_samples` keeps the chain axis.
 
-| `posterior.npz` key (`PosteriorResults` attribute) | shape | content |
+| `posterior.h5` dataset (`PosteriorResults` attribute) | shape | content |
 |---|---|---|
 | `physical` | (draw, parameter) | Physical values (units below). Sources are physical source positions. |
 | `samples` | (draw, parameter) | Latent values: the coordinate NUTS samples (see [Coordinates](#coordinates-and-units)). |

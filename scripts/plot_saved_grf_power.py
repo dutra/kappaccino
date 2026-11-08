@@ -7,13 +7,14 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/'src'))
-from kappaccino.plot_style import PAPER_STYLE
+from kappaccino.plotting.style import PAPER_STYLE
+from kappaccino.io.hdf5 import load_arrays, save_arrays
 
 def main():
  p=argparse.ArgumentParser();p.add_argument('run',type=Path);a=p.parse_args();r=a.run.resolve()
  cfg=json.loads((r/'final/artifacts/config.json').read_text())['likelihood']
  specs=json.loads((r/'init/artifacts/state.json').read_text())['parameter_specs'];names=[s['name'] for s in specs]
- d=np.load(r/'final/artifacts/posterior.npz',allow_pickle=True);phys=d['physical'];best=int(np.nanargmax(d['log_prob']))
+ d=load_arrays(r/'final/artifacts/posterior.h5');phys=d['physical'];best=int(np.nanargmax(d['log_prob']))
  knee=phys[:,names.index('images.gp_knee')];sigma=phys[:,names.index('images.gp_sigma_alpha')]
  assert cfg['gp_knee_spectrum']=='knee' and cfg['gp_knee_gamma_prior'] is None
  gamma=cfg['gp_knee_gamma'];small,large=cfg['gp_knee_scales_arcsec'];k=np.geomspace(2*np.pi/large,2*np.pi/small,2401)
@@ -25,7 +26,7 @@ def main():
  fine=np.geomspace(k[0],k[-1],4801);fi=simpson(1/(1+(fine[None,:]*knee[:,None]/(2*np.pi))**gamma),x=np.log(fine),axis=1)
  assert np.max(abs(fi/integrals-1))<1e-8
  lo,med,hi=np.quantile(P,[.16,.5,.84],axis=0);q=np.quantile(knee,[.16,.5,.84])
- plt.style.use(ROOT/'src/kappaccino/style.mplstyle');plt.rcParams.update(PAPER_STYLE)
+ plt.style.use(ROOT/'src/kappaccino/plotting/style.mplstyle');plt.rcParams.update(PAPER_STYLE)
  fig,ax=plt.subplots(figsize=(7.1,4.2));color='#0072B2'
  ax.fill_between(k,lo,hi,color=color,alpha=.22,label='Saved draws: 16–84%')
  ax.loglog(k,med,c=color,label='Saved draws: median')
@@ -44,6 +45,6 @@ def main():
  normalization='sigma_alpha^2 = integral P_kappa dlnk / pi; Fourier covariance = integral d^2k/(2pi)^2 P exp(ik.r)',
  interpretation='Parametric convergence fluctuation spectrum inferred from saved draws; not a direct binned measurement. Outside band power is zero. Bands preliminary due to incomplete convergence. System-block covariance does not correlate different systems.',
  normalization_refinement_max_relative_error=float(np.max(abs(fi/integrals-1))))
- (out/'provenance.json').write_text(json.dumps(report,indent=2));np.savez_compressed(out/'spectrum_draws.npz',k=k,power=P,knee=knee,sigma_alpha=sigma)
+ (out/'provenance.json').write_text(json.dumps(report,indent=2));save_arrays(out/'spectrum_draws.h5',k=k,power=P,knee=knee,sigma_alpha=sigma)
  print(json.dumps(report,indent=2))
 if __name__=='__main__':main()

@@ -10,8 +10,8 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from kappaccino.evaluator import Evaluator
-from kappaccino.state import build_state
+from kappaccino.likelihood.evaluator import Evaluator
+from kappaccino.core.state import build_state
 from test_member_catalog import _yaml_config
 
 MEASURED = {"g1": (120.0, 3.0), "g2": (95.0, 6.0)}

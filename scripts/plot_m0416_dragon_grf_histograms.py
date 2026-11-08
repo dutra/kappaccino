@@ -11,6 +11,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from astropy.cosmology import FlatLambdaCDM
+from kappaccino.io.hdf5 import load_arrays, save_arrays
 
 DEFAULT = 'results/nov3o_densemass_notfast/m0416_canucs2025/w500s250t8_gamma4_allblocks/final'
 
@@ -21,16 +22,16 @@ def main():
     args = parser.parse_args()
     run, out = Path(args.run), Path(args.output)
     out.mkdir(parents=True, exist_ok=True)
-    path = run/'tables/fold_pairs_source_caustics.npz'
+    path = run/'tables/fold_pairs_source_caustics.h5'
     meta = json.loads(path.with_suffix('.json').read_text())
-    arrays = np.load(path)
+    arrays = load_arrays(path)
     scale = float(FlatLambdaCDM(H0=70, Om0=.3).kpc_proper_per_arcmin(.396).value/60)
     plt.rcParams.update({'font.family':'serif', 'mathtext.fontset':'stix', 'font.size':10,
                          'axes.grid':False, 'pdf.fonttype':42})
     figures = [plt.subplots(3, 3, figsize=(11, 9), layout='constrained') for _ in range(3)]
     summary, samples, profiles = [], {}, []
     for i, sm in enumerate(meta['systems']):
-        s = {k[len(f'system_{i}_'):]:arrays[k] for k in arrays.files if k.startswith(f'system_{i}_')}
+        s = {k[len(f'system_{i}_'):]:arrays[k] for k in arrays.keys() if k.startswith(f'system_{i}_')}
         normal = s['normal']; tangent = np.array([normal[1], -normal[0]])
         along = (s['seeds']-s['origin']) @ tangent
         # Use the central half of the displayed field: a fixed geometric aperture,
@@ -95,7 +96,7 @@ def main():
     fig.get_layout_engine().set(rect=(0,.045,1,.955))
     fig.text(.5,.012,'Same-draw GRF minus parametric curve; fixed reference normal; conditional-mean field only.',ha='center',fontsize=9)
     fig.savefig(out/'displacement_profiles.pdf'); plt.close(fig)
-    np.savez_compressed(out/'histogram_samples.npz',**samples)
+    save_arrays(out/'histogram_samples.h5',**samples)
     result=dict(input=str(path.resolve()), sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
         lens_redshift=.396, H0=70, Om0=.3, kpc_per_arcsec=scale,
         definition='(conditional-mean GRF curve - same-draw parametric curve) dot fixed reference normal; equal cross-section weights, equal complete-draw weights',

@@ -14,8 +14,8 @@ from astropy.io import fits
 from astropy.wcs import WCS
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
-from kappaccino.image_catalog import write_image_catalog, load_image_catalog
-from kappaccino.member_catalog import write_member_catalog, load_member_catalog
+from kappaccino.io.image_catalog import write_image_catalog, load_image_catalog
+from kappaccino.io.member_catalog import write_member_catalog, load_member_catalog
 
 ROOT = Path(__file__).resolve().parents[1]
 DEST = ROOT / 'catalogs/as1063/diego2026'

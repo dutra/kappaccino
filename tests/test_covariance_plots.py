@@ -9,9 +9,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from kappaccino.covariance_plots import write_covariance_plots
-from kappaccino.evaluator import Evaluator
-from kappaccino.state import build_state
+from kappaccino.plotting.covariance import write_covariance_plots
+from kappaccino.likelihood.evaluator import Evaluator
+from kappaccino.core.state import build_state
 
 
 @pytest.mark.parametrize('selection', [True, False])
@@ -47,7 +47,7 @@ def test_covariance_outputs_and_best_only(synthetic_config, tmp_path, selection)
 
 
 def test_normal_output_calls_covariance_suite(monkeypatch, synthetic_config, tmp_path):
-    from kappaccino import outputs
+    from kappaccino.reporting import outputs
     class ReachedCovariance(Exception):
         pass
     def reached(*args, **kwargs):

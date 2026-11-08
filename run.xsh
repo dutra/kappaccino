@@ -47,7 +47,7 @@ from kappaccino.config import (
     TruthRecoveryConfig,
 )
 from kappaccino.cpu_runtime import configure_cpu_runtime, resolve_cpu_plan, threads_per_chain_if_supported
-from kappaccino.jax_cosmology import kpc_per_arcsec_from_config
+from kappaccino.lens.cosmology import kpc_per_arcsec_from_config
 from kappaccino.priors import ellipticity_box, lognormal_from_moments, truncated_lognormal
 import numpyro.distributions as dist
 
@@ -99,7 +99,7 @@ SIGMA_INST_ARCSEC = 0.001
 
 # HFF display settings for observed clusters.
 HFF_RGB_BANDS = ["F435W", "F606W", "F814W", "F105W", "F125W", "F140W", "F160W"]
-HFF_RGB_DISPLAY = {}      # library defaults: f_nu-scaled Lupton display with the warm-white balance of kappaccino.rgb
+HFF_RGB_DISPLAY = {}      # library defaults: f_nu-scaled Lupton display with the warm-white balance of kappaccino.imaging.rgb
 # --imaging jwst: NIRCam mosaics (CANUCS for MACS0416, DJA for AS1063) under data/imaging/<cluster>/{canucs_dr1,dja_v7.5} (scripts/download_imaging.py); blue F115W+F150W, green
 # F150W+F200W, red F444W, the STScI/UNCOVER hue assignment with the four bands we hold.
 JWST_RGB_BANDS = ["F115W", "F150W", "F200W", "F444W"]
@@ -412,7 +412,7 @@ def _hff_clusters():
     # Carry over Bergamini member 1809 as a separate round dPIE at its light
     # position. Its initial mass and prior scales follow the existing neutral
     # relation evaluated at m_F160W=16.176, with alpha=0.25 and beta=0.5.
-    from kappaccino.sky import radec_to_offsets_arcsec
+    from kappaccino.io.sky import radec_to_offsets_arcsec
     old = clusters["AS1063"]
     pop = old["member_population"]
     bcg_x, bcg_y = radec_to_offsets_arcsec(342.183237, -44.530870,

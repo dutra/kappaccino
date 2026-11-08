@@ -16,11 +16,11 @@ import pandas as pd
 from scipy.integrate import quad
 from matplotlib.ticker import MaxNLocator
 
-from ..plot_style import PAPER_STYLE
+from ..plotting.style import PAPER_STYLE
 from .aperture import COMPONENT_GROUPS
 from .runner import CONVERGENCE_MIN_NEFF, CONVERGENCE_RHAT, convergence_verdict, RECOVERY_FILE
 
-STYLE = Path(__file__).resolve().parent.parent / "style.mplstyle"
+STYLE = Path(__file__).resolve().parent.parent / "plotting" / "style.mplstyle"
 if STYLE.exists():
     plt.style.use(str(STYLE))
 
@@ -870,7 +870,7 @@ def write_aggregate_plots(campaign_root: str | Path, output_dir: str | Path | No
     ``mock_calibration.pdf``, ``mock_relation_recovery.pdf``, ``mock_grf_gp_field_recovery.pdf``,
     ``mock_<block>_truth_deviation_corner.pdf`` (one per parameter block), ``mock_combined_truth_deviation_corner.pdf``
     and ``mock_aggregate_chain_traces.pdf``.  The field-recovery, deviation-corner and chain-trace figures also write
-    companion data files next to them (``.csv``, ``.txt``, ``.npz`` and ``.json`` files of the same stem, and
+    companion data files next to them (``.csv``, ``.txt``, ``.h5`` and ``.json`` files of the same stem, and
     ``mock_truth_deviation_corners.json``).
     """
     campaign = load_campaign(campaign_root, converged_only=converged_only)
@@ -889,7 +889,7 @@ def write_aggregate_plots(campaign_root: str | Path, output_dir: str | Path | No
         "failed_convergence": [{"seed": int(r.seed), "reasons": r.convergence_reasons} for r in excluded.itertuples()],
         "excluded": [{"seed": int(r.seed), "reasons": r.convergence_reasons} for r in excluded.itertuples()] if converged_only else []}, indent=2) + "\n")
     coverage_table(campaign).to_csv(output / "mock_coverage_table.csv", index=False)
-    from ..results_tex import write_mock_results
+    from ..reporting.results_tex import write_mock_results
     write_mock_results(campaign, output, rhat_cut=CONVERGENCE_RHAT, min_ess=CONVERGENCE_MIN_NEFF)
     plots = [plot_parameter_recovery(campaign, output / "mock_parameter_recovery_paper.pdf"),
              plot_parameter_recovery_grouped(campaign, output / "mock_parameter_recovery_grouped.pdf"),

@@ -94,7 +94,7 @@ def stamp_rgb(images, bands, ref_band, centre_xy, reference, size):
     for b in bands:
         cut = cutouts.extract_band_cutout_on_grid(images[b], ref, coord, size).astype(float)
         data[b] = np.where(np.isfinite(cut), cut, 0.0)
-    from kappaccino.rgb import make_calibrated_rgb
+    from kappaccino.imaging.rgb import make_calibrated_rgb
     return make_calibrated_rgb(data, bands=bands, display=cutouts.build_rgb_display(images, bands=bands))
 
 
@@ -148,8 +148,8 @@ def main():
     import matplotlib
     matplotlib.use("pdf")
     import matplotlib.pyplot as plt
-    from kappaccino.plot_style import PAPER_STYLE
-    plt.style.use(str(ROOT / "src/kappaccino/style.mplstyle")); plt.rcParams.update(PAPER_STYLE)
+    from kappaccino.plotting.style import PAPER_STYLE
+    plt.style.use(str(ROOT / "src/kappaccino/plotting/style.mplstyle")); plt.rcParams.update(PAPER_STYLE)
     n = len(panels)
     fig, axes = plt.subplots(1, n, figsize=(2.4 * n, 2.6), constrained_layout=True, squeeze=False)
     half = args.stamp / 2

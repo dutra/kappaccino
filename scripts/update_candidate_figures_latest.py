@@ -6,7 +6,7 @@ import pandas as pd
 from scipy.optimize import minimize_scalar
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/'scripts'))
 import fit_arc_source as fas
-from kappaccino.jax_cosmology import dpie_sigma0_factor_from_config
+from kappaccino.lens.cosmology import dpie_sigma0_factor_from_config
 RUN=ROOT/'results/nov4b_densemass_notfast_parity/m0416_canucs2025/w2000s1000t8_gamma4_allblocks_shear'
 BASE=ROOT/'output/apj_counterimages';OUT=BASE/'latest_model';OUT.mkdir(exist_ok=True);(OUT/'new_families').mkdir(exist_ok=True)
 config,state,ev,post=fas.load_model(RUN)
@@ -63,7 +63,7 @@ new['x_pred']=np.where(valid,pred[:,0],np.nan);new['y_pred']=np.where(valid,pred
 new.to_csv(OUT/'new_families/new_family_catalogue.csv',index=False)
 pd.DataFrame(dict(ID=new.ID,beta_x=b[:,0],beta_y=b[:,1],source_x=origin[0],source_y=origin[1],source_scatter_arcsec=np.linalg.norm(b-origin,axis=1),root_error_arcsec=err)).to_csv(OUT/'new_families/source_consistency.csv',index=False)
 print('Family A z',z,'source rms',np.sqrt(opt.fun/len(obs)),'image offsets',new.offset_arcsec.tolist(),flush=True)
-meta=dict(run=str(RUN),best_sample_index=idx,posterior_sha256=hashlib.sha256((RUN/'final/artifacts/posterior.npz').read_bytes()).hexdigest(),reference=list(state.reference),model='parametric + conditional mean shared GRF, no image GP displacement',family_A_redshift_method='unweighted source-plane scatter minimum at fixed lens; no redshift uncertainty inferred',family_A_z=z,family_A_source_rms=float(np.sqrt(opt.fun/len(obs))),source_grid_redshifts=grid.tolist(),source_grid_scores=scores.tolist(),candidate_scope='existing seven candidates and family A only; no discovery or catalogue reclassification',sampling='none')
+meta=dict(run=str(RUN),best_sample_index=idx,posterior_sha256=hashlib.sha256((RUN/'final/artifacts/posterior.h5').read_bytes()).hexdigest(),reference=list(state.reference),model='parametric + conditional mean shared GRF, no image GP displacement',family_A_redshift_method='unweighted source-plane scatter minimum at fixed lens; no redshift uncertainty inferred',family_A_z=z,family_A_source_rms=float(np.sqrt(opt.fun/len(obs))),source_grid_redshifts=grid.tolist(),source_grid_scores=scores.tolist(),candidate_scope='existing seven candidates and family A only; no discovery or catalogue reclassification',sampling='none')
 (OUT/'model_provenance.json').write_text(json.dumps(meta,indent=2)+'\n')
 # Reuse existing presentation, with all model-dependent inputs redirected to refreshed tables.
 prefix=(BASE/'make_publication.py').read_text().split('# Reconcile catalogue positions')[0]

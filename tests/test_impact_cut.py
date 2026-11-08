@@ -6,11 +6,12 @@ from dataclasses import replace
 
 import numpy as np
 
-from kappaccino import artifacts, pipeline
-from kappaccino.classification import member_max_deflection_arcsec
+from kappaccino.io import artifacts
+from kappaccino import pipeline
+from kappaccino.core.classification import member_max_deflection_arcsec
 from kappaccino.config import ImageDiagnosticsConfig, RuntimeConfig, SamplingConfig, SearchConfig
-from kappaccino.evaluator import Evaluator
-from kappaccino.state import build_state
+from kappaccino.likelihood.evaluator import Evaluator
+from kappaccino.core.state import build_state
 
 
 def test_drop_member_ids_removes_members_but_keeps_the_pivot(synthetic_config):

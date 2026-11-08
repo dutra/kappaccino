@@ -1,6 +1,6 @@
 from types import SimpleNamespace as NS
 import numpy as np
-from kappaccino.cutout_critical_fields import median_cutout_determinants
+from kappaccino.plotting.critical_fields import median_cutout_determinants
 
 
 def test_redshifts_median_and_cache(tmp_path):
@@ -10,7 +10,7 @@ def test_redshifts_median_and_cache(tmp_path):
     evaluator=NS(gp_knee=False,physical=lambda t:t,
                  packed_state_for_z=lambda p,z:z,total_fields_at=fields)
     posterior=NS(samples=np.zeros((3,1)))
-    args=(NS(),evaluator,posterior,[[0,0],[0,0]],[10,10],[1,2],np.arange(3),tmp_path/'critical.npz','test')
+    args=(NS(),evaluator,posterior,[[0,0],[0,0]],[10,10],[1,2],np.arange(3),tmp_path/'critical.h5','test')
     grids,median,indices,lower,upper=median_cutout_determinants(*args,resolution=16,log=lambda _:None)
     np.testing.assert_allclose(median,grids[...,0]-np.array([1,2])[:,None,None],atol=1e-14)
     np.testing.assert_array_equal(lower,median)

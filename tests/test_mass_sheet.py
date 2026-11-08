@@ -9,10 +9,10 @@ import numpy as np
 import numpyro.distributions as dist
 
 from kappaccino.config import MassSheetConfig
-from kappaccino.evaluator import Evaluator
-from kappaccino.exact_images import packed_to_kwargs_lens
-from kappaccino.jax_cosmology import flat_wcdm_lensing_efficiency
-from kappaccino.state import build_state
+from kappaccino.likelihood.evaluator import Evaluator
+from kappaccino.diagnostics.exact_images import packed_to_kwargs_lens
+from kappaccino.lens.cosmology import flat_wcdm_lensing_efficiency
+from kappaccino.core.state import build_state
 
 
 def test_mass_sheet_scales_with_efficiency_and_matches_lenstronomy(synthetic_config):

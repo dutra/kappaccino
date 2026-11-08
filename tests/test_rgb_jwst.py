@@ -8,8 +8,8 @@ from astropy import units as u
 from astropy.io import fits
 from astropy.wcs import WCS
 
-from kappaccino import cutouts
-from kappaccino.rgb import DEFAULT_JWST_RGB_CHANNEL_WEIGHTS
+from kappaccino.imaging import cutouts
+from kappaccino.imaging.rgb import DEFAULT_JWST_RGB_CHANNEL_WEIGHTS
 
 
 def _write(path, scale_arcsec, n, value, *, bunit="nJy"):

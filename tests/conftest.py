@@ -18,7 +18,7 @@ from kappaccino.config import (CosmologyConfig, DPIEHaloConfig, ImageConstraints
 def write_offset_catalog(path: Path, rows, reference=(0.0, 0.0)) -> Path:
     """YAML image catalog from rows of (label "F.i", x, y, z): offsets in arcsec from ``reference`` (ra0, dec0), every
     image at magnitude 24 +- 0.05."""
-    from kappaccino.image_catalog import systems_from_offsets, write_image_catalog
+    from kappaccino.io.image_catalog import systems_from_offsets, write_image_catalog
     entries = [(*str(label).split("."), float(x), float(y), float(z), {"mag": 24.0, "mag_err": 0.05}) for label, x, y, z in rows]
     return write_image_catalog(path, systems_from_offsets(entries, reference))
 

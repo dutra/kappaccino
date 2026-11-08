@@ -11,12 +11,12 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from kappaccino import gp_knee
+from kappaccino.likelihood import gp_knee
 import numpyro.distributions as dist
 
 from kappaccino.priors import truncated_lognormal
-from kappaccino.evaluator import Evaluator
-from kappaccino.state import build_state
+from kappaccino.likelihood.evaluator import Evaluator
+from kappaccino.core.state import build_state
 from test_gp_knee import knee_config, set_sites, two_knot_config
 
 WIDE = dict(gp_knee_scales_arcsec=(0.2, 100.0), gp_knee_prior=truncated_lognormal(20.0, 1.0, low=1.0e-4, high=80.0),
@@ -133,7 +133,7 @@ def test_a_fixed_knee_and_length_equal_the_sampled_model_at_those_values(tmp_pat
 
 def test_the_background_field_has_the_weights_of_its_plane(tmp_path):
     """knee_background: weight E(z_p, z_s) / E(z_p, z_ref) with E = D_ps / D_s, zero for sources in front of the plane."""
-    from kappaccino.jax_cosmology import flat_wcdm_lensing_efficiency, h0_from_config, om0_from_config, w0_from_config
+    from kappaccino.lens.cosmology import flat_wcdm_lensing_efficiency, h0_from_config, om0_from_config, w0_from_config
     config, _ = two_knot_config(tmp_path)
     state = build_state(_variant(config, "knee_background"))
     evaluator = Evaluator(state, "gp_image_plane")

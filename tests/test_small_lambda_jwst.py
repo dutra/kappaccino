@@ -2,7 +2,8 @@
 import numpy as np
 import pytest
 
-from kappaccino import small_lambda_jwst as module
+from kappaccino.plotting import small_lambda_jwst as module
+from kappaccino.io.hdf5 import load_arrays
 
 
 def test_near_zero_eigenvalue_not_most_negative():
@@ -32,8 +33,8 @@ def test_render_and_reuse_without_new_fields(tmp_path, monkeypatch):
              family_data=[NS(family_id='f',z_source=2.)],reference=None)
     config=NS(paths=NS(figure_prefix='test'),image_catalog=NS(image_dir='test'))
     paths=NS(tables=tmp_path,figures=tmp_path)
-    from kappaccino import cutout_critical_fields
-    monkeypatch.setattr(cutout_critical_fields,'median_cutout_determinants',
+    from kappaccino.plotting import critical_fields
+    monkeypatch.setattr(critical_fields,'median_cutout_determinants',
         lambda *a,**k:(np.zeros((1,2,2,2)),np.ones((1,2,2)),np.arange(32),np.ones((1,2,2)),np.ones((1,2,2))))
     calls=[]
     def fields(t,**kwargs):
@@ -59,9 +60,9 @@ def test_render_and_reuse_without_new_fields(tmp_path, monkeypatch):
     info=json.loads((tmp_path/'test_small_lambda_a_image_posteriors_jwst.json').read_text())
     assert info['selected'][0]['probabilities']==[.682689492,.954499736]
     assert not info['selected'][0]['contour_clipped']
-    with np.load(tmp_path/'test_small_lambda_a_image_posteriors_jwst.npz') as saved:
-        assert saved['posterior_axis_statistics'].shape==(1,3)
-        assert saved['posterior_axis_statistics'][0,2]>=1
+    saved = load_arrays(tmp_path/'test_small_lambda_a_image_posteriors_jwst.h5')
+    assert saved['posterior_axis_statistics'].shape==(1,3)
+    assert saved['posterior_axis_statistics'][0,2]>=1
     evaluator.fields=lambda *a,**k:pytest.fail('Valid cache must avoid field evaluation')
     module.write_small_lambda_jwst(config,state,evaluator,posterior,paths,imaging,contours,minimum_major_sigma=0,minimum_axis_ratio=1,log=lambda _:None)
     assert module.write_small_lambda_jwst(config,state,evaluator,posterior,paths,imaging,contours,

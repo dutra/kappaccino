@@ -41,6 +41,7 @@ autodoc_mock_imports = [
     "contourpy",
     "corner",
     "graphviz",
+    "h5py",
     "jax",
     "jax_cosmo",
     "jaxlib",

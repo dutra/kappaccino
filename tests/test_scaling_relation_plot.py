@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from kappaccino.plots import population_scaling_draws
+from kappaccino.plotting.plots import population_scaling_draws
 
 
 def test_population_curves_preserve_joint_draws_and_ignore_member_offsets():

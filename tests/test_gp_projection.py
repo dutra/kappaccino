@@ -8,9 +8,9 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from kappaccino import gp_knee
-from kappaccino.evaluator import Evaluator
-from kappaccino.state import build_state
+from kappaccino.likelihood import gp_knee
+from kappaccino.likelihood.evaluator import Evaluator
+from kappaccino.core.state import build_state
 from test_gp_knee import knee_config, two_knot_config
 
 MODES = ("translation", "shear")

@@ -4,7 +4,8 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 from .aggregate_plots import STYLE, PAPER_STYLE, PAPER_PARAMETERS, PARAMETER_LABELS, _save
-from ..utils import log10_dpie_mass_msun
+from ..core.utils import log10_dpie_mass_msun
+from ..io.hdf5 import load_arrays, save_arrays
 
 
 def standardized_draws(values, truth):
@@ -20,8 +21,8 @@ def standardized_draws(values, truth):
 def load_columns(root,seed):
     folder=root/f'seed_{seed:08d}'
     state=json.loads((folder/'solver/init/artifacts/state.json').read_text())
-    with np.load(folder/'solver/final/artifacts/posterior.npz',allow_pickle=False) as saved:
-        physical=saved['physical']
+    saved = load_arrays(folder/'solver/final/artifacts/posterior.h5')
+    physical=saved['physical']
     specs=state['parameter_specs']
     if physical.shape[1]!=len(specs):raise ValueError('Saved parameter count mismatch')
     columns={s['name']:physical[:,i] for i,s in enumerate(specs)}
@@ -88,7 +89,7 @@ def write_deviation_corners(campaign,output):
                           fill_contours=True,show_titles=False,max_n_ticks=3,fig=fig,
                           hist_kwargs={'linewidth':2.0},contour_kwargs={'linewidths':1.8},label_kwargs={'fontsize':9})
             axes=np.asarray(fig.axes).reshape(n,n)
-            from ..block_corner import annotate_corner_summary
+            from ..plotting.block_corner import annotate_corner_summary
             for i in range(n):
                 annotate_corner_summary(axes[i,i], values[:,i], weight, color=color)
                 axes[i,i].axvline(0,color='.25',ls='--',lw=1.0)
@@ -100,7 +101,7 @@ def write_deviation_corners(campaign,output):
                     axes[i,j].grid(False);axes[i,j].tick_params(labelsize=7)
             fig.subplots_adjust(hspace=.04,wspace=.04)
             path=output/f'mock_{block}_truth_deviation_corner.pdf';_save(fig,path);outputs.append(path)
-        np.savez_compressed(output/f'mock_{block}_truth_deviation_corner.npz',values=values,weights=weight,seeds=np.concatenate(seeds),parameters=np.asarray(names))
+        save_arrays(output/f'mock_{block}_truth_deviation_corner.h5',values=values,weights=weight,seeds=np.concatenate(seeds),parameters=np.asarray(names))
         metadata['blocks'][block]=dict(parameters=names,scales=scales_saved,draw_rows=len(values),seeds=sorted(scales_saved))
     (output/'mock_truth_deviation_corners.json').write_text(json.dumps(metadata,indent=2))
     return outputs
@@ -178,10 +179,10 @@ def write_combined_deviation_corner(campaign, output):
         if symbol is None:
             symbol = PARAMETER_LABELS.get(field, field).strip('$').replace(r'\log_{10}', r'\log')
         labels.append(r'$\Delta(' + symbol + r')/s_{68}$')
-    from ..block_corner import render_block_corner
+    from ..plotting.block_corner import render_block_corner
     path = output/'mock_combined_truth_deviation_corner.pdf'
     render_block_corner(values, weights, labels, groups, path, zero_reference=True, summarize=True)
-    np.savez_compressed(path.with_suffix('.npz'), **data)
+    save_arrays(path.with_suffix('.h5'), **data)
     path.with_suffix('.json').write_text(json.dumps(dict(
         definition='(parameter-truth)/half posterior 16-84 interval, separately for each mock',
         weighting='Equal mock weight; equal family weight within mock; all saved joint draws',

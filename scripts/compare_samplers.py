@@ -10,10 +10,10 @@ per evaluation, tuning included.  Chains run in parallel, one host device each.
 Usage:
     python scripts/compare_samplers.py results/<campaign>/m0416_canucs2025/<run> [--blocks all|system] [--chains 4]
         [--arms nuts mclmc mclmc_pf] [--nuts-warmup 200 --nuts-samples 100] [--mclmc-tune 1000 --mclmc-samples 1000]
-        [--start-from <previous out>/nuts_draws.npz] [--out DIR]
+        [--start-from <previous out>/nuts_draws.h5] [--out DIR]
 
 Writes <out>/compare_samplers.json (per arm: evaluations, wall time, ESS of the global parameters per 1000 evaluations,
-R-hat, acceptance, divergences, step sizes, trajectory lengths, medians of key parameters) and <out>/<arm>_draws.npz.
+R-hat, acceptance, divergences, step sizes, trajectory lengths, medians of key parameters) and <out>/<arm>_draws.h5.
 """
 from __future__ import annotations
 
@@ -42,7 +42,7 @@ def parse():
     p.add_argument("--pathfinder-iter", type=int, default=30)
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--start-from", type=Path, default=None,
-                   help="a previous arm's <arm>_draws.npz: every arm starts each chain at that file's last draw of the chain, and "
+                   help="a previous arm's <arm>_draws.h5: every arm starts each chain at that file's last draw of the chain, and "
                         "the whitening mass is the Hessian at the best of those draws (an equilibrated start: the comparison "
                         "measures mixing, not burn-in); Pathfinder starts from these draws instead of the search modes")
     p.add_argument("--out", type=Path, default=None)
@@ -63,11 +63,12 @@ import blackjax                                                                #
 from dataclasses import replace                                               # noqa: E402
 from numpyro.diagnostics import effective_sample_size, split_gelman_rubin     # noqa: E402
 
-from kappaccino import artifacts                                              # noqa: E402
-from kappaccino.evaluator import Evaluator                                    # noqa: E402
-from kappaccino.sampling import LATENT_FAMILIES, block_mass_seed, sample_sites   # noqa: E402
-from kappaccino.search import Objective                                       # noqa: E402
-from kappaccino.state import build_state, with_member_classes                 # noqa: E402
+from kappaccino.io import artifacts  # noqa: E402
+from kappaccino.io.hdf5 import load_arrays, save_arrays  # noqa: E402
+from kappaccino.likelihood.evaluator import Evaluator  # noqa: E402
+from kappaccino.inference.sampling import LATENT_FAMILIES, block_mass_seed, sample_sites  # noqa: E402
+from kappaccino.inference.search import Objective  # noqa: E402
+from kappaccino.core.state import build_state, with_member_classes  # noqa: E402
 
 KEY_PARAMETERS = ("4.x_centre", "4.y_centre", "4.v_disp", "1.v_disp", "2.v_disp", "potfile_1.sigma", "potfile_1.cutkpc",
                   "potfile_1.velocity_log_scatter", "potfile_1.radius_log_scatter", "images.gp_sigma_alpha", "images.gp_knee",
@@ -236,7 +237,7 @@ def score(name, positions, accept, divergent, steps, step_size, length, evaluati
                   acceptance=float(np.mean(accept)), divergences=int(np.sum(divergent)),
                   step_size=[float(x) for x in np.atleast_1d(step_size)], trajectory_length=[float(x) for x in np.atleast_1d(length)],
                   medians_per_chain=medians)
-    np.savez_compressed(out / f"{name}_draws.npz", theta=theta, physical=physical, names=np.asarray(spec_names))
+    save_arrays(out / f"{name}_draws.h5", theta=theta, physical=physical, names=np.asarray(spec_names))
     return result
 
 
@@ -249,7 +250,7 @@ def main():
     offsets, names, families = flat_layout(state, objective)
     reference, chain_starts, start_note = start, [start] * args.chains, "the saved init start"
     if args.start_from is not None:
-        previous = np.load(args.start_from, allow_pickle=True)["theta"]          # (chains, draws, n) latent theta
+        previous = load_arrays(args.start_from)["theta"]          # (chains, draws, n) latent theta
         last = [np.asarray(previous[c, -1], dtype=float) for c in range(previous.shape[0])]
         values = [-float(objective.potential(jnp.asarray(objective.flatten(t)))) for t in last]
         reference = last[int(np.argmax(values))]

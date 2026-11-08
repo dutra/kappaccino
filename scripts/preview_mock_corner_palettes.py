@@ -20,7 +20,8 @@ from matplotlib.patches import Patch, Rectangle
 from matplotlib.collections import Collection
 import numpy as np
 
-from kappaccino.block_corner import render_block_corner, BLOCK_COLORS, STYLE, PAPER_STYLE
+from kappaccino.plotting.block_corner import render_block_corner, BLOCK_COLORS, STYLE, PAPER_STYLE
+from kappaccino.io.hdf5 import load_arrays
 from kappaccino.mock_validation.aggregate_plots import PARAMETER_LABELS
 
 
@@ -182,12 +183,12 @@ def main():
     parser=argparse.ArgumentParser(__doc__)
     parser.add_argument('--limit',type=int,default=36)
     parser.add_argument('--only',type=int,nargs='+',help='Regenerate selected numbered variants, then assemble existing PDFs')
-    parser.add_argument('--input',type=Path,default=Path('validation_runs/nov6a_correlated_v1/analytic_production_production/aggregate_plots/mock_combined_truth_deviation_corner.npz'))
+    parser.add_argument('--input',type=Path,default=Path('validation_runs/nov6a_correlated_v1/analytic_production_production/aggregate_plots/mock_combined_truth_deviation_corner.h5'))
     parser.add_argument('--output',type=Path,default=Path('plots/palette_previews/mock_corners_36'))
     args=parser.parse_args();args.output.mkdir(parents=True,exist_ok=True)
     rows=published_palettes()[:args.limit]
-    with np.load(args.input) as saved:
-        values=saved['values'];weights=saved['weights'];names=saved['parameters'];groups=saved['groups']
+    saved = load_arrays(args.input)
+    values=saved['values'];weights=saved['weights'];names=saved['parameters'];groups=saved['groups']
     labels=[]
     for name in names:
         field=name.split('.',1)[1]

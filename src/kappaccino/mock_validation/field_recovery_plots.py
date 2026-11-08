@@ -5,6 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from .aggregate_plots import STYLE, PAPER_STYLE, parameter_recovery_bins, _save, _polish
+from ..io.hdf5 import load_arrays
 
 
 @plt.rc_context(fname=STYLE, rc=PAPER_STYLE)
@@ -12,20 +13,20 @@ def plot_field_recovery(campaign, output: Path):
     """Pool image components, keeping mocks as independent units for binned SEM."""
     rows = []
     for seed in campaign.seeds:
-        path = campaign.root/'aggregate_plots'/f'seed_{seed:08d}_posterior_fields.npz'
+        path = campaign.root/'aggregate_plots'/f'seed_{seed:08d}_posterior_fields.h5'
         if not path.exists():
             continue
-        with np.load(path) as data:
-            n = len(data['xy'])
-            center = data['median_parameter_images']
-            sigma = np.sqrt(data['within_variance_images']+data['between_variance_images'])
-            for field, start in [('GRF', 0), ('GP', 2*n)]:
-                for i in range(n):
-                    for axis in range(2):
-                        index = start+2*i+axis
-                        rows.append(dict(seed=seed, image_index=i, field=field, component='xy'[axis],
-                                         truth=float(data['truth_images'][index]), median=float(center[index]),
-                                         posterior_sd=float(sigma[index])))
+        data = load_arrays(path)
+        n = len(data['xy'])
+        center = data['median_parameter_images']
+        sigma = np.sqrt(data['within_variance_images']+data['between_variance_images'])
+        for field, start in [('GRF', 0), ('GP', 2*n)]:
+            for i in range(n):
+                for axis in range(2):
+                    index = start+2*i+axis
+                    rows.append(dict(seed=seed, image_index=i, field=field, component='xy'[axis],
+                                     truth=float(data['truth_images'][index]), median=float(center[index]),
+                                     posterior_sd=float(sigma[index])))
     if not rows:
         return None
     table = pd.DataFrame(rows)

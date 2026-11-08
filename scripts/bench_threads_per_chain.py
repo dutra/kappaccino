@@ -45,9 +45,9 @@ def worker(args) -> None:
     import jax.numpy as jnp
     import numpy as np
     from dataclasses import replace
-    from kappaccino import artifacts
-    from kappaccino.evaluator import Evaluator
-    from kappaccino.state import build_state, with_member_classes
+    from kappaccino.io import artifacts
+    from kappaccino.likelihood.evaluator import Evaluator
+    from kappaccino.core.state import build_state, with_member_classes
 
     init = Path(args.run) / "init" / "artifacts"
     config = artifacts.load_config(init)

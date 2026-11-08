@@ -327,7 +327,8 @@ def main():
         p.error('Use only one of --estimate-noise, --noise, --error')
     if args.noise is not None and (args.noise <= 0 or args.error is not None):
         p.error('--noise must be positive and cannot be combined with --error')
-    from kappaccino.image_catalog import load_image_catalog
+    from kappaccino.io.image_catalog import load_image_catalog
+    from kappaccino.io.hdf5 import load_arrays, save_arrays
     config, state, evaluator, posterior, _ = load_run(args.run_directory)
     catalog = load_image_catalog(config.model.image_constraints.catalog_path,
         sigma_inst_arcsec=config.model.image_constraints.sigma_inst_arcsec,
@@ -373,11 +374,11 @@ def main():
         if noise_unit and science_unit and noise_unit!=science_unit: raise ValueError('Science and RMS units differ')
         args.cache.mkdir(parents=True,exist_ok=True)
         token=json.dumps([str(args.error.resolve()),args.error.stat().st_size,args.error.stat().st_mtime_ns,args.error_ext,str(args.science.resolve()),args.science.stat().st_mtime_ns,x0,x1,y0,y1])
-        cache=args.cache/(hashlib.sha256(token.encode()).hexdigest()+'_rms.npy')
-        if cache.exists(): noise=np.load(cache)
+        cache=args.cache/(hashlib.sha256(token.encode()).hexdigest()+'_rms.h5')
+        if cache.exists(): noise=load_arrays(cache)['noise']
         else:
             noise = crop_plane(args.error,args.error_ext,slices,wcs,sci.shape)
-            np.save(cache,noise)
+            save_arrays(cache,noise=noise)
     elif args.noise:
         noise = np.full_like(data,args.noise)
     elif args.estimate_noise:
@@ -417,15 +418,15 @@ def main():
         mask &= crop_plane(args.exclude_mask,None,slices,wcs,mosaic_shape) == 0
     if mask.sum() <= 4*n+1: raise ValueError('Too few usable fit pixels')
     out=args.output; out.mkdir(parents=True,exist_ok=True)
-    if (out/'fits.npz').exists():
+    if (out/'fits.h5').exists():
         raise FileExistsError('Output already contains a fit; choose a new --output directory')
     fits.HDUList([fits.PrimaryHDU(data,cut_header),fits.ImageHDU(noise,cut_header,name='RMS'),fits.ImageHDU(mask.astype('uint8'),cut_header,name='FIT_MASK')]).writeto(out/'input.fits',overwrite=True)
     def diagnostic(model=None):
         import matplotlib
         matplotlib.use('Agg')
         import matplotlib.pyplot as plt
-        from kappaccino.plot_style import PAPER_STYLE
-        with plt.rc_context(fname=ROOT/'src/kappaccino/style.mplstyle',rc=PAPER_STYLE):
+        from kappaccino.plotting.style import PAPER_STYLE
+        with plt.rc_context(fname=ROOT/'src/kappaccino/plotting/style.mplstyle',rc=PAPER_STYLE):
             fig, axes=plt.subplots(1,3,figsize=(10,3.5),layout='constrained')
             lo,hi=np.nanpercentile(data[mask],[2,99])
             ys,xs=np.nonzero(mask);view=(slice(max(0,ys.min()-8),min(data.shape[0],ys.max()+9)),slice(max(0,xs.min()-8),min(data.shape[1],xs.max()+9)))
@@ -464,17 +465,17 @@ def main():
         key=hashlib.sha256()
         for a in (np.asarray(theta),points,*jax.tree_util.tree_leaves(packed)): key.update(np.asarray(a).tobytes())
         key.update(str((args.parametric_only,args.gp_displacement,'gp-warp-v1')).encode())
-        for path in [Path(args.run_directory)/'final/artifacts/config.pkl',
+        for path in [Path(args.run_directory)/'final/artifacts/config.json',
                      Path(args.run_directory)/'init/artifacts/state.json',
-                     ROOT/'src/kappaccino/evaluator.py',ROOT/'src/kappaccino/gp_knee.py']:
+                     ROOT/'src/kappaccino/likelihood/evaluator.py',ROOT/'src/kappaccino/likelihood/gp_knee.py']:
             if path.exists(): key.update(path.read_bytes())
         key.update(str((z,family_indices)).encode())
         for path in [Path(config.model.image_constraints.catalog_path),Path(args.run_directory)/'init/artifacts/classification.json']:
             key.update(path.read_bytes())
         args.cache.mkdir(parents=True,exist_ok=True)
-        cached=args.cache/(key.hexdigest()+'_beta.npy')
+        cached=args.cache/(key.hexdigest()+'_beta.h5')
         if cached.exists():
-            beta=jnp.asarray(np.load(cached));print(f'draw {draw}: cached lens mapping',flush=True)
+            beta=jnp.asarray(load_arrays(cached)['beta']);print(f'draw {draw}: cached lens mapping',flush=True)
         else:
             lens_points=points
             warp_info=None
@@ -513,7 +514,7 @@ def main():
                 np.testing.assert_allclose(grf[probe],reference,rtol=1e-10,atol=1e-10)
                 alpha+=grf
             beta=jnp.asarray(lens_points-alpha)
-            np.save(cached,np.asarray(beta))
+            save_arrays(cached,beta=np.asarray(beta))
             cached.with_suffix('.json').write_text(json.dumps(dict(warp=warp_info)))
             print(f'draw {draw}: lens mapping computed',flush=True)
         warp_info=json.loads(cached.with_suffix('.json').read_text()).get('warp') if cached.with_suffix('.json').exists() else None
@@ -601,7 +602,7 @@ def main():
             if args.source_model=='knots':
                 results[-1]['jacobian_rank']=int(np.linalg.matrix_rank(fit.jac))
                 covariance=np.linalg.pinv(fit.jac.T@fit.jac)
-                np.save(out/'best_local_covariance.npy',covariance)
+                save_arrays(out/'best_local_covariance.h5',covariance=covariance)
             if args.source_model=='pixels':
                 cmin=np.asarray(origin);cmax=cmin+spacing*(np.asarray(grid_shape[::-1])-1)
             else:
@@ -613,8 +614,8 @@ def main():
             if unit.lower() in ['njy','ujy','jy']: source_image=source_image/scale**2
             fits.writeto(out/'best_source.fits',source_image,sh,overwrite=True)
             import matplotlib.pyplot as plt
-            from kappaccino.plot_style import PAPER_STYLE
-            with plt.rc_context(fname=ROOT/'src/kappaccino/style.mplstyle',rc=PAPER_STYLE):
+            from kappaccino.plotting.style import PAPER_STYLE
+            with plt.rc_context(fname=ROOT/'src/kappaccino/plotting/style.mplstyle',rc=PAPER_STYLE):
                 fig,ax=plt.subplots(figsize=(4,3.6),layout='constrained')
                 center=(cmin+cmax)/2
                 im=ax.imshow(source_image,origin='lower',extent=[cmin[0]-center[0],cmax[0]-center[0],cmin[1]-center[1],cmax[1]-center[1]],cmap='viridis')
@@ -622,18 +623,18 @@ def main():
                 ax.tick_params(top=True,right=True);fig.colorbar(im,ax=ax,location='top',label=sh['BUNIT'])
                 ax.text(.03,.96,'Reconstructed source',transform=ax.transAxes,va='top',bbox=dict(facecolor='white',alpha=.8,edgecolor='none'),fontsize=8)
                 fig.savefig(out/'source.pdf');plt.close(fig)
-        np.savez_compressed(out/'fits.npz',draw_indices=indices[:number+1],parameters=parameters,models=models,noise_bootstrap_parameters=np.asarray(bootstrap),mask=mask,psf=kernel)
+        save_arrays(out/'fits.h5',draw_indices=indices[:number+1],parameters=parameters,models=models,noise_bootstrap_parameters=np.asarray(bootstrap),mask=mask,psf=kernel)
         metadata=dict(arguments={k:str(v) if isinstance(v,Path) else v for k,v in vars(args).items()},run=str(Path(args.run_directory).resolve()),families=families,redshift=z,unit=unit,noise_bootstrap=bootstrap_reports,fit_pixels=int(mask.sum()),pixel_scale_arcsec=scale,results=results,elapsed_seconds=time.perf_counter()-t0,
             parameter_order=parameter_order,
             uncertainty='Unweighted fixed-lens refits; lens spread is not a source posterior. Local covariance and optional independent-pixel noise bootstrap are separate. No conditional GRF/GP realizations, PSF uncertainty, foreground-light uncertainty, or drizzle covariance included. Optional GP warp is a fixed nuisance correction, not a mass deflection.')
         diag=Path(args.run_directory)/'final/artifacts/posterior_diagnostics.json'
         metadata['lens_posterior_diagnostics']=str(diag.resolve())
         metadata['script_sha256']=hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
-        metadata['input_files']={str(f.resolve()):dict(size=f.stat().st_size,mtime_ns=f.stat().st_mtime_ns) for f in [args.science,Path(args.run_directory)/'final/artifacts/posterior.npz',*[v for v in [args.error,args.psf,args.exclude_mask] if v is not None]]}
+        metadata['input_files']={str(f.resolve()):dict(size=f.stat().st_size,mtime_ns=f.stat().st_mtime_ns) for f in [args.science,Path(args.run_directory)/'final/artifacts/posterior.h5',*[v for v in [args.error,args.psf,args.exclude_mask] if v is not None]]}
         (out/'summary.json').write_text(json.dumps(metadata,indent=2))
     good=np.array([r['success'] for r in results]); extra=good.copy();extra[0]=False
     if extra.sum()>=3:
-        np.savez_compressed(out/'lens_spread.npz',parameter_quantiles=np.quantile(np.asarray(parameters)[extra],[.16,.5,.84],axis=0) if args.source_model=='knots' else np.empty((0,)),model_quantiles=np.quantile(np.asarray(models)[extra],[.16,.5,.84],axis=0),quantiles=[.16,.5,.84])
+        save_arrays(out/'lens_spread.h5',parameter_quantiles=np.quantile(np.asarray(parameters)[extra],[.16,.5,.84],axis=0) if args.source_model=='knots' else np.empty((0,)),model_quantiles=np.quantile(np.asarray(models)[extra],[.16,.5,.84],axis=0),quantiles=[.16,.5,.84])
     metadata['successful_additional_lens_draws']=int(extra.sum())
     metadata['lens_quantiles_available']=bool(extra.sum()>=3)
     (out/'summary.json').write_text(json.dumps(metadata,indent=2))

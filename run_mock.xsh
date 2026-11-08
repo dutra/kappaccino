@@ -63,7 +63,6 @@ from kappaccino.config import (
     ImageDiagnosticsConfig,
     LensClusterSolverConfig,
     LikelihoodConfig,
-    LogNormalPriorConfig,
     MemberConfig,
     RuntimeConfig,
     SamplingConfig,
@@ -72,6 +71,7 @@ from kappaccino.config import (
     TruthRecoveryConfig,
 )
 from kappaccino.cpu_runtime import configure_cpu_runtime, resolve_cpu_plan, threads_per_chain_if_supported
+from kappaccino.priors import truncated_lognormal
 
 VALID_PRESETS = ("smoke", "production")
 
@@ -186,15 +186,15 @@ def _likelihood(likelihood: str, gp_blocks: str) -> LikelihoodConfig:
         gp_knee_project_modes=(("translation", "convergence", "shear") if likelihood == "grf_gp" and gp_blocks == "all" else ()),
         gp_knee_gamma_prior=(2.0, 6.0), gp_knee_gamma=4.0,     # sampled: the injected field varies the slope
         gp_knee_scales_arcsec=(0.2, 100.0),
-        gp_knee_prior=LogNormalPriorConfig(median=6.0, log_sigma=0.6, lower=2.5, upper=15.0),
+        gp_knee_prior=truncated_lognormal(6.0, 0.6, low=2.5, high=15.0),
         gp_knee_start_arcsec=6.0,
         # Mock only (run.xsh keeps median 0.08", cap 0.5", and the library sigma_shared prior, median 0.10", cap 0.3"): the
         # geometric centres of the mock's injection ranges, each range inside about one prior width of the median.
-        gp_sigma_alpha_prior=LogNormalPriorConfig(median=0.06, log_sigma=0.5, upper=0.3),
+        gp_sigma_alpha_prior=truncated_lognormal(0.06, 0.5, high=0.3),
         gp_sigma_alpha_start_arcsec=0.06,
-        gp_knee_sigma_shared_prior=LogNormalPriorConfig(median=0.035, log_sigma=0.6, upper=0.15),
+        gp_knee_sigma_shared_prior=truncated_lognormal(0.035, 0.6, high=0.15),
         gp_knee_sigma_shared_start_arcsec=0.035,
-        gp_knee_ell_prior=LogNormalPriorConfig(median=1.0, log_sigma=0.4, lower=0.4, upper=3.0),
+        gp_knee_ell_prior=truncated_lognormal(1.0, 0.4, low=0.4, high=3.0),
         gp_knee_ell_start_arcsec=1.0,
     )
 

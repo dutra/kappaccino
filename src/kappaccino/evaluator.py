@@ -114,6 +114,7 @@ class Evaluator:
         self.guard_cut_radii = float(members.far_field_guard_cut_radii)
         self.far_field_barrier_width = float(members.far_field_barrier_width)
         self.far_field_barrier_strength = float(members.far_field_barrier_strength)
+        self._setup_membership()
         self.sigma_def_index, self.sigma_extra_index, self.sigma_sel_index = int(state.sigma_def_param_index), int(state.sigma_extra_param_index), int(state.sigma_sel_param_index)
         self.lambda_sel_index = int(state.lambda_sel_param_index)
         self.sigma_shared_index, self.sigma_white_index = int(state.sigma_shared_param_index), int(state.sigma_white_param_index)
@@ -268,7 +269,8 @@ class Evaluator:
         return jnp.where(index >= 0, jnp.take(physical, safe), base)
 
     # ------------------------------------------------------------------ packed lens state
-    def packed_state(self, physical: jnp.ndarray, factor_per_image: jnp.ndarray | None = None) -> tuple[PackedLensState, PackedLensValidity]:
+    def packed_state(self, physical: jnp.ndarray, factor_per_image: jnp.ndarray | None = None, *,
+                     mass_weight: jnp.ndarray | None = None) -> tuple[PackedLensState, PackedLensValidity]:
         """Kernel parameters of every lens component at a physical parameter vector.
 
         Fills each component's fixed values with the sampled ones, applies the member scaling relations and sampled
@@ -285,6 +287,10 @@ class Evaluator:
         factor_per_image : float or jax.numpy.ndarray or None, optional
             The dPIE lensing-efficiency factor (``ModelState.dpie_sigma0_factor_by_z`` values): None (default) for
             the constrained images, a scalar for one source redshift, or an array of shape (point,).
+        mass_weight : jax.numpy.ndarray or None, optional
+            Factor on each component's dPIE normalization, shape (component,): the membership weight of a member (0 or 1
+            in one indicator configuration).  None (default) uses ``mass_weight(physical)``, the expected mass
+            :math:`p_i` of each uncertain member under ``MemberConfig.membership="marginalize"`` and 1 otherwise.
 
         Returns
         -------
@@ -371,6 +377,11 @@ class Evaluator:
             sigma0 = jnp.where(is_dpie, (v_disp ** 2) * factor / ra, 0.0)
             alpha_rs = jnp.where(is_nfw, nfw_alpha_rs_arcsec(rho_s, safe_rs_kpc, factor), 0.0)
             kappa = jnp.where(is_sheet, kappa_inf * (self.efficiency_per_factor * factor), 0.0)
+        if mass_weight is None and len(self.membership_uncertain_positions):
+            mass_weight = self.mass_weight(physical)
+        if mass_weight is not None:
+            # Deflection, Jacobian and its derivative are linear in sigma0, so this scales a member's whole lensing effect.
+            sigma0 = sigma0 * (mass_weight[:, None] if per_image else mass_weight)
         elliptical = is_dpie | is_nfw
         packed = PackedLensState(
             profile_type=profile_type, sigma0=sigma0, Ra=jnp.where(is_dpie, ra, 0.0), Rs=jnp.where(is_dpie, rs, 0.0),
@@ -452,6 +463,119 @@ class Evaluator:
             factor = float(dpie_sigma0_factor_from_config(self.state.z_lens, float(z_source), self.state.cosmo_config))
             self.state.dpie_sigma0_factor_by_z[float(z_source)] = factor
         return self.packed_state(physical, factor_per_image=jnp.asarray(factor, dtype=jnp.float64))[0]
+
+    # ------------------------------------------------------------------ membership
+    def _setup_membership(self) -> None:
+        """Uncertain members (``MemberConfig.membership="marginalize"``, prior :math:`p_i < 1`): the enumerated ones (exact
+        members, nearest the images first, at most ``membership_max_enumerated``) whose indicators the likelihood sums
+        exactly, the marginalized rest (expected mass plus deflection covariance), and every indicator configuration of
+        the enumerated members as rows of 0/1, shape (2^K, K)."""
+        members = self.state.members
+        n = len(self.member_components)
+        prior = np.asarray(getattr(members, "membership_prior", np.ones(n)), dtype=float)
+        prior = np.ones(n) if prior.size == 0 else prior
+        active = str(getattr(members, "membership_mode", "fixed")) == "marginalize"
+        uncertain = np.flatnonzero(prior < 1.0) if active else np.zeros(0, dtype=int)
+        self.membership_prior = jnp.asarray(prior)
+        self.membership_calibration_index = int(getattr(members, "membership_calibration_param_index", -1)) if active else -1
+        self.membership_uncertain_positions = uncertain.astype(np.int32)
+        candidates = np.intersect1d(uncertain, self.exact_positions)
+        nearest = np.asarray(self.geometry.separation).min(axis=1) if n else np.zeros(0)
+        candidates = candidates[np.argsort(nearest[candidates], kind="stable")]
+        limit = int(getattr(members, "membership_max_enumerated", 4))
+        self.membership_enumerated_positions = np.sort(candidates[:limit]).astype(np.int32)
+        self.membership_marginal_positions = np.setdiff1d(uncertain, self.membership_enumerated_positions).astype(np.int32)
+        k = len(self.membership_enumerated_positions)
+        self.membership_configurations = jnp.asarray(((np.arange(2 ** k)[:, None] >> np.arange(k)[None, :]) & 1).astype(float))
+
+    def membership_log_odds(self, physical: jnp.ndarray) -> jnp.ndarray:
+        """Log-odds :math:`\\mathrm{logit}\\,p_i (+ \\delta)` of every member's membership, shape (member,); +inf for the
+        certain members."""
+        p = self.membership_prior
+        uncertain = p < 1.0
+        safe = jnp.where(uncertain, p, 0.5)
+        log_odds = jnp.log(safe) - jnp.log1p(-safe)
+        if self.membership_calibration_index >= 0:
+            log_odds = log_odds + physical[self.membership_calibration_index]
+        return jnp.where(uncertain, log_odds, jnp.inf)
+
+    def membership_probabilities(self, physical: jnp.ndarray) -> jnp.ndarray:
+        """Prior membership probability of every member, shape (member,): the catalog :math:`p_i`, or with
+        ``membership_calibration_prior`` :math:`\\mathrm{sigmoid}(\\mathrm{logit}\\,p_i + \\delta)` for the uncertain
+        members; 1 for the certain ones."""
+        if self.membership_calibration_index < 0:
+            return self.membership_prior
+        return jnp.where(self.membership_prior < 1.0, jax.nn.sigmoid(self.membership_log_odds(physical)), 1.0)
+
+    def mass_weight(self, physical: jnp.ndarray, membership: jnp.ndarray | None = None) -> jnp.ndarray:
+        """Factor on each component's dPIE normalization, shape (component,): 1 for the halos and certain members, the
+        expected mass :math:`p_i` for the uncertain members, and with ``membership`` (indicators of the enumerated
+        members, shape (K,)) those indicators for the enumerated ones."""
+        weight = jnp.ones(self.n_components, dtype=jnp.float64)
+        if not len(self.membership_uncertain_positions):
+            return weight
+        member_weight = self.membership_probabilities(physical)
+        if membership is not None:
+            member_weight = member_weight.at[jnp.asarray(self.membership_enumerated_positions)].set(membership)
+        return weight.at[jnp.asarray(self.member_components)].set(member_weight)
+
+    def membership_deflection_terms(self, physical: jnp.ndarray, member_alpha: jnp.ndarray, configured: bool = False):
+        """The members that enter through their expected mass, as ``(f, d)``: :math:`f_g = (1 - p_g)/p_g` and their
+        deflections at the images :math:`d_g = p_g \\alpha_g` (member_alpha of the expected-mass lens; (G, image, 2)),
+        so that :math:`\\sum_g f_g d_g d_g^T = \\sum_g p_g (1 - p_g) \\alpha_g \\alpha_g^T`, the deflection covariance of
+        their indicators.  ``configured``: the enumerated members are summed separately and left out.  None when there
+        are none."""
+        positions = self.membership_marginal_positions if configured else self.membership_uncertain_positions
+        if not len(positions):
+            return None
+        log_odds = self.membership_log_odds(physical)[jnp.asarray(positions)]
+        return jnp.exp(-log_odds), member_alpha[jnp.asarray(positions)]
+
+    @staticmethod
+    def membership_image_covariance(terms) -> jnp.ndarray | None:
+        """Per-image source-plane covariance of the membership terms, :math:`\\sum_g f_g d_g d_g^T`, shape (image, 2, 2)."""
+        if terms is None:
+            return None
+        factor, deflection = terms
+        return jnp.einsum("g,gni,gnj->nij", factor, deflection, deflection)
+
+    @staticmethod
+    def membership_slot_covariance(terms, slots, mask) -> jnp.ndarray | None:
+        """The membership covariance between every pair of images of each block or family, (S, M, M, 2, 2) in slot order
+        (zero at padded slots): one missing member moves all of its nearby images together."""
+        if terms is None:
+            return None
+        factor, deflection = terms
+        padded = jnp.where(jnp.asarray(mask)[None, :, :, None], deflection[:, jnp.asarray(slots)], 0.0)
+        return jnp.einsum("g,gsmi,gsnj->smnij", factor, padded, padded)
+
+    def membership_log_prior(self, physical: jnp.ndarray) -> jnp.ndarray:
+        """Log prior of each indicator configuration of the enumerated members, shape (2^K,)."""
+        log_odds = self.membership_log_odds(physical)[jnp.asarray(self.membership_enumerated_positions)]
+        # log p = log sigmoid(l) and log(1 - p) = log sigmoid(-l): finite even where p rounds to 1.
+        z = self.membership_configurations > 0.5
+        return jnp.sum(jnp.where(z, jax.nn.log_sigmoid(log_odds), jax.nn.log_sigmoid(-log_odds)), axis=-1)
+
+    def membership_posterior(self, params: jnp.ndarray) -> jnp.ndarray:
+        """Posterior membership probability of each enumerated member at one draw, :math:`P(z_g = 1 \\mid \\theta, \\Theta)`,
+        shape (K,) in the order of ``membership_enumerated_positions``: the configurations weighted by prior times
+        likelihood.  Averaged over the posterior draws it is the marginal membership probability."""
+        log_weight, _ = self._membership_configuration_terms(jnp.asarray(params, dtype=jnp.float64), source_jacobian=True)
+        return jax.nn.softmax(log_weight) @ self.membership_configurations
+
+    def _membership_configuration_terms(self, params: jnp.ndarray, *, source_jacobian: bool):
+        """Log prior plus image log-likelihood of each indicator configuration, (2^K,), and whether all are valid."""
+        physical = self.physical(params)
+
+        def image_terms(membership):
+            stats = self.statistics(params, membership=membership)
+            value = jnp.sum(stats["loglike"]) + stats["source_correction"]
+            if not source_jacobian:
+                value = value - stats["source_jacobian"]
+            return value, jnp.all(stats["valid"]) & jnp.all(stats["transport_valid"])
+
+        values, valid = jax.vmap(image_terms)(self.membership_configurations)
+        return values + self.membership_log_prior(physical), jnp.all(valid)
 
     # ------------------------------------------------------------------ lens fields
     def component_rows(self, xy: jnp.ndarray, packed: PackedLensState, components: np.ndarray, *, derivative: bool = False):
@@ -731,7 +855,7 @@ class Evaluator:
         scales = self.error_scales(physical)
         return sl.source_covariance(jacobian, scales["sigma_meas"], scales["sigma_def"], scales["sigma_sel"], scales["lambda_sel"])
 
-    def statistics(self, params: jnp.ndarray, *, force_exact: bool = False) -> dict[str, Any]:
+    def statistics(self, params: jnp.ndarray, *, force_exact: bool = False, membership: jnp.ndarray | None = None) -> dict[str, Any]:
         """Per-image likelihood terms and their diagnostics at a latent vector.
 
         Parameters
@@ -740,6 +864,10 @@ class Evaluator:
             Latent vector, shape (parameter,).
         force_exact : bool, optional
             Evaluate far-field members with the exact kernel.  Default False.
+        membership : jax.numpy.ndarray or None, optional
+            Indicators (0 or 1) of the enumerated uncertain members, shape (K,), for one term of the membership sum;
+            the other uncertain members enter with their expected mass and deflection covariance.  None (default)
+            treats every uncertain member that way (the diagnostics' view of the model).
 
         Returns
         -------
@@ -762,13 +890,18 @@ class Evaluator:
         physical = self.physical(params)
         images, members = self.state.images, self.state.members
         isotropic = self.likelihood_mode == "source-isotropic"
-        fields = self.fields(physical, force_exact=force_exact, derivative=not isotropic)
+        packed = None
+        if len(self.membership_uncertain_positions):
+            packed = self.packed_state(physical, mass_weight=self.mass_weight(physical, membership))[0]
+        fields = self.fields(physical, packed, force_exact=force_exact, derivative=not isotropic)
+        terms = self.membership_deflection_terms(physical, fields["member_alpha"], configured=membership is not None)
         if self.gp_mode:
-            return self._gp_statistics(params, physical, fields)
+            return self._gp_statistics(params, physical, fields, terms)
         scales = self.error_scales(physical)
         sigma_def, sigma_extra, sigma_sel, lambda_sel, sigma_meas = (scales[k] for k in ("sigma_def", "sigma_extra", "sigma_sel", "lambda_sel", "sigma_meas"))
         jacobian = jnp.zeros_like(fields["jacobian"]) if isotropic else fields["jacobian"]
-        cov = sl.source_covariance(jacobian, sigma_meas, sigma_def, sigma_sel, lambda_sel)
+        extra = self.membership_image_covariance(terms)
+        cov = sl.source_covariance(jacobian, sigma_meas, sigma_def, sigma_sel, lambda_sel, extra_covariance=extra)
         whitening = sl.source_whitening(fields["backprojected"], cov["covariance"], images.family_index_per_image, images.n_families)
         coordinates = jnp.stack((params[images.source_x_param_index], params[images.source_y_param_index]), -1)
         transported = sl.transport_sources(coordinates, whitening, jnp.asarray(members.source_prior_mean), members.source_prior_sigma)
@@ -777,7 +910,7 @@ class Evaluator:
         if self.freeze_determinant_gradient:
             determinant_gradient = jax.lax.stop_gradient(determinant_gradient)
         stats = sl.statistics(fields["backprojected"], source[images.family_index_per_image], jacobian,
-                              determinant_gradient, sigma_meas, sigma_def, sigma_sel, lambda_sel, parity=images.parity)
+                              determinant_gradient, sigma_meas, sigma_def, sigma_sel, lambda_sel, parity=images.parity, extra_covariance=extra)
         if isotropic or self.likelihood_mode == "source-anisotropic":   # Gaussian source-plane term only: no determinant factor
             stats["loglike"] = stats["gaussian_loglike"]
             stats["valid"] = cov["valid"] & jnp.all(jnp.isfinite(stats["residual"]), axis=-1)
@@ -838,9 +971,11 @@ class Evaluator:
         frozen = {id(g): {k: jnp.asarray(np.asarray(v)) for k, v in self.gp_kernel_blocks(physical, scales, g).items()} for g in groups}
         self.gp_frozen_blocks = frozen
 
-    def _knee_statistics(self, params: jnp.ndarray, physical: jnp.ndarray, fields: dict[str, Any], scales: dict[str, Any]) -> dict[str, Any]:
+    def _knee_statistics(self, params: jnp.ndarray, physical: jnp.ndarray, fields: dict[str, Any], scales: dict[str, Any],
+                         membership_terms=None) -> dict[str, Any]:
         """Knee kernel on blocks with several knots: one Cholesky per block for the Gaussian term and the K-source conditional,
-        the smoothed determinant h_i per image on the diagonal block (gp_knee.py)."""
+        the smoothed determinant h_i per image on the diagonal block (gp_knee.py).  The membership covariance adds to the
+        mass field's deflection covariance, after its frozen or projected blocks."""
         images, members, layout = self.state.images, self.state.members, self.gp
         sigma_fl = jnp.asarray(self.gp_floor, dtype=jnp.float64)
         jacobian, backprojected = fields["jacobian"], fields["backprojected"]
@@ -849,7 +984,10 @@ class Evaluator:
         parts = []
         for group in groups:
             blocks = self.gp_kernel_blocks(physical, scales, group)
-            covariance, cholesky = gp_knee.block_covariance(jacobian[group["slots"]], blocks["k_alpha"], blocks["k_img"], blocks["white"],
+            k_alpha = blocks["k_alpha"]
+            if membership_terms is not None:
+                k_alpha = k_alpha + self.membership_slot_covariance(membership_terms, group["slots"], group["mask"])
+            covariance, cholesky = gp_knee.block_covariance(jacobian[group["slots"]], k_alpha, blocks["k_img"], blocks["white"],
                                                             group["mask"], jnp.square(sigma_fl))
             padded = backprojected[group["slots"]]
             whitening = gp_knee.block_source_whitening(cholesky, padded, group["indicator"], group["mask"], group["knot_mask"])
@@ -881,7 +1019,8 @@ class Evaluator:
             variance = jnp.zeros(images.n_images, dtype=jnp.float64).at[layout["slots"][0]].set(0.5 * (diagonal[:, 0, 0] + diagonal[:, 1, 1]))
             sigma_def = jnp.sqrt(variance + jnp.square(sigma_fl))
         stats = sl.statistics(backprojected, source[images.family_index_per_image], jacobian, determinant_gradient,
-                              scales["sigma_meas"], sigma_def, 0.0, 1.0, parity=images.parity)
+                              scales["sigma_meas"], sigma_def, 0.0, 1.0, parity=images.parity,
+                              extra_covariance=self.membership_image_covariance(membership_terms))
         log_h = sl.log_expected_absolute_normal(stats["determinant_mean"], jnp.maximum(stats["determinant_variance"], 1e-16), images.parity)
         block_of_image = self.gp_block_position[layout["block_of_family"][images.family_index_per_image]]
         block_ok = block_finite & jnp.isfinite(family_loglike)
@@ -950,7 +1089,7 @@ class Evaluator:
                                           gamma=float(s[2]) if self.gp_knee_gamma_index >= 0 else None,
                                           modes=tuple(getattr(self, "gp_project_modes", ())))
 
-    def _gp_statistics(self, params: jnp.ndarray, physical: jnp.ndarray, fields: dict[str, Any]) -> dict[str, Any]:
+    def _gp_statistics(self, params: jnp.ndarray, physical: jnp.ndarray, fields: dict[str, Any], membership_terms=None) -> dict[str, Any]:
         """gp_image_plane: one Cholesky factor of the family covariance serves the Gaussian term and the source conditional;
         the smoothed determinant h_i keeps its per-image form with the diagonal block C_ii as its covariance."""
         images, members, layout = self.state.images, self.state.members, self.gp
@@ -959,10 +1098,11 @@ class Evaluator:
         jacobian, backprojected = fields["jacobian"], fields["backprojected"]
         slots, mask, counts = layout["slots"], layout["mask"], layout["counts"]
         if self.gp_knee:
-            return self._knee_statistics(params, physical, fields, scales)
+            return self._knee_statistics(params, physical, fields, scales, membership_terms)
         kernel = layout["kernel"] if self.gp_ell_index < 0 else gp.kernel_from_separations(layout["squared_separations"], mask, scales["gp_ell"])
         family_covariance, family_cholesky = gp.family_covariance(jacobian[slots], kernel, layout["sigma_inst2"], mask,
-                                                                  jnp.square(scales["sigma_shared"]), jnp.square(scales["sigma_white"]), jnp.square(sigma_fl))
+                                                                  jnp.square(scales["sigma_shared"]), jnp.square(scales["sigma_white"]), jnp.square(sigma_fl),
+                                                                  extra=self.membership_slot_covariance(membership_terms, slots, mask))
         padded_backprojected = backprojected[slots]
         whitening = gp.family_source_whitening(family_cholesky, padded_backprojected, mask)
         coordinates = jnp.stack((params[images.source_x_param_index], params[images.source_y_param_index]), -1)
@@ -975,7 +1115,8 @@ class Evaluator:
         # Per image: the diagonal block C_ii = (sigma_inst^2 + sigma_white^2 + sigma_shared^2) A A^T + sigma_fl^2 I (k_ii = 1)
         # and the smoothed determinant on it.
         stats = sl.statistics(backprojected, source[images.family_index_per_image], jacobian, determinant_gradient,
-                              scales["sigma_meas"], scales["sigma_def"], 0.0, 1.0, parity=images.parity)
+                              scales["sigma_meas"], scales["sigma_def"], 0.0, 1.0, parity=images.parity,
+                              extra_covariance=self.membership_image_covariance(membership_terms))
         log_h = sl.log_expected_absolute_normal(stats["determinant_mean"], jnp.maximum(stats["determinant_variance"], 1e-16), images.parity)
         family_of = images.family_index_per_image
         family_ok = jnp.all(jnp.isfinite(family_cholesky), axis=(-2, -1)) & jnp.isfinite(family_loglike) & whitening["valid"]
@@ -994,6 +1135,10 @@ class Evaluator:
         The value is the sum of the per-image (or per-family) likelihood terms, the source-transport correction, the
         member-kinematics term, the far-field guard barrier and the smooth ellipticity caps.  It is the target the
         sampler adds to the priors of the latent parameters.  ``loglike`` and ``value_and_grad`` are jitted versions.
+
+        With enumerated uncertain members (``MemberConfig.membership="marginalize"``) the image terms are the log of the
+        sum over their :math:`2^K` indicator configurations of prior times likelihood, so the indicators are
+        marginalized exactly and NUTS samples only the continuous parameters.
 
         Rejected proposals are evaluated at the known-valid initial model so that every
         branch stays finite; the selected value is then the rejection constant with zero gradient.
@@ -1025,12 +1170,23 @@ class Evaluator:
         ok_scales = jnp.all(jnp.isfinite(scales ** 2) & (scales > 0.0))
         ok = ok_model & ok_scales
         safe_params = jnp.where(ok, params, reference)
-        stats = self.statistics(safe_params)
-        value = jnp.sum(stats["loglike"]) + stats["source_correction"] + self.kinematics_log_likelihood(self.physical(safe_params))
-        if not source_jacobian:
-            value = value - stats["source_jacobian"]
-        value = value + self.far_field_log_barrier(stats["fields"]["far_cut_radii"]) + self.ellipticity_log_prior(packed)
-        valid = jnp.all(stats["valid"]) & jnp.all(stats["transport_valid"]) & ~jnp.isnan(value)
+        safe_physical = self.physical(safe_params)
+        if len(self.membership_enumerated_positions):
+            log_weight, valid = self._membership_configuration_terms(safe_params, source_jacobian=source_jacobian)
+            value = jax.scipy.special.logsumexp(log_weight)
+            far_cut_radii = None
+            if len(self.far_positions):
+                far_cut_radii = jnp.take(self.packed_state(safe_physical)[0].Rs, jnp.asarray(self.far_components))
+        else:
+            stats = self.statistics(safe_params)
+            value = jnp.sum(stats["loglike"]) + stats["source_correction"]
+            if not source_jacobian:
+                value = value - stats["source_jacobian"]
+            valid = jnp.all(stats["valid"]) & jnp.all(stats["transport_valid"])
+            far_cut_radii = stats["fields"]["far_cut_radii"]
+        value = value + self.kinematics_log_likelihood(safe_physical)
+        value = value + self.far_field_log_barrier(far_cut_radii) + self.ellipticity_log_prior(packed)
+        valid = valid & ~jnp.isnan(value)
         value = jnp.where(valid, value, -jnp.inf)
         return jnp.where(ok_model, jnp.where(ok_scales, value, -jnp.inf), jnp.asarray(BAD_LOG_LIKE, dtype=jnp.float64))
 

@@ -891,6 +891,23 @@ class MemberConfig:
     min_deflection_arcsec : float or None, optional
         Drop members whose deflection at every image, at the initial model, is below this, in arcsec.  Members with the
         catalog ``keep`` flag or with kinematics are kept.  None (or 0) drops none.  Default None.
+    membership : str, optional
+        ``"fixed"`` (every catalog member is a member; the catalog ``p_member`` is ignored) or ``"marginalize"``: each
+        member :math:`i` has a membership indicator :math:`z_i \\sim \\mathrm{Bernoulli}(p_i)` that the likelihood sums
+        over.  Uncertain exact members (at most ``membership_max_enumerated``, nearest the images first) are enumerated
+        exactly, so the images update their membership; every other uncertain member enters with its expected mass
+        :math:`p_i` and the deflection covariance :math:`p_i(1-p_i)\\,\\alpha_i\\alpha_i^T` (docs: Likelihoods,
+        Uncertain membership).  Default ``"fixed"``.
+    membership_default_probability : float, optional
+        Prior :math:`p_i` of a member without a catalog ``p_member`` that is not spectroscopically confirmed (a
+        ``z`` of kind ``spec``, kinematics, or role ``bcg`` all give :math:`p_i = 1`).  In (0, 1].  Default ``1.0``.
+    membership_max_enumerated : int, optional
+        Most uncertain exact members whose indicators are summed exactly; the likelihood costs :math:`2^K` evaluations
+        for :math:`K` of them.  Nonnegative.  Default ``4``.
+    membership_calibration_prior : numpyro distribution or None, optional
+        Prior of a global shift :math:`\\delta` of the classifier's log-odds, :math:`\\mathrm{logit}\\,p_i' =
+        \\mathrm{logit}\\,p_i + \\delta` for every uncertain member (for example ``dist.Normal(0.0, 1.0)``), which
+        corrects an over- or under-confident classifier.  None (default) keeps the catalog probabilities.
     """
     classification_prior_quantile: float | None = 0.975
     centering: str = "none"                 # "none" since 2026-11-03
@@ -903,6 +920,10 @@ class MemberConfig:
     far_field_barrier_width: float = 0.05
     far_field_barrier_strength: float = 25.0
     min_deflection_arcsec: float | None = None
+    membership: str = "fixed"
+    membership_default_probability: float = 1.0
+    membership_max_enumerated: int = 4
+    membership_calibration_prior: Any = None
 
 
 @dataclass(frozen=True)
@@ -1709,6 +1730,15 @@ def validate_config(config: LensClusterSolverConfig) -> None:
         raise ValueError("members.top_exact must be a nonnegative integer or None.")
     if members.min_deflection_arcsec is not None:
         _positive("members.min_deflection_arcsec", members.min_deflection_arcsec)
+    if members.membership not in {"fixed", "marginalize"}:
+        raise ValueError("members.membership must be 'fixed' or 'marginalize'.")
+    if not 0.0 < float(members.membership_default_probability) <= 1.0:
+        raise ValueError("members.membership_default_probability must lie in (0, 1].")
+    if (isinstance(members.membership_max_enumerated, bool) or not isinstance(members.membership_max_enumerated, Integral)
+            or members.membership_max_enumerated < 0):
+        raise ValueError("members.membership_max_enumerated must be a nonnegative integer.")
+    if members.membership_calibration_prior is not None and not is_distribution(members.membership_calibration_prior):
+        raise ValueError("members.membership_calibration_prior must be a numpyro distribution or None.")
     scaling = config.scaling
     if config.members.centering not in {"auto", "exact", "none"}:
         raise ValueError("members.centering must be 'auto', 'exact' or 'none'.")

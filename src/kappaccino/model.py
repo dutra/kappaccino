@@ -390,6 +390,14 @@ class MemberModel:
     centered : numpy.ndarray, optional
         True for members whose deviations are sampled directly (centered) rather than as unit offsets, bool of shape
         (member,).
+    membership_mode : str, optional
+        ``"fixed"`` (every member counts fully) or ``"marginalize"`` (``MemberConfig.membership``).  Default ``"fixed"``.
+    membership_prior : numpy.ndarray, optional
+        Prior membership probability :math:`p_i` of each member in (0, 1], shape (member,); empty means all 1.
+    membership_max_enumerated : int, optional
+        Most uncertain exact members whose membership indicators are summed exactly.  Default 4.
+    membership_calibration_param_index : int, optional
+        Parameter index of the log-odds shift :math:`\\delta` of the membership probabilities; -1 when absent.
     """
     member_ids: tuple[str, ...]
     component_indices: np.ndarray
@@ -406,6 +414,10 @@ class MemberModel:
     radius_scatter_param_index: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=np.int32))
     radius_offset_param_index: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=np.int32))
     centered: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=bool))
+    membership_mode: str = "fixed"
+    membership_prior: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=float))
+    membership_max_enumerated: int = 4
+    membership_calibration_param_index: int = -1
 
 
 @dataclass

@@ -68,6 +68,13 @@ regenerating the magnification figures that depend on them.
 : Fit the light of a lensed arc, or a shared source behind a fold, to JWST cutouts with the lens fixed at posterior
   draws, so the lens uncertainty shows as a spread in the source. Each has a matching `.md` note.
 
+`validate_membership_injection.py RUN [--prior 0.5] [--draws 100]`
+: The membership injection test of {doc}`likelihoods` (Uncertain membership, Validation). At a finished run's
+  posterior draws it gives one galaxy at a time a prior membership probability: fake interlopers on a grid of
+  distance to the nearest image and magnitude, and true members across magnitude and distance. It writes each one's
+  posterior membership to `membership_injection.csv` and `membership_injection.pdf`. Run it from the repository
+  whose relative catalog paths the run used.
+
 `compare_samplers.py`, `bench_threads_per_chain.py`
 : Sampler and CPU-thread benchmarks.
 

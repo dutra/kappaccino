@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import jax
 import jax.numpy as jnp
 import numpy as np
 import pandas as pd
@@ -352,6 +353,40 @@ def kinematics_table(state: ModelState, evaluator: Evaluator, theta: np.ndarray)
     ln_ratio = np.log(k["sigma"]) - np.log(model)
     return pd.DataFrame({"member": list(k["member_ids"]), "source": list(k["sources"]), "sigma_meas": k["sigma"], "err": k["err"],
                          "sigma_model_ap": model, "sigma_model_lt": sigma, "ln_ratio": ln_ratio, "z": ln_ratio / k["log_err"]})
+
+
+def membership_table(state: ModelState, evaluator: Evaluator, samples: np.ndarray, *, max_draws: int = 400) -> pd.DataFrame:
+    """Prior and posterior membership of every member (``MemberConfig.membership="marginalize"``): one row per member
+    with ``treatment`` (``certain``: :math:`p_i = 1`; ``enumerated``: its indicator is summed exactly and the images
+    update it; ``marginalized``: it enters through its expected mass, so its posterior is its prior), ``p_catalog`` (the
+    prior before any calibration shift), ``p_prior`` (posterior mean of the calibrated prior), ``p_posterior`` and its
+    standard deviation over the draws (Rao-Blackwellized: the mean over draws of each draw's configuration weights).
+    At most ``max_draws`` evenly spaced draws are used."""
+    samples = np.asarray(samples, dtype=float)
+    draws = samples[np.unique(np.linspace(0, len(samples) - 1, min(int(max_draws), len(samples))).astype(int))]
+    prior = jax.vmap(lambda theta: evaluator.membership_probabilities(evaluator.physical(theta)))(jnp.asarray(draws))
+    prior = np.asarray(prior)
+    posterior = prior.copy()
+    enumerated = evaluator.membership_enumerated_positions
+    if len(enumerated):
+        posterior[:, enumerated] = np.asarray(jax.lax.map(jax.jit(evaluator.membership_posterior), jnp.asarray(draws)))
+    treatment = np.full(len(state.members.member_ids), "certain", dtype=object)
+    treatment[evaluator.membership_marginal_positions] = "marginalized"
+    treatment[enumerated] = "enumerated"
+    return pd.DataFrame({"member": list(state.members.member_ids), "treatment": treatment,
+                         "p_catalog": np.asarray(evaluator.membership_prior), "p_prior": prior.mean(axis=0),
+                         "p_posterior": posterior.mean(axis=0), "p_posterior_std": posterior.std(axis=0)})
+
+
+def write_membership_table(state: ModelState, evaluator: Evaluator, samples: np.ndarray, tables: Path, *, log) -> None:
+    """``tables/member_membership.csv`` (see :func:`membership_table`) and a log line per enumerated member; nothing when
+    no member is uncertain."""
+    if not len(evaluator.membership_uncertain_positions):
+        return
+    table = membership_table(state, evaluator, samples)
+    table.to_csv(tables / "member_membership.csv", index=False)
+    for row in table.loc[table.treatment == "enumerated"].itertuples(index=False):
+        log(f"[final] membership {row.member}: prior {row.p_prior:.2f}, posterior {row.p_posterior:.3f} +- {row.p_posterior_std:.3f}")
 
 
 def same_large_scale_model(state: ModelState, theta_a, theta_b) -> bool:
@@ -695,6 +730,12 @@ def _run_init(config: LensClusterSolverConfig) -> InitResult:
             search = chain_start_conditioning(state, evaluator, search, config, log=log)
         value = float(evaluator.loglike(jnp.asarray(theta)))
         log(f"[init] log-likelihood at the start with final classes: {value:.3f}")
+        if len(evaluator.membership_uncertain_positions):
+            ids = state.members.member_ids
+            enumerated = [ids[i] for i in evaluator.membership_enumerated_positions]
+            log(f"[init] uncertain membership: {len(evaluator.membership_uncertain_positions)} members; enumerated "
+                f"({2 ** len(enumerated)} configurations): {', '.join(enumerated) or 'none'}; "
+                f"{len(evaluator.membership_marginal_positions)} through their expected mass and deflection covariance")
         if not np.isfinite(value):
             raise RuntimeError("The best mode is rejected by the likelihood after reclassification.")
         if state.member_kinematics:
@@ -803,6 +844,7 @@ def run_final(config: LensClusterSolverConfig, init: InitResult) -> RunResult:
             log("[final] complete posterior found; loading artifacts")
             posterior = artifacts.load_posterior(stage.artifacts)
             audit = json.loads((stage.artifacts / artifacts.AUDIT_FILE).read_text())
+            write_membership_table(state, evaluator, posterior.samples, stage.tables, log=log)
             outputs_started = time.perf_counter()
             summary = write_outputs(config, state, evaluator, posterior, audit, stage, log=log) if not runtime.skip_plots else {}
             timing = {"sampling": 0.0, "outputs": time.perf_counter() - outputs_started}
@@ -835,6 +877,7 @@ def run_final(config: LensClusterSolverConfig, init: InitResult) -> RunResult:
                                 guard_cut_radii=config.members.far_field_cut_radii)
         audit["reclassification_at_median"] = reclassification_at_median(state, evaluator, posterior.samples, config)
         artifacts.write_json(stage.artifacts / artifacts.AUDIT_FILE, audit)
+        write_membership_table(state, evaluator, posterior.samples, stage.tables, log=log)
         diagnostics = posterior.diagnostics or {}
         report = audit_report(state, audit, posterior_summary={
             "divergences": int(posterior.diverging.sum()), "mean accept": f"{float(posterior.accept_prob.mean()):.3f}",

@@ -322,6 +322,10 @@ def init_signature(config: LensClusterSolverConfig) -> dict[str, Any]:
     for key in ("sampling", "image_diagnostics", "truth", "image_catalog", "paths"):
         payload.pop(key, None)
     payload["runtime"] = {"seed": config.runtime.seed}
+    if payload.get("members", {}).get("membership") == "fixed":
+        # Inactive membership settings stay out, so init stages saved before they existed still resume.
+        for key in ("membership", "membership_default_probability", "membership_max_enumerated", "membership_calibration_prior"):
+            payload["members"].pop(key, None)
     return payload
 
 

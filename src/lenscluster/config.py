@@ -7,33 +7,27 @@ from numbers import Integral
 from pathlib import Path
 from typing import Any
 
+import numpyro.distributions as dist
+
+from .priors import (cut_excess_from_moments, ellipticity_box, is_distribution, lognormal_from_moments, physical_bounds, shear_box, split,
+                     truncated_lognormal)
+
+# Priors are numpyro.distributions objects of the physical value of each sampled quantity (see priors.py): a prior
+# transformed by exp (dist.LogNormal, dist.LogUniform, truncated_lognormal, lognormal_from_moments) is sampled as the log
+# of the value.  Creating one of those starts JAX, so call cpu_runtime.configure_cpu_runtime before building a config.
+ERROR_SCALE_FLOOR_ARCSEC = 1.0e-4
+
+
+def _error_scale_prior(median: float, log_sigma: float, upper: float):
+    """Log-normal error-scale prior truncated to [ERROR_SCALE_FLOOR_ARCSEC, upper]."""
+    return truncated_lognormal(median, log_sigma, low=ERROR_SCALE_FLOOR_ARCSEC, high=upper)
+
 
 @dataclass(frozen=True)
 class RunPathsConfig:
     output_dir: str | Path = "results"
     run_name: str | None = None
     figure_prefix: str | None = None
-
-
-@dataclass(frozen=True)
-class PriorConfig:
-    kind: str = "fixed"
-    lower: float | None = None
-    upper: float | None = None
-    mean: float | None = None
-    std: float | None = None
-    step: float | None = None
-
-
-@dataclass(frozen=True)
-class LogNormalPriorConfig:
-    """Positive prior, parameterized by median and log-space width; ``upper`` (same units as the median) truncates it,
-    which keeps a sampled error scale from inflating until the likelihood goes flat; ``lower`` truncates it below (it needs
-    ``upper``), which keeps two components of one spectrum apart."""
-    median: float
-    log_sigma: float
-    upper: float | None = None
-    lower: float | None = None
 
 
 @dataclass(frozen=True)
@@ -64,31 +58,36 @@ class DPIEHaloConfig:
     v_disp: float
     z_lens: float
     profile_type: int = 81
-    priors: dict[str, PriorConfig] = field(default_factory=dict)
-    # Smooth ellipticity cap (Lenstool ellipticite, (a^2 - b^2) / (a^2 + b^2)): below it the ellipticity prior is the flat
-    # box of priors["ellipticite"]; above it the log prior falls as -softplus((|e| - cap) / width) in the modulus |e| of
-    # (e1, e2), so a halo that presses against the cap meets a smooth wall instead of a hard bound (a hard bound is stiff for
-    # NUTS: halo 1 of M0416 at |e| 0.61 against 0.627 set the step size, 2026-11-03).  The box's upper ellipticite must lie
-    # above the cap.  None: the hard box only.
+    # Priors (numpyro distributions) of the sampled fields: "x_centre", "y_centre" (arcsec), "e1", "e2" (the shape, see
+    # priors.ellipticity_box), "core_radius_kpc", "cut_excess_kpc" (the cut radius above the effective core,
+    # r_cut - sqrt(r_core^2 + softening^2)) and "v_disp" (km/s).  A field without a prior (or with None) is fixed at its value above.
+    priors: dict[str, Any] = field(default_factory=dict)
+    # Smooth ellipticity cap (Lenstool ellipticite, (a^2 - b^2) / (a^2 + b^2)): below it the shape prior is the (e1, e2)
+    # box of priors["e1"], priors["e2"]; above it the log prior falls as -softplus((|e| - cap) / width) in the modulus |e|,
+    # so a halo that presses against the cap meets a smooth wall instead of a hard bound (a hard bound is stiff for NUTS:
+    # halo 1 of M0416 at |e| 0.61 against 0.627 set the step size, 2026-11-03).  The box must reach beyond the cap.
+    # None: the hard box only.
     ellipticity_soft_cap: float | None = None
     ellipticity_soft_width: float = 0.02        # in the modulus |e|
 
     @classmethod
     def cluster_scale(cls, id: str, x_centre: float, y_centre: float, z_lens: float, *, v_disp: float = 800.0,
-                      position_half_width_arcsec: float = 5.0, ellipticity_upper: float = 0.8) -> "DPIEHaloConfig":
-        """A cluster-scale dPIE with the standard priors: centre within a box around the light, free ellipticity and
-        angle, core 0.5-100 kpc, cut radius TN(1500, 300) kpc on 500-3000 kpc (the arcs do not constrain it), and a
-        dispersion prior of 35% width around the given value."""
-        half = float(position_half_width_arcsec)
-        return cls(id=str(id), x_centre=float(x_centre), y_centre=float(y_centre), ellipticite=0.3, angle_pos=0.0, core_radius_kpc=10.0,
+                      position_half_width_arcsec: float = 5.0, ellipticity_upper: float = 0.8, softening_kpc: float = 0.0) -> "DPIEHaloConfig":
+        """A cluster-scale dPIE with the standard priors: centre uniform in a box around the light, shape uniform in the
+        (e1, e2) box of ellipticities up to ``ellipticity_upper``, core log-uniform on 0.5-100 kpc, cut radius about
+        1500 +- 300 kpc on 500-3000 kpc (the arcs do not constrain it) and a dispersion of 35% width around ``v_disp``,
+        both log-normal (sampled in log).  ``softening_kpc``: the resolution softening the model adds to the core
+        (ScalingModelConfig.softening_length_prior), which sets where the cut radius's excess starts."""
+        half, core = float(position_half_width_arcsec), 10.0
+        return cls(id=str(id), x_centre=float(x_centre), y_centre=float(y_centre), ellipticite=0.3, angle_pos=0.0, core_radius_kpc=core,
                    cut_radius_kpc=1500.0, v_disp=float(v_disp), z_lens=float(z_lens), priors={
-                       "x_centre": PriorConfig("uniform", lower=x_centre - half, upper=x_centre + half, step=0.5),
-                       "y_centre": PriorConfig("uniform", lower=y_centre - half, upper=y_centre + half, step=0.5),
-                       "ellipticite": PriorConfig("uniform", lower=0.0, upper=float(ellipticity_upper), step=0.02),
-                       "angle_pos": PriorConfig("uniform", lower=-180.0, upper=180.0, step=1.0),
-                       "core_radius_kpc": PriorConfig("uniform", lower=0.5, upper=100.0, step=1.0),
-                       "cut_radius_kpc": PriorConfig("truncated_normal", mean=1500.0, std=300.0, lower=500.0, upper=3000.0),
-                       "v_disp": PriorConfig("truncated_normal", mean=float(v_disp), std=0.35 * float(v_disp), lower=100.0, upper=2200.0)})
+                       "x_centre": dist.Uniform(x_centre - half, x_centre + half),
+                       "y_centre": dist.Uniform(y_centre - half, y_centre + half),
+                       **ellipticity_box(float(ellipticity_upper)),
+                       "core_radius_kpc": dist.LogUniform(0.5, 100.0),
+                       "cut_excess_kpc": cut_excess_from_moments(1500.0, 300.0, low=500.0, high=3000.0,
+                                                                 core=math.hypot(core, float(softening_kpc))),
+                       "v_disp": lognormal_from_moments(float(v_disp), 0.35 * float(v_disp), low=100.0, high=2200.0)})
 
 
 @dataclass(frozen=True)
@@ -104,7 +103,7 @@ class NFWHaloConfig:
     scale_radius_kpc: float
     z_lens: float
     profile_type: int = 12
-    priors: dict[str, PriorConfig] = field(default_factory=dict)
+    priors: dict[str, Any] = field(default_factory=dict)          # "x_centre", "y_centre", "e1", "e2", "log10_m200", "scale_radius_kpc"
 
 
 @dataclass(frozen=True)
@@ -115,7 +114,7 @@ class MassSheetConfig:
     kappa: float
     z_lens: float
     profile_type: int = 101
-    priors: dict[str, PriorConfig] = field(default_factory=dict)
+    priors: dict[str, Any] = field(default_factory=dict)          # "kappa"
 
 
 @dataclass(frozen=True)
@@ -125,14 +124,12 @@ class ShearHaloConfig:
     angle_pos: float
     z_lens: float
     profile_type: int = 14
-    priors: dict[str, PriorConfig] = field(default_factory=dict)
+    priors: dict[str, Any] = field(default_factory=dict)          # "gamma1", "gamma2" (see priors.shear_box)
 
     @classmethod
     def free(cls, id: str, z_lens: float, *, gamma_upper: float = 0.3) -> "ShearHaloConfig":
-        """External shear with a free amplitude up to ``gamma_upper`` and a free angle."""
-        return cls(id=str(id), gamma=0.0, angle_pos=0.0, z_lens=float(z_lens), priors={
-            "gamma": PriorConfig("uniform", lower=0.0, upper=float(gamma_upper), step=0.005),
-            "angle_pos": PriorConfig("uniform", lower=-180.0, upper=180.0, step=0.5)})
+        """External shear with a free amplitude up to ``gamma_upper`` and a free angle: uniform in the (gamma1, gamma2) box."""
+        return cls(id=str(id), gamma=0.0, angle_pos=0.0, z_lens=float(z_lens), priors=shear_box(float(gamma_upper)))
 
 
 @dataclass(frozen=True)
@@ -140,7 +137,7 @@ class IndependentMemberHaloConfig:
     population_id: str
     catalog_id: str
     id: str | None = None
-    priors: dict[str, PriorConfig] = field(default_factory=dict)
+    priors: dict[str, Any] = field(default_factory=dict)          # as DPIEHaloConfig.priors; unset fields take the defaults, None fixes one
 
 
 @dataclass(frozen=True)
@@ -153,8 +150,10 @@ class MemberPopulationConfig:
     cutkpc: float
     z_lens: float
     profile_type: int = 81
-    sigma_prior: PriorConfig = field(default_factory=PriorConfig)
-    cutkpc_prior: PriorConfig = field(default_factory=PriorConfig)
+    # Priors of the relation's dispersion (km/s) and cut radius (kpc) at L* (prior_mag0 when mag0 is "auto"; moved to the
+    # pivot with the slope priors' centres).  Both sampled in log by default.
+    sigma_prior: Any = field(default_factory=lambda: lognormal_from_moments(100.0, 40.0, low=20.0, high=500.0))
+    cutkpc_prior: Any = field(default_factory=lambda: lognormal_from_moments(300.0, 120.0, low=20.0, high=1000.0))
     exclude_catalog_ids: tuple[str, ...] = ()
     prior_mag0: float | None = None          # magnitude at which sigma, cutkpc and their priors are given when mag0 is "auto"
     band: str | None = None                  # YAML catalogs: the magnitude band of the scaling relation (default: the file's band)
@@ -172,24 +171,23 @@ class MemberPopulationConfig:
     def bergamini2019(cls, id: str, catalog_path: str | Path, z_lens: float, *, prior_mag0: float, sigma: float = 200.0,
                       cutkpc: float = 12.0, corekpc: float = 0.15) -> "MemberPopulationConfig":
         """A member population on the MUSE-calibrated relation of Bergamini et al. 2019 at L* (``prior_mag0``): central
-        dispersion ~220 km/s and r_cut ~10 (+13, -7) kpc from their three clusters, widened to TN(200, 70) km/s on 40-500
-        and TN(12, 10) kpc on 2-60; the pivot is chosen automatically from image leverage.  Pair with
+        dispersion ~220 km/s and r_cut ~10 (+13, -7) kpc from their three clusters, widened to 200 +- 70 km/s on 40-500
+        and 12 +- 10 kpc on 2-60 (log-normal); the pivot is chosen automatically from image leverage.  Pair with
         ScalingModelConfig.bergamini2019() for the slopes."""
         return cls(id=str(id), catalog_path=catalog_path, mag0="auto", prior_mag0=float(prior_mag0), corekpc=float(corekpc),
                    sigma=float(sigma), cutkpc=float(cutkpc), z_lens=float(z_lens),
-                   sigma_prior=PriorConfig("truncated_normal", mean=float(sigma), std=0.35 * float(sigma), lower=40.0, upper=500.0),
-                   cutkpc_prior=PriorConfig("truncated_normal", mean=float(cutkpc), std=10.0, lower=2.0, upper=60.0))
+                   sigma_prior=lognormal_from_moments(float(sigma), 0.35 * float(sigma), low=40.0, high=500.0),
+                   cutkpc_prior=lognormal_from_moments(float(cutkpc), 10.0, low=2.0, high=60.0))
 
     @classmethod
     def neutral(cls, id: str, catalog_path: str | Path, z_lens: float, *, prior_mag0: float, corekpc: float = 0.15) -> "MemberPopulationConfig":
         """A member population with priors that do not come from any cluster's lens model, at L* (``prior_mag0``):
-        dispersion TN(200, 100) km/s on 50-500 (an L* early type in any Faber-Jackson calibration) and a cut radius
-        uniform in log between 2 and 100 kpc (lensing barely constrains it, so scale-free).  Pair with
+        dispersion 200 +- 100 km/s on 50-500 (log-normal; an L* early type in any Faber-Jackson calibration) and a cut
+        radius log-uniform between 2 and 100 kpc (lensing barely constrains it, so scale-free).  Pair with
         ScalingModelConfig.neutral() for the slopes."""
         return cls(id=str(id), catalog_path=catalog_path, mag0="auto", prior_mag0=float(prior_mag0), corekpc=float(corekpc),
                    sigma=200.0, cutkpc=15.0, z_lens=float(z_lens),
-                   sigma_prior=PriorConfig("truncated_normal", mean=200.0, std=100.0, lower=50.0, upper=500.0),
-                   cutkpc_prior=PriorConfig("uniform", lower=2.0, upper=100.0))        # uniform in the log sampling coordinate
+                   sigma_prior=lognormal_from_moments(200.0, 100.0, low=50.0, high=500.0), cutkpc_prior=dist.LogUniform(2.0, 100.0))
 
 
 @dataclass(frozen=True)
@@ -348,11 +346,11 @@ class ScalingModelConfig:
     # Members leave the relation in dispersion (tight scatter: Faber-Jackson is about 0.1 dex) and, for the exact members,
     # in cut radius (loose: tidal truncation depends on the orbit).  With a dispersion deviation alone the sampler turned
     # the biggest subhalos into point masses to patch mass the cluster halos lacked.
-    member_velocity_scatter_prior: LogNormalPriorConfig = field(default_factory=lambda: LogNormalPriorConfig(median=0.10, log_sigma=0.3))
+    member_velocity_scatter_prior: Any = field(default_factory=lambda: dist.LogNormal(math.log(0.10), 0.3))
     member_deviation: str = "sigma_rcut"    # how a member leaves the relation: "sigma" (dispersion only), "mass" (dispersion and radii
                                             # together along the relation, one scatter), "sigma_rcut" (independent dispersion and radius
                                             # deviations), "mass_rcut" (mass deviation along the relation plus an independent radius deviation)
-    member_radius_scatter_prior: LogNormalPriorConfig = field(default_factory=lambda: LogNormalPriorConfig(median=0.3, log_sigma=0.5))
+    member_radius_scatter_prior: Any = field(default_factory=lambda: dist.LogNormal(math.log(0.3), 0.5))
     # Distribution of the member deviations (unit offsets times the scatter): "normal", or "student_t" with
     # member_deviation_dof degrees of freedom, so a few members can sit far from the relation without widening the scatter
     # for all (the radius scatter grew to 1.6-1.8 against a 0.3 prior for five members on M0416, 2026-11-03).  With the
@@ -360,15 +358,14 @@ class ScalingModelConfig:
     # Student-t is the default since 2026-11-04 (a scale-mixture form was tried and dropped: per-member funnels).
     member_deviation_tail: str = "student_t"
     member_deviation_dof: float = 4.0
-    # Member core radius at the pivot (fit_corekpc): log-normal with this median (kpc) and log width, on 0.01-10 kpc.
-    corekpc_prior_median: float = 0.15
-    corekpc_prior_log_sigma: float = 0.7
+    # Member core radius at the pivot (fit_corekpc), kpc.
+    corekpc_prior: Any = field(default_factory=lambda: truncated_lognormal(0.15, 0.7, low=0.01, high=10.0))
     radius_deviation_members: str = "exact"  # which members' radius deviations act on the model: "exact" (far-field members keep
                                             # the relation radius, so they cannot cross the far-field guard) or "all"
     fit_corekpc: bool = True                # sample the member core radius at the pivot; False fixes it at the population's corekpc
                                             # moved to the pivot (a 0.1 kpc member core is not a lensing observable)
     # Relation parameters held at their nominal values instead of sampled: any of "sigma", "cutkpc" (the population's values
-    # moved to the pivot) and "alpha_sigma", "beta_radius" (the prior means).  For tests against a published relation.
+    # moved to the pivot) and "alpha_sigma", "beta_radius" (the centres of their priors).  For tests against a published relation.
     fixed_relation_fields: tuple[str, ...] = ()
     # Sampled member shapes: None fixes every member's ellipticity at its catalog (light) shape.  A number s samples, for
     # every exact member, e1 = e1_light + s u1 and e2 = e2_light + s u2 with u ~ N(0, 1) (e = (1 - q) / (1 + q) times
@@ -376,16 +373,11 @@ class ScalingModelConfig:
     # prior-only, as for the radius deviations.  Round catalog members are centred on e = 0.
     member_shape_scatter: float | None = None
     # Faber-Jackson slope 0.27-0.28 and beta_cut 0.64-0.66 in three MUSE-calibrated clusters (Bergamini et al. 2019).
-    alpha_sigma_prior_mean: float = 0.27
-    alpha_sigma_prior_std: float = 0.05
-    alpha_sigma_prior_lower: float = 0.05
-    alpha_sigma_prior_upper: float = 0.50
-    beta_radius_prior_mean: float = 0.65
-    beta_radius_prior_std: float = 0.15
-    beta_radius_prior_lower: float = 0.0
-    beta_radius_prior_upper: float = 1.5
-    softening_length_kpc: float = 0.0
-    softening_length_prior_log_sigma: float = 0.15
+    alpha_sigma_prior: Any = field(default_factory=lambda: dist.TruncatedNormal(0.27, 0.05, low=0.05, high=0.50))
+    beta_radius_prior: Any = field(default_factory=lambda: dist.TruncatedNormal(0.65, 0.15, low=0.0, high=1.5))
+    # Resolution softening (kpc) added in quadrature to the member cores, e.g. dist.LogNormal(ln(2.3 / h), 0.15) for an
+    # N-body simulation's softening; None for none.
+    softening_length_prior: Any | None = None
 
     @classmethod
     def bergamini2019(cls, **overrides) -> "ScalingModelConfig":
@@ -396,8 +388,8 @@ class ScalingModelConfig:
     def neutral(cls, **overrides) -> "ScalingModelConfig":
         """Slope priors from scaling arguments only: alpha 0.25 +- 0.10 (L ~ sigma^4) on 0-0.5 and beta 0.5 +- 0.25
         (constant mass-to-light, 2 alpha + beta = 1) on 0-1.5."""
-        return cls(alpha_sigma_prior_mean=0.25, alpha_sigma_prior_std=0.10, alpha_sigma_prior_lower=0.0, alpha_sigma_prior_upper=0.5,
-                   beta_radius_prior_mean=0.5, beta_radius_prior_std=0.25, beta_radius_prior_lower=0.0, beta_radius_prior_upper=1.5, **overrides)
+        return cls(alpha_sigma_prior=dist.TruncatedNormal(0.25, 0.10, low=0.0, high=0.5),
+                   beta_radius_prior=dist.TruncatedNormal(0.5, 0.25, low=0.0, high=1.5), **overrides)
 
 
 LIKELIHOOD_MODES = frozenset({"smoothed", "gp_image_plane", "source-anisotropic", "source-isotropic"})
@@ -417,18 +409,17 @@ class LikelihoodConfig:
     # source-plane covariance C = B S B^T + sigma_fl^2 I with B = blockdiag(A_i).  sigma_shared and sigma_white (both
     # log-normal) are sampled and replace sigma_extra, sigma_def and sigma_sel; ell and sigma_fl are fixed.  The prior on
     # sigma_shared is truncated at 1": the untruncated prior puts 7e-5 of its mass there, and a 32" value carried a spurious init mode.
-    sigma_shared_prior: LogNormalPriorConfig = field(default_factory=lambda: LogNormalPriorConfig(median=0.15, log_sigma=0.5, upper=1.0))
+    sigma_shared_prior: Any = field(default_factory=lambda: _error_scale_prior(0.15, 0.5, 1.0))
     # sigma_white log-normal (sampled as its log), the knee kernel's prior, so the white scatter is learned and kept away
-    # from zero when sigma_inst is small; None uses the half-normal of sigma_white_prior_scale_arcsec.
-    sigma_white_prior: LogNormalPriorConfig | None = field(default_factory=lambda: LogNormalPriorConfig(median=0.015, log_sigma=0.5, upper=0.1))
-    sigma_white_prior_scale_arcsec: float = 0.05  # HalfNormal scale of sigma_white when sigma_white_prior is None
+    # from zero when sigma_inst is small; dist.TruncatedNormal(0.0, 0.05, low=0.0) is the half-normal alternative.
+    sigma_white_prior: Any = field(default_factory=lambda: _error_scale_prior(0.015, 0.5, 0.1))
     sigma_shared_start_arcsec: float = 0.168      # start of the init search (the sigma_img posterior median of the oct31a M0416 run)
     sigma_white_start_arcsec: float = 0.02
     gp_correlation_length_arcsec: float = 7.0     # ell: the fixed value, or the start of the init search when ell is sampled
     # ell is sampled (log-normal; this prior) unless the prior is None, which fixes ell at gp_correlation_length_arcsec.  The
     # width 0.5 puts 68% of the prior between 4.2" and 11.5"; only the ~40 same-family pairs separated by 3" to 15" constrain
     # ell, and above the 30" truncation every family's kernel is a block of ones, where ell is unidentified.
-    gp_correlation_length_prior: LogNormalPriorConfig | None = field(default_factory=lambda: LogNormalPriorConfig(median=7.0, log_sigma=0.5, upper=30.0))
+    gp_correlation_length_prior: Any | None = field(default_factory=lambda: _error_scale_prior(7.0, 0.5, 30.0))
     gp_floor_arcsec: float = 0.0015               # sigma_fl, a smoothness floor only (1.5 mas)
     # gp_image_plane only.  gp_kernel selects the structure of the GP term: "image_plane" (above: an image-plane displacement
     # multiplied by the Jacobian, C = B S B^T) or "knee" (below: a mass field plus the image-plane GP).  Under "knee" the
@@ -439,16 +430,15 @@ class LikelihoodConfig:
     # spectrum P_kappa = P0 / (1 + (k/k_t)^gamma) between gp_knee_scales, plus the image-plane GP, on blocks given by gp_blocks:
     # "all" (one covariance over every image), "system" (all knots of a galaxy; run.xsh --fast) or "family" (regression).
     # Sites: images.gp_sigma_alpha (rms deflection error per component at z_ref; None drops the mass field), images.gp_knee
-    # (lambda_t = 2 pi / k_t), images.gp_knee_gamma (the slope gamma on gp_knee_gamma_prior, uniform or normal of width
-    # gp_knee_gamma_sigma about gp_knee_gamma; None fixes it at gp_knee_gamma), images.sigma_shared, images.gp_ell (image-plane GP), images.sigma_white.  sigma_fl fixed.
+    # (lambda_t = 2 pi / k_t), images.gp_knee_gamma (the slope gamma, prior gp_knee_gamma_prior; None fixes it at
+    # gp_knee_gamma), images.sigma_shared, images.gp_ell (image-plane GP), images.sigma_white.  sigma_fl fixed.
     # The uniform bounds 2-6 are the slopes of P_kappa below the truncation of a random population of halos with
     # rho ~ r^-n for n = 2 (isothermal) to 0 (cored); n = 1 (NFW cusp) gives 4, the start.
     gp_blocks: str = "all"
     gp_knee_gamma: float = 4.0                                        # fixed slope, or the start when it is sampled
-    gp_knee_gamma_prior: tuple[float, float] | None = (2.0, 6.0)      # bounds of the sampled slope (and of its tables); None fixes it
-    # Width of a normal prior on the sampled slope, centred on gp_knee_gamma and truncated to gp_knee_gamma_prior; None
-    # leaves the slope uniform on the bounds.  run.xsh uses 0.5: the slope of an NFW-like cusp, within a quarter of n.
-    gp_knee_gamma_sigma: float | None = None
+    # Prior of the sampled slope, a Uniform or a TruncatedNormal whose bounds are also those of its tables (run.xsh uses
+    # dist.TruncatedNormal(4, 0.5, low=2, high=6): the slope of an NFW-like cusp, within a quarter of n); None fixes it.
+    gp_knee_gamma_prior: Any | None = field(default_factory=lambda: dist.Uniform(2.0, 6.0))
     gp_knee_gamma_step: float = 0.25                                  # spacing of the tabulated slopes (cubic spline between)
     # Wavelength range of the GRF (arcsec): from the smallest image separation resolved to the scale of the cluster halos.
     # With the long end at 100" and the halos free (all-image blocks), the field took the halo-scale misfit: sigma_alpha
@@ -464,20 +454,20 @@ class LikelihoodConfig:
     # Upper bounds (truncations) keep the error model from replacing the lens: a deflection error above 0.3" is a missing
     # cluster component, not substructure; a knee above 30" is the scale of the cluster halos and the external shear; an
     # image-plane displacement above 0.3" or coherent over more than 5" is lensing, not astrometry or feature selection.
-    gp_sigma_alpha_prior: LogNormalPriorConfig | None = field(default_factory=lambda: LogNormalPriorConfig(median=0.08, log_sigma=0.7, upper=0.3))
+    gp_sigma_alpha_prior: Any | None = field(default_factory=lambda: _error_scale_prior(0.08, 0.7, 0.3))
     gp_sigma_alpha_start_arcsec: float = 0.08
-    gp_knee_prior: LogNormalPriorConfig = field(default_factory=lambda: LogNormalPriorConfig(median=6.0, log_sigma=0.5, upper=30.0))
+    gp_knee_prior: Any = field(default_factory=lambda: _error_scale_prior(6.0, 0.5, 30.0))
     gp_knee_start_arcsec: float = 6.0
-    gp_knee_sigma_shared_prior: LogNormalPriorConfig = field(default_factory=lambda: LogNormalPriorConfig(median=0.10, log_sigma=0.7, upper=0.3))
+    gp_knee_sigma_shared_prior: Any = field(default_factory=lambda: _error_scale_prior(0.10, 0.7, 0.3))
     gp_knee_sigma_shared_start_arcsec: float = 0.10
-    gp_knee_ell_prior: LogNormalPriorConfig = field(default_factory=lambda: LogNormalPriorConfig(median=2.0, log_sigma=0.5, upper=5.0))
+    gp_knee_ell_prior: Any = field(default_factory=lambda: _error_scale_prior(2.0, 0.5, 5.0))
     gp_knee_ell_start_arcsec: float = 2.0
     # Shape of the mass-field spectrum (scripts/compare_grf_spectra.py compares them):
     #   "knee": P = 1 / (1 + (k / k_t)^gamma), the one-halo term of one population of truncated halos;
     #   "two_knee": a second, independent knee field (images.gp_sigma_alpha2, images.gp_knee2) with the same slope, for a
     #     second population; gp_knee2_prior.upper must not exceed gp_knee_prior.lower so the two cannot swap;
     #   "broken_power_law": P = x^-beta_low (1 + x^gamma)^-((gamma - beta_low) / gamma), x = k / k_b, beta_low sampled
-    #     (images.gp_knee_beta_low, uniform on gp_knee_beta_low_prior), gamma the fixed high-k slope; beta_low = 0 is the knee;
+    #     (images.gp_knee_beta_low, prior gp_knee_beta_low_prior), gamma the fixed high-k slope; beta_low = 0 is the knee;
     #   "power_law": P = k^-gamma between the cutoffs, no knee site (gamma sampled on gp_knee_gamma_prior);
     #   "knee_background": a second knee field on a thin mass plane at gp_knee2_plane_redshift behind the cluster, weighted by
     #     D_ps / D_s (zero for sources in front of it), images.gp_sigma_alpha2 and images.gp_knee2 (first order: the plane's
@@ -486,35 +476,34 @@ class LikelihoodConfig:
     #     whose D_ps / D_s is close to 1), images.gp_sigma_alpha2 and images.gp_knee2.
     # The image solver's mean-deflection correction is implemented for "knee" only.
     gp_knee_spectrum: str = "knee"
-    gp_knee2_sigma_alpha_prior: LogNormalPriorConfig = field(default_factory=lambda: LogNormalPriorConfig(median=0.05, log_sigma=0.7, upper=0.3))
+    gp_knee2_sigma_alpha_prior: Any = field(default_factory=lambda: _error_scale_prior(0.05, 0.7, 0.3))
     gp_knee2_sigma_alpha_start_arcsec: float = 0.05
-    gp_knee2_prior: LogNormalPriorConfig = field(default_factory=lambda: LogNormalPriorConfig(median=3.0, log_sigma=0.5, upper=10.0))
+    gp_knee2_prior: Any = field(default_factory=lambda: _error_scale_prior(3.0, 0.5, 10.0))
     gp_knee2_start_arcsec: float = 3.0
     gp_knee2_plane_redshift: float = 0.7            # knee_background: the redshift of the background mass plane
-    gp_knee_beta_low_prior: tuple[float, float] = (-1.0, 3.5)
+    gp_knee_beta_low_prior: Any = field(default_factory=lambda: dist.Uniform(-1.0, 3.5))   # its bounds are those of the tables
     gp_knee_beta_low_step: float = 0.25
     gp_knee_beta_low_start: float = 0.0
     # Fixed scales (arcsec) instead of sampled ones: the mass field's knee (no images.gp_knee site) and the image-plane GP's
     # correlation length (no images.gp_ell site).  None samples them.
     gp_knee_fixed_arcsec: float | None = None
     gp_knee_ell_fixed_arcsec: float | None = None
-    gp_knee_sigma_white_prior_scale_arcsec: float = 0.03
-    # sigma_white log-normal (sampled as its log) instead of the half-normal above, so the white image-plane scatter is
-    # inferred and kept away from zero when sigma_inst is small (2026-11-05: the fits put it at 0.006-0.02"); None uses the
-    # half-normal of gp_knee_sigma_white_prior_scale_arcsec.
-    gp_knee_sigma_white_prior: LogNormalPriorConfig | None = field(default_factory=lambda: LogNormalPriorConfig(median=0.015, log_sigma=0.5, upper=0.1))
+    # sigma_white log-normal (sampled as its log) rather than half-normal (dist.TruncatedNormal(0.0, 0.03, low=0.0)), so the
+    # white image-plane scatter is inferred and kept away from zero when sigma_inst is small (2026-11-05: the fits put it at
+    # 0.006-0.02").
+    gp_knee_sigma_white_prior: Any = field(default_factory=lambda: _error_scale_prior(0.015, 0.5, 0.1))
     gp_knee_sigma_white_start_arcsec: float = 0.012
     # Extra measurement scatter (arcsec, log-normal) added in quadrature to sigma_inst: image registration, feature
     # centring, manual marking.  None fixes the measurement error at the catalog value.
-    sigma_extra_prior: LogNormalPriorConfig | None = field(default_factory=lambda: LogNormalPriorConfig(median=0.05, log_sigma=1.0, upper=1.0))
+    sigma_extra_prior: Any | None = field(default_factory=lambda: _error_scale_prior(0.05, 1.0, 1.0))
     # Residual deflection error, isotropic in the source plane (arcsec, log-normal).
-    sigma_def_prior: LogNormalPriorConfig = field(default_factory=lambda: LogNormalPriorConfig(median=0.1, log_sigma=1.0, upper=1.0))
+    sigma_def_prior: Any = field(default_factory=lambda: _error_scale_prior(0.1, 1.0, 1.0))
     # Feature-selection scatter sigma_sel (arcsec, log-normal) in the source plane, weighted by the stretching through
     # R = (I + A A^T / lambda_sel^2)^-1 (the paper's Eq. selection_weight): the selection variance is halved where the
     # absolute Jacobian eigenvalue equals lambda_sel.  None disables the term.
-    sigma_sel_prior: LogNormalPriorConfig | None = field(default_factory=lambda: LogNormalPriorConfig(median=0.04, log_sigma=1.0, upper=1.0))
+    sigma_sel_prior: Any | None = field(default_factory=lambda: _error_scale_prior(0.04, 1.0, 1.0))
     # The dimensionless stretching scale lambda_sel of the selection term (log-normal), sampled with sigma_sel.
-    lambda_sel_prior: LogNormalPriorConfig = field(default_factory=lambda: LogNormalPriorConfig(median=0.7, log_sigma=1.0))
+    lambda_sel_prior: Any = field(default_factory=lambda: dist.LogNormal(math.log(0.7), 1.0))
     source_position_prior_mean_arcsec: tuple[float, float] = (0.0, 0.0)
     source_position_prior_sigma_arcsec: float = 100.0
     # Hold grad det A (the third derivatives of the potential) fixed in the backward pass.  The log-likelihood is unchanged;
@@ -612,6 +601,9 @@ class LensClusterSolverConfig:
 
 
 def _jsonable(value: Any) -> Any:
+    if is_distribution(value):
+        from .priors import to_dict
+        return to_dict(value)
     if isinstance(value, Path):
         return str(value)
     if isinstance(value, float) and math.isinf(value):
@@ -705,7 +697,6 @@ def validate_config(config: LensClusterSolverConfig) -> None:
         raise ValueError(f"likelihood.likelihood_mode must be one of {sorted(LIKELIHOOD_MODES)}.")
     _positive("likelihood.gp_correlation_length_arcsec", config.likelihood.gp_correlation_length_arcsec)
     _positive("likelihood.gp_floor_arcsec", config.likelihood.gp_floor_arcsec, allow_zero=True)
-    _positive("likelihood.sigma_white_prior_scale_arcsec", config.likelihood.sigma_white_prior_scale_arcsec)
     _positive("likelihood.sigma_shared_start_arcsec", config.likelihood.sigma_shared_start_arcsec)
     _positive("likelihood.sigma_white_start_arcsec", config.likelihood.sigma_white_start_arcsec)
     if config.likelihood.gp_kernel not in {"image_plane", "knee"}:
@@ -714,14 +705,12 @@ def validate_config(config: LensClusterSolverConfig) -> None:
         raise ValueError("likelihood.gp_blocks must be 'all', 'system' or 'family'.")
     _positive("likelihood.gp_knee_gamma", config.likelihood.gp_knee_gamma)
     if config.likelihood.gp_knee_gamma_prior is not None:
-        g_lo, g_hi = (float(v) for v in config.likelihood.gp_knee_gamma_prior)
+        g_lo, g_hi = _bounded_prior("likelihood.gp_knee_gamma_prior", config.likelihood.gp_knee_gamma_prior)
         step = float(config.likelihood.gp_knee_gamma_step)
         if not (0.0 < g_lo < g_hi) or not (g_lo <= float(config.likelihood.gp_knee_gamma) <= g_hi):
-            raise ValueError("likelihood.gp_knee_gamma_prior must be (min, max) with 0 < min < max, holding gp_knee_gamma (the start).")
+            raise ValueError("likelihood.gp_knee_gamma_prior must have bounds 0 < low < high holding gp_knee_gamma (the start).")
         if step <= 0.0 or abs((g_hi - g_lo) / step - round((g_hi - g_lo) / step)) > 1e-9 or round((g_hi - g_lo) / step) < 2:
             raise ValueError("likelihood.gp_knee_gamma_step must divide the gp_knee_gamma_prior range into at least 2 intervals.")
-        if config.likelihood.gp_knee_gamma_sigma is not None:
-            _positive("likelihood.gp_knee_gamma_sigma", config.likelihood.gp_knee_gamma_sigma)
     modes = tuple(config.likelihood.gp_knee_project_modes)
     if any(m not in {"translation", "convergence", "shear"} for m in modes) or len(set(modes)) != len(modes):
         raise ValueError("likelihood.gp_knee_project_modes takes distinct names among 'translation', 'convergence', 'shear'.")
@@ -743,21 +732,21 @@ def validate_config(config: LensClusterSolverConfig) -> None:
         if spectrum == "power_law" and config.likelihood.gp_knee_gamma_prior is None:
             raise ValueError("likelihood.gp_knee_spectrum 'power_law' samples the slope: set gp_knee_gamma_prior.")
         if spectrum == "broken_power_law":
-            b_lo, b_hi = (float(v) for v in config.likelihood.gp_knee_beta_low_prior)
+            b_lo, b_hi = _bounded_prior("likelihood.gp_knee_beta_low_prior", config.likelihood.gp_knee_beta_low_prior)
             b_step = float(config.likelihood.gp_knee_beta_low_step)
             if not (b_lo < b_hi < float(config.likelihood.gp_knee_gamma)) or not (b_lo <= float(config.likelihood.gp_knee_beta_low_start) <= b_hi):
-                raise ValueError("likelihood.gp_knee_beta_low_prior must be (min, max) below gp_knee_gamma and hold gp_knee_beta_low_start.")
+                raise ValueError("likelihood.gp_knee_beta_low_prior must have bounds below gp_knee_gamma that hold gp_knee_beta_low_start.")
             if b_step <= 0.0 or abs((b_hi - b_lo) / b_step - round((b_hi - b_lo) / b_step)) > 1e-9 or round((b_hi - b_lo) / b_step) < 2:
                 raise ValueError("likelihood.gp_knee_beta_low_step must divide gp_knee_beta_low_prior into at least 2 intervals.")
             if config.likelihood.gp_knee_gamma_prior is not None:
                 raise ValueError("likelihood.gp_knee_spectrum 'broken_power_law' fixes the high-k slope: set gp_knee_gamma_prior to None.")
         if spectrum in {"two_knee", "knee_foreground", "knee_background"}:
-            upper2 = config.likelihood.gp_knee2_prior.upper
-            if upper2 is None or float(upper2) > float(config.likelihood.gp_knee_lambda_grid[1]):
-                raise ValueError("likelihood.gp_knee2_prior.upper must be set and at most the largest tabulated knee wavelength.")
-            if spectrum == "two_knee" and (config.likelihood.gp_knee_prior.lower is None or float(upper2) > float(config.likelihood.gp_knee_prior.lower)):
-                raise ValueError("likelihood.gp_knee_spectrum 'two_knee': gp_knee2_prior.upper must not exceed gp_knee_prior.lower, "
-                                 "so the small and the large knee cannot swap.")
+            upper2 = physical_bounds(config.likelihood.gp_knee2_prior)[1]
+            if float(upper2) > float(config.likelihood.gp_knee_lambda_grid[1]) * (1.0 + 1.0e-12):
+                raise ValueError("likelihood.gp_knee2_prior must be bounded above by at most the largest tabulated knee wavelength.")
+            if spectrum == "two_knee" and float(upper2) > physical_bounds(config.likelihood.gp_knee_prior)[0] * (1.0 + 1.0e-12):
+                raise ValueError("likelihood.gp_knee_spectrum 'two_knee': the upper bound of gp_knee2_prior must not exceed the lower "
+                                 "bound of gp_knee_prior, so the small and the large knee cannot swap.")
             if spectrum in {"knee_foreground", "knee_background"} and config.likelihood.gp_knee_project_modes:
                 raise ValueError(f"likelihood.gp_knee_project_modes assume one redshift weighting; not with {spectrum!r}.")
             if spectrum == "knee_background" and not float(config.likelihood.gp_knee2_plane_redshift) > float(config.model.large_halos[0].z_lens):
@@ -766,7 +755,8 @@ def validate_config(config: LensClusterSolverConfig) -> None:
                 _positive(f"likelihood.{name}", getattr(config.likelihood, name))
     for start, prior, label in ((config.likelihood.gp_knee_start_arcsec, config.likelihood.gp_knee_prior, "gp_knee"),
                                 (config.likelihood.gp_knee2_start_arcsec, config.likelihood.gp_knee2_prior, "gp_knee2")):
-        if (prior.lower is not None and float(start) <= float(prior.lower)) or (prior.upper is not None and float(start) >= float(prior.upper)):
+        low, high = physical_bounds(prior)
+        if not low < float(start) < high:
             raise ValueError(f"likelihood.{label}_start_arcsec ({float(start):g}\") must lie inside the bounds of {label}_prior.")
     if config.likelihood.gp_knee_fixed_arcsec is not None:
         fixed = float(config.likelihood.gp_knee_fixed_arcsec)
@@ -774,41 +764,28 @@ def validate_config(config: LensClusterSolverConfig) -> None:
             raise ValueError("likelihood.gp_knee_fixed_arcsec must lie inside the knee tables and the band, and a power law has no knee.")
     if config.likelihood.gp_knee_ell_fixed_arcsec is not None:
         _positive("likelihood.gp_knee_ell_fixed_arcsec", config.likelihood.gp_knee_ell_fixed_arcsec)
-    knee_upper = config.likelihood.gp_knee_prior.upper
-    if config.likelihood.gp_kernel == "knee" and knee_upper is not None and float(knee_upper) > float(hi):
-        raise ValueError(f"likelihood.gp_knee_prior.upper ({float(knee_upper):g}\") must not exceed the longest GRF wavelength "
-                         f"gp_knee_scales_arcsec[1] ({float(hi):g}\"): beyond it the spectrum is flat and the knee has no meaning.")
-    if config.likelihood.gp_kernel == "knee" and (knee_upper is None or float(knee_upper) > float(lam_hi)):
-        raise ValueError("likelihood.gp_knee_prior.upper must be set and at most the largest tabulated knee wavelength "
+    knee_upper = physical_bounds(config.likelihood.gp_knee_prior)[1]
+    # Bounds come back from the log coordinate (exp(ln 30) = 30.000000000000004): compare with a relative tolerance.
+    exceeds = lambda value, limit: float(value) > float(limit) * (1.0 + 1.0e-12)
+    if config.likelihood.gp_kernel == "knee" and math.isfinite(knee_upper) and exceeds(knee_upper, hi):
+        raise ValueError(f"the upper bound of likelihood.gp_knee_prior ({float(knee_upper):g}\") must not exceed the longest GRF "
+                         f"wavelength gp_knee_scales_arcsec[1] ({float(hi):g}\"): beyond it the spectrum is flat and the knee has no meaning.")
+    if config.likelihood.gp_kernel == "knee" and exceeds(knee_upper, lam_hi):
+        raise ValueError("likelihood.gp_knee_prior must be bounded above by at most the largest tabulated knee wavelength "
                          f"({float(lam_hi):g}\"): beyond the tables the knee is clamped and only the prior moves it.")
     for name in ("gp_knee_r_step_arcsec", "gp_sigma_alpha_start_arcsec", "gp_knee_start_arcsec", "gp_knee_sigma_shared_start_arcsec",
-                 "gp_knee_ell_start_arcsec", "gp_knee_sigma_white_prior_scale_arcsec", "gp_knee_sigma_white_start_arcsec"):
+                 "gp_knee_ell_start_arcsec", "gp_knee_sigma_white_start_arcsec"):
         _positive(f"likelihood.{name}", getattr(config.likelihood, name))
     _positive("likelihood.gp_reference_redshift", config.likelihood.gp_reference_redshift)
-    for label, prior in (("likelihood.sigma_def_prior", config.likelihood.sigma_def_prior),
-                         ("likelihood.gp_sigma_alpha_prior", config.likelihood.gp_sigma_alpha_prior),
-                         ("likelihood.gp_knee_prior", config.likelihood.gp_knee_prior),
-                         ("likelihood.gp_knee2_sigma_alpha_prior", config.likelihood.gp_knee2_sigma_alpha_prior),
-                         ("likelihood.gp_knee2_prior", config.likelihood.gp_knee2_prior),
-                         ("likelihood.gp_knee_sigma_shared_prior", config.likelihood.gp_knee_sigma_shared_prior),
-                         ("likelihood.gp_knee_ell_prior", config.likelihood.gp_knee_ell_prior),
-                         ("likelihood.gp_knee_sigma_white_prior", config.likelihood.gp_knee_sigma_white_prior),
-                         ("likelihood.sigma_white_prior", config.likelihood.sigma_white_prior),
-                         ("likelihood.sigma_extra_prior", config.likelihood.sigma_extra_prior),
-                         ("likelihood.sigma_sel_prior", config.likelihood.sigma_sel_prior),
-                         ("likelihood.lambda_sel_prior", config.likelihood.lambda_sel_prior),
-                         ("likelihood.sigma_shared_prior", config.likelihood.sigma_shared_prior),
-                         ("likelihood.gp_correlation_length_prior", config.likelihood.gp_correlation_length_prior)):
-        if prior is None:
-            continue
-        if not isinstance(prior, LogNormalPriorConfig):
-            raise ValueError(f"{label} must be a LogNormalPriorConfig.")
-        if float(prior.median) <= 0.0 or float(prior.log_sigma) <= 0.0:
-            raise ValueError(f"{label} must have a positive median and log_sigma.")
-        if prior.upper is not None and float(prior.upper) <= float(prior.median):
-            raise ValueError(f"{label}.upper must exceed the median.")
-        if prior.lower is not None and (prior.upper is None or not (0.0 < float(prior.lower) < float(prior.median))):
-            raise ValueError(f"{label}.lower must be positive, below the median, and come with an upper bound.")
+    for name in ("sigma_def_prior", "gp_sigma_alpha_prior", "gp_knee_prior", "gp_knee2_sigma_alpha_prior", "gp_knee2_prior",
+                 "gp_knee_sigma_shared_prior", "gp_knee_ell_prior", "gp_knee_sigma_white_prior", "sigma_white_prior", "sigma_extra_prior",
+                 "sigma_sel_prior", "lambda_sel_prior", "sigma_shared_prior", "gp_correlation_length_prior"):
+        _positive_prior(f"likelihood.{name}", getattr(config.likelihood, name))
+    for name in ("sigma_white_prior", "gp_knee_sigma_white_prior", "sigma_shared_prior", "gp_knee_sigma_shared_prior", "sigma_def_prior",
+                 "lambda_sel_prior", "gp_knee_prior", "gp_knee_ell_prior"):
+        if getattr(config.likelihood, name) is None:
+            raise ValueError(f"likelihood.{name} is always sampled and needs a prior (e.g. dist.TruncatedNormal(0.0, 0.05, low=0.0) for a "
+                             "half-normal).")
     if scaling.member_deviation not in {"sigma", "mass", "sigma_rcut", "mass_rcut"}:
         raise ValueError("scaling.member_deviation must be 'sigma', 'mass', 'sigma_rcut' or 'mass_rcut'.")
     if scaling.radius_deviation_members not in {"exact", "all"}:
@@ -819,30 +796,32 @@ def validate_config(config: LensClusterSolverConfig) -> None:
         raise ValueError("scaling.member_deviation_tail must be 'normal' or 'student_t'.")
     if not float(scaling.member_deviation_dof) > 2.0:
         raise ValueError("scaling.member_deviation_dof must exceed 2 (a finite variance).")
-    if not (0.01 < float(scaling.corekpc_prior_median) < 10.0) or not float(scaling.corekpc_prior_log_sigma) > 0.0:
-        raise ValueError("scaling.corekpc_prior_median must lie in (0.01, 10) kpc and corekpc_prior_log_sigma be positive.")
     for halo in config.model.large_halos:
         cap = getattr(halo, "ellipticity_soft_cap", None)
         if cap is None:
             continue
-        box = (halo.priors or {}).get("ellipticite")
         if not (0.0 < float(cap) < 1.0) or not float(halo.ellipticity_soft_width) > 0.0:
             raise ValueError(f"halo {halo.id}: ellipticity_soft_cap must lie in (0, 1) and ellipticity_soft_width be positive.")
-        if box is None or box.kind != "uniform" or box.upper is None or float(box.upper) <= float(cap):
-            raise ValueError(f"halo {halo.id}: ellipticity_soft_cap needs a uniform ellipticite prior whose upper bound lies above it.")
-    for name, prior in (("member_velocity_scatter_prior", scaling.member_velocity_scatter_prior),
-                        ("member_radius_scatter_prior", scaling.member_radius_scatter_prior),
-                        ("sigma_def_prior", config.likelihood.sigma_def_prior)):
-        if not isinstance(prior, LogNormalPriorConfig) or not all(math.isfinite(float(v)) and v > 0.0 for v in (prior.median, prior.log_sigma)):
-            raise ValueError(f"{name} must be a LogNormalPriorConfig with positive median and log_sigma.")
-    _validate_truncated_normal("alpha_sigma_prior", mean=scaling.alpha_sigma_prior_mean, std=scaling.alpha_sigma_prior_std,
-                               lower=scaling.alpha_sigma_prior_lower, upper=scaling.alpha_sigma_prior_upper)
-    _validate_truncated_normal("beta_radius_prior", mean=scaling.beta_radius_prior_mean, std=scaling.beta_radius_prior_std,
-                               lower=scaling.beta_radius_prior_lower, upper=scaling.beta_radius_prior_upper)
-    if scaling.beta_radius_prior_lower < 0.0:
-        raise ValueError("beta_radius_prior_lower must be nonnegative.")
-    _positive("softening_length_kpc", scaling.softening_length_kpc, allow_zero=True)
-    _positive("softening_length_prior_log_sigma", scaling.softening_length_prior_log_sigma)
+        box = [(halo.priors or {}).get(name) for name in ("e1", "e2")]
+        reach = ellipticity_box(float(cap))["e1"].high
+        if any(prior is None or type(prior).__name__ != "Uniform" for prior in box) or max(float(prior.high) for prior in box) <= float(reach):
+            raise ValueError(f"halo {halo.id}: ellipticity_soft_cap needs uniform e1, e2 priors whose box reaches beyond it.")
+    for name in ("member_velocity_scatter_prior", "member_radius_scatter_prior", "corekpc_prior"):
+        _positive_prior(f"scaling.{name}", getattr(scaling, name))
+    for name in ("alpha_sigma_prior", "beta_radius_prior"):
+        _supported_prior(f"scaling.{name}", getattr(scaling, name))
+    if physical_bounds(scaling.beta_radius_prior)[0] < 0.0:
+        raise ValueError("scaling.beta_radius_prior must be bounded below by zero or more.")
+    if scaling.softening_length_prior is not None:
+        _positive_prior("scaling.softening_length_prior", scaling.softening_length_prior)
+    for population in config.model.member_populations:
+        for name in ("sigma_prior", "cutkpc_prior"):
+            _positive_prior(f"member population {population.id!r} {name}", getattr(population, name))
+    for halo in tuple(config.model.large_halos) + tuple(config.model.independent_member_halos or ()):
+        for name, prior in (halo.priors or {}).items():
+            if prior is None:
+                continue
+            _supported_prior(f"halo {getattr(halo, 'id', None) or getattr(halo, 'catalog_id', '')} prior {name!r}", prior)
     likelihood = config.likelihood
     mean = likelihood.source_position_prior_mean_arcsec
     if len(mean) != 2 or not all(math.isfinite(float(v)) for v in mean):
@@ -871,13 +850,31 @@ def validate_config(config: LensClusterSolverConfig) -> None:
         raise ValueError("truth.posterior_truth_recovery_draws and truth.truth_grid_size must be nonnegative.")
 
 
-def _validate_truncated_normal(name: str, *, mean: float, std: float, lower: float, upper: float) -> None:
-    if std <= 0.0:
-        raise ValueError(f"{name}_std must be positive.")
-    if lower >= upper:
-        raise ValueError(f"{name}_lower must be less than {name}_upper.")
-    if not lower <= mean <= upper:
-        raise ValueError(f"{name}_mean must lie inside the configured bounds.")
+def _supported_prior(label: str, prior: Any) -> None:
+    if not is_distribution(prior):
+        raise ValueError(f"{label} must be a numpyro.distributions object, got {type(prior).__name__}.")
+    try:
+        split(prior)
+    except ValueError as error:
+        raise ValueError(f"{label}: {error}") from None
+
+
+def _positive_prior(label: str, prior: Any) -> None:
+    """A prior of a positive quantity (``None`` passes: the quantity is fixed or the term is off)."""
+    if prior is None:
+        return
+    _supported_prior(label, prior)
+    if not physical_bounds(prior)[0] >= 0.0:
+        raise ValueError(f"{label} must be a prior of a positive quantity (e.g. dist.LogNormal or lenscluster.priors.truncated_lognormal).")
+
+
+def _bounded_prior(label: str, prior: Any) -> tuple[float, float]:
+    """The finite bounds of a prior that needs them (tabulated or truncated quantities)."""
+    _supported_prior(label, prior)
+    low, high = physical_bounds(prior)
+    if not (math.isfinite(low) and math.isfinite(high) and low < high):
+        raise ValueError(f"{label} must have finite bounds low < high (a Uniform or a two-sided TruncatedNormal).")
+    return low, high
 
 
 def _validate_model_config(model: LensModelConfig | None) -> None:

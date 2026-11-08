@@ -2,10 +2,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, NamedTuple, Protocol
+from functools import cached_property
+from typing import Any, NamedTuple
 
 import jax.numpy as jnp
 import numpy as np
+
+from . import priors
 
 DP_IE_PROFILE = 81          # Lenstool profile codes
 SHEAR_PROFILE = 14
@@ -22,38 +25,31 @@ SAFE_RADIUS_MARGIN_ARCSEC = 1.0e-3
 SAFE_RADIUS_MARGIN_KPC = 1.0e-3
 
 
-class ParameterTransformSpec(Protocol):
-    transform_kind: str
-    transform_offset: float
-    transform_scale: float
-
-
 @dataclass(frozen=True)
 class ParameterSpec:
+    """One sampled parameter.  ``prior`` is the NumPyro distribution of its physical value; the parameter is sampled in
+    that distribution's base coordinate (its log for an exp-transformed prior, see priors.py), the "latent" value."""
     name: str
     sample_name: str
     potential_id: str
     profile_type: int
     field: str
-    prior_kind: str
-    lower: float
-    upper: float
-    step: float
-    mean: float | None = None
-    std: float | None = None
+    prior: Any
     component_family: str = "large"
-    transform_kind: str = "identity"
-    physical_lower: float | None = None
-    physical_upper: float | None = None
-    physical_mean: float | None = None
-    physical_std: float | None = None
-    transform_offset: float = 0.0
-    transform_scale: float = 1.0
     sample_site_name: str | None = None
     sample_site_index: int | None = None
-    centered: bool = False                   # deviation sampled directly with prior N(0, scatter) instead of a unit offset
+    centered: bool = False                   # deviation sampled directly with prior N(loc, scatter) instead of a unit offset
     scale_site_name: str | None = None       # sample site whose exp(value) is that scatter
-    dof: float | None = None                 # degrees of freedom of a "student_t" prior (member deviations with heavy tails)
+
+    @cached_property
+    def latent_prior(self) -> Any:
+        """The distribution of the latent value."""
+        return priors.split(self.prior)[0]
+
+    @cached_property
+    def log(self) -> bool:
+        """True when the physical value is exp(latent)."""
+        return priors.split(self.prior)[1]
 
 
 @dataclass
@@ -242,8 +238,7 @@ class ModelState:
     members: MemberModel
     z_source_values: list[float]
     dpie_sigma0_factor_by_z: dict[float, float]
-    log_softening_length_param_index: int = -1
-    scaling_priors: dict[str, float] = field(default_factory=dict)
+    softening_length_param_index: int = -1
     sigma_def_param_index: int = -1              # residual deflection scatter, isotropic in the source plane
     sigma_extra_param_index: int = -1            # extra measurement scatter added in quadrature to sigma_inst; -1 when absent
     sigma_sel_param_index: int = -1              # feature-selection scatter; -1 when the term is disabled
@@ -297,136 +292,64 @@ class PosteriorResults:
     maximum_likelihood_fit: np.ndarray | None = None
 
 
-def positive_lognormal_parameters(mean: float, std: float, *, floor: float = 1.0e-6) -> tuple[float, float]:
-    """Convert physical positive-normal moments into latent log-normal moments."""
-    mean = max(float(mean), float(floor))
-    std = max(float(std), 1.0e-9)
-    variance = std * std
-    sigma2 = np.log1p(variance / (mean * mean))
-    return float(np.log(mean) - 0.5 * sigma2), float(np.sqrt(sigma2))
+def physical_to_latent(value: float, spec: ParameterSpec) -> float:
+    return float(np.log(max(float(value), 1.0e-12))) if spec.log else float(value)
 
 
-def physical_to_latent(value: float, spec: ParameterTransformSpec) -> float:
-    value = float(value)
-    offset = float(spec.transform_offset)
-    scale = float(getattr(spec, "transform_scale", 1.0))
-    if spec.transform_kind == "log_positive":
-        return float(np.log(max(value, 1.0e-12)))
-    if spec.transform_kind == "log_offset_positive":
-        return float(np.log(max(value - offset, 1.0e-12)))
-    if spec.transform_kind == "affine":
-        return float((value - offset) / scale)
-    return value
+def latent_to_physical(value: float, spec: ParameterSpec) -> float:
+    return float(np.exp(float(value))) if spec.log else float(value)
 
 
-def latent_to_physical(value: float, spec: ParameterTransformSpec) -> float:
-    value = float(value)
-    if spec.transform_kind == "log_positive":
-        return float(np.exp(value))
-    if spec.transform_kind == "log_offset_positive":
-        return float(spec.transform_offset + np.exp(value))
-    if spec.transform_kind == "affine":
-        return float(spec.transform_offset + float(getattr(spec, "transform_scale", 1.0)) * value)
-    return value
-
-
-def latent_array_to_physical(values: np.ndarray, spec: ParameterTransformSpec) -> np.ndarray:
+def latent_array_to_physical(values: np.ndarray, spec: ParameterSpec) -> np.ndarray:
     array = np.asarray(values, dtype=float)
-    if spec.transform_kind == "log_positive":
-        return np.exp(array)
-    if spec.transform_kind == "log_offset_positive":
-        return float(spec.transform_offset) + np.exp(array)
-    if spec.transform_kind == "affine":
-        return float(spec.transform_offset) + float(getattr(spec, "transform_scale", 1.0)) * array
-    return array
-
-
-def latent_jax_to_physical(values: jnp.ndarray, spec: ParameterTransformSpec) -> jnp.ndarray:
-    array = jnp.asarray(values, dtype=jnp.float64)
-    if spec.transform_kind == "log_positive":
-        return jnp.exp(array)
-    if spec.transform_kind == "log_offset_positive":
-        return jnp.asarray(spec.transform_offset, dtype=jnp.float64) + jnp.exp(array)
-    if spec.transform_kind == "affine":
-        return jnp.asarray(spec.transform_offset, dtype=jnp.float64) + jnp.asarray(
-            getattr(spec, "transform_scale", 1.0), dtype=jnp.float64) * array
-    return array
-
-
-def display_lower(spec: ParameterSpec) -> float:
-    return float(spec.physical_lower if spec.physical_lower is not None else spec.lower)
-
-
-def display_upper(spec: ParameterSpec) -> float:
-    return float(spec.physical_upper if spec.physical_upper is not None else spec.upper)
+    return np.exp(array) if spec.log else array
 
 
 def convert_theta_to_physical(theta: np.ndarray, parameter_specs: list[ParameterSpec]) -> np.ndarray:
     theta_array = np.asarray(theta, dtype=float)
-    if theta_array.size == 0:
-        return theta_array.copy()
-    converted = theta_array.copy()
-    for idx, spec in enumerate(parameter_specs):
-        converted[idx] = latent_to_physical(theta_array[idx], spec)
-    return converted
+    return np.asarray([latent_to_physical(v, spec) for v, spec in zip(theta_array, parameter_specs)], dtype=float).reshape(theta_array.shape)
 
 
 def convert_theta_to_latent(theta: np.ndarray, parameter_specs: list[ParameterSpec]) -> np.ndarray:
     theta_array = np.asarray(theta, dtype=float)
-    if theta_array.size == 0:
-        return theta_array.copy()
-    converted = theta_array.copy()
-    for idx, spec in enumerate(parameter_specs):
-        converted[idx] = physical_to_latent(theta_array[idx], spec)
-    return converted
+    return np.asarray([physical_to_latent(v, spec) for v, spec in zip(theta_array, parameter_specs)], dtype=float).reshape(theta_array.shape)
 
 
 def convert_sample_matrix_to_physical(samples: np.ndarray, parameter_specs: list[ParameterSpec]) -> np.ndarray:
     array = np.asarray(samples, dtype=float)
-    if array.size == 0:
-        return array.copy()
     converted = array.copy()
     for idx, spec in enumerate(parameter_specs):
         converted[..., idx] = latent_array_to_physical(array[..., idx], spec)
     return converted
 
 
-def apply_parameter_transforms_jax(
-    params: jnp.ndarray,
-    log_positive_mask: jnp.ndarray,
-    log_offset_positive_mask: jnp.ndarray,
-    transform_offset_array: jnp.ndarray,
-    affine_mask: jnp.ndarray | None = None,
-    transform_scale_array: jnp.ndarray | None = None,
-) -> jnp.ndarray:
+def log_mask(parameter_specs: list[ParameterSpec]) -> np.ndarray:
+    """True for the parameters whose physical value is exp(latent)."""
+    return np.asarray([spec.log for spec in parameter_specs], dtype=bool)
+
+
+def apply_parameter_transforms_jax(params: jnp.ndarray, log_positive_mask: jnp.ndarray) -> jnp.ndarray:
+    """Physical values of a latent vector: exp where ``log_positive_mask``, the latent value elsewhere."""
     params_array = jnp.asarray(params, dtype=jnp.float64)
-    if affine_mask is None:
-        affine_mask = jnp.zeros_like(log_positive_mask, dtype=bool)
-    if transform_scale_array is None:
-        transform_scale_array = jnp.ones_like(transform_offset_array, dtype=jnp.float64)
-    safe_log_positive_params = jnp.where(log_positive_mask, params_array, 0.0)
-    physical_params = jnp.where(log_positive_mask, jnp.exp(safe_log_positive_params), params_array)
-    safe_log_offset_params = jnp.where(log_offset_positive_mask, params_array, 0.0)
-    physical_params = jnp.where(
-        log_offset_positive_mask, transform_offset_array + jnp.exp(safe_log_offset_params), physical_params)
-    physical_params = jnp.where(
-        affine_mask, transform_offset_array + transform_scale_array * params_array, physical_params)
-    return physical_params
+    return jnp.where(log_positive_mask, jnp.exp(jnp.where(log_positive_mask, params_array, 0.0)), params_array)
 
 
 def clip_value_to_safe_bounds(value: float, spec: ParameterSpec, boundary_frac: float = 0.0) -> float:
-    lower = float(spec.lower)
-    upper = float(spec.upper)
+    """``value`` (latent) inside the support of the latent prior, at least ``boundary_frac`` of the width (uniform) or of
+    the bound's magnitude (bounded below) away from a bound."""
+    latent = spec.latent_prior
+    lower, upper = priors.bounds(latent)
+    kind = priors.family(latent)
     clipped = float(np.clip(float(value), lower, upper))
-    if spec.prior_kind == "uniform":
+    if kind == "Uniform":
         width = float(upper - lower)
         margin = min(max(float(boundary_frac) * width, 0.0), 0.5 * width - 1.0e-12) if width > 0.0 else 0.0
         if margin > 0.0:
             clipped = float(np.clip(clipped, lower + margin, upper - margin))
-    elif spec.prior_kind == "truncated_normal" and np.isfinite(lower):
+    elif kind == "TruncatedNormal" and np.isfinite(lower):
         margin = max(float(boundary_frac) * max(abs(lower), 1.0e-12), 0.0)
         if spec.field == "beta_radius":
-            margin = max(margin, float(boundary_frac) * float(spec.std))
+            margin = max(margin, float(boundary_frac) * priors.parameters(latent)["scale"])
         if np.isfinite(upper):
             width = float(upper - lower)
             margin = min(margin, 0.5 * width - 1.0e-12) if width > 0.0 else 0.0
@@ -444,9 +367,7 @@ def clip_theta_to_support(theta: np.ndarray, parameter_specs: list[ParameterSpec
 
 def default_theta(parameter_specs: list[ParameterSpec], boundary_frac: float = 0.02) -> np.ndarray:
     """Latent vector at prior centres: the configured values for lens parameters, zero offsets."""
-    values = np.asarray(
-        [0.5 * (spec.lower + spec.upper) if spec.prior_kind == "uniform" else float(spec.mean) for spec in parameter_specs],
-        dtype=float)
+    values = np.asarray([priors.center(spec.latent_prior) for spec in parameter_specs], dtype=float)
     return clip_theta_to_support(values, parameter_specs, boundary_frac=boundary_frac)
 
 

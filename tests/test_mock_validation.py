@@ -13,6 +13,7 @@ from lenscluster.mock_validation import (MockConfig, MockValidationConfig, MockV
                                          generate_images, generate_mock, parameter_truth, run_mock_validation, solver_config_for_mock, write_aggregate_plots)
 from lenscluster.mock_validation.aperture import APERTURE_RADII_KPC, aperture_profiles, truth_groups
 from lenscluster.mock_validation.images import jacobian, lens_state
+from lenscluster import priors
 from lenscluster.state import build_state
 
 SMALL = MockConfig(seed=7, n_members=12, n_primary_families=4, n_member_families=1, unmodelled_members=2, sigma_def_arcsec=0.03)
@@ -60,16 +61,17 @@ def test_solver_model_from_truth_contains_the_truth(tmp_path, mode):
     values = parameter_truth(truth, solver_pivot_magnitude=float(state.potfiles[0]["mag0"]))
     for spec in state.parameter_specs:
         t = values.get(spec.name)
-        if t is None or spec.physical_lower is None and spec.prior_kind == "normal":
+        if t is None or spec.component_family == "source_position":   # sources: a prior on whitened offsets, a truth in arcsec
             continue
-        lower = spec.physical_lower if spec.physical_lower is not None else spec.lower
-        upper = spec.physical_upper if spec.physical_upper is not None else spec.upper
-        if spec.transform_kind == "identity" and spec.prior_kind in {"uniform", "truncated_normal"}:
+        lower, upper = priors.physical_bounds(spec.prior)
+        if np.isfinite(upper) and (not spec.log or t > 0):
             assert lower - 1e-9 <= t <= upper + 1e-9, (spec.name, t, lower, upper)
-        elif spec.transform_kind == "log_positive" and t > 0 and upper is not None and np.isfinite(upper):
-            assert lower - 1e-9 <= t <= upper + 1e-9, (spec.name, t, lower, upper)
-        if mode == "idealized" and spec.physical_mean is not None and spec.physical_std is not None and t > 0:
-            assert abs(t - spec.physical_mean) <= 1.5 * spec.physical_std + 1e-9, (spec.name, t, spec.physical_mean, spec.physical_std)
+        family, parameter = priors.family(spec.latent_prior), priors.parameters(spec.latent_prior)
+        if mode == "idealized" and family in ("Normal", "TruncatedNormal") and t > 0:
+            # The prior's (untruncated) mean and standard deviation in physical units.
+            loc, scale = parameter["loc"], parameter["scale"]
+            mean, std = (np.exp(loc + scale ** 2 / 2), np.exp(loc + scale ** 2 / 2) * np.sqrt(np.expm1(scale ** 2))) if spec.log else (loc, scale)
+            assert abs(t - mean) <= 1.5 * std + 1e-9, (spec.name, t, mean, std)
     # With the member core fixed, no corekpc parameter is sampled and the fixed core sits at the pivot like sigma and cutkpc.
     fixed = build_state(replace(solver, scaling=ScalingModelConfig(fit_corekpc=False)))
     assert not any(spec.field == "corekpc" for spec in fixed.parameter_specs) and fixed.n_parameters == state.n_parameters - 1

@@ -20,6 +20,7 @@ from .config import LensClusterSolverConfig
 from .evaluator import Evaluator
 from .init_plots import write_init_plots
 from .model import ModelState, PosteriorResults
+from .priors import physical_center
 from .outputs import write_outputs
 from .report import audit_report, classification_report, far_field_threshold_table, run_summary_table, start_parameter_report
 from .sampling import run_nuts
@@ -139,7 +140,7 @@ def classify(state: ModelState, evaluator: Evaluator, theta: np.ndarray, config:
     if reference_cut_kpc is None:
         reference_cut_kpc = max(float(p["cutkpc_nominal"]) for p in state.potfiles) if state.potfiles else 0.0
     if beta_radius is None:
-        beta_radius = float(config.scaling.beta_radius_prior_mean)
+        beta_radius = physical_center(config.scaling.beta_radius_prior)
     quantile = config.members.classification_prior_quantile
     betas = [float(beta_radius)]
     inflated = float(reference_cut_kpc) * float(config.members.cut_radius_inflation)

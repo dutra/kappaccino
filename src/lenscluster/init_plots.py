@@ -200,7 +200,6 @@ def plot_scaling_at_start(state: ModelState, evaluator: Evaluator, theta: np.nda
     for s_ in specs:
         if s_.component_family in {"scaling", "member_velocity_scatter", "error_scale"} or s_.field in {"velocity_log_scatter", "sigma_def"}:
             i = specs.index(s_)
-            prior = state.scaling_priors.get(s_.name) if isinstance(state.scaling_priors, dict) else None
             lines.append(f"{s_.name} = {physical[i]:.4g}")
     ax.text(0.98, 0.97, "\n".join(lines), transform=ax.transAxes, ha="right", va="top", fontsize=7,
             bbox={"boxstyle": "round,pad=0.3", "facecolor": "white", "edgecolor": "0.7", "alpha": 0.9})

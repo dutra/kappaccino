@@ -25,7 +25,6 @@ class LensProfile:
     required_fields: tuple[str, ...]            # numeric fields of a potential definition, besides id, profil and z_lens
     polar_shape: tuple[str, str] | None         # (amplitude, angle) pair sampled together ...
     cartesian_shape: tuple[str, str] | None     # ... as this Cartesian pair
-    log_positive_fields: frozenset[str]         # sampled as log of a positive quantity
     label: str
 
 
@@ -33,21 +32,18 @@ PROFILES: dict[int, LensProfile] = {
     DP_IE_PROFILE: LensProfile(
         code=DP_IE_PROFILE, name=DPIE_PROFILE_NAME, label="dPIE",
         required_fields=("x_centre", "y_centre", "ellipticite", "angle_pos", "core_radius_kpc", "cut_radius_kpc", "v_disp"),
-        polar_shape=("ellipticite", "angle_pos"), cartesian_shape=("e1", "e2"),
-        log_positive_fields=frozenset({"core_radius_kpc", "cut_radius_kpc", "v_disp"})),
+        polar_shape=("ellipticite", "angle_pos"), cartesian_shape=("e1", "e2")),
     NFW_PROFILE: LensProfile(
         code=NFW_PROFILE, name=NFW_PROFILE_NAME, label="elliptical NFW",
         required_fields=("x_centre", "y_centre", "ellipticite", "angle_pos", "log10_m200", "scale_radius_kpc"),
-        polar_shape=("ellipticite", "angle_pos"), cartesian_shape=("e1", "e2"),
-        log_positive_fields=frozenset({"scale_radius_kpc"})),
+        polar_shape=("ellipticite", "angle_pos"), cartesian_shape=("e1", "e2")),
     SHEAR_PROFILE: LensProfile(
         code=SHEAR_PROFILE, name=SHEAR_PROFILE_NAME, label="external shear",
         required_fields=("gamma", "angle_pos"),
-        polar_shape=("gamma", "angle_pos"), cartesian_shape=("gamma1", "gamma2"),
-        log_positive_fields=frozenset()),
+        polar_shape=("gamma", "angle_pos"), cartesian_shape=("gamma1", "gamma2")),
     MASS_SHEET_PROFILE: LensProfile(
         code=MASS_SHEET_PROFILE, name=MASS_SHEET_PROFILE_NAME, label="external convergence",
-        required_fields=("kappa",), polar_shape=None, cartesian_shape=None, log_positive_fields=frozenset()),
+        required_fields=("kappa",), polar_shape=None, cartesian_shape=None),
 }
 SUPPORTED_PROFILES = frozenset(PROFILES)
 ELLIPTICAL_PROFILES = frozenset({DP_IE_PROFILE, NFW_PROFILE})

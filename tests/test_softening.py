@@ -6,14 +6,16 @@ from dataclasses import replace
 import jax.numpy as jnp
 import numpy as np
 
+import numpyro.distributions as dist
+
 from lenscluster.evaluator import Evaluator
+from lenscluster.priors import lognormal_from_moments
 from lenscluster.state import build_state
 
 
 def _evaluator(config, softening_kpc):
-    scaling = replace(config.scaling, softening_length_kpc=softening_kpc)
-    population = replace(config.model.member_populations[0], cutkpc=1.0,
-                         cutkpc_prior=replace(config.model.member_populations[0].cutkpc_prior, mean=1.0, std=0.3, lower=0.3, upper=3.0))
+    scaling = replace(config.scaling, softening_length_prior=dist.LogNormal(np.log(softening_kpc), 0.15) if softening_kpc > 0 else None)
+    population = replace(config.model.member_populations[0], cutkpc=1.0, cutkpc_prior=lognormal_from_moments(1.0, 0.3, low=0.3, high=3.0))
     model = replace(config.model, member_populations=(population,))
     state = build_state(replace(config, scaling=scaling, model=model).validate())
     return state, Evaluator(state)

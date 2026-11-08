@@ -19,7 +19,9 @@ def test_report_groups_the_parameters_shows_priors_and_flags_a_bound(tmp_path):
     theta = np.array(state.initial_theta, dtype=float)
     i = names.index("images.gp_sigma_alpha")
     spec = state.parameter_specs[i]
-    theta[i] = spec.upper - 0.001 * (spec.upper - spec.lower)                 # inside the 2% margin of the upper bound
+    from lenscluster import priors
+    lower, upper = priors.bounds(spec.latent_prior)
+    theta[i] = upper - 0.001 * (upper - lower)                                 # inside the 2% margin of the upper bound
     text = start_parameter_report(state, theta, np.asarray(evaluator.physical(jnp.asarray(theta))))
     assert "Error model (GRF + GP) at the start" in text
     line = next(l for l in text.splitlines() if "gp_sigma_alpha" in l)
@@ -29,7 +31,7 @@ def test_report_groups_the_parameters_shows_priors_and_flags_a_bound(tmp_path):
     assert "\x1b[1;31m" in colored                                           # the red row is coloured on the terminal
     status = _prior_status(spec, theta[i])
     assert status == "red"
-    assert _prior_status(spec, float(spec.mean)) == "green"                    # at the prior median
+    assert _prior_status(spec, priors.center(spec.latent_prior)) == "green"   # at the prior median
     for s in state.parameter_specs:                                       # every listed prior renders in physical units
         if s.component_family in ("error_scale", "large", "scaling"):
             assert _prior_text(s)

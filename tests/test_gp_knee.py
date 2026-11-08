@@ -15,7 +15,9 @@ import yaml
 from scipy.special import jv
 
 from conftest import synthetic_cluster_config, write_offset_catalog
-from lenscluster import gp_knee
+import numpyro.distributions as dist
+
+from lenscluster import gp_knee, priors
 from lenscluster.evaluator import Evaluator
 from lenscluster.image_catalog import write_image_catalog
 from lenscluster.sky import offsets_to_radec
@@ -141,7 +143,7 @@ def test_sampled_slope_at_four_matches_the_fixed_slope(synthetic_config):
     names = [p.name for p in sampled.parameter_specs]
     assert "images.gp_knee_gamma" in names and "images.gp_knee_gamma" not in [p.name for p in fixed.parameter_specs]
     spec = sampled.parameter_specs[names.index("images.gp_knee_gamma")]
-    assert (spec.prior_kind, spec.lower, spec.upper) == ("uniform", 2.0, 6.0)
+    assert priors.to_dict(spec.prior) == {"family": "Uniform", "log": False, "low": 2.0, "high": 6.0}
     theta = np.asarray(sampled.initial_theta, dtype=float)
     assert theta[names.index("images.gp_knee_gamma")] == 4.0
     keep = [i for i, n in enumerate(names) if n != "images.gp_knee_gamma"]
@@ -151,18 +153,18 @@ def test_sampled_slope_at_four_matches_the_fixed_slope(synthetic_config):
 
 
 def test_sampled_slope_normal_prior_is_truncated_to_the_table_bounds(synthetic_config):
-    """gp_knee_gamma_sigma: a normal about gp_knee_gamma on the gp_knee_gamma_prior bounds; the likelihood does not change."""
+    """A normal prior on the slope, truncated to the table bounds; the likelihood does not change."""
     uniform = build_state(knee_config(synthetic_config, "all"))
-    normal = build_state(knee_config(synthetic_config, "all", gp_knee_gamma_sigma=0.5))
+    normal = build_state(knee_config(synthetic_config, "all", gp_knee_gamma_prior=dist.TruncatedNormal(4.0, 0.5, low=2.0, high=6.0)))
     names = [p.name for p in normal.parameter_specs]
     assert names == [p.name for p in uniform.parameter_specs]
     spec = normal.parameter_specs[names.index("images.gp_knee_gamma")]
-    assert (spec.prior_kind, spec.mean, spec.std, spec.lower, spec.upper) == ("truncated_normal", 4.0, 0.5, 2.0, 6.0)
+    assert priors.to_dict(spec.prior) == {"family": "TruncatedNormal", "log": False, "loc": 4.0, "scale": 0.5, "low": 2.0, "high": 6.0}
     theta = np.asarray(normal.initial_theta, dtype=float)
     np.testing.assert_allclose(float(Evaluator(normal, "gp_image_plane").loglike(jnp.asarray(theta))),
                                float(Evaluator(uniform, "gp_image_plane").loglike(jnp.asarray(theta))), rtol=1e-12)
     with pytest.raises(ValueError):
-        knee_config(synthetic_config, "all", gp_knee_gamma_sigma=-0.5).validate()
+        knee_config(synthetic_config, "all", gp_knee_gamma_prior=dist.Normal(4.0, 0.5)).validate()          # the tables need bounds
 
 
 # ----------------------------------------------------------------------------- 2. limits and layouts

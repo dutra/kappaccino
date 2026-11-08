@@ -6,13 +6,15 @@ from dataclasses import replace
 import jax.numpy as jnp
 import numpy as np
 
-from lenscluster.config import LogNormalPriorConfig
+import numpyro.distributions as dist
+
+from lenscluster import priors
 from lenscluster.evaluator import Evaluator
 from lenscluster.state import build_state
 
 
 def test_sigma_extra_adds_in_quadrature_to_sigma_inst(synthetic_config):
-    likelihood = replace(synthetic_config.likelihood, sigma_extra_prior=LogNormalPriorConfig(median=0.05, log_sigma=1.0))
+    likelihood = replace(synthetic_config.likelihood, sigma_extra_prior=dist.LogNormal(np.log(0.05), 1.0))
     config = replace(synthetic_config, likelihood=likelihood).validate()
     assert build_state(replace(synthetic_config, likelihood=replace(likelihood, sigma_extra_prior=None))).sigma_extra_param_index == -1
     state = build_state(config)
@@ -20,12 +22,12 @@ def test_sigma_extra_adds_in_quadrature_to_sigma_inst(synthetic_config):
     index = names.index("images.sigma_extra")
     assert state.sigma_extra_param_index == index
     spec = state.parameter_specs[index]
-    assert spec.prior_kind == "normal" and spec.transform_kind == "log_positive" and np.isclose(spec.mean, np.log(0.05))   # no cap requested here
-    capped = build_state(replace(config, likelihood=replace(likelihood, sigma_extra_prior=LogNormalPriorConfig(median=0.05, log_sigma=1.0, upper=1.0))))
+    assert spec.log and priors.family(spec.latent_prior) == "Normal" and np.isclose(priors.center(spec.latent_prior), np.log(0.05))   # no cap
+    capped = build_state(replace(config, likelihood=replace(likelihood, sigma_extra_prior=priors.truncated_lognormal(0.05, 1.0, high=1.0))))
     cap = capped.parameter_specs[[s.name for s in capped.parameter_specs].index("images.sigma_extra")]
-    assert cap.prior_kind == "truncated_normal" and np.isclose(cap.upper, 0.0) and cap.physical_upper == 1.0 and cap.physical_lower > 0
+    assert cap.log and priors.family(cap.latent_prior) == "TruncatedNormal" and np.isclose(priors.physical_bounds(cap.prior)[1], 1.0)
     src = capped.parameter_specs[[s.name for s in capped.parameter_specs].index("images.sigma_def")]
-    assert src.prior_kind == "truncated_normal" and src.physical_upper == 1.0                                              # the library default caps sigma_def at 1"
+    assert np.allclose(priors.physical_bounds(src.prior), (1.0e-4, 1.0))                                                  # the library default caps sigma_def at 1"
     evaluator = Evaluator(state)
     theta = np.asarray(state.initial_theta).copy()
 
@@ -60,11 +62,11 @@ def test_sigma_sel_is_sampled_by_default_and_absent_when_disabled(synthetic_conf
     disabled = build_state(replace(synthetic_config, likelihood=replace(synthetic_config.likelihood, sigma_sel_prior=None)))
     assert disabled.sigma_sel_param_index == -1 and not any(s.field == "sigma_sel" for s in disabled.parameter_specs)
     assert disabled.lambda_sel_param_index == -1 and not any(s.field == "lambda_sel" for s in disabled.parameter_specs)
-    enabled = replace(synthetic_config, likelihood=replace(synthetic_config.likelihood, lambda_sel_prior=LogNormalPriorConfig(median=0.5, log_sigma=0.7))).validate()
+    enabled = replace(synthetic_config, likelihood=replace(synthetic_config.likelihood, lambda_sel_prior=dist.LogNormal(np.log(0.5), 0.7))).validate()
     state = build_state(enabled)
     index, lam_index = state.sigma_sel_param_index, state.lambda_sel_param_index
     assert state.parameter_specs[index].name == "images.sigma_sel" and state.parameter_specs[lam_index].name == "images.lambda_sel"
-    assert state.parameter_specs[lam_index].physical_mean == 0.5
+    assert np.isclose(priors.physical_center(state.parameter_specs[lam_index].prior), 0.5)
     evaluator = Evaluator(state)
     theta = np.asarray(state.initial_theta).copy()
     stats = evaluator.statistics(jnp.asarray(theta))

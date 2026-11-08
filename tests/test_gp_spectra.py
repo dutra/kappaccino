@@ -12,22 +12,24 @@ import numpy as np
 import pytest
 
 from lenscluster import gp_knee
-from lenscluster.config import LogNormalPriorConfig
+import numpyro.distributions as dist
+
+from lenscluster.priors import truncated_lognormal
 from lenscluster.evaluator import Evaluator
 from lenscluster.state import build_state
 from test_gp_knee import knee_config, set_sites, two_knot_config
 
-WIDE = dict(gp_knee_scales_arcsec=(0.2, 100.0), gp_knee_prior=LogNormalPriorConfig(median=20.0, log_sigma=1.0, upper=80.0),
+WIDE = dict(gp_knee_scales_arcsec=(0.2, 100.0), gp_knee_prior=truncated_lognormal(20.0, 1.0, low=1.0e-4, high=80.0),
             gp_knee_start_arcsec=20.0)
 TABLE = dict(r_max=30.0, r_step=0.05, lam_min=0.5, lam_max=80.0, n_lam=24, scale_min=0.2, scale_max=100.0, n_nodes=1500)
 
 
 def _variant(config, spectrum, **likelihood):
-    extra = {"two_knee": dict(gp_knee_gamma_prior=None, gp_knee_prior=LogNormalPriorConfig(median=20.0, log_sigma=1.0, upper=80.0, lower=10.0)),
+    extra = {"two_knee": dict(gp_knee_gamma_prior=None, gp_knee_prior=truncated_lognormal(20.0, 1.0, low=10.0, high=80.0)),
              "knee_foreground": dict(gp_knee_gamma_prior=None),
              "knee_background": dict(gp_knee_gamma_prior=None, gp_knee2_plane_redshift=0.7),
              "broken_power_law": dict(gp_knee_gamma_prior=None),
-             "power_law": dict(gp_knee_gamma_prior=(0.5, 6.0), gp_knee_gamma=4.0),
+             "power_law": dict(gp_knee_gamma_prior=dist.Uniform(0.5, 6.0), gp_knee_gamma=4.0),
              "knee": dict(gp_knee_gamma_prior=None)}[spectrum]
     return knee_config(config, "all", gp_knee_spectrum=spectrum, **{**WIDE, **extra, **likelihood})
 

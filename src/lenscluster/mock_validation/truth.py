@@ -190,6 +190,7 @@ def parameter_truth(truth: dict[str, Any], *, solver_pivot_magnitude: float | No
         for key in ("x_centre", "y_centre", "ellipticite", "angle_pos", "core_radius_kpc", "cut_radius_kpc", "v_disp"):
             values[f"{prefix}.{key}"] = float(c[key])
         values[f"{prefix}.e1"], values[f"{prefix}.e2"] = lenstool_shape_to_e1e2(float(c["ellipticite"]), float(c["angle_pos"]))
+        values[f"{prefix}.cut_excess_kpc"] = float(c["cut_radius_kpc"]) - float(c["core_radius_kpc"])     # mocks have no softening
         values[f"{prefix}.log10_mass_msun"] = float(log10_dpie_mass_msun(float(c["v_disp"]), float(c["cut_radius_kpc"])))
     r = truth["relation"]
     pivot = float(r["pivot_magnitude"]) if solver_pivot_magnitude is None else float(solver_pivot_magnitude)

@@ -69,10 +69,12 @@ The init search runs on system blocks either way; the chain-start step and NUTS 
 
 The sampled hyperparameters are $\sigma_\alpha$, the knee $\lambda_t$, the image-plane $\ell$,
 $\sigma_{\mathrm{shared}}$ and $\sigma_{\mathrm{white}}$; the slope $\gamma$ is fixed at 4 unless
-`gp_knee_gamma_prior` and `gp_knee_gamma_sigma` free it. The production fits use these settings:
+`gp_knee_gamma_prior` (a `dist.Uniform` or a two-sided `dist.TruncatedNormal`, whose bounds are also those of the
+tables) frees it. The production fits use these settings:
 
 ```python
-from lenscluster.config import LikelihoodConfig, LogNormalPriorConfig
+from lenscluster.config import LikelihoodConfig
+from lenscluster.priors import truncated_lognormal
 
 grf_likelihood = LikelihoodConfig(
     likelihood_mode="gp_image_plane",
@@ -81,13 +83,13 @@ grf_likelihood = LikelihoodConfig(
     gp_knee_project_modes=("translation", "convergence", "shear"),  # only with gp_blocks="all"
     sigma_sel_prior=None,
     gp_knee_gamma=4.0,
-    gp_knee_gamma_prior=None,                                   # (2.0, 6.0) with gp_knee_gamma_sigma=0.5 samples it
+    gp_knee_gamma_prior=None,                                   # dist.TruncatedNormal(4.0, 0.5, low=2.0, high=6.0) samples it
     gp_knee_scales_arcsec=(0.2, 100.0),
-    gp_knee_prior=LogNormalPriorConfig(median=6.0, log_sigma=0.6, lower=2.5, upper=8.0),
+    gp_knee_prior=truncated_lognormal(6.0, 0.6, low=2.5, high=8.0),
     gp_knee_start_arcsec=6.0,
-    gp_sigma_alpha_prior=LogNormalPriorConfig(median=0.08, log_sigma=0.5, upper=0.5),
+    gp_sigma_alpha_prior=truncated_lognormal(0.08, 0.5, low=1e-4, high=0.5),
     gp_sigma_alpha_start_arcsec=0.08,
-    gp_knee_ell_prior=LogNormalPriorConfig(median=1.0, log_sigma=0.4, lower=0.4, upper=3.0),
+    gp_knee_ell_prior=truncated_lognormal(1.0, 0.4, low=0.4, high=3.0),
     gp_knee_ell_start_arcsec=1.0,
 )
 config = replace(config, likelihood=grf_likelihood)

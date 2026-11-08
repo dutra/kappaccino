@@ -28,8 +28,8 @@ Lens model
 Priors
 ------
 
-.. autoclass:: lenscluster.config.PriorConfig
-.. autoclass:: lenscluster.config.LogNormalPriorConfig
+.. automodule:: lenscluster.priors
+   :members: truncated_lognormal, lognormal_from_moments, cut_excess_from_moments, ellipticity_box, shear_box, to_dict
 
 Members and scaling relation
 ----------------------------

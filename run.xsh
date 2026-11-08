@@ -1,6 +1,7 @@
 $XONSH_SHOW_TRACEBACK = True
 
 import json
+import math
 import os
 import sys
 import time
@@ -33,10 +34,8 @@ from lenscluster.config import (
     LikelihoodConfig,
     IndependentMemberHaloConfig,
     LensModelConfig,
-    LogNormalPriorConfig,
     MemberConfig,
     MemberPopulationConfig,
-    PriorConfig,
     RGBDisplayConfig,
     ReferenceFrameConfig,
     RunPathsConfig,
@@ -49,6 +48,8 @@ from lenscluster.config import (
 )
 from lenscluster.cpu_runtime import configure_cpu_runtime, resolve_cpu_plan, threads_per_chain_if_supported
 from lenscluster.jax_cosmology import kpc_per_arcsec_from_config
+from lenscluster.priors import ellipticity_box, lognormal_from_moments, truncated_lognormal
+import numpyro.distributions as dist
 
 OUTPUT_DIR_LABEL = "oct22_single_stage"
 
@@ -58,13 +59,37 @@ OUTPUT_DIR_LABEL = "oct22_single_stage"
 BCG_CUT_PRIOR = "lognormal"
 
 
-def _bcg_cut_prior(median_kpc: float, uniform_bounds: tuple[float, float]) -> PriorConfig:
-    """Cut radius prior of an independent BCG halo.  A "normal" radius prior becomes a log-normal in log r_cut with
-    moment-matched width and no bound, so mean = median exp(s^2 / 2) and std = mean sqrt(exp(s^2) - 1) for s = 0.64."""
+# Prior helpers in the coordinates the solver samples (lenscluster.priors): radii and dispersions in log.
+def _log_uniform(low: float, high: float):
+    """A radius log-uniform on [low, high] kpc."""
+    return dist.LogUniform(max(float(low), 1.0e-3), float(high))
+
+
+def _dispersion(mean: float, std: float, low: float, high: float | None = None):
+    """A velocity dispersion of about mean +- std km/s on [low, high]: the log-normal with those moments."""
+    low = max(float(low), 1.0e-4)
+    high = None if high is None or high == float("inf") else float(high)
+    return lognormal_from_moments(max(float(mean), low), float(std), low=low, high=high)
+
+
+def _cut_uniform(low: float, high: float, core: float):
+    """A cut radius log-uniform on [low, high] kpc, as the prior of its excess above the core."""
+    gap = max(float(low) - float(core), 1.0e-3)
+    return dist.LogUniform(gap, max(float(high) - float(core), gap * (1.0 + 1.0e-9)))
+
+
+def _cut_normal(mean: float, std: float, core: float):
+    """A cut radius of about mean +- std kpc above the core: the log-normal of the excess with those moments, unbounded."""
+    return lognormal_from_moments(max(float(mean) - float(core), 1.0e-3), float(std))
+
+
+def _bcg_cut_prior(median_kpc: float, uniform_bounds: tuple[float, float], core: float):
+    """Cut radius prior (of the excess above the core) of an independent BCG halo.  The "lognormal" prior has moment-matched
+    width and no bound, so mean = median exp(s^2 / 2) and std = mean sqrt(exp(s^2) - 1) for s = 0.64."""
     if BCG_CUT_PRIOR == "uniform":
-        return PriorConfig("uniform", lower=float(uniform_bounds[0]), upper=float(uniform_bounds[1]), step=1.0)
+        return _cut_uniform(uniform_bounds[0], uniform_bounds[1], core)
     mean = 1.227 * float(median_kpc)
-    return PriorConfig("normal", mean=mean, std=0.714 * mean)
+    return _cut_normal(mean, 0.714 * mean, core)
 
 # Catalog astrometric error of every observed image (2026-11-05): a 1 mas floor instead of the 10 mas catalog value, so
 # the white image-plane scatter (images.sigma_white, log-normal) is inferred rather than assumed.  The library requires a
@@ -277,8 +302,8 @@ FF_SIMS_CLUSTERS = {
         "image_catalog": "catalogs/hera/images.yaml",
         "cosmology": CosmologyConfig(H0=72.0, Om0=0.24, Ode0=0.76),
         "halos": (
-            DPIEHaloConfig.cluster_scale("1", 19.54080009, 2.37820005, 0.507, v_disp=800.0),
-            DPIEHaloConfig.cluster_scale("2", 0.001, 0.003, 0.507, v_disp=700.0),
+            DPIEHaloConfig.cluster_scale("1", 19.54080009, 2.37820005, 0.507, v_disp=800.0, softening_kpc=2.3 / 0.72),
+            DPIEHaloConfig.cluster_scale("2", 0.001, 0.003, 0.507, v_disp=700.0, softening_kpc=2.3 / 0.72),
             ShearHaloConfig.free("S1", 0.507),
         ),
         "member_population": MemberPopulationConfig.bergamini2019("potfile_1", "catalogs/hera/members.yaml", 0.507, prior_mag0=19.82),
@@ -314,16 +339,12 @@ def _hff_clusters():
                     cut_radius_kpc=2000.0 * AS1063_KPC_PER_ARCSEC,
                     v_disp=1500.0, z_lens=0.348,
                     priors={
-                        "x_centre": PriorConfig("uniform", lower=-2.0, upper=4.0, step=0.1),
-                        "y_centre": PriorConfig("uniform", lower=-2.0, upper=2.0, step=0.1),
-                        "ellipticite": PriorConfig("uniform", lower=0.4, upper=0.8, step=0.05),
-                        # Use an initial angle inside the published prior bounds.
-                        "angle_pos": PriorConfig("uniform", lower=-42.0, upper=-36.0, step=0.1),
-                        "core_radius_kpc": PriorConfig(
-                            "uniform", lower=5.0 * AS1063_KPC_PER_ARCSEC,
-                            upper=35.0 * AS1063_KPC_PER_ARCSEC, step=0.1 * AS1063_KPC_PER_ARCSEC,
-                        ),
-                        "v_disp": PriorConfig("truncated_normal", mean=1200.0, std=200.0, lower=1000.0, upper=float("inf")),
+                        "x_centre": dist.Uniform(-2.0, 4.0),
+                        "y_centre": dist.Uniform(-2.0, 2.0),
+                        # Ellipticity 0.4-0.8 at angles -42 to -36 deg (the initial angle lies inside the published bounds).
+                        **ellipticity_box(0.8, lower=0.4, angle_deg=(-42.0, -36.0)),
+                        "core_radius_kpc": _log_uniform(5.0 * AS1063_KPC_PER_ARCSEC, 35.0 * AS1063_KPC_PER_ARCSEC),
+                        "v_disp": _dispersion(1200.0, 200.0, 1000.0),
                     },
                 ),
                 DPIEHaloConfig(
@@ -333,9 +354,9 @@ def _hff_clusters():
                     cut_radius_kpc=2000.0 * AS1063_KPC_PER_ARCSEC,
                     v_disp=300.0, z_lens=0.348,
                     priors={
-                        "x_centre": PriorConfig("uniform", lower=-100.0, upper=50.0, step=0.1),
-                        "y_centre": PriorConfig("uniform", lower=-50.0, upper=70.0, step=0.1),
-                        "v_disp": PriorConfig("truncated_normal", mean=500.0, std=500.0, lower=0.0, upper=float("inf")),
+                        "x_centre": dist.Uniform(-100.0, 50.0),
+                        "y_centre": dist.Uniform(-50.0, 70.0),
+                        "v_disp": _dispersion(500.0, 500.0, 0.0),
                     },
                 ),
                 # Fixed gas components from the same model.
@@ -372,7 +393,6 @@ def _hff_clusters():
             "scaling": ScalingModelConfig.neutral(),
             "independent_member_halos": (),
             "softening_length_kpc": 0.0,
-            "softening_length_prior_log_sigma": 0.15,
             # Instrumental astrometric error per image (HST WFC3/IR F160W): the measurement floor; the gp likelihood samples sigma_white above it.
             "sigma_inst_arcsec": SIGMA_INST_ARCSEC,
             # Classify at the current model (reclassified at the MAP) rather than at the prior's 0.975 quantile, which for a
@@ -401,9 +421,8 @@ def _hff_clusters():
         ellipticite=0.0, angle_pos=0.0, core_radius_kpc=pop.corekpc,
         cut_radius_kpc=pop.cutkpc * fr, v_disp=pop.sigma * fs, z_lens=pop.z_lens,
         priors={
-            "v_disp": PriorConfig("truncated_normal", mean=200.0 * fs, std=100.0 * fs,
-                                   lower=50.0 * fs, upper=500.0 * fs),
-            "cut_radius_kpc": _bcg_cut_prior(pop.cutkpc * fr, (2.0 * fr, 100.0 * fr)),
+            "v_disp": _dispersion(200.0 * fs, 100.0 * fs, 50.0 * fs, 500.0 * fs),
+            "cut_excess_kpc": _bcg_cut_prior(pop.cutkpc * fr, (2.0 * fr, 100.0 * fr), core=pop.corekpc),
         },
     )
     jwst_dir = "catalogs/as1063/diego2026"
@@ -429,14 +448,11 @@ def _m0416_bergamini2023_cluster():
     inf = float("inf")
 
     def dark_halo(id, x, y, e, angle, core_arcsec, v_disp, *, v_prior, x_box, y_box, core_box_arcsec, e_box=None, angle_box=None):
-        priors = {"x_centre": PriorConfig("uniform", lower=x_box[0], upper=x_box[1], step=0.1),
-                  "y_centre": PriorConfig("uniform", lower=y_box[0], upper=y_box[1], step=0.1),
-                  "core_radius_kpc": PriorConfig("uniform", lower=max(0.5, core_box_arcsec[0] * kpc), upper=core_box_arcsec[1] * kpc, step=0.1 * kpc),
-                  "v_disp": PriorConfig("truncated_normal", mean=v_prior[0], std=v_prior[1], lower=v_prior[2], upper=inf)}
+        priors = {"x_centre": dist.Uniform(*x_box), "y_centre": dist.Uniform(*y_box),
+                  "core_radius_kpc": _log_uniform(max(0.5, core_box_arcsec[0] * kpc), core_box_arcsec[1] * kpc),
+                  "v_disp": _dispersion(v_prior[0], v_prior[1], v_prior[2])}
         if e_box is not None:
-            priors["ellipticite"] = PriorConfig("uniform", lower=e_box[0], upper=e_box[1], step=0.05)
-        if angle_box is not None:
-            priors["angle_pos"] = PriorConfig("uniform", lower=angle_box[0], upper=angle_box[1], step=0.1)
+            priors.update(ellipticity_box(e_box[1], lower=e_box[0], angle_deg=angle_box))
         return DPIEHaloConfig(id=id, x_centre=x, y_centre=y, ellipticite=e, angle_pos=angle, core_radius_kpc=core_arcsec * kpc,
                               cut_radius_kpc=2000.0 * kpc, v_disp=v_disp, z_lens=z, priors=priors)
 
@@ -459,14 +475,13 @@ def _m0416_bergamini2023_cluster():
                   core_box_arcsec=(0.0, 20.0), e_box=(0.2, 0.9), angle_box=(0.0, 180.0)),
         # Foreground galaxy, modelled at the cluster redshift as in Bergamini et al. 2022.
         DPIEHaloConfig(id="5", x_centre=31.96420, y_centre=-65.55168, ellipticite=0.0, angle_pos=0.0, core_radius_kpc=0.01, cut_radius_kpc=33.6321 * kpc,
-                       v_disp=235.2454, z_lens=z, priors={"v_disp": PriorConfig("truncated_normal", mean=200.0, std=150.0, lower=50.0, upper=inf),
-                                                          "cut_radius_kpc": PriorConfig("uniform", lower=5.0 * kpc, upper=100.0 * kpc, step=0.1 * kpc)}),
+                       v_disp=235.2454, z_lens=z, priors={"v_disp": _dispersion(200.0, 150.0, 50.0),
+                                                          "cut_excess_kpc": _cut_uniform(5.0 * kpc, 100.0 * kpc, core=0.01)}),
         # Galaxy 8971 now belongs to the member scaling relation in both catalogs.
         # DPIEHaloConfig(id="8971", x_centre=13.33912, y_centre=2.62495, ellipticite=0.0, angle_pos=0.0, core_radius_kpc=0.01, cut_radius_kpc=33.6321 * kpc,
-        #                v_disp=180.2454, z_lens=z, priors={"v_disp": PriorConfig("truncated_normal", mean=130.0, std=70.0, lower=60.0, upper=inf),
-        #                                                   "cut_radius_kpc": PriorConfig("uniform", lower=0.5, upper=50.0 * kpc, step=0.1 * kpc),
-        #                                                   "angle_pos": PriorConfig("uniform", lower=-90.0, upper=90.0, step=0.1),
-        #                                                   "ellipticite": PriorConfig("uniform", lower=0.0, upper=0.6, step=0.05)}),
+        #                v_disp=180.2454, z_lens=z, priors={"v_disp": _dispersion(130.0, 70.0, 60.0),
+        #                                                   "cut_excess_kpc": _cut_uniform(0.5, 50.0 * kpc, core=0.01),
+        #                                                   **ellipticity_box(0.6, angle_deg=(-90.0, 90.0))}),
         # Hot-gas clumps from the X-ray model, fixed.
         fixed("gas1", -18.137002925379967, -12.133967959650562, 0.11802924806826215, -156.7566690854322, 149.2054944000091, 149.82423360000914, 433.0248792121149),
         fixed("gas2", 30.787477074623045, -48.67185595965274, 0.4166205427409096, -71.5005491699657, 34.77330048000212, 165.77093760001011, 248.99144885049094),
@@ -494,17 +509,13 @@ def _m0416_bergamini2023_cluster():
         x_box = x_box or (x - half_width, x + half_width)
         y_box = y_box or (y - half_width, y + half_width)
         core_start = (core_kpc[0] * core_kpc[1]) ** 0.5                  # the log-uniform middle, where the core starts
-        priors = {"x_centre": PriorConfig("truncated_normal", mean=x, std=sigma_x, lower=x_box[0], upper=x_box[1]),
-                  "y_centre": PriorConfig("truncated_normal", mean=y, std=sigma_y, lower=y_box[0], upper=y_box[1]),
-                  "core_radius_kpc": PriorConfig("uniform", lower=core_kpc[0], upper=core_kpc[1], step=1.0),
-                  "v_disp": PriorConfig("truncated_normal", mean=v_disp[0], std=v_disp[1], lower=v_disp[2], upper=v_disp[3])}
+        priors = {"x_centre": dist.TruncatedNormal(x, sigma_x, low=x_box[0], high=x_box[1]),
+                  "y_centre": dist.TruncatedNormal(y, sigma_y, low=y_box[0], high=y_box[1]),
+                  "core_radius_kpc": _log_uniform(*core_kpc), "v_disp": _dispersion(*v_disp)}
         e, angle = 0.0, 0.0
         if e_box is not None:
-            priors["ellipticite"] = PriorConfig("uniform", lower=e_box[0], upper=e_box[1], step=0.05)
-            e = 0.5 * (e_box[0] + e_box[1])
-        if angle_box is not None:
-            priors["angle_pos"] = PriorConfig("uniform", lower=angle_box[0], upper=angle_box[1], step=0.1)
-            angle = 0.5 * (angle_box[0] + angle_box[1])
+            priors.update(ellipticity_box(e_box[1], lower=e_box[0], angle_deg=angle_box))
+            e, angle = 0.5 * (e_box[0] + e_box[1]), 0.5 * (angle_box[0] + angle_box[1])
         if e_soft_cap is not None:
             e = min(e, 0.5 * (e_box[0] + e_soft_cap))                     # start below the smooth cap
         return DPIEHaloConfig(id=id, x_centre=x, y_centre=y, ellipticite=e, angle_pos=angle, core_radius_kpc=core_start,
@@ -533,19 +544,16 @@ def _m0416_bergamini2023_cluster():
                     **{k: v for k, v in group_halo.items() if k != "core_kpc"}),                                    # south, dark
         DPIEHaloConfig(id="5", x_centre=31.96420, y_centre=-65.55168, ellipticite=0.0, angle_pos=0.0, core_radius_kpc=0.0001 * kpc,
                        cut_radius_kpc=33.6321 * kpc, v_disp=235.2454, z_lens=z,                                         # foreground galaxy
-                       priors={"v_disp": PriorConfig("uniform", lower=50.0, upper=350.0, step=0.1),
-                               "cut_radius_kpc": PriorConfig("uniform", lower=5.0 * kpc, upper=100.0 * kpc, step=0.1 * kpc)}),
+                       priors={"v_disp": dist.LogUniform(50.0, 350.0), "cut_excess_kpc": _cut_uniform(5.0 * kpc, 100.0 * kpc, core=0.0001 * kpc)}),
         # Two round southern components at the cluster redshift (2026-11-03), where the shared mass field had its strongest
         # positive peaks: the z = 0.736 background galaxy of Chirivi et al. 2018 (F160W 19.8, at (38.5, -48.2)), and a dark
         # lump at the field's strongest peak, (0.5, -57), with no galaxy within 5".
         DPIEHaloConfig(id="los736", x_centre=38.5, y_centre=-48.2, ellipticite=0.0, angle_pos=0.0, core_radius_kpc=0.0001 * kpc,
                        cut_radius_kpc=float((5.0 * 100.0) ** 0.5) * kpc, v_disp=120.0, z_lens=z,
-                       priors={"v_disp": PriorConfig("uniform", lower=30.0, upper=350.0, step=0.1),
-                               "cut_radius_kpc": PriorConfig("uniform", lower=5.0 * kpc, upper=100.0 * kpc, step=0.1)}),
+                       priors={"v_disp": dist.LogUniform(30.0, 350.0), "cut_excess_kpc": _cut_uniform(5.0 * kpc, 100.0 * kpc, core=0.0001 * kpc)}),
         DPIEHaloConfig(id="dark_s", x_centre=0.5, y_centre=-57.0, ellipticite=0.0, angle_pos=0.0, core_radius_kpc=0.0001 * kpc,
                        cut_radius_kpc=float((5.0 * 300.0) ** 0.5) * kpc, v_disp=150.0, z_lens=z,
-                       priors={"v_disp": PriorConfig("uniform", lower=30.0, upper=500.0, step=0.1),
-                               "cut_radius_kpc": PriorConfig("uniform", lower=5.0 * kpc, upper=300.0 * kpc, step=0.1)}),
+                       priors={"v_disp": dist.LogUniform(30.0, 500.0), "cut_excess_kpc": _cut_uniform(5.0 * kpc, 300.0 * kpc, core=0.0001 * kpc)}),
         *halos[-4:],                        # the four fixed hot-gas clumps, identical in the CANUCS configuration
         # External shear, free amplitude and angle: not in the CANUCS configuration, but worth +35 in the lens log L for 2
         # parameters at the fast init (nov01b), and it moves the mass field's knee from 15" to 5" (.agents/gp-knee-plan.md).
@@ -568,7 +576,6 @@ def _m0416_bergamini2023_cluster():
             "scaling": scaling if scaling is not None else ScalingModelConfig.neutral(fit_corekpc=fit_member_core),
             "independent_member_halos": tuple(independent_member_halos),
             "softening_length_kpc": 0.0,
-            "softening_length_prior_log_sigma": 0.15,
             "sigma_inst_arcsec": sigma_inst_arcsec,
             "classification_prior_quantile": None,
             # Far-field error at 2 r_cut is < 1 uas (oct28a); the default inflation 3 keeps the headroom.
@@ -603,18 +610,18 @@ def _m0416_bergamini2023_cluster():
                                   kinematics_sources=(), fit_member_core=True,
                                   independent_member_halos=tuple(
                                       IndependentMemberHaloConfig(population_id="potfile_1", catalog_id=bcg, id=f"bcg_{bcg}", priors={
-                                          "x_centre": PriorConfig(), "y_centre": PriorConfig(), "ellipticite": PriorConfig(),
-                                          "angle_pos": PriorConfig(), "core_radius_kpc": PriorConfig(),
-                                          "v_disp": PriorConfig("truncated_normal", mean=250.0, std=50.0, lower=100.0, upper=400.0),
-                                          "cut_radius_kpc": _bcg_cut_prior(56.0, (10.0, 200.0))})
+                                          # None fixes a field the default priors would sample.
+                                          "x_centre": None, "y_centre": None, "e1": None, "e2": None, "core_radius_kpc": None,
+                                          "v_disp": _dispersion(250.0, 50.0, 100.0, 400.0),
+                                          "cut_excess_kpc": _bcg_cut_prior(56.0, (10.0, 200.0), core=0.15)})
                                       for bcg in ("2526", "3158")),
                                   # Student-t member deviations (dof 4): five members needed cut radii ~10x off the relation and
                                   # pushed the normal radius scatter to 1.6-1.8 against its 0.3 prior (2026-11-03).
-                                  scaling=replace(ScalingModelConfig.neutral(fit_corekpc=True), alpha_sigma_prior_std=0.05,
-                                                  alpha_sigma_prior_lower=0.1, alpha_sigma_prior_upper=0.4,
+                                  scaling=replace(ScalingModelConfig.neutral(fit_corekpc=True),
+                                                  alpha_sigma_prior=dist.TruncatedNormal(0.25, 0.05, low=0.1, high=0.4),
                                                   member_deviation_tail="student_t", member_deviation_dof=4.0,
                                                   # the member core sat at 0.67-0.77 kpc (z +2.1 to +2.3) at the starts
-                                                  corekpc_prior_log_sigma=1.0,
+                                                  corekpc_prior=truncated_lognormal(0.15, 1.0, low=0.01, high=10.0),
                                                   # Exact members' shapes sampled around the CANUCS DR1 light shapes in members.yaml
                                                   # (2026-11-05): +25 in log L over the fixed light shapes in basin B for changes of
                                                   # ~0.02 in e; --fast fixes them at the catalog shapes.
@@ -695,8 +702,8 @@ def build_config(
                                     # w250s100_fast_gpblocksall without the data pinning it.
                                     # Sampled slope: "free" is a normal of width 0.5 about 4 (the NFW-cusp value) truncated to 2-6;
                                     # "flat" the uniform on 2-6 (nov5a, nov6: 4.6-4.7 +- 0.8, pressing the knee onto its cap).
-                                    gp_knee_gamma_prior=(2.0, 6.0) if str(gp_knee_gamma) in ("free", "flat") else None,
-                                    gp_knee_gamma_sigma=0.5 if str(gp_knee_gamma) == "free" else None,
+                                    gp_knee_gamma_prior=(dist.TruncatedNormal(4.0, 0.5, low=2.0, high=6.0) if str(gp_knee_gamma) == "free"
+                                                         else dist.Uniform(2.0, 6.0) if str(gp_knee_gamma) == "flat" else None),
                                     gp_knee_gamma=4.0 if gp_knee_gamma in (None, "free", "flat") else float(gp_knee_gamma),
                                     # The field's wavelengths from 0.2" to 100", as in the good fast run of 2026-11-02
                                     # (nov1a w250s100_fast: knee 6.6", GP ell 1.4"); the knee prior keeps it near the galaxy scale.
@@ -706,16 +713,16 @@ def build_config(
                                     # the halo-scale misfit (compare_grf_spectra, 2026-11-02); with the cap at 15" every all-block
                                     # run sat on it (nov4b, nov5a, nov6: 14-15", 2026-11-07).  Capped at 8" (2026-11-07) so the
                                     # field stays at the galaxy scale and the large-scale misfit has to go elsewhere; ln-width 0.6 kept.
-                                    gp_knee_prior=LogNormalPriorConfig(median=6.0, log_sigma=0.6, lower=2.5, upper=8.0),
+                                    gp_knee_prior=truncated_lognormal(6.0, 0.6, low=2.5, high=8.0),
                                     gp_knee_start_arcsec=6.0,
                                     # The rms deflection error of that substructure at z_ref: 0.08" median, 0.05-0.13" at 1 sigma,
                                     # truncated at 0.2" (galaxy-scale fits on 2026-11-02: 0.07-0.11"; at 0.2-0.3" it was carrying
                                     # the halo-scale misfit).
-                                    gp_sigma_alpha_prior=LogNormalPriorConfig(median=0.08, log_sigma=0.5, upper=0.5),
+                                    gp_sigma_alpha_prior=truncated_lognormal(0.08, 0.5, low=1.0e-4, high=0.5),
                                     gp_sigma_alpha_start_arcsec=0.08,
                                     # The image-plane GP's correlation length near the measurement scale (1", between 0.4"
                                     # and 3"): fitted free it went to 4.4" and did the mass field's work.
-                                    gp_knee_ell_prior=LogNormalPriorConfig(median=1.0, log_sigma=0.4, lower=0.4, upper=3.0),
+                                    gp_knee_ell_prior=truncated_lognormal(1.0, 0.4, low=0.4, high=3.0),
                                     gp_knee_ell_start_arcsec=1.0,
                                     gp_floor_arcsec=float(cluster_config.get("gp_floor_arcsec", LikelihoodConfig.gp_floor_arcsec))),
         paths=RunPathsConfig(output_dir=f"results/{campaign_name}/{cluster_config['cluster_key']}",
@@ -724,7 +731,9 @@ def build_config(
         runtime=runtime if runtime is not None else build_runtime(cores),
         search=SearchConfig(n_starts=256, halo_method=halo_search, member_method=member_search, warm_start=warm_start),
         sampling=SamplingConfig(warmup=250, samples=100, max_tree_depth=8, target_accept=0.8),
-        scaling=replace(cluster_config.get("scaling", ScalingModelConfig()), softening_length_kpc=float(cluster_config.get("softening_length_kpc", 0.0))),
+        scaling=replace(cluster_config.get("scaling", ScalingModelConfig()),
+                        softening_length_prior=(dist.LogNormal(math.log(cluster_config["softening_length_kpc"]), 0.15)
+                                                if cluster_config.get("softening_length_kpc", 0.0) > 0.0 else None)),
         # Direct (centered) deviations for the members the data pin, unit offsets for the rest (centering "auto", 2026-11-04):
         # with unit offsets the radius scatter traded against the pinned members' offsets (correlations -0.6 to -0.67 for 7764,
         # 9305, 1297) along a curved ridge.  The init's chain-start step pins the scatters, so the centered optimizer trap
@@ -765,7 +774,7 @@ def build_config(
         # (compare_grf_spectra.py: the knee settles at 14-17" with a 100" band).
         median = min(20.0, 0.5 * float(gp_band_max))
         config = replace(config, likelihood=replace(config.likelihood, gp_knee_scales_arcsec=(0.2, float(gp_band_max)),
-                                                    gp_knee_prior=LogNormalPriorConfig(median=median, log_sigma=1.0, upper=min(float(gp_band_max), 80.0)),
+                                                    gp_knee_prior=truncated_lognormal(median, 1.0, low=1.0e-4, high=min(float(gp_band_max), 80.0)),
                                                     gp_knee_start_arcsec=median))
     elif gp_band_max is not None:
         config = replace(config, likelihood=replace(config.likelihood, gp_knee_scales_arcsec=(0.2, float(gp_band_max))))
@@ -785,24 +794,31 @@ def build_config(
         scatter = None if member_shapes.strip().lower() == "none" else float(member_shapes)
         config = replace(config, scaling=replace(config.scaling, member_shape_scatter=scatter))
     if relation_prior:
-        # k=mean:std at prior_mag0 for cutkpc or sigma (truncated normal inside the existing bounds); mean:std for alpha_sigma, beta_radius.
+        # k=mean:std at prior_mag0 for cutkpc or sigma (log-normal with those moments inside the existing bounds); mean:std for
+        # alpha_sigma, beta_radius (truncated normal inside the existing bounds).
+        from lenscluster.priors import physical_bounds
         given = {k.strip(): tuple(float(x) for x in v.split(":")) for k, v in (item.split("=") for item in relation_prior.split(","))}
         pops = list(config.model.member_populations)
         for key in ("sigma", "cutkpc"):
             if key in given:
-                old = getattr(pops[0], f"{key}_prior")
-                pops[0] = replace(pops[0], **{key: given[key][0], f"{key}_prior": PriorConfig("truncated_normal", mean=given[key][0], std=given[key][1],
-                                                                                              lower=old.lower, upper=old.upper, step=old.step)})
+                low, high = physical_bounds(getattr(pops[0], f"{key}_prior"))
+                pops[0] = replace(pops[0], **{key: given[key][0], f"{key}_prior": lognormal_from_moments(
+                    max(given[key][0], low), given[key][1], low=low, high=None if high == float("inf") else high)})
         slopes = {}
         for key in ("alpha_sigma", "beta_radius"):
             if key in given:
-                slopes[f"{key}_prior_mean"], slopes[f"{key}_prior_std"] = given[key]
+                low, high = physical_bounds(getattr(config.scaling, f"{key}_prior"))
+                slopes[f"{key}_prior"] = dist.TruncatedNormal(given[key][0], given[key][1], low=low, high=high)
         config = replace(config, model=replace(config.model, member_populations=tuple(pops)), scaling=replace(config.scaling, **slopes))
     if fix_relation:
         fixed = {k.strip(): float(v) for k, v in (item.split("=") for item in fix_relation.split(","))}
         pops = list(config.model.member_populations)
         pops[0] = replace(pops[0], **{k: fixed[k] for k in ("sigma", "cutkpc") if k in fixed})
-        slopes = {f"{k}_prior_mean": fixed[k] for k in ("alpha_sigma", "beta_radius") if k in fixed}
+        from lenscluster.priors import physical_bounds
+        slopes = {f"{k}_prior": dist.TruncatedNormal(fixed[k], float(getattr(config.scaling, f"{k}_prior").base_dist.scale),
+                                                     low=physical_bounds(getattr(config.scaling, f"{k}_prior"))[0],
+                                                     high=physical_bounds(getattr(config.scaling, f"{k}_prior"))[1])
+                  for k in ("alpha_sigma", "beta_radius") if k in fixed}
         config = replace(config, model=replace(config.model, member_populations=tuple(pops)),
                          scaling=replace(config.scaling, fixed_relation_fields=tuple(fixed), **slopes))
     if start_tolerance is not None or start_max_iter is not None:

@@ -6,6 +6,7 @@ from dataclasses import replace
 
 import numpy as np
 
+from lenscluster import priors
 from lenscluster.config import MemberPopulationConfig, ScalingModelConfig
 from lenscluster.state import build_state
 
@@ -21,16 +22,21 @@ def test_neutral_factories_give_log_uniform_cut_and_scaling_slopes(synthetic_con
     state = build_state(config)
     specs = {spec.field: spec for spec in state.parameter_specs if spec.component_family == "scaling"}
     cut = specs["cutkpc"]
-    assert cut.prior_kind == "uniform" and cut.transform_kind == "log_positive"
+    assert cut.log and priors.family(cut.latent_prior) == "Uniform"                      # log-uniform
     factor = float(state.potfiles[0]["pivot"]["cutkpc_factor"])               # the bounds move to the pivot with the rest of the prior
-    assert math.isclose(math.exp(cut.lower), 2.0 * factor, rel_tol=1e-6) and math.isclose(math.exp(cut.upper), 100.0 * factor, rel_tol=1e-6)
+    lower, upper = priors.physical_bounds(cut.prior)
+    assert math.isclose(lower, 2.0 * factor, rel_tol=1e-6) and math.isclose(upper, 100.0 * factor, rel_tol=1e-6)
     sigma = specs["sigma"]
-    assert sigma.prior_kind == "truncated_normal" and sigma.physical_lower > 0 and sigma.physical_upper < np.inf
-    assert specs["alpha_sigma"].mean == 0.25 and specs["alpha_sigma"].std == 0.10 and specs["beta_radius"].mean == 0.5 and specs["beta_radius"].std == 0.25
+    assert sigma.log and priors.family(sigma.latent_prior) == "TruncatedNormal" and 0 < priors.physical_bounds(sigma.prior)[1] < np.inf
+    slopes = {field: priors.parameters(specs[field].latent_prior) for field in ("alpha_sigma", "beta_radius")}
+    assert (slopes["alpha_sigma"]["loc"], slopes["alpha_sigma"]["scale"], slopes["beta_radius"]["loc"], slopes["beta_radius"]["scale"]) == (0.25, 0.10, 0.5, 0.25)
 
 
 def test_bergamini2019_factories_match_the_defaults(synthetic_config):
     population = _population(synthetic_config, MemberPopulationConfig.bergamini2019)
-    assert population.sigma_prior.mean == 200.0 and population.cutkpc_prior.mean == 12.0 and population.cutkpc_prior.upper == 60.0
-    assert ScalingModelConfig.bergamini2019() == ScalingModelConfig()
+    mean = lambda prior: math.exp(priors.parameters(priors.split(prior)[0])["loc"] + priors.parameters(priors.split(prior)[0])["scale"] ** 2 / 2)
+    assert math.isclose(mean(population.sigma_prior), 200.0) and math.isclose(mean(population.cutkpc_prior), 12.0)    # untruncated means
+    assert math.isclose(priors.physical_bounds(population.cutkpc_prior)[1], 60.0)
+    assert priors.to_dict(ScalingModelConfig.bergamini2019().alpha_sigma_prior) == priors.to_dict(ScalingModelConfig().alpha_sigma_prior)
+    assert priors.to_dict(ScalingModelConfig.bergamini2019().beta_radius_prior) == priors.to_dict(ScalingModelConfig().beta_radius_prior)
     assert ScalingModelConfig.neutral(fit_corekpc=False).fit_corekpc is False

@@ -3,12 +3,13 @@ from __future__ import annotations
 
 import json
 import pickle
-from dataclasses import asdict
+from dataclasses import fields
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
+from . import priors
 from .config import LensClusterSolverConfig
 from .model import ModelState, PosteriorResults
 
@@ -54,11 +55,16 @@ def load_config(directory: Path) -> LensClusterSolverConfig:
     return pickle.loads((directory / CONFIG_PICKLE).read_bytes())
 
 
+def spec_to_json(spec) -> dict[str, Any]:
+    """A parameter spec as JSON: its fields, with the prior as priors.to_dict."""
+    return {**{f.name: getattr(spec, f.name) for f in fields(spec) if f.name != "prior"}, "prior": priors.to_dict(spec.prior)}
+
+
 def save_state(directory: Path, state: ModelState) -> None:
     members = state.members
     write_json(directory / STATE_FILE, {
         "run_name": state.run_name, "z_lens": state.z_lens, "kpc_per_arcsec": state.kpc_per_arcsec,
-        "n_parameters": state.n_parameters, "parameter_specs": [asdict(spec) for spec in state.parameter_specs],
+        "n_parameters": state.n_parameters, "parameter_specs": [spec_to_json(spec) for spec in state.parameter_specs],
         "families": [{"family_id": f.family_id, "z_source": f.z_source, "image_labels": f.image_labels} for f in state.family_data],
         "member_ids": list(members.member_ids), "exact_positions": members.exact_positions.tolist(),
         "far_positions": members.far_positions.tolist(), "initial_theta": None if state.initial_theta is None else state.initial_theta.tolist(),

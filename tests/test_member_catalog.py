@@ -11,7 +11,10 @@ import numpy as np
 import pytest
 
 from lenscluster.classification import impact_cut
-from lenscluster.config import IndependentMemberHaloConfig, PriorConfig
+import numpyro.distributions as dist
+
+from lenscluster import priors
+from lenscluster.config import IndependentMemberHaloConfig
 from lenscluster.evaluator import Evaluator
 from lenscluster.image_catalog import CatalogError
 from lenscluster.inputs import declared_model_inputs
@@ -92,13 +95,14 @@ def test_treatments_exclude_and_make_independent_halos(synthetic_config, tmp_pat
     potentials, potfiles, *_ = declared_model_inputs(config.model, config.scaling)
     assert list(potfiles[0]["catalog_df"]["id"]) == ["g2", "g3"]
     independent = [p for p in potentials if p.get("independent_member_catalog_id") == "g1"]
-    assert len(independent) == 1 and independent[0]["priors"]["v_disp"][0] == 9          # the default truncated normal
+    default = independent[0]["priors"]["v_disp"]                                            # the default truncated log-normal
+    assert len(independent) == 1 and priors.family(priors.split(default)[0]) == "TruncatedNormal" and priors.split(default)[1]
     # a halo the config declares for that member keeps the config's priors
-    declared = IndependentMemberHaloConfig(population_id="members", catalog_id="g1", priors={"v_disp": PriorConfig("uniform", lower=50.0, upper=150.0)})
+    declared = IndependentMemberHaloConfig(population_id="members", catalog_id="g1", priors={"v_disp": dist.LogUniform(50.0, 150.0)})
     config = replace(config, model=replace(config.model, independent_member_halos=(declared,))).validate()
     potentials, *_ = declared_model_inputs(config.model, config.scaling)
     (halo,) = [p for p in potentials if p.get("independent_member_catalog_id") == "g1"]
-    assert halo["priors"]["v_disp"][0] == 1
+    assert type(halo["priors"]["v_disp"]).__name__ == "LogUniform"
 
 
 def test_the_impact_cut_never_drops_a_kept_member(synthetic_config, tmp_path):

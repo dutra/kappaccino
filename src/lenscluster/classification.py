@@ -21,30 +21,24 @@ from . import smoothed_likelihood as sl
 from .evaluator import Evaluator
 from .farfield import evaluate_farfield_per_member
 from .model import ModelState
+from .priors import split, to_scipy
+
+
+def prior_quantile(prior: Any, quantile: float) -> float:
+    """A quantile of a prior in physical units (quantiles commute with the exp of a log-sampled prior)."""
+    latent, log = split(prior)
+    value = float(to_scipy(latent).ppf(float(quantile)))
+    return float(np.exp(value)) if log else value
 
 
 def prior_quantile_cut_kpc(potfile: dict[str, Any], quantile: float) -> float:
-    """The cutkpc prior's upper quantile for one population from its Lenstool-style limit entry."""
-    from scipy.stats import norm, truncnorm
-    entry = list(potfile["cutkpc"])
-    kind = int(entry[0])
-    if kind == 0:
-        return float(potfile["cutkpc_nominal"])
-    if kind == 1:                                   # uniform [lo, hi]
-        lo, hi = float(entry[1]), float(entry[2])
-        return lo + float(quantile) * (hi - lo)
-    if kind == 3:                                   # normal
-        return float(norm.ppf(quantile, float(entry[1]), float(entry[2])))
-    mean, std, lo, hi = (float(v) for v in entry[1:5])   # truncated normal
-    return float(truncnorm.ppf(quantile, (lo - mean) / std, (hi - mean) / std, loc=mean, scale=std))
+    """The cutkpc prior's upper quantile for one population (at its pivot)."""
+    return prior_quantile(potfile["cutkpc_prior"], quantile)
 
 
 def prior_quantile_beta(scaling: Any, quantile: float) -> float:
-    """A quantile of the beta_radius prior (truncated normal, possibly unbounded above)."""
-    from scipy.stats import truncnorm
-    mean, std = float(scaling.beta_radius_prior_mean), float(scaling.beta_radius_prior_std)
-    lo, hi = float(scaling.beta_radius_prior_lower), float(scaling.beta_radius_prior_upper)
-    return float(truncnorm.ppf(quantile, (lo - mean) / std, (hi - mean) / std if np.isfinite(hi) else np.inf, loc=mean, scale=std))
+    """A quantile of the beta_radius prior."""
+    return prior_quantile(scaling.beta_radius_prior, quantile)
 
 
 def conservative_cut_radii_arcsec(state: ModelState, reference_cut_kpc: float, betas: list[float]) -> np.ndarray:

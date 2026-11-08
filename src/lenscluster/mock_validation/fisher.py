@@ -26,6 +26,7 @@ import numpy as np
 import pandas as pd
 
 from .. import gp_knee
+from ..priors import parameters, split
 from ..config import LensClusterSolverConfig
 from ..evaluator import Evaluator
 from ..state import build_state
@@ -60,12 +61,11 @@ def _prior_width(likelihood, name: str, prior_field: str, log_units: bool) -> fl
     prior = getattr(likelihood, prior_field, None)
     if prior is None:
         return math.nan
-    if name == "gp_knee_gamma":                               # normal of width gp_knee_gamma_sigma, or the uniform's sd
-        if getattr(likelihood, "gp_knee_gamma_sigma", None) is not None:
-            return float(likelihood.gp_knee_gamma_sigma)
-        lo, hi = prior
-        return (float(hi) - float(lo)) / math.sqrt(12.0)
-    return float(prior.log_sigma) if log_units else math.nan
+    latent, log = split(prior)
+    if name == "gp_knee_gamma":                               # a normal's width, or the uniform's standard deviation
+        values = parameters(latent)
+        return values["scale"] if "scale" in values else (values["high"] - values["low"]) / math.sqrt(12.0)
+    return parameters(latent)["scale"] if log_units and log else math.nan
 
 
 def separation_counts(images: pd.DataFrame) -> dict[str, int]:

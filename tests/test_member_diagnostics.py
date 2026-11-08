@@ -118,10 +118,12 @@ def test_hierarchical_prior_width_against_independent_quadrature(synthetic_confi
     # (the default is Student-t with 4 degrees of freedom, whose 84th percentile is wider).
     config = replace(synthetic_config, scaling=replace(synthetic_config.scaling, member_deviation='sigma', member_deviation_tail='normal'))
     state = build_state(config)
-    prior = config.scaling.member_velocity_scatter_prior
+    from lenscluster import priors
+    values = priors.parameters(priors.split(config.scaling.member_velocity_scatter_prior)[0])
+    median, log_sigma = np.exp(values["loc"]), values["scale"]
     def cdf(q):
-        return quad(lambda z: norm.cdf(q/(prior.median*np.exp(prior.log_sigma*z)))*norm.pdf(z), -9, 9, epsabs=1e-10)[0]
-    q84 = brentq(lambda q: cdf(q)-.84, 0, 10*prior.median)
+        return quad(lambda z: norm.cdf(q/(median*np.exp(log_sigma*z)))*norm.pdf(z), -9, 9, epsabs=1e-10)[0]
+    q84 = brentq(lambda q: cdf(q)-.84, 0, 10*median)
     draws = prior_deviation_draws(state, power=14)
     measured = np.quantile(draws[..., 0], [.16, .84], axis=0)
     np.testing.assert_allclose(measured[0], -q84, rtol=.025)

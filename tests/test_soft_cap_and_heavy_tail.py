@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 from scipy import stats
 
-from lenscluster.config import PriorConfig
+from lenscluster import priors
 from lenscluster.evaluator import Evaluator
 from lenscluster.inputs import lenstool_ellipticite_to_axis_ratio
 from lenscluster.sampling import distribution_for_site, sample_sites
@@ -30,7 +30,7 @@ def _offset_site(state):
 def test_student_t_deviations_are_the_sampled_prior(synthetic_config):
     state = build_state(_tail(synthetic_config).validate())
     offsets = [s for s in state.parameter_specs if s.component_family == "member_scatter_offset"]
-    assert offsets and all(s.prior_kind == "student_t" and s.dof == 4.0 for s in offsets)
+    assert offsets and all(priors.family(s.prior) == "StudentT" and priors.parameters(s.prior)["df"] == 4.0 for s in offsets)
     site = _offset_site(state)
     value = jnp.linspace(-6.0, 6.0, len(site.indices))
     prior = distribution_for_site(site, state.parameter_specs)
@@ -52,8 +52,8 @@ def test_a_large_dof_gives_back_the_normal(synthetic_config):
 
 def _capped(config, cap=0.9, upper=0.94):
     halo = config.model.large_halos[0]
-    priors = {**halo.priors, "ellipticite": PriorConfig("uniform", lower=0.0, upper=upper), "angle_pos": PriorConfig("uniform", lower=-90.0, upper=90.0)}
-    halo = replace(halo, priors=priors, ellipticity_soft_cap=cap, ellipticity_soft_width=0.02)
+    halo = replace(halo, priors={**halo.priors, **priors.ellipticity_box(upper, angle_deg=(-90.0, 90.0))}, ellipticity_soft_cap=cap,
+                   ellipticity_soft_width=0.02)
     return replace(config, model=replace(config.model, large_halos=(halo,)))
 
 
@@ -88,8 +88,9 @@ def test_a_cap_above_the_box_is_refused(synthetic_config):
 
 def test_member_core_prior_follows_the_scaling_config(synthetic_config):
     default = next(s for s in build_state(synthetic_config.validate()).parameter_specs if s.field == "corekpc")
-    np.testing.assert_allclose([np.exp(default.mean), default.std], [0.15, 0.7])
-    config = replace(synthetic_config, scaling=replace(synthetic_config.scaling, corekpc_prior_median=0.3, corekpc_prior_log_sigma=1.0))
+    assert default.log and np.allclose(priors.physical_bounds(default.prior), (0.01, 10.0))
+    np.testing.assert_allclose([priors.physical_center(default.prior), priors.parameters(default.latent_prior)["scale"]], [0.15, 0.7])
+    relaxed_prior = priors.truncated_lognormal(0.3, 1.0, low=0.01, high=10.0)
+    config = replace(synthetic_config, scaling=replace(synthetic_config.scaling, corekpc_prior=relaxed_prior))
     relaxed = next(s for s in build_state(config.validate()).parameter_specs if s.field == "corekpc")
-    np.testing.assert_allclose([np.exp(relaxed.mean), relaxed.std], [0.3, 1.0])
-    assert (relaxed.lower, relaxed.upper) == (default.lower, default.upper)
+    assert relaxed.prior is relaxed_prior

@@ -49,16 +49,17 @@ convention.
 `DPIEHaloConfig`
 : A dual pseudo-isothermal elliptical halo: center, `ellipticite` (Lenstool convention,
   $(a^2 - b^2) / (a^2 + b^2)$), `angle_pos`, `core_radius_kpc`, `cut_radius_kpc`, `v_disp` (km/s) and `z_lens`.
-  `DPIEHaloConfig.cluster_scale(id, x, y, z_lens, v_disp=...)` gives the standard cluster-halo priors: center within a
-  5" box around the light, free shape, core 0.5–100 kpc, cut radius TN(1500, 300) kpc on 500–3000 kpc, and a 35% wide
-  dispersion prior. `ellipticity_soft_cap` replaces the hard upper ellipticity bound with a smooth wall, which NUTS
-  handles better.
+  `DPIEHaloConfig.cluster_scale(id, x, y, z_lens, v_disp=...)` gives the standard cluster-halo priors: center uniform in
+  a 5" box around the light, shape uniform in the (e1, e2) box of ellipticities up to 0.8, core log-uniform on
+  0.5–100 kpc, cut radius about 1500 ± 300 kpc on 500–3000 kpc, and a 35% wide dispersion prior (both log-normal).
+  `ellipticity_soft_cap` replaces the hard upper ellipticity bound with a smooth wall, which NUTS handles better.
 
 `NFWHaloConfig`
 : An elliptical NFW halo with `log10_m200` (log10 $M_\odot$, no little *h*) and `scale_radius_kpc`.
 
 `ShearHaloConfig`
-: External shear. `ShearHaloConfig.free(id, z_lens)` samples the amplitude on 0–0.3 and the angle freely.
+: External shear. `ShearHaloConfig.free(id, z_lens)` samples (gamma1, gamma2) uniformly in the box of amplitudes up to
+  0.3 at any angle.
 
 `MassSheetConfig`
 : A uniform convergence `kappa` (for a source at infinite redshift; each family sees $\kappa\, D_{ls}/D_s$). Several
@@ -68,19 +69,38 @@ The profiles the solver knows are registered in `lenscluster/profiles.py`.
 
 ### Priors
 
-Each component has a `priors` dict from field name to `PriorConfig`. A field without an entry is fixed at its
-configured value.
+Priors are `numpyro.distributions` objects of the physical value of each sampled quantity, as in jaxsedfit. Each
+component has a `priors` dict from sampled field to distribution; a field without an entry (or with `None`) is fixed at
+its configured value.
 
 ```python
-PriorConfig("uniform", lower=0.4, upper=0.8, step=0.05)
-PriorConfig("normal", mean=1200.0, std=200.0)
-PriorConfig("truncated_normal", mean=1200.0, std=200.0, lower=1000.0, upper=float("inf"))
-PriorConfig("fixed")
+import numpyro.distributions as dist
+from lenscluster.priors import ellipticity_box, lognormal_from_moments, truncated_lognormal
+
+priors = {
+    "x_centre": dist.Uniform(-2.0, 4.0),                      # arcsec
+    "y_centre": dist.TruncatedNormal(0.0, 1.5, low=-6.0, high=6.0),
+    **ellipticity_box(0.8, lower=0.4, angle_deg=(-42.0, -36.0)),   # "e1", "e2": uniform on their box
+    "core_radius_kpc": dist.LogUniform(5.0, 100.0),
+    "cut_excess_kpc": lognormal_from_moments(1490.0, 300.0, low=490.0, high=2990.0),
+    "v_disp": lognormal_from_moments(1200.0, 200.0, low=1000.0),
+}
 ```
 
-Positive quantities (radii, dispersions) are sampled in log space; the shape pair (`ellipticite`, `angle_pos`) is
-sampled as the Cartesian pair (e1, e2). Error scales and hyperparameters use `LogNormalPriorConfig(median, log_sigma,
-upper=None, lower=None)`.
+A distribution is sampled in its own base coordinate: one transformed by `exp` (`dist.LogNormal`, `dist.LogUniform`,
+and the helpers `truncated_lognormal` and `lognormal_from_moments`) as the log of the value, which suits radii,
+dispersions and error scales; any other (`dist.Uniform`, `dist.Normal`, `dist.TruncatedNormal`, `dist.StudentT`) as the
+value itself. NumPyro cannot truncate a positive distribution, so `truncated_lognormal(median, log_sigma, low=, high=)`
+gives the truncated log-normal.
+
+The sampled fields are the ones the model has: the shape as its Cartesian pair (`e1`, `e2`; `ellipticity_box` turns
+Lenstool ellipticity and angle limits into a box), the shear as (`gamma1`, `gamma2`; `shear_box`), and the dPIE cut
+radius as `cut_excess_kpc`, its excess above the effective core $\sqrt{r_\mathrm{core}^2 + s^2}$
+(`cut_excess_from_moments` gives the prior of a cut radius of a given mean and width). Error scales and GP
+hyperparameters take log-normal priors in the same way, e.g. `LikelihoodConfig(gp_knee_prior=truncated_lognormal(6.0, 0.6,
+low=2.5, high=8.0))`.
+
+Priors that start JAX (any `exp`-transformed one) need `configure_cpu_runtime` first (see {doc}`quickstart`).
 
 ### Member population
 
@@ -96,9 +116,9 @@ and each member deviates from the relation by a sampled offset.
 MemberPopulationConfig.bergamini2019("potfile_1", "catalogs/hera/members.yaml", z_lens, prior_mag0=19.82)
 ```
 
-`bergamini2019` uses the MUSE-calibrated relation of Bergamini et al. (2019): $\sigma^*$ ~ TN(200, 70) km/s on
-40–500 and $r^*_{\mathrm{cut}}$ ~ TN(12, 10) kpc on 2–60, given at `prior_mag0`, with the pivot `mag0="auto"` chosen
-from image leverage. `MemberPopulationConfig.neutral` uses priors that do not come from any cluster's lens model; pair
+`bergamini2019` uses the MUSE-calibrated relation of Bergamini et al. (2019): $\sigma^*$ about 200 ± 70 km/s on
+40–500 and $r^*_{\mathrm{cut}}$ about 12 ± 10 kpc on 2–60 (`sigma_prior`, `cutkpc_prior`: log-normals with those
+moments), given at `prior_mag0`, with the pivot `mag0="auto"` chosen from image leverage. `MemberPopulationConfig.neutral` uses priors that do not come from any cluster's lens model; pair
 it with `ScalingModelConfig.neutral()`.
 
 `kinematics_sources` adds measured stellar velocity dispersions to the likelihood, one log-normal term per member,
@@ -110,8 +130,8 @@ its own dPIE. Members with `treatment: independent` in the catalog are added aut
 
 ### Scaling relation and deviations
 
-`ScalingModelConfig` sets the slope priors (`alpha_sigma` 0.27 ± 0.05, `beta_radius` 0.65 ± 0.15 by default) and how
-members leave the relation:
+`ScalingModelConfig` sets the slope priors (`alpha_sigma_prior`, `beta_radius_prior`: truncated normals, 0.27 ± 0.05
+and 0.65 ± 0.15 by default), the member core prior (`corekpc_prior`) and how members leave the relation:
 
 `member_deviation`
 : `"sigma_rcut"` (default): independent dispersion and cut-radius deviations. `"sigma"`: dispersion only. `"mass"`:
@@ -133,8 +153,9 @@ members leave the relation:
 : Hold any of `sigma`, `cutkpc`, `alpha_sigma`, `beta_radius` at their nominal values, for tests against a published
   relation.
 
-`softening_length_kpc`
-: Added in quadrature to the member cores to match the resolution of an N-body simulation (Hera: 3.19 kpc).
+`softening_length_prior`
+: A softening length added in quadrature to the cores to match the resolution of an N-body simulation, e.g.
+  `dist.LogNormal(np.log(3.19), 0.15)` for Hera; `None` (default) for none.
 
 ### Exact and far-field members
 
@@ -251,9 +272,17 @@ What it reads:
 | `potfile` `vdslope`, `slope` | relation exponents $\alpha = 1/\mathrm{vdslope}$, $\beta = 2/\mathrm{slope}$ |
 | `image` `sigposArcsec` | `ImageConstraintsConfig.sigma_inst_arcsec` |
 
-Limits keep their Lenstool flags: 0 fixed, 1 uniform (`lower upper step`), 3 normal (`mean std`), 9 truncated normal
-(`mean std lower [upper]`). A field without a limit stays fixed, as in Lenstool. A starting value outside its limit is
-moved to the nearest bound.
+Limits become numpyro priors by their Lenstool flag (0 fixed, 1 uniform `lower upper step`, 3 normal `mean std`,
+9 truncated normal `mean std lower [upper]`), in the coordinate the solver samples:
+
+- positions as given: `dist.Uniform`, `dist.Normal`, `dist.TruncatedNormal`;
+- radii and dispersions in log: a uniform limit becomes `dist.LogUniform`, a (truncated) normal one the log-normal
+  with that mean and width;
+- the cut radius as its excess above the core (`cut_excess_kpc`);
+- `ellipticite` with `angle_pos` (and the shear's `gamma` with `angle_pos`), which need uniform limits together, as the
+  uniform (e1, e2) (or (gamma1, gamma2)) box of those limits.
+
+A field without a limit stays fixed, as in Lenstool. A starting value outside its limit is moved to the nearest bound.
 
 Things to know:
 

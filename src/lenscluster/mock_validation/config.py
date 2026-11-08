@@ -16,8 +16,11 @@ from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
+import numpyro.distributions as dist
+
+from ..priors import cut_excess_from_moments, ellipticity_box, lognormal_from_moments, physical_bounds
 from ..config import (CosmologyConfig, DPIEHaloConfig, ImageConstraintsConfig, LensClusterSolverConfig, LensModelConfig,
-                      MemberPopulationConfig, PriorConfig, ReferenceFrameConfig, RunPathsConfig, ShearHaloConfig)
+                      MemberPopulationConfig, ReferenceFrameConfig, RunPathsConfig, ShearHaloConfig)
 
 VALID_MODES = ("production", "idealized")
 
@@ -230,27 +233,25 @@ def _jsonable(value: Any) -> Any:
 def _bcg_halo(id: str, x: float, y: float, z_lens: float, *, v_disp: float, cut_kpc: float, half_width: float, truth: dict[str, float] | None) -> DPIEHaloConfig:
     """A BCG-scale dPIE: production priors around the light (``truth`` None) or idealized priors around the truth."""
     if truth is None:
-        priors = {"x_centre": PriorConfig("uniform", lower=x - half_width, upper=x + half_width, step=0.1),
-                  "y_centre": PriorConfig("uniform", lower=y - half_width, upper=y + half_width, step=0.1),
-                  "ellipticite": PriorConfig("uniform", lower=0.0, upper=0.6, step=0.02),
-                  "angle_pos": PriorConfig("uniform", lower=-180.0, upper=180.0, step=1.0),
-                  "core_radius_kpc": PriorConfig("uniform", lower=0.1, upper=5.0, step=0.1),
-                  "cut_radius_kpc": PriorConfig("truncated_normal", mean=cut_kpc, std=0.5 * cut_kpc, lower=20.0, upper=600.0),
-                  "v_disp": PriorConfig("truncated_normal", mean=v_disp, std=0.35 * v_disp, lower=100.0, upper=800.0)}
-        return DPIEHaloConfig(id=id, x_centre=x, y_centre=y, ellipticite=0.2, angle_pos=0.0, core_radius_kpc=1.0, cut_radius_kpc=cut_kpc,
+        core = 1.0
+        priors = {"x_centre": dist.Uniform(x - half_width, x + half_width), "y_centre": dist.Uniform(y - half_width, y + half_width),
+                  **ellipticity_box(0.6), "core_radius_kpc": dist.LogUniform(0.1, 5.0),
+                  "cut_excess_kpc": cut_excess_from_moments(cut_kpc, 0.5 * cut_kpc, low=20.0, high=600.0, core=core),
+                  "v_disp": lognormal_from_moments(v_disp, 0.35 * v_disp, low=100.0, high=800.0)}
+        return DPIEHaloConfig(id=id, x_centre=x, y_centre=y, ellipticite=0.2, angle_pos=0.0, core_radius_kpc=core, cut_radius_kpc=cut_kpc,
                               v_disp=v_disp, z_lens=z_lens, priors=priors)
     return _idealized_halo(id, truth, z_lens, half_width=half_width, core_bounds=(0.1, 5.0), cut_bounds=(20.0, 600.0), v_bounds=(100.0, 800.0))
 
 
 def _idealized_halo(id: str, t: dict[str, float], z_lens: float, *, half_width: float, core_bounds, cut_bounds, v_bounds) -> DPIEHaloConfig:
     """A dPIE with priors centred on its truth: position box, free shape, 30% radii, 15% dispersion."""
-    priors = {"x_centre": PriorConfig("uniform", lower=t["x_centre"] - half_width, upper=t["x_centre"] + half_width, step=0.1),
-              "y_centre": PriorConfig("uniform", lower=t["y_centre"] - half_width, upper=t["y_centre"] + half_width, step=0.1),
-              "ellipticite": PriorConfig("uniform", lower=0.0, upper=0.8, step=0.02),
-              "angle_pos": PriorConfig("uniform", lower=-180.0, upper=180.0, step=1.0),
-              "core_radius_kpc": PriorConfig("truncated_normal", mean=t["core_radius_kpc"], std=0.3 * t["core_radius_kpc"], lower=core_bounds[0], upper=core_bounds[1]),
-              "cut_radius_kpc": PriorConfig("truncated_normal", mean=t["cut_radius_kpc"], std=0.3 * t["cut_radius_kpc"], lower=cut_bounds[0], upper=cut_bounds[1]),
-              "v_disp": PriorConfig("truncated_normal", mean=t["v_disp"], std=0.15 * t["v_disp"], lower=v_bounds[0], upper=v_bounds[1])}
+    core, cut, v = float(t["core_radius_kpc"]), float(t["cut_radius_kpc"]), float(t["v_disp"])
+    priors = {"x_centre": dist.Uniform(t["x_centre"] - half_width, t["x_centre"] + half_width),
+              "y_centre": dist.Uniform(t["y_centre"] - half_width, t["y_centre"] + half_width),
+              **ellipticity_box(0.8),
+              "core_radius_kpc": lognormal_from_moments(core, 0.3 * core, low=core_bounds[0], high=core_bounds[1]),
+              "cut_excess_kpc": cut_excess_from_moments(cut, 0.3 * cut, low=cut_bounds[0], high=cut_bounds[1], core=core),
+              "v_disp": lognormal_from_moments(v, 0.15 * v, low=v_bounds[0], high=v_bounds[1])}
     return DPIEHaloConfig(id=id, x_centre=t["x_centre"], y_centre=t["y_centre"], ellipticite=t["ellipticite"], angle_pos=t["angle_pos"],
                           core_radius_kpc=t["core_radius_kpc"], cut_radius_kpc=t["cut_radius_kpc"], v_disp=t["v_disp"], z_lens=z_lens, priors=priors)
 
@@ -270,8 +271,8 @@ def mock_lens_model_config(config: MockConfig, truth: dict[str, Any], *, image_c
             members = (MemberPopulationConfig(
                 id="potfile", catalog_path=member_catalog, mag0="auto", prior_mag0=float(relation["pivot_magnitude"]),
                 corekpc=float(relation["core_star_kpc"]), sigma=sigma, cutkpc=cut, z_lens=z_lens,
-                sigma_prior=PriorConfig("truncated_normal", mean=sigma, std=0.15 * sigma, lower=40.0, upper=500.0),
-                cutkpc_prior=PriorConfig("truncated_normal", mean=cut, std=0.3 * cut, lower=2.0, upper=60.0)),)
+                sigma_prior=lognormal_from_moments(sigma, 0.15 * sigma, low=40.0, high=500.0),
+                cutkpc_prior=lognormal_from_moments(cut, 0.3 * cut, low=2.0, high=60.0)),)
     else:
         # An observer centres the cluster halo on the BCG light and knows nothing else about the truth.
         halos = (DPIEHaloConfig.cluster_scale("halo", bcg["x_centre"], bcg["y_centre"], z_lens, v_disp=800.0, position_half_width_arcsec=5.0),
@@ -292,8 +293,10 @@ def solver_config_for_mock(config: MockValidationConfig, truth: dict[str, Any], 
     scaling = template.scaling
     if config.mock.mode == "idealized":
         relation = truth["relation"]
-        scaling = replace(scaling, alpha_sigma_prior_mean=float(relation["alpha_sigma"]), alpha_sigma_prior_std=0.03,
-                          beta_radius_prior_mean=float(relation["beta_radius"]), beta_radius_prior_std=0.08)
+        # Centred on the truth, narrower, on the template's bounds.
+        recentred = lambda prior, loc, scale: dist.TruncatedNormal(loc, scale, low=physical_bounds(prior)[0], high=physical_bounds(prior)[1])
+        scaling = replace(scaling, alpha_sigma_prior=recentred(scaling.alpha_sigma_prior, float(relation["alpha_sigma"]), 0.03),
+                          beta_radius_prior=recentred(scaling.beta_radius_prior, float(relation["beta_radius"]), 0.08))
     likelihood = replace(template.likelihood, sigma_inst_arcsec=float(config.mock.solver_sigma_inst_arcsec))
     return replace(template, model=model, scaling=scaling, likelihood=likelihood,
                    paths=RunPathsConfig(output_dir=output_dir, run_name="solver"),

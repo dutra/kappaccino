@@ -155,8 +155,7 @@ def load_model(run: Path):
     classes = json.loads((init / artifacts.CLASSIFICATION_FILE).read_text())
     state = build_state(config, drop_member_ids=classes.get("dropped_members", ()))
     saved = json.loads((init / artifacts.STATE_FILE).read_text())["parameter_specs"]
-    key = ("name", "transform_kind", "transform_offset", "transform_scale")
-    if [tuple(sp[k] for k in key) for sp in saved] != [tuple(getattr(sp, k) for k in key) for sp in state.parameter_specs]:
+    if [(sp["name"], sp["prior"]["log"]) for sp in saved] != [(sp.name, sp.log) for sp in state.parameter_specs]:
         raise ValueError(f"{run}: the rebuilt parameters differ from the run's saved state")
     centered = np.asarray([m in set(classes.get("centered_members", [])) for m in state.members.member_ids], dtype=bool)
     state = with_member_classes(state, artifacts.load_exact_positions(init), classes, centered=centered)

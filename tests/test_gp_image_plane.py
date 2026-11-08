@@ -28,7 +28,7 @@ def gp_config(config, **likelihood):
 def set_scale(state, theta, name, value):
     theta = np.array(theta, dtype=float)
     index = [s.name for s in state.parameter_specs].index(name)
-    theta[index] = np.log(value) if state.parameter_specs[index].transform_kind == "log_positive" else value
+    theta[index] = np.log(value) if state.parameter_specs[index].log else value
     return jnp.asarray(theta)
 
 
@@ -295,7 +295,8 @@ def test_two_scales_reproduce_the_rho_model(synthetic_config):
     S = sigma^2 (rho K + (1 - rho) I) kron I_2 + sigma_inst^2 I.  The log-target agrees to 1e-10.  ell is fixed so that
     the precomputed kernel is the one the likelihood reads.  The half-normal sigma_white prior, so that sigma_white = 0
     (the old model) is a point of the parameter space."""
-    state = build_state(gp_config(synthetic_config, gp_correlation_length_prior=None, sigma_white_prior=None))
+    import numpyro.distributions as dist
+    state = build_state(gp_config(synthetic_config, gp_correlation_length_prior=None, sigma_white_prior=dist.TruncatedNormal(0.0, 0.05, low=0.0)))
     evaluator = Evaluator(state, "gp_image_plane")
     sigma = 0.23
     theta = set_image_scales(state, state.initial_theta, sigma)
@@ -353,12 +354,12 @@ def test_gradient_overhead_below_five_percent(tmp_path):
 
 def test_sampled_ell_matches_the_fixed_kernel_and_has_a_gradient(synthetic_config):
     """ell sampled (default) and ell fixed at the same value give the same likelihood; None removes the site."""
-    from lenscluster.config import LogNormalPriorConfig
+    from lenscluster import priors
     sampled_state = build_state(gp_config(synthetic_config))
     fixed_state = build_state(gp_config(synthetic_config, gp_correlation_length_prior=None, gp_correlation_length_arcsec=3.0))
     assert fixed_state.gp_ell_param_index == -1 and not any(s.name == "images.gp_ell" for s in fixed_state.parameter_specs)
     spec = sampled_state.parameter_specs[sampled_state.gp_ell_param_index]
-    assert spec.name == "images.gp_ell" and spec.transform_kind == "log_positive" and spec.physical_upper == 30.0
+    assert spec.name == "images.gp_ell" and spec.log and np.isclose(priors.physical_bounds(spec.prior)[1], 30.0)
     assert np.isclose(np.exp(sampled_state.initial_theta[sampled_state.gp_ell_param_index]), 7.0)
     sampled, fixed = Evaluator(sampled_state, "gp_image_plane"), Evaluator(fixed_state, "gp_image_plane")
     theta = set_scale(sampled_state, sampled_state.initial_theta, "images.gp_ell", 3.0)
@@ -374,4 +375,5 @@ def test_sampled_ell_matches_the_fixed_kernel_and_has_a_gradient(synthetic_confi
     plus, minus = theta.at[index].add(h), theta.at[index].add(-h)
     numerical = (float(sampled.log_likelihood(plus)) - float(sampled.log_likelihood(minus))) / (2 * h)
     assert np.isclose(gradient, numerical, rtol=1e-5, atol=1e-6)
-    assert LogNormalPriorConfig(median=7.0, log_sigma=0.5, upper=30.0) == gp_config(synthetic_config).likelihood.gp_correlation_length_prior
+    default = gp_config(synthetic_config).likelihood.gp_correlation_length_prior
+    assert np.isclose(priors.physical_center(default), 7.0) and np.isclose(priors.physical_bounds(default)[1], 30.0)

@@ -3,9 +3,8 @@ import numpy as np
 from lenscluster.block_corner import posterior_corner_data, write_posterior_block_corner, BLOCK_COLORS
 
 
-def spec(name, family='large', field='v_disp', transform='identity'):
-    return SimpleNamespace(name=name, potential_id=name.rsplit('.',1)[0], field=field,
-                           component_family=family, transform_kind=transform, transform_offset=0.)
+def spec(name, family='large', field='v_disp', log=False):
+    return SimpleNamespace(name=name, potential_id=name.rsplit('.',1)[0], field=field, component_family=family, log=log)
 
 
 def test_blocks_and_joint_source_alignment(tmp_path):
@@ -31,7 +30,7 @@ def test_blocks_and_joint_source_alignment(tmp_path):
 
 def test_log_values_and_constant_exclusion():
     samples=np.c_[np.exp(np.linspace(1,3,100)),np.ones(100)]
-    specs=[spec('halo.v_disp',transform='log_positive'),spec('halo.fixed')]
+    specs=[spec('halo.v_disp',log=True),spec('halo.fixed')]
     data=posterior_corner_data(samples,specs)
     np.testing.assert_allclose(data['values'][:,0],np.log10(samples[:,0]))
     assert data['excluded']==['halo.fixed']

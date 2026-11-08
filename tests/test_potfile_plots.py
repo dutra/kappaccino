@@ -6,15 +6,20 @@ import numpy as np
 import pandas as pd
 import pytest
 
+import numpyro.distributions as dist
+
 from lenscluster import outputs, potfile_plots
+from lenscluster.model import ParameterSpec
+
+
+def make_spec(name, field, prior, family="scaling"):
+    return ParameterSpec(name=name, sample_name=name.replace(".", "_"), potential_id=name.split(".")[0], profile_type=0, field=field,
+                         prior=prior, component_family=family)
 
 
 def fixture_draws(population="potfile_members"):
-    specs = [SimpleNamespace(name=f"{population}.{field}", field=field,
-                             component_family="scaling", transform_kind=transform,
-                             prior_kind="normal", mean=mean, std=std)
-             for field, transform, mean, std in (("sigma", "log_positive", 4.6, .3),
-                                                 ("alpha_sigma", "identity", .25, .05))]
+    specs = [make_spec(f"{population}.sigma", "sigma", dist.LogNormal(4.6, .3)),
+             make_spec(f"{population}.alpha_sigma", "alpha_sigma", dist.Normal(.25, .05))]
     rng = np.random.default_rng(42)
     samples = np.column_stack((np.exp(rng.normal(4.5, .2, 300)), rng.normal(.28, .04, 300)))
     return samples, specs
@@ -73,9 +78,8 @@ def test_prior_quantiles_and_density_match_sampler():
     import jax
     from lenscluster.sampling import SampleSite, distribution_for_site
     jax.config.update("jax_enable_x64", True)
-    for kind in ("normal", "truncated_normal", "uniform"):
-        spec = SimpleNamespace(name="potfile_1.beta_radius", field="beta_radius", prior_kind=kind,
-                               mean=.5, std=.2, lower=0., upper=1.5, centered=False)
+    for prior in (dist.Normal(.5, .2), dist.TruncatedNormal(.5, .2, low=0., high=1.5), dist.Uniform(0., 1.5)):
+        spec = make_spec("potfile_1.beta_radius", "beta_radius", prior)
         prior = potfile_plots.saved_prior(spec)
         values = prior.ppf(np.linspace(.001, .999, 100))
         distribution = distribution_for_site(SampleSite("beta", (0,), False), [spec])
@@ -97,19 +101,12 @@ def test_corner_traces_preserve_chain_order(tmp_path):
 def test_uniform_global_prior_and_coordinate_transforms(tmp_path):
     from lenscluster.corner_plots import DisplayPrior, display_values
     from lenscluster.plots import plot_corner
-    specs = [SimpleNamespace(name=f'halo.{field}', field=field, component_family='large',
-                             prior_kind='uniform', lower=-1., upper=1., transform_kind='identity')
-             for field in ('x', 'y')]
+    specs = [make_spec(f'halo.{field}', field, dist.Uniform(-1., 1.), 'large') for field in ('x', 'y')]
     draws = np.random.default_rng(4).uniform(-.8, .8, (100, 2))
     path = plot_corner(draws, specs, tmp_path/'global.pdf', best=draws[0])
     assert path.is_file()
     assert 'support boundary' in json.loads(path.with_suffix('.json').read_text())['uniform_joint_prior']
-    spec = SimpleNamespace(prior_kind='normal', mean=0., std=1., transform_kind='affine',
-                           transform_offset=10., transform_scale=2.)
-    prior = DisplayPrior(spec)
-    np.testing.assert_allclose(prior.ppf(np.array([.5])), [10.])
-    np.testing.assert_allclose(prior.pdf(10.), 1/(2*np.sqrt(2*np.pi)))
-    spec.transform_kind = 'log_positive'
+    spec = make_spec('halo.v', 'v', dist.LogNormal(0., 1.))
     prior = DisplayPrior(spec)
     np.testing.assert_allclose(prior.pdf(0.), np.log(10)/np.sqrt(2*np.pi))
     np.testing.assert_allclose(display_values(np.array([1., 10.]), spec), [0., 1.])
@@ -118,8 +115,7 @@ def test_uniform_global_prior_and_coordinate_transforms(tmp_path):
 def test_corner_headers_physical_with_log_axes(tmp_path, monkeypatch):
     from lenscluster.corner_plots import plot_parameter_corner
     from matplotlib.figure import Figure
-    spec = SimpleNamespace(name='images.sigma_def', transform_kind='log_positive',
-                           prior_kind='normal', mean=np.log(.01), std=.5)
+    spec = make_spec('images.sigma_def', 'sigma_def', dist.LogNormal(np.log(.01), .5), 'error_scale')
     samples = np.geomspace(.005, .02, 101)[:,None]
     captured = []
     save = Figure.savefig

@@ -81,7 +81,7 @@ def test_warm_start_maps_a_saved_start_by_name_and_uncenters_deviations(tmp_path
     theta = np.asarray(state.initial_theta, dtype=float) + 0.01 * np.arange(len(specs))
     offset = next(i for i, s in enumerate(specs) if s.field == "velocity_offset")
     scale = next(i for i, s in enumerate(specs) if s.sample_name == specs[offset].scale_site_name)
-    saved_specs = [s.__dict__ | {} for s in specs]
+    saved_specs = [artifacts.spec_to_json(s) for s in specs]
     saved_specs[offset] = dict(saved_specs[offset], centered=True)
     centered_theta = theta.copy()
     centered_theta[offset] = theta[offset] * np.exp(theta[scale])            # the saved run samples this member centered

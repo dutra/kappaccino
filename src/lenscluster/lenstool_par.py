@@ -11,10 +11,13 @@ elsewhere:
   ``slope``), with the slopes converted to the relation exponents alpha = 1 / vdslope and beta = 2 / slope;
 * ``image``: ``multfile`` when it is a YAML image catalog, and ``sigposArcsec``.
 
-Limits keep the Lenstool flags: 0 fixed, 1 uniform (lower, upper, step), 3 normal (mean, std), 9 truncated normal
-(mean, std, lower[, upper]).  A field without a limit is fixed.  Lenstool fixes what a ``.par`` file leaves without a
-limit, so the relation slopes and the member core are fixed when the file gives them with flag 0; relax them on the
-returned configuration with ``dataclasses.replace``.
+Limits become numpyro priors by their Lenstool flag (0 fixed, 1 uniform, 3 normal, 9 truncated normal), in the
+coordinate the solver samples: positions as given; the radii and dispersions in log (a uniform limit is log-uniform, a
+normal one the log-normal with its mean and width); the cut radius as its excess above the core; the ellipticity and angle
+(and the shear amplitude and angle) together, as uniform priors on the Cartesian (e1, e2) (or (gamma1, gamma2)) box of
+their limits.  A field without a limit is fixed, and Lenstool fixes what a ``.par`` file leaves without a limit, so the
+relation slopes and the member core are fixed when the file gives them with flag 0; relax them on the returned
+configuration with ``dataclasses.replace``.
 
 The solver reads YAML image catalogs only: pass ``image_catalog`` (convert a Lenstool multiple-image file with
 scripts/convert_lenstool_catalog.py).  The potfile's ``filein`` catalog is resolved next to the ``.par`` file unless
@@ -27,10 +30,12 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
+import numpyro.distributions as dist
+
 from .config import (CosmologyConfig, DPIEHaloConfig, ImageConstraintsConfig, LensClusterSolverConfig, LensModelConfig,
-                     MemberPopulationConfig, PriorConfig, ReferenceFrameConfig, RunPathsConfig, ScalingModelConfig,
-                     ShearHaloConfig)
-from .model import DP_IE_PROFILE, SHEAR_PROFILE
+                     MemberPopulationConfig, ReferenceFrameConfig, RunPathsConfig, ScalingModelConfig, ShearHaloConfig)
+from .model import DP_IE_PROFILE, SAFE_RADIUS_MARGIN_KPC, SHEAR_PROFILE
+from .priors import cut_excess_from_moments, ellipticity_box, lognormal_from_moments, physical_bounds, shear_box
 
 ALIASES = {"ellipticity": "ellipticite", "profile": "profil", "zlens": "z_lens"}
 
@@ -66,31 +71,65 @@ def read_lenstool_par(path: str | Path) -> list[tuple[str, str | None, dict[str,
     return blocks
 
 
-def prior_from_limit(values: list, *, scale: float = 1.0) -> PriorConfig | None:
-    """A Lenstool limit entry as a ``PriorConfig`` (None for flag 0, fixed); ``scale`` multiplies every value
-    (arcsec to kpc for radii)."""
+def limit_bounds(values: list, *, scale: float = 1.0) -> tuple[float, float]:
+    """The bounds of a Lenstool limit entry (infinite where it has none); ``scale`` multiplies them."""
+    flag, numbers = int(values[0]), [float(v) * scale for v in values[1:]]
+    if flag == 1:
+        return numbers[0], numbers[1]
+    if flag == 9:
+        return numbers[2], numbers[3] if len(numbers) > 3 else math.inf
+    return -math.inf, math.inf
+
+
+def prior_from_limit(values: list, *, scale: float = 1.0, log: bool = False, floor: float = SAFE_RADIUS_MARGIN_KPC,
+                     normal_bounds: tuple[float, float | None] | None = None):
+    """A Lenstool limit entry as a numpyro prior (None for flag 0, fixed); ``scale`` multiplies every value (arcsec to
+    kpc for radii).  ``log``: a positive quantity sampled in log, so a uniform limit is log-uniform and a (truncated)
+    normal one the log-normal with that mean and width, bounded below by ``floor`` (or by ``normal_bounds`` for a
+    flag-3 limit, which has none; (None, None) leaves it untruncated)."""
     flag, numbers = int(values[0]), [float(v) * scale for v in values[1:]]
     if flag == 0:
         return None
     if flag == 1:
-        lower, upper = numbers[0], numbers[1]
-        step = numbers[2] if len(numbers) > 2 else 0.1 * (upper - lower)
-        return PriorConfig("uniform", lower=lower, upper=upper, step=step)
-    if flag == 3:
-        return PriorConfig("normal", mean=numbers[0], std=numbers[1])
-    if flag == 9:
-        return PriorConfig("truncated_normal", mean=numbers[0], std=numbers[1], lower=numbers[2],
-                           upper=numbers[3] if len(numbers) > 3 else math.inf)
+        return dist.LogUniform(max(numbers[0], floor), numbers[1]) if log else dist.Uniform(numbers[0], numbers[1])
+    if flag in (3, 9):
+        mean, std = numbers[0], numbers[1]
+        if not log:
+            return dist.Normal(mean, std) if flag == 3 else dist.TruncatedNormal(mean, std, low=numbers[2], high=numbers[3] if len(numbers) > 3 else None)
+        low, high = (normal_bounds or (floor, None)) if flag == 3 else (max(numbers[2], floor), numbers[3] if len(numbers) > 3 else None)
+        return lognormal_from_moments(max(mean, low if low is not None else floor), std, low=low, high=high)
     raise ValueError(f"Unsupported Lenstool limit flag {flag}; expected 0, 1, 3 or 9.")
 
 
-def _inside(value: float, prior: PriorConfig | None) -> float:
-    """The start moved inside the prior's bounds (Lenstool files often start a halo outside its own limit)."""
-    if prior is None:
-        return value
-    lower = -math.inf if prior.lower is None else prior.lower
-    upper = math.inf if prior.upper is None else prior.upper
-    return min(max(value, lower), upper)
+def _cut_excess_prior(values: list, *, scale: float, core: float):
+    """The prior of the cut radius above the core (``cut_excess_kpc``) from the cut radius's limit entry."""
+    flag, numbers = int(values[0]), [float(v) * scale for v in values[1:]]
+    if flag == 0:
+        return None
+    if flag == 1:
+        low = max(numbers[0] - core, SAFE_RADIUS_MARGIN_KPC)
+        return dist.LogUniform(low, max(numbers[1] - core, low * (1.0 + 1.0e-9)))
+    if flag == 3:
+        return lognormal_from_moments(max(numbers[0] - core, SAFE_RADIUS_MARGIN_KPC), numbers[1])
+    if flag == 9:
+        return cut_excess_from_moments(numbers[0], numbers[1], low=numbers[2], high=numbers[3] if len(numbers) > 3 else math.inf, core=core)
+    raise ValueError(f"Unsupported Lenstool limit flag {flag}; expected 0, 1, 3 or 9.")
+
+
+def _polar_priors(limit: dict[str, list], amplitude: str, box, context: str) -> dict[str, Any]:
+    """The Cartesian box priors of an (amplitude, angle_pos) pair limited together with uniform limits."""
+    given = {name for name in (amplitude, "angle_pos") if int(limit.get(name, [0])[0])}
+    if not given:
+        return {}
+    if given != {amplitude, "angle_pos"} or any(int(limit[name][0]) != 1 for name in given):
+        raise ValueError(f"{context}: {amplitude} and angle_pos must both have uniform limits (flag 1) to be sampled.")
+    (a_lo, a_hi), angle = limit_bounds(limit[amplitude]), limit_bounds(limit["angle_pos"])
+    return box(a_hi, lower=a_lo, angle_deg=angle)
+
+
+def _inside(value: float, bounds: tuple[float, float]) -> float:
+    """The start moved inside the limit's bounds (Lenstool files often start a halo outside its own limit)."""
+    return min(max(value, bounds[0]), bounds[1])
 
 
 def _value(block: dict[str, list], key: str, context: str) -> float:
@@ -99,39 +138,39 @@ def _value(block: dict[str, list], key: str, context: str) -> float:
     return float(block[key][0])
 
 
-def _priors(limit: dict[str, list], scales: dict[str, float]) -> dict[str, PriorConfig]:
-    priors = {}
-    for key, values in limit.items():
-        field = {"core_radius": "core_radius_kpc", "cut_radius": "cut_radius_kpc"}.get(key, key)
-        prior = prior_from_limit(values, scale=scales.get(key, 1.0))
-        if prior is not None:
-            priors[field] = prior
-    return priors
-
-
 def _dpie(potential_id: str, block: dict[str, list], limit: dict[str, list], kpc_per_arcsec) -> DPIEHaloConfig:
     context = f"potentiel {potential_id}"
     z_lens = _value(block, "z_lens", context)
     scale = kpc_per_arcsec(z_lens)
-    radii = {}
-    for name in ("core_radius", "cut_radius"):
-        if f"{name}_kpc" in block:
-            radii[f"{name}_kpc"] = _value(block, f"{name}_kpc", context)
-        else:
-            radii[f"{name}_kpc"] = _value(block, name, context) * scale
-    priors = _priors(limit, {"core_radius": scale, "cut_radius": scale})
     fields = {name: _value(block, name, context) for name in ("x_centre", "y_centre", "ellipticite", "angle_pos", "v_disp")}
-    fields.update(radii)
-    fields = {name: _inside(value, priors.get(name)) for name, value in fields.items()}
-    return DPIEHaloConfig(id=potential_id, z_lens=z_lens, priors=priors, **fields)
+    for name in ("core_radius", "cut_radius"):
+        fields[f"{name}_kpc"] = _value(block, f"{name}_kpc", context) if f"{name}_kpc" in block else _value(block, name, context) * scale
+    scales = {"core_radius": scale, "cut_radius": scale}
+    for name in fields:
+        key = name.removesuffix("_kpc")
+        if key in limit:
+            fields[name] = _inside(fields[name], limit_bounds(limit[key], scale=scales.get(key, 1.0)))
+    priors = {}
+    for key in limit:                                     # in the file's order, which is the order of the sample sites
+        if key in ("x_centre", "y_centre"):
+            priors[key] = prior_from_limit(limit[key])
+        elif key in ("ellipticite", "angle_pos"):
+            priors.update(_polar_priors(limit, "ellipticite", ellipticity_box, context))
+        elif key == "core_radius":
+            priors["core_radius_kpc"] = prior_from_limit(limit[key], scale=scale, log=True, normal_bounds=(None, None))
+        elif key == "cut_radius":
+            priors["cut_excess_kpc"] = _cut_excess_prior(limit[key], scale=scale, core=fields["core_radius_kpc"])
+        elif key == "v_disp":
+            priors["v_disp"] = prior_from_limit(limit[key], log=True, floor=1.0e-4)
+    return DPIEHaloConfig(id=potential_id, z_lens=z_lens, priors={k: v for k, v in priors.items() if v is not None}, **fields)
 
 
 def _shear(potential_id: str, block: dict[str, list], limit: dict[str, list]) -> ShearHaloConfig:
     context = f"potentiel {potential_id}"
-    priors = _priors(limit, {})
-    return ShearHaloConfig(id=potential_id, gamma=_inside(_value(block, "gamma", context), priors.get("gamma")),
-                           angle_pos=_inside(_value(block, "angle_pos", context), priors.get("angle_pos")),
-                           z_lens=_value(block, "z_lens", context), priors=priors)
+    values = {name: _value(block, name, context) for name in ("gamma", "angle_pos")}
+    values = {name: _inside(value, limit_bounds(limit[name])) if name in limit else value for name, value in values.items()}
+    return ShearHaloConfig(id=potential_id, z_lens=_value(block, "z_lens", context), priors=_polar_priors(limit, "gamma", shear_box, context),
+                           **values)
 
 
 def _slope_prior(values: list | None, exponent: float) -> tuple[float, float | None, tuple[float, float] | None]:
@@ -155,31 +194,32 @@ def _population(block: dict[str, list], catalog: Path, kpc_per_arcsec) -> tuple[
     scale = kpc_per_arcsec(z_lens)
     core = _value(block, "corekpc", context) if "corekpc" in block else _value(block, "core", context) * scale
     cut_key, cut_scale = ("cutkpc", 1.0) if "cutkpc" in block else ("cut", scale)
-    sigma_prior = prior_from_limit(block["sigma"]) if int(block["sigma"][0]) else None
-    cut_prior = prior_from_limit(block[cut_key], scale=cut_scale) if int(block[cut_key][0]) else None
+    # A flag-3 (normal) limit has no bounds; it takes those of the library's default prior.
+    sigma_prior = prior_from_limit(block["sigma"], log=True, floor=1.0e-4, normal_bounds=(20.0, 500.0))
+    cut_prior = prior_from_limit(block[cut_key], scale=cut_scale, log=True, normal_bounds=(20.0, 1000.0))
     sigma = float(block["sigma"][1])
     cut = float(block[cut_key][1]) * cut_scale
-    if sigma_prior is not None and sigma_prior.kind == "uniform":
-        sigma = 0.5 * (sigma_prior.lower + sigma_prior.upper)
-    if cut_prior is not None and cut_prior.kind == "uniform":
-        cut = 0.5 * (cut_prior.lower + cut_prior.upper)
+    if int(block["sigma"][0]) == 1:
+        sigma = 0.5 * sum(limit_bounds(block["sigma"]))
+    if int(block[cut_key][0]) == 1:
+        cut = 0.5 * sum(limit_bounds(block[cut_key], scale=cut_scale))
     population = MemberPopulationConfig(
         id="potfile", catalog_path=str(catalog), mag0=_value(block, "mag0", context), corekpc=core,
         sigma=max(sigma, 1.0), cutkpc=max(cut, 1.0e-3), z_lens=z_lens, profile_type=int(_value(block, "type", context)),
-        sigma_prior=sigma_prior or PriorConfig(), cutkpc_prior=cut_prior or PriorConfig())
+        **{name: prior for name, prior in (("sigma_prior", sigma_prior), ("cutkpc_prior", cut_prior)) if prior is not None})
     scaling: dict[str, Any] = {"fit_corekpc": False}
+    defaults = ScalingModelConfig()
     fixed = []
     for key, name, exponent in (("vdslope", "alpha_sigma", 1.0), ("slope", "beta_radius", 2.0)):
         if key not in block:
             continue
         mean, std, bounds = _slope_prior(block[key], exponent)
-        scaling[f"{name}_prior_mean"] = mean
+        default = getattr(defaults, f"{name}_prior")
+        low, high = bounds if bounds is not None else physical_bounds(default)
         if std is None:
             fixed.append(name)
-        else:
-            scaling[f"{name}_prior_std"] = std
-        if bounds is not None:
-            scaling[f"{name}_prior_lower"], scaling[f"{name}_prior_upper"] = bounds
+            std = float(default.base_dist.scale)
+        scaling[f"{name}_prior"] = dist.TruncatedNormal(mean, std, low=low, high=high)
     if sigma_prior is None:
         fixed.append("sigma")
     if cut_prior is None:

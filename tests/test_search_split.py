@@ -106,4 +106,5 @@ def test_degenerate_modes_cannot_seed_chains(synthetic_config):
 def test_sigma_shared_prior_is_truncated_at_one_arcsec(synthetic_config):
     state = build_state(replace(synthetic_config, likelihood=replace(synthetic_config.likelihood, likelihood_mode="gp_image_plane")))
     spec = state.parameter_specs[state.sigma_shared_param_index]
-    assert spec.prior_kind == "truncated_normal" and np.isclose(spec.upper, np.log(1.0)) and spec.physical_upper == 1.0
+    from lenscluster import priors
+    assert priors.family(spec.latent_prior) == "TruncatedNormal" and np.isclose(priors.physical_bounds(spec.prior)[1], 1.0)

@@ -70,8 +70,9 @@ def redshift_weights(efficiency_per_image, efficiency_reference):
     return jnp.asarray(efficiency_per_image, dtype=jnp.float64) / jnp.asarray(efficiency_reference, dtype=jnp.float64)
 
 
-def family_covariance(jacobian, kernel, sigma_inst2, mask, sigma_shared2, sigma_white2, sigma_fl2):
-    """C = B S B^T + sigma_fl^2 I per family as (F, 2M, 2M), with identity blocks at padded slots, and its Cholesky factor.
+def family_covariance(jacobian, kernel, sigma_inst2, mask, sigma_shared2, sigma_white2, sigma_fl2, extra=None):
+    """C = B S B^T + sigma_fl^2 I (+ extra) per family as (F, 2M, 2M), with identity blocks at padded slots, and its
+    Cholesky factor.  ``extra`` (F, M, M, 2, 2) is a further source-plane covariance (uncertain membership), zero at pads.
 
     ``jacobian`` is (F, M, 2, 2) in slot order.  Positive definiteness follows from sigma_inst^2 + sigma_white^2 > 0 or
     sigma_fl > 0 together with nonsingular Jacobians; no jitter is added, so a NaN factor points at an input error."""
@@ -86,6 +87,8 @@ def family_covariance(jacobian, kernel, sigma_inst2, mask, sigma_shared2, sigma_
     c = jnp.einsum("fiab,fijbc,fjdc->fijad", a, s, a)
     diagonal = jnp.where(mask, sigma_fl2, 1.0)                                                 # floor on real slots, identity on pads
     c = c + (eye_m[None] * diagonal[:, :, None])[..., None, None] * eye2
+    if extra is not None:
+        c = c + jnp.asarray(extra)
     c = c.transpose(0, 1, 3, 2, 4).reshape(n_families, 2 * size, 2 * size)
     c = 0.5 * (c + jnp.swapaxes(c, -1, -2))
     return c, jnp.linalg.cholesky(c)

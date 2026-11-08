@@ -106,11 +106,11 @@ def expected_absolute_normal(mean, variance, parity=None):
     return jnp.exp(log_expected_absolute_normal(mean, variance, parity))
 
 
-def source_covariance(jacobian, sigma_meas, sigma_def, sigma_sel=0.0, lambda_sel=1.0):
-    """Per-image source-plane covariance C = sigma_meas^2 A A^T + sigma_def^2 I + sigma_sel^2 R, its Cholesky factor and
-    log det.  R = (I + A A^T / lambda_sel^2)^-1 is the stretching weight of the selection term: the selection variance
-    is halved along a principal direction whose absolute Jacobian eigenvalue equals lambda_sel; sigma_sel = 0 drops the
-    term."""
+def source_covariance(jacobian, sigma_meas, sigma_def, sigma_sel=0.0, lambda_sel=1.0, extra_covariance=None):
+    """Per-image source-plane covariance C = sigma_meas^2 A A^T + sigma_def^2 I + sigma_sel^2 R (+ extra), its Cholesky
+    factor and log det.  R = (I + A A^T / lambda_sel^2)^-1 is the stretching weight of the selection term: the selection
+    variance is halved along a principal direction whose absolute Jacobian eigenvalue equals lambda_sel; sigma_sel = 0
+    drops the term.  ``extra_covariance`` (N, 2, 2) adds a further deflection covariance (uncertain membership)."""
     a = jnp.asarray(jacobian)
     n = a.shape[0]
     eye = jnp.eye(2, dtype=a.dtype)
@@ -124,6 +124,8 @@ def source_covariance(jacobian, sigma_meas, sigma_def, sigma_sel=0.0, lambda_sel
     weight = jnp.linalg.solve(eye + aat / safe_lam2[:, None, None], jnp.broadcast_to(eye, aat.shape))
     selection = jnp.where((sel > 0)[:, None, None], sel[:, None, None]**2 * weight, 0.0)
     covariance = deflection[:, None, None]**2 * eye + measurement + selection
+    if extra_covariance is not None:
+        covariance = covariance + jnp.asarray(extra_covariance)
     covariance = 0.5 * (covariance + jnp.swapaxes(covariance, -1, -2))
     chol = jnp.linalg.cholesky(covariance)
     logdet = 2.0 * jnp.sum(jnp.log(jnp.diagonal(chol, axis1=-2, axis2=-1)), axis=-1)
@@ -133,12 +135,14 @@ def source_covariance(jacobian, sigma_meas, sigma_def, sigma_sel=0.0, lambda_sel
                 covariance=covariance, cholesky=chol, logdet=logdet, valid=valid)
 
 
-def statistics(backprojected, source, jacobian, determinant_gradient, sigma_meas, sigma_def, sigma_sel=0.0, lambda_sel=1.0, *, parity=None):
+def statistics(backprojected, source, jacobian, determinant_gradient, sigma_meas, sigma_def, sigma_sel=0.0, lambda_sel=1.0, *, parity=None,
+               extra_covariance=None):
     """Normalized local image-plane log-likelihood per image and its diagnostics.
 
-    ``determinant_gradient`` is grad_theta(det A) with shape (N, 2).
+    ``determinant_gradient`` is grad_theta(det A) with shape (N, 2); ``extra_covariance`` (N, 2, 2) adds to the
+    source-plane covariance like the deflection scatter (enters F only).
     """
-    result = source_covariance(jacobian, sigma_meas, sigma_def, sigma_sel, lambda_sel)
+    result = source_covariance(jacobian, sigma_meas, sigma_def, sigma_sel, lambda_sel, extra_covariance)
     a, meas = result["jacobian"], result["sigma_meas"]
     covariance, chol = result["covariance"], result["cholesky"]
     residual = jnp.asarray(backprojected) - jnp.asarray(source)

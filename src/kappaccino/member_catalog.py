@@ -14,6 +14,7 @@ YAML example::
         role: bcg
         kinematics: [{source: G26, sigma: 275.6, err: 1.5, sn: 164.6}]
       "4112": {ra: 64.0352, dec: -24.0735, mag: {F160W: 17.95}}
+      "5120": {ra: 64.0391, dec: -24.0702, mag: {F160W: 22.31}, z: {value: 0.41, kind: phot}, p_member: 0.7}
 
 Fields.  Top level: ``band`` (required: the magnitude the scaling relation uses), ``members`` (required),
 ``kinematics_sources``, ``notes``.  Member: ``ra``/``dec`` (degrees, ICRS; required), ``mag`` ({band: mag} or
@@ -21,8 +22,9 @@ Fields.  Top level: ``band`` (required: the magnitude the scaling relation uses)
 {value, kind} with kind spec or phot), ``role`` (member or bcg), ``treatment`` (relation: on the scaling relation;
 independent: its own dPIE, as a ``model.independent_member_halos`` entry with default priors unless the config declares
 it; exclude: kept for the record, not modelled), ``keep`` (true protects it from ``members.min_deflection_arcsec``;
-members with kinematics are always kept), ``kinematics`` (a list of measurements {source, sigma, err, sn, notes}, sigma
-and err in km/s), ``notes``.  Kinematics source: ``reference`` (required), ``quantity`` (sigma_ap: within a circular
+members with kinematics are always kept), ``p_member`` (prior probability, in (0, 1], that the galaxy belongs to the
+cluster, for example from a color classifier; see ``MemberConfig.membership``), ``kinematics`` (a list of measurements
+{source, sigma, err, sn, notes}, sigma and err in km/s), ``notes``.  Kinematics source: ``reference`` (required), ``quantity`` (sigma_ap: within a circular
 aperture of ``aperture_arcsec``; sigma_0: central, within R_e/8; sigma_e: within R_e), ``aperture_arcsec``, ``notes``.
 
 Member names are strings: YAML reads an unquoted 2526 as a number, so quote it; ``write_member_catalog`` quotes them.
@@ -47,9 +49,9 @@ from .sky import offsets_to_radec
 COLUMNS = ["id", "coord_1", "coord_2", "a", "b", "theta", "mag", "lum", "color"]
 OUTPUT_COLUMNS = ["id", "catalog_reference", "catalog_source", "ra", "dec", "catalog_a", "catalog_b", "catalog_theta",
                   "catalog_mag", "catalog_z", "catalog_lum", "catalog_color", "catalog_band", "catalog_z_kind", "catalog_role",
-                  "catalog_treatment", "catalog_keep", "catalog_kinematics", "catalog_notes"]
+                  "catalog_treatment", "catalog_keep", "catalog_p_member", "catalog_kinematics", "catalog_notes"]
 TOP_KEYS = {"band", "kinematics_sources", "members", "notes"}
-MEMBER_KEYS = {"ra", "dec", "mag", "shape", "z", "role", "treatment", "keep", "kinematics", "notes"}
+MEMBER_KEYS = {"ra", "dec", "mag", "shape", "z", "role", "treatment", "keep", "p_member", "kinematics", "notes"}
 SOURCE_KEYS = {"reference", "quantity", "aperture_arcsec", "notes"}
 MEASUREMENT_KEYS = {"source", "sigma", "err", "sn", "notes"}
 Z_KEYS = {"value", "kind"}
@@ -103,6 +105,8 @@ def load_member_catalog(path: str | Path, reference: tuple[int, float, float], *
           ``"exclude"``; see the module docstring);
         * ``catalog_keep`` (bool): True if ``keep`` is set or the member has
           kinematics;
+        * ``catalog_p_member`` (float): the catalog's prior membership
+          probability in (0, 1]; NaN when not given (always for ``.cat``);
         * ``catalog_kinematics`` (list of dict per member): each measurement's
           ``source``, ``reference``, ``quantity``, ``aperture_arcsec``
           (arcsec; NaN if none), ``sigma`` and ``err`` (km s^-1) and ``sn``
@@ -250,12 +254,17 @@ def _member(name: Any, entry: Any, where: str, band: str, sources: dict[str, dic
     keep = entry.get("keep", False)
     if not isinstance(keep, bool):
         raise CatalogError(f"{where}.keep must be true or false.")
+    p_member = np.nan
+    if "p_member" in entry:
+        p_member = _number(entry["p_member"], f"{where}.p_member")
+        if not 0.0 < p_member <= 1.0:
+            raise CatalogError(f"{where}.p_member must be in (0, 1]; got {p_member!r} (use treatment: exclude for a non-member).")
     return {"id": name, "ra": _number(entry["ra"], f"{where}.ra"), "dec": _number(entry["dec"], f"{where}.dec", lower=-90.0, upper=90.0),
             "catalog_a": shape[0], "catalog_b": shape[1], "catalog_theta": shape[2], "catalog_mag": mags[f"mag_{band}"],
             "catalog_z": z, "catalog_z_kind": z_kind, "catalog_lum": np.nan, "catalog_color": np.nan,
             "catalog_role": _choice(entry.get("role", "member"), ROLES, f"{where}.role"),
             "catalog_treatment": _choice(entry.get("treatment", "relation"), TREATMENTS, f"{where}.treatment"),
-            "catalog_keep": bool(keep or kinematics), "catalog_kinematics": kinematics,
+            "catalog_keep": bool(keep or kinematics), "catalog_p_member": p_member, "catalog_kinematics": kinematics,
             "catalog_notes": str(entry.get("notes", "")), **mags}
 
 
@@ -364,6 +373,7 @@ def _load_lenstool(path: Path, reference: tuple[int, float, float]) -> pd.DataFr
     table["catalog_role"] = "member"
     table["catalog_treatment"] = "relation"
     table["catalog_keep"] = False
+    table["catalog_p_member"] = np.nan
     table["catalog_kinematics"] = [[] for _ in range(len(table))]
     table["catalog_notes"] = ""
     return table.loc[:, OUTPUT_COLUMNS].drop_duplicates(subset=["id"], keep="first").reset_index(drop=True)

@@ -2,7 +2,7 @@
 
 The data are the observed positions $\hat\theta_i$ of multiple images, grouped into families: the images of one source
 point. This page derives the position likelihood from the lens equation, then assembles the full posterior with every
-other term (kinematics, priors, soft constraints). The error models that follow (GRF, image-plane GP, smoothed) differ only in
+other term (membership, kinematics, priors). The error models that follow (GRF, image-plane GP, smoothed) differ only in
 the covariance they assign to the errors in that derivation.
 
 ## The position likelihood from probability theory
@@ -111,12 +111,12 @@ physical source coordinates, which avoids a spurious mode at lenses that demagni
 ## The full posterior
 
 With lens parameters $\Theta$ (halos, shear, sheet, scaling relation, member deviations), error-model parameters
-$\phi$ (the scales of $e$ and $\eta$) and source positions $\beta_f$, the sampled density is
+$\phi$ (the scales of $e$ and $\eta$), source positions $\beta_f$ and membership indicators $z$, the sampled density is
 
 $$
 p(\Theta, \phi, \beta \mid \mathcal{D}) \;\propto\;
 \underbrace{p(\Theta)\, p(\phi)\, \prod_f p(\beta_f)}_{\text{priors}}
-\;\underbrace{\prod_f p(\hat\theta_f \mid \beta_f, \Theta, \phi)}_{\text{positions}}
+\;\underbrace{\sum_z p(z) \prod_f p(\hat\theta_f \mid \beta_f, \Theta, \phi, z)}_{\text{positions, membership summed}}
 \;\underbrace{\prod_m p(\hat\sigma_m \mid \Theta)}_{\text{kinematics}}
 \;\underbrace{B(\Theta)}_{\text{soft constraints}} .
 $$
@@ -128,9 +128,15 @@ Priors $p(\Theta)$, $p(\phi)$
   (each member's offset from the scaling relation, Student-t or normal in units of a sampled population scatter),
   and the error-scale priors of the chosen error model.
 
-Positions $p(\hat\theta_f \mid \beta_f, \Theta, \phi)$
+Positions $p(\hat\theta_f \mid \beta_f, \Theta, \phi, z)$
 : The family likelihood derived above. The error model fixes the covariance $C$, that is, $\Sigma_\eta$ and any
   correlated displacement (the sections below).
+
+Membership $\sum_z p(z)$
+: With uncertain membership, each member's mass is multiplied by an indicator $z_i \sim \mathrm{Bernoulli}(p_i)$ and
+  the position likelihood is summed over the indicators. Uncertain members near the images are summed exactly; for
+  the rest, the indicators become one more Gaussian deflection error in $\Sigma_\eta$
+  ([Uncertain membership](#uncertain-membership)). With every $p_i = 1$ the sum has one term.
 
 Kinematics $p(\hat\sigma_m \mid \Theta)$
 : Measured stellar velocity dispersions are independent data given the lens:
@@ -283,6 +289,109 @@ $\sigma_{\mathrm{inst}}$ comes from each image's `sigma` in the catalog, otherwi
 `ImageConstraintsConfig.sigma_inst_arcsec`. `LikelihoodConfig.sigma_inst_arcsec` overrides it for every image.
 The production fits set `ImageConstraintsConfig(sigma_inst_arcsec=0.001)`, a 1 mas floor, so that the white scatter $\sigma_{\mathrm{white}}$ is inferred rather than assumed; the
 "chi-square (catalog errors)" line of the run summary is not meaningful at that value.
+
+## Uncertain membership
+
+Member catalogs are built by classification. Spectroscopic members (a redshift within a few thousand km/s of the
+cluster) are close to certain. Fainter members come from their colors: a red-sequence cut or a classifier trained on
+the spectroscopic members (Grillo et al. 2015 and later CLASH-VLT and MUSE catalogs), with a purity of about
+90–95% at the faint end. A published catalog applies a threshold and lists every galaxy above it as a member. With
+`MemberConfig(membership="marginalize")` each member instead carries a prior probability $p_i$ of belonging to the
+cluster, and the images update it.
+
+### The likelihood
+
+Each member has an indicator $z_i \in \{0, 1\}$ with prior $\mathrm{Bernoulli}(p_i)$: with $z_i = 1$ it is on the
+scaling relation, with $z_i = 0$ it has no mass. The indicators are latent variables like the true image positions
+in the derivation above, and are marginalized the same way, by the sum rule:
+
+$$
+p(\hat\theta \mid \Theta) = \sum_{z \in \{0,1\}^N} \prod_i p_i^{z_i}(1-p_i)^{1-z_i}\; p(\hat\theta \mid \Theta, z),
+$$
+
+where $p(\hat\theta \mid \Theta, z)$ is the position likelihood with member $i$'s mass included only when
+$z_i = 1$. So $p_i$ is the prior and the images give the posterior,
+$P(z_i = 1 \mid \theta) \propto p_i\, p(\theta \mid z_i = 1)$. A member with $p_i = 1$ drops out of the sum and is
+modeled as before. The sum has $2^N$ terms and does not factor over members, because every image feels every member,
+so it is split by how much a member can matter.
+
+Enumerated members
+: Uncertain members that the member classification already made exact (see {doc}`configuration`, Exact and
+  far-field members), at most `membership_max_enumerated` (default 4). When there are more, the ones with the
+  highest classification score are enumerated, as for `top_exact`. The score is the larger of the truncation term
+  and the whitened far-field error over `template_tolerance`, so it measures how much the member matters at the
+  images relative to their errors. These members can decide an image's position, so their $2^K$ configurations are summed exactly (the target is a `logsumexp` over the
+  configurations). NUTS samples only the continuous parameters, and each draw gives the configuration weights, whose
+  average over the draws is the posterior membership probability.
+
+Marginalized members
+: Every other uncertain member. A member's deflection is linear in its mass, so the total deflection is
+  $\alpha = \alpha_{\mathrm{rest}} + \sum_g z_g \alpha_g$. Split it into its mean and a fluctuation,
+  $\alpha = \big(\alpha_{\mathrm{rest}} + \sum_g p_g \alpha_g\big) + \sum_g (z_g - p_g)\, \alpha_g$. The mean is the
+  model deflection. The fluctuation has zero mean, and approximated as Gaussian it is one more deflection error: a
+  term in $\Sigma_\eta$ of [One image](#one-image), with covariance
+
+  $$
+  C_{\mathrm{mem}}^{(jk)} = \sum_g p_g (1 - p_g)\, \alpha_g(\theta_j)\, \alpha_g(\theta_k)^T,
+  $$
+
+  added to the source-plane residual covariance. It correlates images $j$ and $k$, because one missing member moves
+  all of its nearby images together. Under the GRF likelihood it adds to $W K_\alpha W$ after the low-order
+  projection, so the shared field's blocks gain the cross terms. Under the image-plane GP it adds to each family's
+  covariance, and under the smoothed likelihood to each image's $C_i$. The diagonal blocks also enter the smoothed
+  determinant. This is the Gaussian, first-order view of the indicators: their membership is not updated (posterior
+  equals prior), but the uncertainty they add to the mass model propagates.
+
+### Prior probabilities
+
+$p_i$ is the catalog's `p_member` (see {doc}`catalogs`) when given. Otherwise it is 1 for a spectroscopically
+confirmed member (a `z` of kind `spec`, kinematics, or role `bcg`) and `membership_default_probability` for the rest.
+The prior is the output of the color classification, made beforehand; the lens model does not refit the photometry.
+Galaxies that a published threshold rejected can be added with a low `p_member`, so the images can bring back one
+that matters.
+
+Classifier probabilities are often over- or under-confident. With `membership_calibration_prior` (for example
+`dist.Normal(0.0, 1.0)`), one shared shift of the log-odds is sampled,
+$\mathrm{logit}\,p_i' = \mathrm{logit}\,p_i + \delta$, for every uncertain member. The enumerated members inform
+$\delta$ directly, and the marginalized ones through their covariance.
+
+### Cost and limits
+
+- The likelihood costs $2^K$ evaluations for $K$ enumerated members (16 at the default).
+  `membership_max_enumerated=0` marginalizes every uncertain member at no extra evaluations.
+- A non-member is modeled as no mass. A real interloper is a galaxy at another redshift: in front of the cluster it
+  still lenses, off the scaling relation. Removing it is a good approximation for faint interlopers; a bright
+  foreground galaxy is better modeled as its own halo (`treatment: independent`).
+- The images separate "not a member" from "a low-mass member" only when the difference in mass is large, because
+  each member already has a deviation from the scaling relation.
+- Maps, image predictions and diagnostics use the expected mass $p_i$ of every uncertain member.
+- After sampling, `final/tables/member_membership.csv` lists the prior and posterior of every member (see
+  {doc}`outputs`).
+
+### Validation
+
+`scripts/validate_membership_injection.py` tests whether the images recognize a wrong member. At the posterior
+draws of a finished run, it gives one galaxy at a time a prior of 0.5 and computes its posterior membership. The
+galaxy is either an interloper (a fake galaxy added near the images, not part of the true lens) or a true member that
+the classifier doubts. On the Hera tutorial run (GRF likelihood, 65 images, 340 members, 100 draws):
+
+| galaxy | magnitude (F160W) | nearest image (arcsec) | largest deflection at an image (arcsec) | posterior membership |
+|---|---|---|---|---|
+| interloper | 19.0 | 1–4 | 0.20–0.24 | 0.07–0.17 |
+| interloper | 19.0 | 7 | 0.19 | 0.36 ± 0.26 |
+| interloper | 20.5 | 1–7 | 0.05–0.08 | 0.43–0.49 |
+| interloper | 22.0 | 1–8 | 0.01–0.03 | 0.48–0.50 |
+| true member (`1`) | 14.4 | 0.8 | 2.7 | 1.00 |
+| true member (`24`) | 19.0 | 3.6 | 0.21 | 0.64 ± 0.21 |
+| true member (`79`) | 20.5 | 0.6 | 0.07 | 0.60 ± 0.12 |
+| true members (`174`, `205`, `308`) | 21.4–22.9 | 0.5–3.7 | 0.006–0.025 | 0.50–0.52 |
+
+The posterior moves in the right direction in every case, and how far it moves follows the galaxy's deflection at
+the images rather than its distance. Above about 0.2" of deflection the images decide. Below about 0.05" (fainter
+than about 21 mag on Hera) the posterior stays at the prior: the GRF and the member scatter absorb such a small
+perturbation. That is why the marginalized members can keep their prior. The draws were fit without the
+interlopers, so this tests the likelihood at the fitted lens, not a joint refit in which the lens could partly adjust
+to a wrong member.
 
 ## Diagnostic likelihoods
 

@@ -85,6 +85,7 @@ def test_solver_model_from_truth_contains_the_truth(tmp_path, mode):
     assert values["images.sigma_white"] == values["images.sigma_extra"] == pytest.approx(config.sigma_inst_arcsec)
 
 
+@pytest.mark.slow
 def test_campaign_end_to_end_scores_only_parameters_with_a_truth(tmp_path):
     config = MockConfig(seed=11, n_members=4, n_primary_families=2, n_member_families=0, mode="idealized")
     solver = LensClusterSolverConfig(runtime=RuntimeConfig(seed=11, chains=1, resume=True, nuts_chain_method="sequential"),
@@ -116,6 +117,48 @@ def test_campaign_end_to_end_scores_only_parameters_with_a_truth(tmp_path):
     outputs = write_aggregate_plots(recovery_dirs[0].parent.parent)
     assert any(p.name == "mock_calibration.pdf" for p in outputs) and (recovery_dirs[0].parent.parent / "aggregate_plots" / "mock_coverage_table.csv").is_file()
     assert set(payload["relation"]["draws"]) == {"sigma", "cutkpc", "alpha_sigma", "beta_radius"} and payload["relation"]["pivot_luminosity_ratio"] > 0
+
+
+def test_map_search_from_the_prior_recovers_the_truth(tmp_path):
+    """The multi-start MAP search, started from prior draws, recovers the well-constrained truths of an idealized mock:
+    the halo and its dispersion, the BCG dispersion and the sources.  No NUTS: the search and the likelihood are tested
+    for bias in about half a minute.  The members (four, far from the images) and the error scales are not constrained
+    by twelve images and are not checked."""
+    import jax.numpy as jnp
+    from kappaccino.evaluator import Evaluator
+    from kappaccino.search import multistart_map, prior_starts
+    config = MockConfig(seed=11, n_members=4, n_primary_families=3, n_member_families=0, mode="idealized",
+                        sigma_inst_arcsec=0.01, sigma_def_arcsec=0.0)
+    paths = generate_mock(tmp_path / "mock", config, 11)
+    truth = json.loads(paths.truth.read_text())
+    solver = solver_config_for_mock(MockValidationConfig(mock=config, solver=LensClusterSolverConfig()), truth,
+                                    image_catalog=paths.image_catalog, member_catalog=paths.member_catalog, seed=11,
+                                    output_dir=tmp_path / "run").validate()
+    state = build_state(solver)
+    evaluator = Evaluator(state)
+    specs = state.parameter_specs
+    values = parameter_truth(truth, solver_pivot_magnitude=float(state.potfiles[0]["mag0"]))
+    search = multistart_map(state, evaluator, prior_starts(state, 8, 1), replace(solver.search, polish_max_iter=200),
+                            method="lbfgs", log=lambda *a, **k: None)
+    fit = dict(zip([s.name for s in specs], np.asarray(evaluator.reported_physical(jnp.asarray(search["theta"])))))
+    for name in ("halo.x_centre", "halo.y_centre", "bcg.x_centre", "bcg.y_centre"):
+        assert abs(fit[name] - values[name]) < 0.1, (name, fit[name], values[name])                   # arcsec
+    for name in ("halo.e1", "halo.e2"):
+        assert abs(fit[name] - values[name]) < 0.02, (name, fit[name], values[name])
+    for name, tolerance in (("halo.v_disp", 0.02), ("bcg.v_disp", 0.05), ("halo.core_radius_kpc", 0.1)):
+        assert abs(fit[name] / values[name] - 1.0) < tolerance, (name, fit[name], values[name])
+    sources = [s.name for s in specs if s.component_family == "source_position"]
+    assert sources and all(abs(fit[name] - values[name]) < 0.2 for name in sources)                    # arcsec, source plane
+
+    # The search found a mode at least as good as the truth: the truth with the unconstrained parameters at their starts.
+    start = np.asarray(evaluator.reported_physical(jnp.asarray(state.initial_theta)))
+    at_truth = np.array([values[s.name] if values.get(s.name) is not None and not (s.log and values[s.name] <= 0) else start[i]
+                         for i, s in enumerate(specs)])
+    for i, s in enumerate(specs):
+        if s.component_family == "member_scatter_offset" or s.name.startswith("shear."):
+            at_truth[i] = 0.0
+    truth_theta = evaluator.latent_from_reported_physical(at_truth)
+    assert float(evaluator.search_log_likelihood(jnp.asarray(search["theta"]))) >= float(evaluator.search_log_likelihood(jnp.asarray(truth_theta)))
 
 
 def test_knotted_families_are_systems_whose_knots_follow_the_main_images(tmp_path):

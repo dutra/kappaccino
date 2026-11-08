@@ -71,32 +71,49 @@ A cluster with more than one paper has a `master/` folder, our own catalog built
 
 ```
 catalogs/<cluster>/master/
-    sources.yaml       input: the papers, the base paper, the match radius, which papers may add systems
-    decisions.yaml     input: hand-made choices (set_z, exclude, include), each with a reason
-    images.yaml        output: the base paper's systems, plus systems other papers add
-    images_gold.yaml   output: the systems of images.yaml found in at least two independent papers
-    members.yaml       output: the base paper's members, each noted with the papers that list it
-    crossmatch.yaml    output: frame offsets, every system's ids in every paper, conflicts, candidates, left-out systems
+    sources.yaml       input: the papers, the base paper, the match radius, each paper's quality flags, z_cluster
+    decisions.yaml     input: hand-made choices (set_z, set_tier, exclude, link, set_member), each with a reason
+    images.yaml        output: every system of every paper, each image (or knot) with its association prior
+    members.yaml       output: the members, each with p_member
+    crossmatch.yaml    output: frame offsets, each system's ids in every paper, tier and quality, conflicts, candidates
 ```
 
-- The outputs are never edited by hand: change `sources.yaml` or `decisions.yaml` and rebuild.
-- Each paper is shifted onto the base paper's frame by the median offset of its positions from the base's, measured by
-  the script and recorded in `crossmatch.yaml` (Bergamini 2023 to CANUCS: 0.23"). Then every pair of papers is matched
-  mutual-nearest within `match_radius_arcsec`, per (system, knot, image).
-- Systems linked through matched images form one group, so renamed, split and merged systems line up (CANUCS K6 and K7
-  are one Bergamini system, `05`, and two Diego sources). A group with a base system enters with the base system as it
-  is; a group without one enters only when a paper listing it is allowed to add systems (`add_systems: spec` or `all`),
-  renamed with that paper's `prefix`.
-- Redshifts: a non-spectroscopic base z is replaced by a linked spectroscopic one. Two spectroscopic redshifts more than
-  `dz_max` apart in |dz|/(1+z) are listed under `conflicts` until a `set_z` decision settles them. Lenstool's z = 0 (a
-  free redshift) is never added; a base system with a free z enters only with a spectroscopic z from a linked
-  system or a `set_z` decision, and is otherwise listed under `free_z`.
-- A `link` decision joins paper systems that are one source when no image matched within the radius (A370 7, 25).
-- `members_base` names the paper whose members the master keeps, when the base paper has none (A2744).
-- A paper that reused another's image positions has `derived_from: <paper>` and does not count as independent for the
-  gold catalog (Bergamini 2019 uses the Caminha 2016 positions).
-- `candidate_images` are images another paper gives a base system that the base paper does not; they are not added.
-  `left_out` are the groups no policy or decision added.
+**Nothing is dropped.** Every system any paper lists is in `images.yaml`, every image with the prior that it belongs to
+its system; a doubtful system or image gets a low prior instead of being left out. The one file serves both kinds of
+fit: `ImageConstraintsConfig(trusted_prior_min=0.8)` trusts the diamond and gold images, and a `PartitionConfig()`
+(no `catalog_path`) puts every other image into the slot mixture, weighted toward its system by its prior.
+
+- **Tiers.** Each system is ranked by the number of independent papers listing it (`derived_from` papers count with
+  their source), whether its z is spectroscopic, and its quality, the median over its images of the papers' own flags
+  mapped to 0-1 by `quality` in `sources.yaml` (Diego ranks, Bergamini QF/QP, Lagattuta classes, Mahler categories):
+
+  | tier | rule | reliability |
+  |---|---|---|
+  | diamond | spectroscopic z, two or more independent papers, quality >= 0.8 | 1.0 |
+  | gold | spectroscopic z, quality >= 0.8 | 0.9 |
+  | silver | spectroscopic z or two independent papers, quality >= 0.5 | 0.7 |
+  | bronze | quality >= 0.5 | 0.4 |
+  | copper | otherwise (copper class, rank C/D, ...) | 0.15 |
+
+  The system's `reliability` is its tier's; an image's `prior` is the reliability, times its own quality when that is
+  below 0.8. Images another paper gives a system that its source paper does not list are added to it as candidates at
+  half that prior. The values are priors we chose, set in `reliability:` of `sources.yaml` (defaults in the script).
+- **Redshifts.** A non-spectroscopic z is replaced by a linked spectroscopic one; two spectroscopic redshifts more than
+  `dz_max` apart in |dz|/(1+z) are listed under `conflicts` until a `set_z` decision settles them. A system whose z is
+  free everywhere (Lenstool's z = 0) keeps z = 0: a fit leaves it out of the trusted families and the slot mixture
+  samples its redshift. `z_err`: 0.01 spectroscopic, 0.05 (1+z) photometric, 0.1 (1+z) model.
+- **Members.** `p_member` is 1 with a spectroscopic z within `member_dz` (0.03) (1+z) of `z_cluster` from any paper, a
+  bcg role or kinematics; 0.02 for a spectroscopic interloper (kept, not removed); 0.9 when two independent papers list
+  the galaxy; else 0.7. Members only another paper lists are added when that paper gives the base band (`member_band`
+  names it for a Lenstool .cat file). Use with `MemberConfig(membership="marginalize")`.
+- **Matching.** Each paper is shifted onto the base paper's frame by the median offset of its positions from the base's,
+  measured by the script and recorded in `crossmatch.yaml` (Bergamini 2023 to CANUCS: 0.23"), then every pair of
+  papers is matched mutual-nearest within `match_radius_arcsec`, per (system, knot, image). Systems linked through
+  matched images form one group, so renamed, split and merged systems line up (CANUCS K6 and K7 are one Bergamini
+  system, `05`, and two Diego sources). A group with a base system enters as the base system; one without, as the
+  systems of the paper with the best redshift, renamed with its `prefix`. A `link` decision joins systems that are one
+  source when no image matched within the radius (A370 7, 25).
+- `members_base` names the paper whose members the master starts from, when the base paper has none (A2744).
 
 Related: `as1063/diego2026/image_mapping.json` (Diego labels to our systems and knots) and
 `scripts/match_published_images.py` (published M0416 images compared with the images a fit predicts).
@@ -109,6 +126,7 @@ to `results/`, not here.
   of the two, 1.031, matches [OIII] 5007 / Hbeta, which points to a line confusion in the grism, so `m0416/master` uses
   the MUSE value by a `set_z` decision. That choice is provisional: check the MUSE quality flag, the NIRISS spectrum
   (Halpha) or a fit with K8's z free, then update `m0416/master/decisions.yaml`. The evidence is in the comment there.
-- **M0717 redshifts.** 41 of the 51 master systems carry the CATS best-fit (model) redshift, and the fixed redshifts of
-  systems 6 and 68 have no spectroscopic support in Kawamata et al. 2016 (see `m0717/limousin2016/README.md`). Check
-  them against Limousin et al. 2016, Table A.1, before treating the M0717 master as spectroscopic.
+- **M0717 redshifts.** Only 8 of the 73 master systems have spectroscopic redshifts (diamond); the rest carry model
+  redshifts (the CATS best fit, Kawamata's zmodel) and rank silver or bronze. The fixed CATS redshifts of systems 6 and
+  68 have no spectroscopic support in Kawamata et al. 2016 (see `m0717/limousin2016/README.md`); check them against
+  Limousin et al. 2016, Table A.1.

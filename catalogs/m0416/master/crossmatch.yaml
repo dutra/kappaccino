@@ -4,6 +4,7 @@ built: '2026-11-08'
 base: canucs2025
 match_radius_arcsec: 0.5
 dz_max: 0.01
+reliability_scale: {diamond: 1.0, gold: 0.9, silver: 0.7, bronze: 0.4, copper: 0.15, high: 0.8, mid: 0.5, candidate: 0.5, trusted: 0.8}
 frames:
   canucs2025:
     applied_arcsec: [0.0, 0.0]
@@ -14,30 +15,49 @@ frames:
     median_residual_arcsec: 0.0151
   diego2024:
     applied_arcsec: [-0.032, -0.0293]
-    n_matches: 218
-    median_residual_arcsec: 0.0257
-counts: {master_systems: 91, gold_systems: 86, images: 252, left_out_groups: 32, free_z_systems: 0, candidate_images: 20, conflicts: 0}
+    n_matches: 224
+    median_residual_arcsec: 0.026
+counts: {master_systems: 121, diamond: 86, gold: 4, silver: 2, bronze: 22, copper: 7, images: 361, candidate_images: 29, free_z_systems: 0, conflicts: 0}
 systems:
   C1:
     from: canucs2025
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [C1]
     z:
       canucs2025:C1: [2.9116, spec]
+    independent_papers: 1
   C2:
     from: canucs2025
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [C2]
     z:
       canucs2025:C2: [3.0693, spec]
+    independent_papers: 1
   C3:
     from: canucs2025
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: unknown
     papers:
       canucs2025: [C3]
     z:
       canucs2025:C3: [2.5571, unknown]
+    independent_papers: 1
   K1:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K1]
       bergamini2023: ['012']
@@ -46,8 +66,13 @@ systems:
       canucs2025:K1: [0.9397, spec]
       bergamini2023:012: [0.94, spec]
       diego2024:1: [0.9397, spec]
+    independent_papers: 3
   K2:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K2]
       bergamini2023: ['13']
@@ -56,8 +81,13 @@ systems:
       canucs2025:K2: [1.0054, spec]
       bergamini2023:13: [1.005, spec]
       diego2024:2: [1.0054, spec]
+    independent_papers: 3
   K3:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K3]
       bergamini2023: ['201']
@@ -66,8 +96,13 @@ systems:
       canucs2025:K3: [1.1472, spec]
       bergamini2023:201: [1.147, spec]
       diego2024:3: [1.1472, spec]
+    independent_papers: 3
   K4:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K4]
       bergamini2023: ['24']
@@ -76,16 +111,26 @@ systems:
       canucs2025:K4: [1.6333, spec]
       bergamini2023:24: [1.637, spec]
       diego2024:4: [1.6333, spec]
+    independent_papers: 3
   K5:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K5]
       diego2024: ['5']
     z:
       canucs2025:K5: [1.8178, spec]
       diego2024:5: [1.8178, spec]
+    independent_papers: 2
   K6:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K6, K7]
       bergamini2023: ['05']
@@ -96,8 +141,13 @@ systems:
       bergamini2023:05: [1.893, spec]
       diego2024:6: [1.895, spec]
       diego2024:7: [1.896, spec]
+    independent_papers: 3
   K7:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K6, K7]
       bergamini2023: ['05']
@@ -108,8 +158,13 @@ systems:
       bergamini2023:05: [1.893, spec]
       diego2024:6: [1.895, spec]
       diego2024:7: [1.896, spec]
+    independent_papers: 3
   K8:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: decision
     papers:
       canucs2025: [K8]
       diego2024: ['101', '8']
@@ -117,8 +172,13 @@ systems:
       canucs2025:K8: [2.0439, spec]
       diego2024:8: [1.953, spec]
       diego2024:101: [1.262, model]
+    independent_papers: 2
   K9:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K9]
       bergamini2023: ['36']
@@ -127,8 +187,13 @@ systems:
       canucs2025:K9: [1.9656, spec]
       bergamini2023:36: [1.964, spec]
       diego2024:9: [1.9656, spec]
+    independent_papers: 3
   K10:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K10, K76]
       bergamini2023: ['015']
@@ -139,8 +204,13 @@ systems:
       bergamini2023:015: [1.99, spec]
       diego2024:10: [1.9894, spec]
       diego2024:76: [1.99, spec]
+    independent_papers: 3
   K76:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K10, K76]
       bergamini2023: ['015']
@@ -151,8 +221,13 @@ systems:
       bergamini2023:015: [1.99, spec]
       diego2024:10: [1.9894, spec]
       diego2024:76: [1.99, spec]
+    independent_papers: 3
   K11:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K11]
       bergamini2023: ['7']
@@ -161,8 +236,13 @@ systems:
       canucs2025:K11: [2.0881, spec]
       bergamini2023:7: [2.085, spec]
       diego2024:11: [2.0881, spec]
+    independent_papers: 3
   K12:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K12]
       bergamini2023: ['0202']
@@ -171,8 +251,13 @@ systems:
       canucs2025:K12: [2.091, spec]
       bergamini2023:0202: [2.0912, spec]
       diego2024:12: [2.091, spec]
+    independent_papers: 3
   K13:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K13]
       bergamini2023: ['10']
@@ -181,8 +266,13 @@ systems:
       canucs2025:K13: [2.0943, spec]
       bergamini2023:10: [2.093, spec]
       diego2024:13: [2.0943, spec]
+    independent_papers: 3
   K14:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K14]
       bergamini2023: ['016']
@@ -191,8 +281,13 @@ systems:
       canucs2025:K14: [2.0948, spec]
       bergamini2023:016: [2.095, spec]
       diego2024:14: [2.0948, spec]
+    independent_papers: 3
   K15:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K15]
       bergamini2023: ['4']
@@ -201,8 +296,13 @@ systems:
       canucs2025:K15: [2.1067, spec]
       bergamini2023:4: [2.107, spec]
       diego2024:15: [2.1067, spec]
+    independent_papers: 3
   K16:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K16]
       bergamini2023: ['37']
@@ -211,24 +311,39 @@ systems:
       canucs2025:K16: [2.2182, spec]
       bergamini2023:37: [2.218, spec]
       diego2024:16: [2.2182, spec]
+    independent_papers: 3
   K17:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K17]
       diego2024: ['17']
     z:
       canucs2025:K17: [2.221, spec]
       diego2024:17: [2.221, spec]
+    independent_papers: 2
   K18:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K18]
       diego2024: ['18']
     z:
       canucs2025:K18: [2.23, spec]
       diego2024:18: [2.23, spec]
+    independent_papers: 2
   K19:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K19]
       bergamini2023: ['203']
@@ -237,16 +352,26 @@ systems:
       canucs2025:K19: [2.243, spec]
       bergamini2023:203: [2.245, spec]
       diego2024:19: [2.243, spec]
+    independent_papers: 3
   K20:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K20]
       diego2024: ['20']
     z:
       canucs2025:K20: [2.28, spec]
       diego2024:20: [2.28, spec]
+    independent_papers: 2
   K21:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K21]
       bergamini2023: ['8']
@@ -255,8 +380,13 @@ systems:
       canucs2025:K21: [2.281, spec]
       bergamini2023:8: [2.282, spec]
       diego2024:21: [2.281, spec]
+    independent_papers: 3
   K22:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K22]
       bergamini2023: ['29']
@@ -265,16 +395,26 @@ systems:
       canucs2025:K22: [2.2982, spec]
       bergamini2023:29: [2.298, spec]
       diego2024:22: [2.2982, spec]
+    independent_papers: 3
   K23:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K23]
       diego2024: ['23']
     z:
       canucs2025:K23: [2.334, spec]
       diego2024:23: [2.334, spec]
+    independent_papers: 2
   K24:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K24]
       bergamini2023: ['23']
@@ -283,8 +423,13 @@ systems:
       canucs2025:K24: [2.5425, spec]
       bergamini2023:23: [2.542, spec]
       diego2024:24: [2.5425, spec]
+    independent_papers: 3
   K25:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K25]
       bergamini2023: ['107']
@@ -293,24 +438,39 @@ systems:
       canucs2025:K25: [2.922, spec]
       bergamini2023:107: [2.9209, spec]
       diego2024:25: [2.922, spec]
+    independent_papers: 3
   K26:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K26]
       diego2024: ['26']
     z:
       canucs2025:K26: [2.9259, spec]
       diego2024:26: [2.9259, spec]
+    independent_papers: 2
   K28:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K28]
       diego2024: ['28']
     z:
       canucs2025:K28: [3.075, spec]
       diego2024:28: [3.075, spec]
+    independent_papers: 2
   K29:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K29]
       bergamini2023: ['26']
@@ -319,8 +479,13 @@ systems:
       canucs2025:K29: [3.0773, spec]
       bergamini2023:26: [3.081, spec]
       diego2024:29: [3.0773, spec]
+    independent_papers: 3
   K30:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K30]
       bergamini2023: ['25']
@@ -329,8 +494,13 @@ systems:
       canucs2025:K30: [3.1103, spec]
       bergamini2023:25: [3.111, spec]
       diego2024:30: [3.1103, spec]
+    independent_papers: 3
   K31:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K31]
       bergamini2023: ['020']
@@ -339,40 +509,62 @@ systems:
       canucs2025:K31: [3.2175, spec]
       bergamini2023:020: [3.222, spec]
       diego2024:31: [3.2175, spec]
+    independent_papers: 3
   K32:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K32]
       diego2024: ['32']
     z:
       canucs2025:K32: [3.2195, spec]
       diego2024:32: [3.2195, spec]
+    independent_papers: 2
   K33:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K33, K77]
       bergamini2023: ['014']
-      diego2024: ['33', '77']
+      diego2024: ['110', '33', '77']
     z:
       canucs2025:K33: [3.2215, spec]
       canucs2025:K77: [3.2215, spec]
       bergamini2023:014: [3.221, spec]
       diego2024:33: [3.2215, spec]
       diego2024:77: [3.2215, spec]
+      diego2024:110: [1.414, model]
+    independent_papers: 3
   K77:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K33, K77]
       bergamini2023: ['014']
-      diego2024: ['33', '77']
+      diego2024: ['110', '33', '77']
     z:
       canucs2025:K33: [3.2215, spec]
       canucs2025:K77: [3.2215, spec]
       bergamini2023:014: [3.221, spec]
       diego2024:33: [3.2215, spec]
       diego2024:77: [3.2215, spec]
+      diego2024:110: [1.414, model]
+    independent_papers: 3
   K34:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K34]
       bergamini2023: ['1']
@@ -381,8 +573,13 @@ systems:
       canucs2025:K34: [3.2355, spec]
       bergamini2023:1: [3.238, spec]
       diego2024:34: [3.2355, spec]
+    independent_papers: 3
   K35:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K35]
       bergamini2023: ['28']
@@ -391,8 +588,13 @@ systems:
       canucs2025:K35: [3.2526, spec]
       bergamini2023:28: [3.253, spec]
       diego2024:35: [3.2526, spec]
+    independent_papers: 3
   K36:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K36, K37, K40]
       bergamini2023: [09]
@@ -405,8 +607,13 @@ systems:
       diego2024:36: [3.2882, spec]
       diego2024:37: [3.2883, spec]
       diego2024:40: [3.292, spec]
+    independent_papers: 3
   K37:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K36, K37, K40]
       bergamini2023: [09]
@@ -419,8 +626,13 @@ systems:
       diego2024:36: [3.2882, spec]
       diego2024:37: [3.2883, spec]
       diego2024:40: [3.292, spec]
+    independent_papers: 3
   K40:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K36, K37, K40]
       bergamini2023: [09]
@@ -433,8 +645,13 @@ systems:
       diego2024:36: [3.2882, spec]
       diego2024:37: [3.2883, spec]
       diego2024:40: [3.292, spec]
+    independent_papers: 3
   K38:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K38]
       bergamini2023: ['3']
@@ -443,8 +660,13 @@ systems:
       canucs2025:K38: [3.2885, spec]
       bergamini2023:3: [3.29, spec]
       diego2024:38: [3.2885, spec]
+    independent_papers: 3
   K39:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K39]
       bergamini2023: ['204']
@@ -453,8 +675,13 @@ systems:
       canucs2025:K39: [3.291, spec]
       bergamini2023:204: [3.291, spec]
       diego2024:39: [3.291, spec]
+    independent_papers: 3
   K41:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K41]
       bergamini2023: ['11']
@@ -463,8 +690,13 @@ systems:
       canucs2025:K41: [3.2922, spec]
       bergamini2023:11: [3.292, spec]
       diego2024:41: [3.2922, spec]
+    independent_papers: 3
   K42:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K42]
       bergamini2023: ['30']
@@ -473,8 +705,13 @@ systems:
       canucs2025:K42: [3.4406, spec]
       bergamini2023:30: [3.44, spec]
       diego2024:42: [3.4406, spec]
+    independent_papers: 3
   K43:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K43]
       bergamini2023: ['27']
@@ -483,8 +720,13 @@ systems:
       canucs2025:K43: [3.4909, spec]
       bergamini2023:27: [3.492, spec]
       diego2024:43: [3.4909, spec]
+    independent_papers: 3
   K44:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K44]
       bergamini2023: ['6']
@@ -493,8 +735,13 @@ systems:
       canucs2025:K44: [3.6065, spec]
       bergamini2023:6: [3.607, spec]
       diego2024:44: [3.6065, spec]
+    independent_papers: 3
   K45:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K45]
       bergamini2023: ['205']
@@ -503,8 +750,13 @@ systems:
       canucs2025:K45: [3.7153, spec]
       bergamini2023:205: [3.715, spec]
       diego2024:45: [3.7153, spec]
+    independent_papers: 3
   K46:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K46]
       bergamini2023: ['18']
@@ -513,8 +765,13 @@ systems:
       canucs2025:K46: [3.871, spec]
       bergamini2023:18: [3.871, spec]
       diego2024:46: [3.871, spec]
+    independent_papers: 3
   K47:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K47]
       bergamini2023: ['34']
@@ -523,8 +780,13 @@ systems:
       canucs2025:K47: [3.9228, spec]
       bergamini2023:34: [3.923, spec]
       diego2024:47: [3.9228, spec]
+    independent_papers: 3
   K49:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K49]
       bergamini2023: ['17']
@@ -533,8 +795,13 @@ systems:
       canucs2025:K49: [3.968, spec]
       bergamini2023:17: [3.966, spec]
       diego2024:49: [3.968, spec]
+    independent_papers: 3
   K50:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K50]
       bergamini2023: ['104']
@@ -543,8 +810,13 @@ systems:
       canucs2025:K50: [4.069, spec]
       bergamini2023:104: [4.0698, spec]
       diego2024:50: [4.069, spec]
+    independent_papers: 3
   K52:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K52]
       bergamini2023: [019]
@@ -553,8 +825,13 @@ systems:
       canucs2025:K52: [4.1032, spec]
       bergamini2023:019: [4.103, spec]
       diego2024:52: [4.1032, spec]
+    independent_papers: 3
   K53:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K53]
       bergamini2023: ['103']
@@ -563,8 +840,13 @@ systems:
       canucs2025:K53: [4.1138, spec]
       bergamini2023:103: [4.1154, spec]
       diego2024:53: [4.1138, spec]
+    independent_papers: 3
   K54:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K54]
       bergamini2023: ['106']
@@ -573,8 +855,13 @@ systems:
       canucs2025:K54: [4.115, spec]
       bergamini2023:106: [4.1162, spec]
       diego2024:54: [4.115, spec]
+    independent_papers: 3
   K55:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K55]
       bergamini2023: ['31']
@@ -583,8 +870,13 @@ systems:
       canucs2025:K55: [4.1218, spec]
       bergamini2023:31: [4.122, spec]
       diego2024:55: [4.1218, spec]
+    independent_papers: 3
   K57:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K57]
       bergamini2023: ['101']
@@ -593,8 +885,13 @@ systems:
       canucs2025:K57: [4.299, spec]
       bergamini2023:101: [4.2994, spec]
       diego2024:57: [4.299, spec]
+    independent_papers: 3
   K62:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K62]
       bergamini2023: ['021']
@@ -603,16 +900,26 @@ systems:
       canucs2025:K62: [5.106, spec]
       bergamini2023:021: [5.106, spec]
       diego2024:62: [5.106, spec]
+    independent_papers: 3
   K63:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K63]
       diego2024: ['63']
     z:
       canucs2025:K63: [5.106, spec]
       diego2024:63: [5.106, spec]
+    independent_papers: 2
   K64:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K64]
       bergamini2023: ['32']
@@ -621,8 +928,13 @@ systems:
       canucs2025:K64: [5.365, spec]
       bergamini2023:32: [5.365, spec]
       diego2024:64: [5.365, spec]
+    independent_papers: 3
   K65:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K65]
       bergamini2023: ['35']
@@ -631,8 +943,13 @@ systems:
       canucs2025:K65: [5.638, spec]
       bergamini2023:35: [5.638, spec]
       diego2024:65: [5.638, spec]
+    independent_papers: 3
   K66:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K66]
       bergamini2023: ['33']
@@ -641,8 +958,13 @@ systems:
       canucs2025:K66: [5.9729, spec]
       bergamini2023:33: [5.973, spec]
       diego2024:66: [5.9729, spec]
+    independent_papers: 3
   K67:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K67]
       bergamini2023: ['113']
@@ -651,8 +973,13 @@ systems:
       canucs2025:K67: [5.998, spec]
       bergamini2023:113: [5.9952, spec]
       diego2024:67: [5.998, spec]
+    independent_papers: 3
   K68:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K68]
       bergamini2023: ['102']
@@ -661,8 +988,13 @@ systems:
       canucs2025:K68: [6.0665, spec]
       bergamini2023:102: [6.0644, spec]
       diego2024:68: [6.0665, spec]
+    independent_papers: 3
   K69:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K69, K70]
       bergamini2023: ['02']
@@ -673,8 +1005,13 @@ systems:
       bergamini2023:02: [6.145, spec]
       diego2024:69: [6.1452, spec]
       diego2024:70: [6.145, spec]
+    independent_papers: 3
   K70:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K69, K70]
       bergamini2023: ['02']
@@ -685,8 +1022,13 @@ systems:
       bergamini2023:02: [6.145, spec]
       diego2024:69: [6.1452, spec]
       diego2024:70: [6.145, spec]
+    independent_papers: 3
   K71:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K71]
       bergamini2023: ['112']
@@ -695,8 +1037,13 @@ systems:
       canucs2025:K71: [6.147, spec]
       bergamini2023:112: [6.1453, spec]
       diego2024:71: [6.147, spec]
+    independent_papers: 3
   K72:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K72]
       bergamini2023: ['0210']
@@ -705,8 +1052,13 @@ systems:
       canucs2025:K72: [6.149, spec]
       bergamini2023:0210: [6.149, spec]
       diego2024:72: [6.149, spec]
+    independent_papers: 3
   K73:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K73]
       bergamini2023: ['02104']
@@ -715,8 +1067,13 @@ systems:
       canucs2025:K73: [6.149, spec]
       bergamini2023:02104: [6.149, spec]
       diego2024:73: [6.149, spec]
+    independent_papers: 3
   K74:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K74]
       bergamini2023: ['02101']
@@ -725,356 +1082,687 @@ systems:
       canucs2025:K74: [6.149, spec]
       bergamini2023:02101: [6.149, spec]
       diego2024:74: [6.149, spec]
+    independent_papers: 3
   K82:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K82]
       diego2024: ['82']
     z:
       canucs2025:K82: [2.0436, spec]
       diego2024:82: [1.98, model]
+    independent_papers: 2
   K87:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K87]
       diego2024: ['87']
     z:
       canucs2025:K87: [2.911, spec]
       diego2024:87: [2.961, model]
+    independent_papers: 2
   K89:
     from: canucs2025
+    tier: silver
+    reliability: 0.7
+    quality: 1.0
+    z_kind: unknown
     papers:
       canucs2025: [K89]
       diego2024: ['89']
     z:
       canucs2025:K89: [3.0654, unknown]
       diego2024:89: [2.964, model]
+    independent_papers: 2
   K90:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K90]
       diego2024: ['90']
     z:
       canucs2025:K90: [3.0665, spec]
       diego2024:90: [2.952, model]
+    independent_papers: 2
   K91:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K91]
       diego2024: ['91']
     z:
       canucs2025:K91: [3.0666, spec]
       diego2024:91: [2.976, model]
+    independent_papers: 2
   K95:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K95]
       diego2024: ['95']
     z:
       canucs2025:K95: [2.3302, spec]
       diego2024:95: [2.359, model]
+    independent_papers: 2
   K98:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K98]
       diego2024: ['98']
     z:
       canucs2025:K98: [2.304, spec]
       diego2024:98: [2.318, model]
+    independent_papers: 2
   K99:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K99]
       diego2024: ['99']
     z:
       canucs2025:K99: [2.507, spec]
       diego2024:99: [2.255, model]
+    independent_papers: 2
   K100:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K100]
       diego2024: ['100']
     z:
       canucs2025:K100: [7.2375, spec]
       diego2024:100: [6.674, model]
+    independent_papers: 2
   K106:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K106]
       diego2024: ['106']
     z:
       canucs2025:K106: [2.7061, spec]
       diego2024:106: [2.716, model]
+    independent_papers: 2
   K109:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K109]
+      diego2024: ['109']
     z:
       canucs2025:K109: [2.162, spec]
+      diego2024:109: [2.173, model]
+    independent_papers: 2
   K115:
     from: canucs2025
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       canucs2025: [K115]
       diego2024: ['115']
     z:
       canucs2025:K115: [2.2999, spec]
       diego2024:115: [2.622, model]
+    independent_papers: 2
   B105:
     from: bergamini2023
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       bergamini2023: ['105']
       diego2024: ['51']
     z:
       bergamini2023:105: [4.0713, spec]
       diego2024:51: [4.0707, spec]
+    independent_papers: 2
   B108:
     from: bergamini2023
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       bergamini2023: ['108']
       diego2024: ['60']
     z:
       bergamini2023:108: [4.6073, spec]
       diego2024:60: [4.609, spec]
+    independent_papers: 2
   B109:
     from: bergamini2023
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       bergamini2023: ['109']
       diego2024: ['27']
     z:
       bergamini2023:109: [2.9891, spec]
       diego2024:27: [2.9911, spec]
+    independent_papers: 2
   B110:
     from: bergamini2023
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       bergamini2023: ['110']
       diego2024: ['56']
     z:
       bergamini2023:110: [4.2984, spec]
       diego2024:56: [4.298, spec]
+    independent_papers: 2
   B207:
     from: bergamini2023
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       bergamini2023: ['207']
       diego2024: ['58']
     z:
       bergamini2023:207: [4.502, spec]
       diego2024:58: [4.5018, spec]
+    independent_papers: 2
   B208:
     from: bergamini2023
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
     papers:
       bergamini2023: ['208']
     z:
       bergamini2023:208: [4.53, spec]
+    independent_papers: 1
   B209:
     from: bergamini2023
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       bergamini2023: ['209']
       diego2024: ['61']
     z:
       bergamini2023:209: [5.1, spec]
       diego2024:61: [5.0996, spec]
+    independent_papers: 2
   B211:
     from: bergamini2023
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       bergamini2023: ['211']
       diego2024: ['75']
     z:
       bergamini2023:211: [6.629, spec]
       diego2024:75: [6.629, spec]
+    independent_papers: 2
+  P48:
+    from: diego2024
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
+    papers:
+      diego2024: ['48']
+    z:
+      diego2024:48: [3.923, spec]
+    independent_papers: 1
+  P59:
+    from: diego2024
+    tier: silver
+    reliability: 0.7
+    quality: 0.7
+    z_kind: spec
+    papers:
+      diego2024: ['59']
+    z:
+      diego2024:59: [4.53, spec]
+    independent_papers: 1
+  P78:
+    from: diego2024
+    tier: bronze
+    reliability: 0.4
+    quality: 0.7
+    z_kind: model
+    papers:
+      diego2024: ['78']
+    z:
+      diego2024:78: [2.458, model]
+    independent_papers: 1
+  P79:
+    from: diego2024
+    tier: bronze
+    reliability: 0.4
+    quality: 0.7
+    z_kind: model
+    papers:
+      diego2024: ['79']
+    z:
+      diego2024:79: [1.524, model]
+    independent_papers: 1
+  P80:
+    from: diego2024
+    tier: bronze
+    reliability: 0.4
+    quality: 0.7
+    z_kind: model
+    papers:
+      diego2024: ['80']
+    z:
+      diego2024:80: [3.269, model]
+    independent_papers: 1
+  P81:
+    from: diego2024
+    tier: bronze
+    reliability: 0.4
+    quality: 0.7
+    z_kind: model
+    papers:
+      diego2024: ['81']
+    z:
+      diego2024:81: [11.299, model]
+    independent_papers: 1
+  P83:
+    from: diego2024
+    tier: bronze
+    reliability: 0.4
+    quality: 0.7
+    z_kind: model
+    papers:
+      diego2024: ['83']
+    z:
+      diego2024:83: [11.669, model]
+    independent_papers: 1
+  P84:
+    from: diego2024
+    tier: bronze
+    reliability: 0.4
+    quality: 0.7
+    z_kind: model
+    papers:
+      diego2024: ['84']
+    z:
+      diego2024:84: [1.114, model]
+    independent_papers: 1
+  P85:
+    from: diego2024
+    tier: bronze
+    reliability: 0.4
+    quality: 0.7
+    z_kind: model
+    papers:
+      diego2024: ['85']
+    z:
+      diego2024:85: [1.87, model]
+    independent_papers: 1
+  P86:
+    from: diego2024
+    tier: bronze
+    reliability: 0.4
+    quality: 0.7
+    z_kind: model
+    papers:
+      diego2024: ['86']
+    z:
+      diego2024:86: [1.248, model]
+    independent_papers: 1
+  P88:
+    from: diego2024
+    tier: bronze
+    reliability: 0.4
+    quality: 0.7
+    z_kind: model
+    papers:
+      diego2024: ['88']
+    z:
+      diego2024:88: [3.644, model]
+    independent_papers: 1
+  P92:
+    from: diego2024
+    tier: bronze
+    reliability: 0.4
+    quality: 0.7
+    z_kind: model
+    papers:
+      diego2024: ['92']
+    z:
+      diego2024:92: [3.071, model]
+    independent_papers: 1
+  P93:
+    from: diego2024
+    tier: bronze
+    reliability: 0.4
+    quality: 0.7
+    z_kind: model
+    papers:
+      diego2024: ['93']
+    z:
+      diego2024:93: [1.708, model]
+    independent_papers: 1
+  P94:
+    from: diego2024
+    tier: bronze
+    reliability: 0.4
+    quality: 0.7
+    z_kind: model
+    papers:
+      diego2024: ['94']
+    z:
+      diego2024:94: [1.265, model]
+    independent_papers: 1
+  P96:
+    from: diego2024
+    tier: bronze
+    reliability: 0.4
+    quality: 0.7
+    z_kind: model
+    papers:
+      diego2024: ['96']
+    z:
+      diego2024:96: [2.059, model]
+    independent_papers: 1
+  P97:
+    from: diego2024
+    tier: bronze
+    reliability: 0.4
+    quality: 0.7
+    z_kind: model
+    papers:
+      diego2024: ['97']
+    z:
+      diego2024:97: [6.731, model]
+    independent_papers: 1
+  P102:
+    from: diego2024
+    tier: bronze
+    reliability: 0.4
+    quality: 0.7
+    z_kind: model
+    papers:
+      diego2024: ['102']
+    z:
+      diego2024:102: [2.623, model]
+    independent_papers: 1
+  P103:
+    from: diego2024
+    tier: bronze
+    reliability: 0.4
+    quality: 0.7
+    z_kind: model
+    papers:
+      diego2024: ['103']
+    z:
+      diego2024:103: [1.851, model]
+    independent_papers: 1
+  P104:
+    from: diego2024
+    tier: bronze
+    reliability: 0.4
+    quality: 0.7
+    z_kind: model
+    papers:
+      diego2024: ['104']
+    z:
+      diego2024:104: [2.003, model]
+    independent_papers: 1
+  P105:
+    from: diego2024
+    tier: bronze
+    reliability: 0.4
+    quality: 0.7
+    z_kind: model
+    papers:
+      diego2024: ['105']
+    z:
+      diego2024:105: [3.207, model]
+    independent_papers: 1
+  P107:
+    from: diego2024
+    tier: bronze
+    reliability: 0.4
+    quality: 0.7
+    z_kind: model
+    papers:
+      diego2024: ['107']
+    z:
+      diego2024:107: [0.907, model]
+    independent_papers: 1
+  P108:
+    from: diego2024
+    tier: copper
+    reliability: 0.15
+    quality: 0.4
+    z_kind: model
+    papers:
+      diego2024: ['108']
+    z:
+      diego2024:108: [4.137, model]
+    independent_papers: 1
+  P111:
+    from: diego2024
+    tier: copper
+    reliability: 0.15
+    quality: 0.4
+    z_kind: model
+    papers:
+      diego2024: ['111']
+    z:
+      diego2024:111: [1.46, model]
+    independent_papers: 1
+  P112:
+    from: diego2024
+    tier: copper
+    reliability: 0.15
+    quality: 0.4
+    z_kind: model
+    papers:
+      diego2024: ['112']
+    z:
+      diego2024:112: [1.541, model]
+    independent_papers: 1
+  P113:
+    from: diego2024
+    tier: copper
+    reliability: 0.15
+    quality: 0.2
+    z_kind: model
+    papers:
+      diego2024: ['113']
+    z:
+      diego2024:113: [10.697, model]
+    independent_papers: 1
+  P114:
+    from: diego2024
+    tier: copper
+    reliability: 0.15
+    quality: 0.2
+    z_kind: model
+    papers:
+      diego2024: ['114']
+    z:
+      diego2024:114: [16.671, model]
+    independent_papers: 1
+  P116:
+    from: diego2024
+    tier: copper
+    reliability: 0.15
+    quality: 0.4
+    z_kind: model
+    papers:
+      diego2024: ['116']
+    z:
+      diego2024:116: [16.694, model]
+    independent_papers: 1
+  P117:
+    from: diego2024
+    tier: copper
+    reliability: 0.15
+    quality: 0.4
+    z_kind: model
+    papers:
+      diego2024: ['117']
+    z:
+      diego2024:117: [10.599, model]
+    independent_papers: 1
+  P118:
+    from: diego2024
+    tier: bronze
+    reliability: 0.4
+    quality: 0.7
+    z_kind: model
+    papers:
+      diego2024: ['118']
+    z:
+      diego2024:118: [2.742, model]
+    independent_papers: 1
+  P119:
+    from: diego2024
+    tier: bronze
+    reliability: 0.4
+    quality: 0.7
+    z_kind: model
+    papers:
+      diego2024: ['119']
+    z:
+      diego2024:119: [2.678, model]
+    independent_papers: 1
 excluded: {}
 conflicts: []
-candidate_images:
-- paper_image: bergamini2023:0141.c
-  base_systems: [K33, K77]
-  also_in: []
-- paper_image: bergamini2023:0162.d
-  base_systems: [K14]
-  also_in: []
-- paper_image: bergamini2023:0162.e
-  base_systems: [K14]
-  also_in: []
-- paper_image: bergamini2023:0213.b
-  base_systems: [K62]
-  also_in: []
-- paper_image: bergamini2023:0213.c
-  base_systems: [K62]
-  also_in: []
-- paper_image: bergamini2023:37.c
-  base_systems: [K16]
-  also_in: []
-- paper_image: bergamini2023:101.a
-  base_systems: [K57]
-  also_in: []
-- paper_image: bergamini2023:107.b
-  base_systems: [K25]
-  also_in: ['diego2024:25.b']
-- paper_image: diego2024:25.b
-  base_systems: [K25]
-  also_in: ['bergamini2023:107.b']
-- paper_image: bergamini2023:205.a
-  base_systems: [K45]
-  also_in: ['diego2024:45.c']
-- paper_image: diego2024:45.c
-  base_systems: [K45]
-  also_in: ['bergamini2023:205.a']
-- paper_image: diego2024:1.c
-  base_systems: [K1]
-  also_in: []
-- paper_image: diego2024:12.c
-  base_systems: [K12]
-  also_in: []
-- paper_image: diego2024:17.c
-  base_systems: [K17]
-  also_in: []
-- paper_image: diego2024:19.c
-  base_systems: [K19]
-  also_in: []
-- paper_image: diego2024:26.c
-  base_systems: [K26]
-  also_in: []
-- paper_image: diego2024:33.d
-  base_systems: [K33, K77]
-  also_in: []
-- paper_image: diego2024:47.c
-  base_systems: [K47]
-  also_in: []
-- paper_image: diego2024:57.c
-  base_systems: [K57]
-  also_in: []
-- paper_image: diego2024:101.b
-  base_systems: [K8]
-  also_in: []
-left_out:
-- papers:
-    diego2024: ['48']
-  z:
-    diego2024:48: [3.923, spec]
-- papers:
-    diego2024: ['59']
-  z:
-    diego2024:59: [4.53, spec]
-- papers:
-    diego2024: ['78']
-  z:
-    diego2024:78: [2.458, model]
-- papers:
-    diego2024: ['79']
-  z:
-    diego2024:79: [1.524, model]
-- papers:
-    diego2024: ['80']
-  z:
-    diego2024:80: [3.269, model]
-- papers:
-    diego2024: ['81']
-  z:
-    diego2024:81: [11.299, model]
-- papers:
-    diego2024: ['83']
-  z:
-    diego2024:83: [11.669, model]
-- papers:
-    diego2024: ['84']
-  z:
-    diego2024:84: [1.114, model]
-- papers:
-    diego2024: ['85']
-  z:
-    diego2024:85: [1.87, model]
-- papers:
-    diego2024: ['86']
-  z:
-    diego2024:86: [1.248, model]
-- papers:
-    diego2024: ['88']
-  z:
-    diego2024:88: [3.644, model]
-- papers:
-    diego2024: ['92']
-  z:
-    diego2024:92: [3.071, model]
-- papers:
-    diego2024: ['93']
-  z:
-    diego2024:93: [1.708, model]
-- papers:
-    diego2024: ['94']
-  z:
-    diego2024:94: [1.265, model]
-- papers:
-    diego2024: ['96']
-  z:
-    diego2024:96: [2.059, model]
-- papers:
-    diego2024: ['97']
-  z:
-    diego2024:97: [6.731, model]
-- papers:
-    diego2024: ['102']
-  z:
-    diego2024:102: [2.623, model]
-- papers:
-    diego2024: ['103']
-  z:
-    diego2024:103: [1.851, model]
-- papers:
-    diego2024: ['104']
-  z:
-    diego2024:104: [2.003, model]
-- papers:
-    diego2024: ['105']
-  z:
-    diego2024:105: [3.207, model]
-- papers:
-    diego2024: ['107']
-  z:
-    diego2024:107: [0.907, model]
-- papers:
-    diego2024: ['108']
-  z:
-    diego2024:108: [4.137, model]
-- papers:
-    diego2024: ['109']
-  z:
-    diego2024:109: [2.173, model]
-- papers:
-    diego2024: ['110']
-  z:
-    diego2024:110: [1.414, model]
-- papers:
-    diego2024: ['111']
-  z:
-    diego2024:111: [1.46, model]
-- papers:
-    diego2024: ['112']
-  z:
-    diego2024:112: [1.541, model]
-- papers:
-    diego2024: ['113']
-  z:
-    diego2024:113: [10.697, model]
-- papers:
-    diego2024: ['114']
-  z:
-    diego2024:114: [16.671, model]
-- papers:
-    diego2024: ['116']
-  z:
-    diego2024:116: [16.694, model]
-- papers:
-    diego2024: ['117']
-  z:
-    diego2024:117: [10.599, model]
-- papers:
-    diego2024: ['118']
-  z:
-    diego2024:118: [2.742, model]
-- papers:
-    diego2024: ['119']
-  z:
-    diego2024:119: [2.678, model]
 free_z: []
+candidate_images:
+- image: K33.g
+  papers: ['bergamini2023:0141.c']
+  prior: 0.5
+- image: K14B.e
+  papers: ['bergamini2023:0162.d']
+  prior: 0.5
+- image: K14B.f
+  papers: ['bergamini2023:0162.e']
+  prior: 0.5
+- image: K62A.d
+  papers: ['bergamini2023:0213.b']
+  prior: 0.5
+- image: K62A.e
+  papers: ['bergamini2023:0213.c']
+  prior: 0.5
+- image: K16.d
+  papers: ['bergamini2023:37.c']
+  prior: 0.5
+- image: K57.c
+  papers: ['bergamini2023:101.a']
+  prior: 0.5
+- image: K25.b
+  papers: ['bergamini2023:107.b', 'diego2024:25.b']
+  prior: 0.5
+- image: K45.c
+  papers: ['bergamini2023:205.a', 'diego2024:45.c']
+  prior: 0.5
+- image: K1A.c
+  papers: ['diego2024:1.c']
+  prior: 0.5
+- image: K3.c
+  papers: ['diego2024:3.c']
+  prior: 0.2
+- image: K12B.c
+  papers: ['diego2024:12.c']
+  prior: 0.35
+- image: K17.c
+  papers: ['diego2024:17.c']
+  prior: 0.5
+- image: K19.c
+  papers: ['diego2024:19.c']
+  prior: 0.35
+- image: K26.d
+  papers: ['diego2024:26.c']
+  prior: 0.35
+- image: B109.c
+  papers: ['diego2024:27.c']
+  prior: 0.2
+- image: K33.h
+  papers: ['diego2024:33.d']
+  prior: 0.5
+- image: K47.c
+  papers: ['diego2024:47.c']
+  prior: 0.35
+- image: B105.d
+  papers: ['diego2024:51.b']
+  prior: 0.5
+- image: B110.c
+  papers: ['diego2024:56.c']
+  prior: 0.2
+- image: K57.d
+  papers: ['diego2024:57.c']
+  prior: 0.5
+- image: K73.c
+  papers: ['diego2024:73.c']
+  prior: 0.2
+- image: K82.c
+  papers: ['diego2024:82.c']
+  prior: 0.2
+- image: K99.c
+  papers: ['diego2024:99.c']
+  prior: 0.2
+- image: K8B.d
+  papers: ['diego2024:101.b']
+  prior: 0.35
+- image: K8B.e
+  papers: ['diego2024:101.c']
+  prior: 0.2
+- image: K109.a
+  papers: ['diego2024:109.a']
+  prior: 0.2
+- image: K33.i
+  papers: ['diego2024:110.a']
+  prior: 0.2
+- image: K115A.d
+  papers: ['diego2024:115.d']
+  prior: 0.2
 members:
   counts: {canucs2025: 213, bergamini2023: 213}
-  only_in:
-    bergamini2023: []
+  other_band: {}
+  p_member: {'1': 52, '0.9': 161}

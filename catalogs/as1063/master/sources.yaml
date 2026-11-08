@@ -3,21 +3,23 @@ cluster: as1063
 base: diego2026               # JWST frame, knots, parities; its systems enter unchanged
 match_radius_arcsec: 0.5      # after each paper is shifted onto the base frame
 dz_max: 0.01                  # |dz| / (1 + z) above which two spectroscopic redshifts conflict
+z_cluster: 0.348               # members: a spectroscopic z within member_dz (1 + z) of it gives p_member 1
 papers:
   diego2026:
     images: ../diego2026/images.yaml
+    quality:                  # image notes -> quality (first match wins; 1 otherwise)
+      'rank B': 0.7
     members: ../diego2026/members.yaml
     z_kind: spec              # rank A plus system 60, all with the published spectroscopic z (diego2026/README.md)
   bergamini2019:
     images: ../bergamini2019/images.yaml
     members: ../bergamini2019/members.cat
+    member_band: F160W        # the potfile magnitudes are F160W Kron (bergamini2019/README.txt)
     z_kind: spec              # spectroscopic families only (bergamini2019/README.txt)
     derived_from: caminha2016 # obs_arcs.dat is Caminha's v11 positions without systems 50 and 51
     prefix: B
-    add_systems: spec
   caminha2016:
     images: ../caminha2016/images.yaml
     members: ../caminha2016/members.yaml
     z_kind: spec              # spectroscopic families only (caminha2016/README.txt)
     prefix: CM
-    add_systems: spec

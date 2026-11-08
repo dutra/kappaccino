@@ -72,7 +72,8 @@ systems:
 ```
 
 System
-: `z` (required), `reliability` (0 to 1, default 1), `knots` (list of names), `images`, `notes`.
+: `z` (required; 0 when unknown, as in Lenstool), `z_err`, `reliability` (0 to 1, default 1), `knots` (list of
+  names), `images`, `notes`.
 
 Image
 : `ra`/`dec` (degrees) or `knots`; `parity` (-1, 0 or +1; 0 means unknown); `sigma` (astrometric error in arcsec, also
@@ -80,9 +81,10 @@ Image
 
 Position (an image without knots, or one knot)
 : `ra`, `dec`, `sigma`, `shape` (`[a, b, theta]`), `mag`, `mag_err`, `bands` (`{band: [mag, err]}` or
-  `{band: {mag, err, detected, use}}`), `notes`. A knot may also be written `[ra, dec]` or `[ra, dec, sigma]`.
+  `{band: {mag, err, detected, use}}`), `prior` (0 to 1, default 1: the prior that the image belongs to its system;
+  a knotted image's `prior` is the default for its knots), `notes`. A knot may also be written `[ra, dec]` or `[ra, dec, sigma]`.
 
-`defaults` sets `sigma`, `shape`, `mag`, `mag_err` and `reliability` for every entry that omits them. An astrometric
+`defaults` sets `sigma`, `shape`, `mag`, `mag_err`, `reliability` and `prior` for every entry that omits them. An astrometric
 error given nowhere takes `ImageConstraintsConfig.sigma_inst_arcsec`.
 
 The solver sees one **family** per (system, knot). Its id is the system name followed by the knot name (`D1` + `A` =
@@ -160,3 +162,12 @@ reference point.
 
 Large inputs are not tracked: the Lenstool `bayes.dat` files, the FF-SIMS truth maps and images, and the CANUCS DR1
 photometry catalog. See {doc}`scripts` for downloading imaging.
+
+## Trusted and uncertain images
+
+`ImageConstraintsConfig.trusted_prior_min` splits one catalog into the images that constrain the lens directly and the
+uncertain ones: an image whose `prior` is below it leaves its family (as do families without a positive redshift or
+left with one image). With a `PartitionConfig` whose `catalog_path` is None, those images are the uncertain images of
+the slot mixture, each weighted toward its own system by its prior: a trusted family's slot, or a new slot seeded on
+the uncertain images of the same system. The master catalogs (`catalogs/<cluster>/master/images.yaml`) are written for
+this, with `trusted_prior_min=0.8` selecting their diamond and gold images; see `catalogs/README.md`.

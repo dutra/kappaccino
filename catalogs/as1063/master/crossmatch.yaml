@@ -4,6 +4,7 @@ built: '2026-11-08'
 base: diego2026
 match_radius_arcsec: 0.5
 dz_max: 0.01
+reliability_scale: {diamond: 1.0, gold: 0.9, silver: 0.7, bronze: 0.4, copper: 0.15, high: 0.8, mid: 0.5, candidate: 0.5, trusted: 0.8}
 frames:
   diego2026:
     applied_arcsec: [0.0, 0.0]
@@ -16,10 +17,14 @@ frames:
     applied_arcsec: [-0.0038, 0.0178]
     n_matches: 44
     median_residual_arcsec: 0.0568
-counts: {master_systems: 25, gold_systems: 16, images: 73, left_out_groups: 2, free_z_systems: 0, candidate_images: 0, conflicts: 0}
+counts: {master_systems: 27, diamond: 16, gold: 8, silver: 1, bronze: 2, copper: 0, images: 78, candidate_images: 0, free_z_systems: 2, conflicts: 0}
 systems:
   D1:
     from: diego2026
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       diego2026: [D1]
       bergamini2019: ['2']
@@ -28,8 +33,13 @@ systems:
       diego2026:D1: [1.229, spec]
       bergamini2019:2: [1.229, spec]
       caminha2016:2: [1.229, spec]
+    independent_papers: 2
   D5:
     from: diego2026
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       diego2026: [D5]
       bergamini2019: ['3']
@@ -38,8 +48,13 @@ systems:
       diego2026:D5: [1.261, spec]
       bergamini2019:3: [1.26, spec]
       caminha2016:3: [1.26, spec]
+    independent_papers: 2
   D8:
     from: diego2026
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       diego2026: [D8]
       bergamini2019: ['13']
@@ -48,8 +63,13 @@ systems:
       diego2026:D8: [1.2583, spec]
       bergamini2019:13: [1.2582, spec]
       caminha2016:13: [1.2582, spec]
+    independent_papers: 2
   D9:
     from: diego2026
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       diego2026: [D9]
       bergamini2019: ['4']
@@ -58,8 +78,13 @@ systems:
       diego2026:D9: [1.398, spec]
       bergamini2019:4: [1.398, spec]
       caminha2016:4: [1.398, spec]
+    independent_papers: 2
   D12:
     from: diego2026
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       diego2026: [D12]
       bergamini2019: ['6']
@@ -68,8 +93,13 @@ systems:
       diego2026:D12: [1.428, spec]
       bergamini2019:6: [1.429, spec]
       caminha2016:6: [1.429, spec]
+    independent_papers: 2
   D18:
     from: diego2026
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       diego2026: [D18]
       bergamini2019: ['8']
@@ -78,8 +108,13 @@ systems:
       diego2026:D18: [1.837, spec]
       bergamini2019:8: [1.837, spec]
       caminha2016:8: [1.837, spec]
+    independent_papers: 2
   D19:
     from: diego2026
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       diego2026: [D19]
       bergamini2019: ['23']
@@ -88,14 +123,24 @@ systems:
       diego2026:D19: [0.73, spec]
       bergamini2019:23: [0.7301, spec]
       caminha2016:23: [0.7301, spec]
+    independent_papers: 2
   D22:
     from: diego2026
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
     papers:
       diego2026: [D22]
     z:
       diego2026:D22: [3.116, spec]
+    independent_papers: 1
   D23:
     from: diego2026
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       diego2026: [D23]
       bergamini2019: ['14']
@@ -104,8 +149,13 @@ systems:
       diego2026:D23: [6.112, spec]
       bergamini2019:14: [6.112, spec]
       caminha2016:14: [6.112, spec]
+    independent_papers: 2
   D24:
     from: diego2026
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       diego2026: [D24]
       bergamini2019: ['18']
@@ -114,8 +164,13 @@ systems:
       diego2026:D24: [4.113, spec]
       bergamini2019:18: [4.113, spec]
       caminha2016:18: [4.113, spec]
+    independent_papers: 2
   D25:
     from: diego2026
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       diego2026: [D25]
       bergamini2019: ['20']
@@ -124,8 +179,13 @@ systems:
       diego2026:D25: [3.118, spec]
       bergamini2019:20: [3.118, spec]
       caminha2016:20: [3.118, spec]
+    independent_papers: 2
   D30:
     from: diego2026
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       diego2026: [D30]
       bergamini2019: ['33']
@@ -134,8 +194,13 @@ systems:
       diego2026:D30: [3.606, spec]
       bergamini2019:33: [3.6045, spec]
       caminha2016:33: [3.6045, spec]
+    independent_papers: 2
   D31:
     from: diego2026
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       diego2026: [D31]
       bergamini2019: ['7']
@@ -144,26 +209,46 @@ systems:
       diego2026:D31: [1.035, spec]
       bergamini2019:7: [1.035, spec]
       caminha2016:7: [1.035, spec]
+    independent_papers: 2
   D35:
     from: diego2026
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
     papers:
       diego2026: [D35]
     z:
       diego2026:D35: [3.666, spec]
+    independent_papers: 1
   D36:
     from: diego2026
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
     papers:
       diego2026: [D36]
     z:
       diego2026:D36: [3.23, spec]
+    independent_papers: 1
   D37:
     from: diego2026
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
     papers:
       diego2026: [D37]
     z:
       diego2026:D37: [3.082, spec]
+    independent_papers: 1
   D38:
     from: diego2026
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       diego2026: [D38]
       bergamini2019: ['24']
@@ -172,8 +257,13 @@ systems:
       diego2026:D38: [2.976, spec]
       bergamini2019:24: [2.978, spec]
       caminha2016:24: [2.978, spec]
+    independent_papers: 2
   D40:
     from: diego2026
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       diego2026: [D40]
       bergamini2019: ['26']
@@ -182,8 +272,13 @@ systems:
       diego2026:D40: [5.051, spec]
       bergamini2019:26: [5.051, spec]
       caminha2016:26: [5.051, spec]
+    independent_papers: 2
   D41:
     from: diego2026
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       diego2026: [D41]
       bergamini2019: ['25']
@@ -192,8 +287,13 @@ systems:
       diego2026:D41: [5.2373, spec]
       bergamini2019:25: [5.2373, spec]
       caminha2016:25: [5.2373, spec]
+    independent_papers: 2
   D43:
     from: diego2026
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       diego2026: [D43]
       bergamini2019: ['27']
@@ -202,64 +302,97 @@ systems:
       diego2026:D43: [3.2857, spec]
       bergamini2019:27: [3.286, spec]
       caminha2016:27: [3.286, spec]
+    independent_papers: 2
   D60:
     from: diego2026
+    tier: silver
+    reliability: 0.7
+    quality: 0.7
+    z_kind: spec
     papers:
       diego2026: [D60]
     z:
       diego2026:D60: [3.72, spec]
+    independent_papers: 1
   B28:
     from: bergamini2019
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
     papers:
       bergamini2019: ['28']
       caminha2016: ['28']
     z:
       bergamini2019:28: [3.169, spec]
       caminha2016:28: [3.169, spec]
+    independent_papers: 1
   B29:
     from: bergamini2019
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
     papers:
       bergamini2019: ['29']
       caminha2016: ['29']
     z:
       bergamini2019:29: [5.894, spec]
       caminha2016:29: [5.894, spec]
+    independent_papers: 1
   B30:
     from: bergamini2019
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
     papers:
       bergamini2019: ['30']
       caminha2016: ['30']
     z:
       bergamini2019:30: [3.4519, spec]
       caminha2016:30: [3.4519, spec]
+    independent_papers: 1
   B31:
     from: bergamini2019
+    tier: gold
+    reliability: 0.9
+    quality: 1.0
+    z_kind: spec
     papers:
       bergamini2019: ['31']
       caminha2016: ['31']
     z:
       bergamini2019:31: [3.7131, spec]
       caminha2016:31: [3.7131, spec]
+    independent_papers: 1
+  CM50:
+    from: caminha2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: free
+    papers:
+      caminha2016: ['50']
+    z:
+      caminha2016:50: [0.0, free]
+    independent_papers: 1
+  CM51:
+    from: caminha2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: free
+    papers:
+      caminha2016: ['51']
+    z:
+      caminha2016:51: [0.0, free]
+    independent_papers: 1
 excluded: {}
 conflicts: []
+free_z: [CM50, CM51]
 candidate_images: []
-left_out:
-- papers:
-    caminha2016: ['50']
-  z:
-    caminha2016:50: [0.0, free]
-- papers:
-    caminha2016: ['51']
-  z:
-    caminha2016:51: [0.0, free]
-free_z: []
 members:
   counts: {diego2026: 288, bergamini2019: 222, caminha2016: 139}
-  only_in:
-    bergamini2019: ['10394', '1250', '1809', '2168', '2226', '2430', '2507', '2601', '2638', '2748', '2772', '2773', '2866', '2939', '2962', '3103', '3209', '3257',
-      '3339', '3398', '3516', '3660', '3710', '4173', '4200', '4205', '4223', '4289', '4302', '4423', '4636', '4736', '4812', '4823', '4872', '5036', '5037', '5075',
-      '5095', '5329', '5399', '5435', '5525', '5953', '6026', '6194', '6251', '6321', '6323', '6324', '6343', '6699', '7068', '7073', '7180', '7195', '7202', '7221',
-      '7377', '7380', '7415', '7484', '7711', '7739', '7796', '7802', '7843', '7869', '7909', '7925', '7978', '8001', '8301', '8351', '8438', '8496', '8614', '8946',
-      '8988', '9057', '9063', '9372', '9456', '9826']
-    caminha2016: ['10394', '3108', '3257', '3516', '4000', '4173', '4289', '4302', '4421', '4423', '4580', '4736', '5036', '5037', '5075', '5399', '6194', '6251',
-      '6321', '6323', '6324', '7202', '7796', '7869', '7909', '8001', '8614', '8988', '9223', '9456', '9826']
+  other_band: {}
+  p_member: {'1': 47, '0.9': 93, '0.7': 237}

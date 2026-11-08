@@ -4,6 +4,7 @@ built: '2026-11-08'
 base: limousin2016
 match_radius_arcsec: 0.5
 dz_max: 0.01
+reliability_scale: {diamond: 1.0, gold: 0.9, silver: 0.7, bronze: 0.4, copper: 0.15, high: 0.8, mid: 0.5, candidate: 0.5, trusted: 0.8}
 frames:
   limousin2016:
     applied_arcsec: [0.0, 0.0]
@@ -12,513 +13,922 @@ frames:
     applied_arcsec: [0.0028, 0.0]
     n_matches: 100
     median_residual_arcsec: 0.0264
-counts: {master_systems: 51, gold_systems: 38, images: 132, left_out_groups: 22, free_z_systems: 0, candidate_images: 10, conflicts: 0}
+counts: {master_systems: 73, diamond: 8, gold: 0, silver: 30, bronze: 35, copper: 0, images: 205, candidate_images: 10, free_z_systems: 0, conflicts: 0}
 systems:
   '1':
     from: limousin2016
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       limousin2016: ['1']
       kawamata2016: ['1']
     z:
       limousin2016:1: [2.963, unknown]
       kawamata2016:1: [2.963, spec]
+    independent_papers: 2
   '2':
     from: limousin2016
+    tier: silver
+    reliability: 0.7
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['2']
       kawamata2016: ['2']
     z:
       limousin2016:2: [2.351, model]
       kawamata2016:2: [2.82, model]
+    independent_papers: 2
   '3':
     from: limousin2016
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       limousin2016: ['3']
       kawamata2016: ['3']
     z:
       limousin2016:3: [1.855, unknown]
       kawamata2016:3: [1.855, spec]
+    independent_papers: 2
   '4':
     from: limousin2016
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       limousin2016: ['4']
       kawamata2016: ['4']
     z:
       limousin2016:4: [1.855, unknown]
       kawamata2016:4: [1.855, spec]
+    independent_papers: 2
   '5':
     from: limousin2016
+    tier: silver
+    reliability: 0.7
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['5']
       kawamata2016: ['5']
     z:
       limousin2016:5: [3.948, model]
       kawamata2016:5: [4.45, model]
+    independent_papers: 2
   '6':
     from: limousin2016
+    tier: silver
+    reliability: 0.7
+    quality: 1.0
+    z_kind: unknown
     papers:
       limousin2016: ['6']
       kawamata2016: ['6']
     z:
       limousin2016:6: [2.393, unknown]
       kawamata2016:6: [2.04, model]
+    independent_papers: 2
   '7':
     from: limousin2016
+    tier: silver
+    reliability: 0.7
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['7']
       kawamata2016: ['7']
     z:
       limousin2016:7: [1.954, model]
       kawamata2016:7: [2.07, model]
+    independent_papers: 2
   '8':
     from: limousin2016
+    tier: silver
+    reliability: 0.7
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['8']
       kawamata2016: ['8']
     z:
       limousin2016:8: [2.592, model]
       kawamata2016:8: [2.61, model]
+    independent_papers: 2
   '12':
     from: limousin2016
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       limousin2016: ['12']
       kawamata2016: ['12']
     z:
       limousin2016:12: [1.699, unknown]
       kawamata2016:12: [1.71, spec]
+    independent_papers: 2
   '13':
     from: limousin2016
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       limousin2016: ['13']
       kawamata2016: ['13']
     z:
       limousin2016:13: [2.547, unknown]
       kawamata2016:13: [2.547, spec]
+    independent_papers: 2
   '14':
     from: limousin2016
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       limousin2016: ['14']
       kawamata2016: ['14']
     z:
       limousin2016:14: [1.855, unknown]
       kawamata2016:14: [1.855, spec]
+    independent_papers: 2
   '15':
     from: limousin2016
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       limousin2016: ['15']
       kawamata2016: ['15']
     z:
       limousin2016:15: [2.405, unknown]
       kawamata2016:15: [2.405, spec]
+    independent_papers: 2
   '16':
     from: limousin2016
+    tier: silver
+    reliability: 0.7
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['16']
       kawamata2016: ['16']
     z:
       limousin2016:16: [3.277, model]
       kawamata2016:16: [3.03, model]
+    independent_papers: 2
   '17':
     from: limousin2016
+    tier: silver
+    reliability: 0.7
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['17']
       kawamata2016: ['17']
     z:
       limousin2016:17: [2.733, model]
       kawamata2016:17: [2.48, model]
+    independent_papers: 2
   '18':
     from: limousin2016
+    tier: silver
+    reliability: 0.7
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['18']
       kawamata2016: ['18']
     z:
       limousin2016:18: [2.037, model]
       kawamata2016:18: [2.04, model]
+    independent_papers: 2
   '19':
     from: limousin2016
+    tier: diamond
+    reliability: 1.0
+    quality: 1.0
+    z_kind: spec
     papers:
       limousin2016: ['19']
       kawamata2016: ['19']
     z:
       limousin2016:19: [6.4, unknown]
       kawamata2016:19: [6.387, spec]
+    independent_papers: 2
   '20':
     from: limousin2016
+    tier: silver
+    reliability: 0.7
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['20']
       kawamata2016: ['20']
     z:
       limousin2016:20: [3.749, model]
       kawamata2016:20: [2.58, model]
+    independent_papers: 2
   '24':
     from: limousin2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['24']
     z:
       limousin2016:24: [2.681, model]
+    independent_papers: 1
   '25':
     from: limousin2016
+    tier: silver
+    reliability: 0.7
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['25']
       kawamata2016: ['25']
     z:
       limousin2016:25: [4.055, model]
       kawamata2016:25: [4.53, model]
+    independent_papers: 2
   '27':
     from: limousin2016
+    tier: silver
+    reliability: 0.7
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['27']
       kawamata2016: ['27']
     z:
       limousin2016:27: [3.493, model]
       kawamata2016:27: [2.25, model]
+    independent_papers: 2
   '29':
     from: limousin2016
+    tier: silver
+    reliability: 0.7
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['29']
       kawamata2016: ['29']
     z:
       limousin2016:29: [1.664, model]
       kawamata2016:29: [1.61, model]
+    independent_papers: 2
   '31':
     from: limousin2016
+    tier: silver
+    reliability: 0.7
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['31']
       kawamata2016: ['31']
     z:
       limousin2016:31: [1.608, model]
       kawamata2016:31: [1.55, model]
+    independent_papers: 2
   '32':
     from: limousin2016
+    tier: silver
+    reliability: 0.7
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['32']
       kawamata2016: ['32']
     z:
       limousin2016:32: [2.395, model]
       kawamata2016:32: [2.43, model]
+    independent_papers: 2
   '33':
     from: limousin2016
+    tier: silver
+    reliability: 0.7
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['33']
       kawamata2016: ['33']
     z:
       limousin2016:33: [3.629, model]
       kawamata2016:33: [3.87, model]
+    independent_papers: 2
   '34':
     from: limousin2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['34']
     z:
       limousin2016:34: [2.562, model]
+    independent_papers: 1
   '36':
     from: limousin2016
+    tier: silver
+    reliability: 0.7
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['36']
       kawamata2016: ['36']
     z:
       limousin2016:36: [2.576, model]
       kawamata2016:36: [2.59, model]
+    independent_papers: 2
   '37':
     from: limousin2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['37']
     z:
       limousin2016:37: [2.297, model]
+    independent_papers: 1
   '39':
     from: limousin2016
+    tier: silver
+    reliability: 0.7
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['39']
       kawamata2016: ['83']
     z:
       limousin2016:39: [4.193, model]
       kawamata2016:83: [2.49, model]
+    independent_papers: 2
   '45':
     from: limousin2016
+    tier: silver
+    reliability: 0.7
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['45']
       kawamata2016: ['45']
     z:
       limousin2016:45: [2.778, model]
       kawamata2016:45: [3.06, model]
+    independent_papers: 2
   '49':
     from: limousin2016
+    tier: silver
+    reliability: 0.7
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['49']
       kawamata2016: ['49']
     z:
       limousin2016:49: [4.917, model]
       kawamata2016:49: [4.0, model]
+    independent_papers: 2
   '50':
     from: limousin2016
+    tier: silver
+    reliability: 0.7
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['50']
       kawamata2016: ['50']
     z:
       limousin2016:50: [3.749, model]
       kawamata2016:50: [2.97, model]
+    independent_papers: 2
   '52':
     from: limousin2016
+    tier: silver
+    reliability: 0.7
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['52']
       kawamata2016: ['52']
     z:
       limousin2016:52: [3.097, model]
       kawamata2016:52: [3.02, model]
+    independent_papers: 2
   '55':
     from: limousin2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['55']
     z:
       limousin2016:55: [2.254, model]
+    independent_papers: 1
   '56':
     from: limousin2016
+    tier: silver
+    reliability: 0.7
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['56']
       kawamata2016: ['74']
     z:
       limousin2016:56: [3.551, model]
       kawamata2016:74: [3.8, model]
+    independent_papers: 2
   '57':
     from: limousin2016
+    tier: silver
+    reliability: 0.7
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['57']
       kawamata2016: ['62']
     z:
       limousin2016:57: [1.705, model]
       kawamata2016:62: [3.85, model]
+    independent_papers: 2
   '58':
     from: limousin2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['58']
     z:
       limousin2016:58: [2.071, model]
+    independent_papers: 1
   '59':
     from: limousin2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['59']
     z:
       limousin2016:59: [3.99, model]
+    independent_papers: 1
   '62':
     from: limousin2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['62']
     z:
       limousin2016:62: [2.564, model]
+    independent_papers: 1
   '63':
     from: limousin2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['63']
     z:
       limousin2016:63: [1.192, model]
+    independent_papers: 1
   '65':
     from: limousin2016
+    tier: silver
+    reliability: 0.7
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['65']
       kawamata2016: ['68']
     z:
       limousin2016:65: [5.51, model]
       kawamata2016:68: [4.04, model]
+    independent_papers: 2
   '66':
     from: limousin2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['66']
     z:
       limousin2016:66: [7.4, model]
+    independent_papers: 1
   '67':
     from: limousin2016
+    tier: silver
+    reliability: 0.7
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['67']
       kawamata2016: ['78']
     z:
       limousin2016:67: [2.079, model]
       kawamata2016:78: [3.32, model]
+    independent_papers: 2
   '68':
     from: limousin2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: unknown
     papers:
       limousin2016: ['68']
     z:
       limousin2016:68: [5.51, unknown]
+    independent_papers: 1
   '69':
     from: limousin2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['69']
     z:
       limousin2016:69: [2.969, model]
+    independent_papers: 1
   '70':
     from: limousin2016
+    tier: silver
+    reliability: 0.7
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['70']
       kawamata2016: ['61']
     z:
       limousin2016:70: [4.079, model]
       kawamata2016:61: [2.67, model]
+    independent_papers: 2
   '71':
     from: limousin2016
+    tier: silver
+    reliability: 0.7
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['71']
       kawamata2016: ['60']
     z:
       limousin2016:71: [2.82, model]
       kawamata2016:60: [2.85, model]
+    independent_papers: 2
   '72':
     from: limousin2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['72']
     z:
       limousin2016:72: [4.411, model]
+    independent_papers: 1
   '75':
     from: limousin2016
+    tier: silver
+    reliability: 0.7
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['75']
       kawamata2016: ['65']
     z:
       limousin2016:75: [3.209, model]
       kawamata2016:65: [4.4, model]
+    independent_papers: 2
   '76':
     from: limousin2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['76']
     z:
       limousin2016:76: [4.688, model]
+    independent_papers: 1
   '79':
     from: limousin2016
+    tier: silver
+    reliability: 0.7
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['79']
       kawamata2016: ['56']
     z:
       limousin2016:79: [3.607, model]
       kawamata2016:56: [3.92, model]
+    independent_papers: 2
   '80':
     from: limousin2016
+    tier: silver
+    reliability: 0.7
+    quality: 1.0
+    z_kind: model
     papers:
       limousin2016: ['80']
       kawamata2016: ['57']
     z:
       limousin2016:80: [3.524, model]
       kawamata2016:57: [3.91, model]
+    independent_papers: 2
+  K23:
+    from: kawamata2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: model
+    papers:
+      kawamata2016: ['23']
+    z:
+      kawamata2016:23: [3.84, model]
+    independent_papers: 1
+  K53:
+    from: kawamata2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: model
+    papers:
+      kawamata2016: ['53']
+    z:
+      kawamata2016:53: [2.55, model]
+    independent_papers: 1
+  K55:
+    from: kawamata2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: model
+    papers:
+      kawamata2016: ['55']
+    z:
+      kawamata2016:55: [4.79, model]
+    independent_papers: 1
+  K58:
+    from: kawamata2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: model
+    papers:
+      kawamata2016: ['58']
+    z:
+      kawamata2016:58: [4.01, model]
+    independent_papers: 1
+  K63:
+    from: kawamata2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: model
+    papers:
+      kawamata2016: ['63']
+    z:
+      kawamata2016:63: [2.93, model]
+    independent_papers: 1
+  K64:
+    from: kawamata2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: model
+    papers:
+      kawamata2016: ['64']
+    z:
+      kawamata2016:64: [3.79, model]
+    independent_papers: 1
+  K66:
+    from: kawamata2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: model
+    papers:
+      kawamata2016: ['66']
+    z:
+      kawamata2016:66: [5.78, model]
+    independent_papers: 1
+  K67:
+    from: kawamata2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: model
+    papers:
+      kawamata2016: ['67']
+    z:
+      kawamata2016:67: [4.19, model]
+    independent_papers: 1
+  K69:
+    from: kawamata2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: model
+    papers:
+      kawamata2016: ['69']
+    z:
+      kawamata2016:69: [3.13, model]
+    independent_papers: 1
+  K70:
+    from: kawamata2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: model
+    papers:
+      kawamata2016: ['70']
+    z:
+      kawamata2016:70: [3.4, model]
+    independent_papers: 1
+  K71:
+    from: kawamata2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: model
+    papers:
+      kawamata2016: ['71']
+    z:
+      kawamata2016:71: [3.26, model]
+    independent_papers: 1
+  K72:
+    from: kawamata2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: model
+    papers:
+      kawamata2016: ['72']
+    z:
+      kawamata2016:72: [3.24, model]
+    independent_papers: 1
+  K73:
+    from: kawamata2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: model
+    papers:
+      kawamata2016: ['73']
+    z:
+      kawamata2016:73: [3.26, model]
+    independent_papers: 1
+  K75:
+    from: kawamata2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: model
+    papers:
+      kawamata2016: ['75']
+    z:
+      kawamata2016:75: [4.49, model]
+    independent_papers: 1
+  K76:
+    from: kawamata2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: model
+    papers:
+      kawamata2016: ['76']
+    z:
+      kawamata2016:76: [3.6, model]
+    independent_papers: 1
+  K77:
+    from: kawamata2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: model
+    papers:
+      kawamata2016: ['77']
+    z:
+      kawamata2016:77: [3.43, model]
+    independent_papers: 1
+  K79:
+    from: kawamata2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: model
+    papers:
+      kawamata2016: ['79']
+    z:
+      kawamata2016:79: [3.38, model]
+    independent_papers: 1
+  K80:
+    from: kawamata2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: model
+    papers:
+      kawamata2016: ['80']
+    z:
+      kawamata2016:80: [4.62, model]
+    independent_papers: 1
+  K81:
+    from: kawamata2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: model
+    papers:
+      kawamata2016: ['81']
+    z:
+      kawamata2016:81: [3.87, model]
+    independent_papers: 1
+  K82:
+    from: kawamata2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: model
+    papers:
+      kawamata2016: ['82']
+    z:
+      kawamata2016:82: [4.53, model]
+    independent_papers: 1
+  K84:
+    from: kawamata2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: model
+    papers:
+      kawamata2016: ['84']
+    z:
+      kawamata2016:84: [4.67, model]
+    independent_papers: 1
+  K85:
+    from: kawamata2016
+    tier: bronze
+    reliability: 0.4
+    quality: 1.0
+    z_kind: model
+    papers:
+      kawamata2016: ['85']
+    z:
+      kawamata2016:85: [4.33, model]
+    independent_papers: 1
 excluded: {}
 conflicts: []
-candidate_images:
-- paper_image: kawamata2016:17.d
-  base_systems: ['17']
-  also_in: []
-- paper_image: kawamata2016:19.c
-  base_systems: ['19']
-  also_in: []
-- paper_image: kawamata2016:25.d
-  base_systems: ['25']
-  also_in: []
-- paper_image: kawamata2016:29.c
-  base_systems: ['29']
-  also_in: []
-- paper_image: kawamata2016:50.c
-  base_systems: ['50']
-  also_in: []
-- paper_image: kawamata2016:60.b
-  base_systems: ['71']
-  also_in: []
-- paper_image: kawamata2016:65.c
-  base_systems: ['75']
-  also_in: []
-- paper_image: kawamata2016:65.d
-  base_systems: ['75']
-  also_in: []
-- paper_image: kawamata2016:74.c
-  base_systems: ['56']
-  also_in: []
-- paper_image: kawamata2016:78.c
-  base_systems: ['67']
-  also_in: []
-left_out:
-- papers:
-    kawamata2016: ['23']
-  z:
-    kawamata2016:23: [3.84, model]
-- papers:
-    kawamata2016: ['53']
-  z:
-    kawamata2016:53: [2.55, model]
-- papers:
-    kawamata2016: ['55']
-  z:
-    kawamata2016:55: [4.79, model]
-- papers:
-    kawamata2016: ['58']
-  z:
-    kawamata2016:58: [4.01, model]
-- papers:
-    kawamata2016: ['63']
-  z:
-    kawamata2016:63: [2.93, model]
-- papers:
-    kawamata2016: ['64']
-  z:
-    kawamata2016:64: [3.79, model]
-- papers:
-    kawamata2016: ['66']
-  z:
-    kawamata2016:66: [5.78, model]
-- papers:
-    kawamata2016: ['67']
-  z:
-    kawamata2016:67: [4.19, model]
-- papers:
-    kawamata2016: ['69']
-  z:
-    kawamata2016:69: [3.13, model]
-- papers:
-    kawamata2016: ['70']
-  z:
-    kawamata2016:70: [3.4, model]
-- papers:
-    kawamata2016: ['71']
-  z:
-    kawamata2016:71: [3.26, model]
-- papers:
-    kawamata2016: ['72']
-  z:
-    kawamata2016:72: [3.24, model]
-- papers:
-    kawamata2016: ['73']
-  z:
-    kawamata2016:73: [3.26, model]
-- papers:
-    kawamata2016: ['75']
-  z:
-    kawamata2016:75: [4.49, model]
-- papers:
-    kawamata2016: ['76']
-  z:
-    kawamata2016:76: [3.6, model]
-- papers:
-    kawamata2016: ['77']
-  z:
-    kawamata2016:77: [3.43, model]
-- papers:
-    kawamata2016: ['79']
-  z:
-    kawamata2016:79: [3.38, model]
-- papers:
-    kawamata2016: ['80']
-  z:
-    kawamata2016:80: [4.62, model]
-- papers:
-    kawamata2016: ['81']
-  z:
-    kawamata2016:81: [3.87, model]
-- papers:
-    kawamata2016: ['82']
-  z:
-    kawamata2016:82: [4.53, model]
-- papers:
-    kawamata2016: ['84']
-  z:
-    kawamata2016:84: [4.67, model]
-- papers:
-    kawamata2016: ['85']
-  z:
-    kawamata2016:85: [4.33, model]
 free_z: []
+candidate_images:
+- image: 17.d
+  papers: ['kawamata2016:17.d']
+  prior: 0.35
+- image: 19.d
+  papers: ['kawamata2016:19.c']
+  prior: 0.5
+- image: 25.d
+  papers: ['kawamata2016:25.d']
+  prior: 0.35
+- image: 29.c
+  papers: ['kawamata2016:29.c']
+  prior: 0.35
+- image: 50.c
+  papers: ['kawamata2016:50.c']
+  prior: 0.35
+- image: 71.e
+  papers: ['kawamata2016:60.b']
+  prior: 0.35
+- image: 75.c
+  papers: ['kawamata2016:65.c']
+  prior: 0.35
+- image: 75.d
+  papers: ['kawamata2016:65.d']
+  prior: 0.35
+- image: 56.c
+  papers: ['kawamata2016:74.c']
+  prior: 0.35
+- image: 67.c
+  papers: ['kawamata2016:78.c']
+  prior: 0.35
 members:
   counts: {limousin2016: 90}
-  only_in: {}
+  other_band: {}
+  p_member: {'0.7': 90}

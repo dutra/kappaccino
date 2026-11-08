@@ -1,1389 +1,1666 @@
-# Master member catalog of a370: the gledhill2024 members (members.yaml), built on 2026-11-08 by scripts/build_master_catalog.py.
-# Each member's notes name the papers that list it; members only other papers list are in crossmatch.yaml.  Do not edit.
+# Master member catalog of a370, built on 2026-11-08 by scripts/build_master_catalog.py: the gledhill2024 members plus the other papers' members with a unstated magnitude.
+# p_member: 1 with a spectroscopic z within 0.03 (1 + z) of z = 0.375, a bcg role or kinematics; 0.02 for a spectroscopic interloper; 0.9 when two independent papers list it, else 0.7.  Use with MemberConfig.membership = 'marginalize'.  Do not edit.
 band: unstated
 members:
   '1':
     ra: 39.97696249756784
     dec: -1.5986219144408977
     mag: {unstated: 21.841}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '2':
     ra: 39.97560629765672
     dec: -1.5977432143021904
     mag: {unstated: 21.785}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '3':
     ra: 39.97190139768783
     dec: -1.5974108139232615
     mag: {unstated: 23.302}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '4':
     ra: 39.975179297692286
     dec: -1.5973924142585185
     mag: {unstated: 24.77}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '5':
     ra: 39.97322389751304
     dec: -1.5991285140585245
     mag: {unstated: 20.482}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '6':
     ra: 39.96542219797205
     dec: -1.5945844132605667
     mag: {unstated: 25.172}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '7':
     ra: 39.97697529781425
     dec: -1.5962145144422073
     mag: {unstated: 22.13}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '8':
     ra: 39.97409309798664
     dec: -1.5945083141474248
     mag: {unstated: 23.693}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '9':
     ra: 39.964228897954335
     dec: -1.5947484131385135
     mag: {unstated: 23.712}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '10':
     ra: 39.97213199800492
     dec: -1.5943147139468468
     mag: {unstated: 21.237}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '11':
     ra: 39.96730569819484
     dec: -1.5924223134532136
     mag: {unstated: 23.687}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '12':
     ra: 39.961402998090186
     dec: -1.5933996128494716
     mag: {unstated: 20.699}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '13':
     ra: 39.97160639830736
     dec: -1.591355913893089
     mag: {unstated: 24.707}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '14':
     ra: 39.976938398348786
     dec: -1.5909920144384333
     mag: {unstated: 24.539}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '15':
     ra: 39.97862649834551
     dec: -1.5910368146110851
     mag: {unstated: 23.195}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '16':
     ra: 39.96736229839368
     dec: -1.590480213459003
     mag: {unstated: 23.027}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '17':
     ra: 39.969572098125184
     dec: -1.5931201136850222
     mag: {unstated: 20.06}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '18':
     ra: 39.97746669842404
     dec: -1.5902607144924654
     mag: {unstated: 22.151}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '19':
     ra: 39.96785169847054
     dec: -1.5897331135090593
     mag: {unstated: 24.82}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '20':
     ra: 39.964310198316895
     dec: -1.5912070131468288
     mag: {unstated: 20.774}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '21':
     ra: 39.968232698282755
     dec: -1.5915705135480278
     mag: {unstated: 20.645}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '22':
     ra: 39.97912449846579
     dec: -1.5898656146620183
     mag: {unstated: 25.947}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '23':
     ra: 39.964679098405135
     dec: -1.590347713184561
     mag: {unstated: 21.133}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '24':
     ra: 39.97747779858197
     dec: -1.588718014493601
     mag: {unstated: 24.035}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '25':
     ra: 39.96178759859663
     dec: -1.5884549128888097
     mag: {unstated: 24.979}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '26':
     ra: 39.982058098720124
     dec: -1.5874031149620504
     mag: {unstated: 26.504}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '27':
     ra: 39.97874139863348
     dec: -1.5882243146228363
     mag: {unstated: 23.689}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '28':
     ra: 39.98060909858131
     dec: -1.588748314813855
     mag: {unstated: 24.873}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '29':
     ra: 39.982677998579845
     dec: -1.58877831502545
     mag: {unstated: 23.614}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '30':
     ra: 39.97224489851746
     dec: -1.589308213958394
     mag: {unstated: 21.269}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '31':
     ra: 39.96975959866893
     dec: -1.5878094137042
     mag: {unstated: 24.289}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '32':
     ra: 39.980314798705166
     dec: -1.587535914783756
     mag: {unstated: 23.633}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '33':
     ra: 39.98216799872357
     dec: -1.5873703149732907
     mag: {unstated: 24.463}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '34':
     ra: 39.97537239875991
     dec: -1.586963414278268
     mag: {unstated: 23.261}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '35':
     ra: 39.95904179881417
     dec: -1.5863089126079575
     mag: {unstated: 25.926}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '36':
     ra: 39.97520269866131
     dec: -1.5879254142609114
     mag: {unstated: 21.722}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '37':
     ra: 39.965948398511685
     dec: -1.5893165133143874
     mag: {unstated: 20.767}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '38':
     ra: 39.958864098710656
     dec: -1.5873187125897812
     mag: {unstated: 23.284}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '39':
     ra: 39.95754009879511
     dec: -1.5864837124543552
     mag: {unstated: 22.855}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '40':
     ra: 39.960772598859926
     dec: -1.5858750127849914
     mag: {unstated: 25.155}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '41':
     ra: 39.975474298924574
     dec: -1.5853553142886898
     mag: {unstated: 25.042}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '42':
     ra: 39.97798299897652
     dec: -1.5848669145452703
     mag: {unstated: 28.152}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '43':
     ra: 39.97102629887657
     dec: -1.5857905138337574
     mag: {unstated: 23.816}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '44':
     ra: 39.972704998781516
     dec: -1.5867320140054526
     mag: {unstated: 24.48}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '45':
     ra: 39.97183319884779
     dec: -1.5860778139162857
     mag: {unstated: 22.328}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '46':
     ra: 39.97112759876306
     dec: -1.5869002138441182
     mag: {unstated: 20.623}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '47':
     ra: 39.97725299903215
     dec: -1.584317914470609
     mag: {unstated: 27.826}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '48':
     ra: 39.96744049873151
     dec: -1.587180313467001
     mag: {unstated: 20.925}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '49':
     ra: 39.97710439909746
     dec: -1.5836788144554113
     mag: {unstated: 30.691}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '50':
     ra: 39.97196609903497
     dec: -1.5842501139298788
     mag: {unstated: 22.8}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '52':
     ra: 39.97182189906255
     dec: -1.5839796139151303
     mag: {unstated: 24.72}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '53':
     ra: 39.96625849907094
     dec: -1.5838553133461046
     mag: {unstated: 26.05}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '54':
     ra: 39.96772839879149
     dec: -1.5865965134964477
     mag: {unstated: 20.65}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '55':
     ra: 39.95370279906346
     dec: -1.5838329120618504
     mag: {unstated: 25.975}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '56':
     ra: 39.970900298998345
     dec: -1.58459981382087
     mag: {unstated: 21.97}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '57':
     ra: 39.97245149900094
     dec: -1.5845863139795247
     mag: {unstated: 20.985}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '58':
     ra: 39.96541419884903
     dec: -1.5860168132597487
     mag: {unstated: 20.65}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '59':
     ra: 39.97238219903013
     dec: -1.584300613972437
     mag: {unstated: 21.735}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '60':
     ra: 39.95814919908059
     dec: -1.5836994125166568
     mag: {unstated: 24.632}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '61':
     ra: 39.96794459901154
     dec: -1.584448513518561
     mag: {unstated: 22.069}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '62':
     ra: 39.97255009907572
     dec: -1.5838564139896094
     mag: {unstated: 23.665}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '63':
     ra: 39.978467799074544
     dec: -1.5839130145948543
     mag: {unstated: 22.578}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '64':
     ra: 39.98594769912504
     dec: -1.5834766153598507
     mag: {unstated: 23.7}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '65':
     ra: 39.96671509915642
     dec: -1.5830237133928065
     mag: {unstated: 24.558}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '66':
     ra: 39.974636799125875
     dec: -1.5833823142030328
     mag: {unstated: 23.942}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '67':
     ra: 39.97706489898636
     dec: -1.5847638144513712
     mag: {unstated: 22.401}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '68':
     ra: 39.97580219887881
     dec: -1.5858051143222267
     mag: {unstated: 19.926}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '69':
     ra: 39.978429399232475
     dec: -1.5823697145909266
     mag: {unstated: 28.981}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '70':
     ra: 39.97061049908225
     dec: -1.5837779137912293
     mag: {unstated: 20.937}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '71':
     ra: 39.978114599135
     dec: -1.58331971455873
     mag: {unstated: 25.122}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '72':
     ra: 39.98601719919726
     dec: -1.5827715153669584
     mag: {unstated: 24.245}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '73':
     ra: 39.97827729927729
     dec: -1.5819307145753705
     mag: {unstated: 29.348}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '74':
     ra: 39.96561249912569
     dec: -1.583315513280031
     mag: {unstated: 22.905}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '75':
     ra: 39.982482999255275
     dec: -1.5821777150055067
     mag: {unstated: 24.471}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '76':
     ra: 39.97971889931362
     dec: -1.5815867147228106
     mag: {unstated: 26.4}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '77':
     ra: 39.97162419925192
     dec: -1.5821280138949099
     mag: {unstated: 21.428}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '78':
     ra: 39.96960479907977
     dec: -1.5837944136883664
     mag: {unstated: 20.431}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '79':
     ra: 39.97555279932464
     dec: -1.5814475142967188
     mag: {unstated: 24.741}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '80':
     ra: 39.969467099331155
     dec: -1.5813375136742827
     mag: {unstated: 24.978}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '81':
     ra: 39.96500679930117
     dec: -1.5815966132180788
     mag: {unstated: 23.422}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '82':
     ra: 39.97736859937124
     dec: -1.5810058144824326
     mag: {unstated: 24.278}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '83':
     ra: 39.95543699933041
     dec: -1.5812383122392368
     mag: {unstated: 23.63}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '84':
     ra: 39.949598599269386
     dec: -1.581790211642037
     mag: {unstated: 21.262}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '85':
     ra: 39.968476199352246
     dec: -1.5811241135729337
     mag: {unstated: 24.002}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '86':
     ra: 39.96721139938718
     dec: -1.5807730134435687
     mag: {unstated: 25.346}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '87':
     ra: 39.96945829940588
     dec: -1.5806074136733828
     mag: {unstated: 24.127}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '88':
     ra: 39.97680009938903
     dec: -1.5808278144242882
     mag: {unstated: 23.456}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '89':
     ra: 39.9743302994582
     dec: -1.580133214171685
     mag: {unstated: 24.906}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '90':
     ra: 39.976822799424404
     dec: -1.5804823144266098
     mag: {unstated: 24.601}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '91':
     ra: 39.98007089924212
     dec: -1.5822879147588114
     mag: {unstated: 22.111}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '92':
     ra: 39.973234199437414
     dec: -1.5803279140595783
     mag: {unstated: 24.75}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '93':
     ra: 39.97477839948272
     dec: -1.579897014217515
     mag: {unstated: 25.947}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '94':
     ra: 39.970148899391624
     dec: -1.580751813744017
     mag: {unstated: 23.307}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '95':
     ra: 39.97221939943362
     dec: -1.580357413955786
     mag: {unstated: 22.612}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '96':
     ra: 39.96098129939403
     dec: -1.5806588128063381
     mag: {unstated: 22.395}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '97':
     ra: 39.96474199948021
     dec: -1.5798454131909945
     mag: {unstated: 24.601}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '98':
     ra: 39.973826699381554
     dec: -1.5808783141201774
     mag: {unstated: 22.09}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '99':
     ra: 39.97352309946206
     dec: -1.5800894140891266
     mag: {unstated: 24.599}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '100':
     ra: 39.977272099279624
     dec: -1.5819002144725627
     mag: {unstated: 20.436}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '101':
     ra: 39.96942269953082
     dec: -1.5793865136697416
     mag: {unstated: 24.753}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '102':
     ra: 39.95527339939902
     dec: -1.580566812222502
     mag: {unstated: 21.67}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '103':
     ra: 39.98528179943158
     dec: -1.580476515291748
     mag: {unstated: 23.109}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '104':
     ra: 39.961183899529274
     dec: -1.5793391128270609
     mag: {unstated: 24.568}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '105':
     ra: 39.97595879950138
     dec: -1.5797238143382428
     mag: {unstated: 24.787}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '106':
     ra: 39.96463639943496
     dec: -1.5802868131801935
     mag: {unstated: 21.149}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '107':
     ra: 39.96830469951916
     dec: -1.5794919135553924
     mag: {unstated: 23.461}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '108':
     ra: 39.95697539948007
     dec: -1.5797880123965942
     mag: {unstated: 21.398}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '109':
     ra: 39.977850699552526
     dec: -1.5792384145317395
     mag: {unstated: 24.315}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '110':
     ra: 39.960342699580266
     dec: -1.5788345127410193
     mag: {unstated: 25.863}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '111':
     ra: 39.9781573993268
     dec: -1.5814461145631076
     mag: {unstated: 20.863}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '112':
     ra: 39.97188869949419
     dec: -1.5797631139219621
     mag: {unstated: 22.678}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '113':
     ra: 39.956211399543946
     dec: -1.5791581123184477
     mag: {unstated: 23.389}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '114':
     ra: 39.96310989957359
     dec: -1.578920813024059
     mag: {unstated: 23.025}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '115':
     ra: 39.96286929962679
     dec: -1.5783992129994493
     mag: {unstated: 23.421}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '116':
     ra: 39.98090779953498
     dec: -1.5794329148444046
     mag: {unstated: 21.044}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '117':
     ra: 39.96808829975765
     dec: -1.5771603135332588
     mag: {unstated: 24.287}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '118':
     ra: 39.9817309996209
     dec: -1.5785999149285965
     mag: {unstated: 21.372}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '119':
     ra: 39.968851699664
     dec: -1.5780811136113397
     mag: {unstated: 22.169}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '120':
     ra: 39.98085139969571
     dec: -1.5778622148386363
     mag: {unstated: 24.25}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '121':
     ra: 39.96910199960134
     dec: -1.5786951136369405
     mag: {unstated: 20.162}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '122':
     ra: 39.969229199772016
     dec: -1.5770287136499503
     mag: {unstated: 23.2}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '123':
     ra: 39.98584359982187
     dec: -1.5766674153492042
     mag: {unstated: 24.547}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '124':
     ra: 39.96378769935632
     dec: -1.581048613093386
     mag: {unstated: 20.128}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '125':
     ra: 39.96163099979287
     dec: -1.576767512872792
     mag: {unstated: 23.848}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '126':
     ra: 39.9741591998526
     dec: -1.5762788141541852
     mag: {unstated: 24.717}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '127':
     ra: 39.96625619982307
     dec: -1.5765073133458698
     mag: {unstated: 24.588}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '128':
     ra: 39.96241299982972
     dec: -1.5764133129527775
     mag: {unstated: 24.245}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '129':
     ra: 39.985119399913884
     dec: -1.5757630152751387
     mag: {unstated: 24.688}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '130':
     ra: 39.95567839982453
     dec: -1.576413012263929
     mag: {unstated: 22.805}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '131':
     ra: 39.97798639989684
     dec: -1.5758754145456186
     mag: {unstated: 24.738}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '132':
     ra: 39.96320889993061
     dec: -1.575433613034185
     mag: {unstated: 27.095}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '134':
     ra: 39.97120899989585
     dec: -1.5758338138524433
     mag: {unstated: 24.116}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '135':
     ra: 39.98135929990075
     dec: -1.5758628148905816
     mag: {unstated: 23.974}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '136':
     ra: 39.97018319984641
     dec: -1.5763091137475254
     mag: {unstated: 22.713}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '137':
     ra: 39.96894559989621
     dec: -1.575813213620944
     mag: {unstated: 24.886}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '138':
     ra: 39.973893199838045
     dec: -1.576418914126979
     mag: {unstated: 22.492}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '139':
     ra: 39.974400099954956
     dec: -1.5752806141788236
     mag: {unstated: 24.66}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '140':
     ra: 39.97515289979284
     dec: -1.5768701142558181
     mag: {unstated: 20.676}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '141':
     ra: 39.976733200000986
     dec: -1.5748485144174464
     mag: {unstated: 26.909}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '142':
     ra: 39.965357799870986
     dec: -1.5760324132539798
     mag: {unstated: 21.287}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '143':
     ra: 39.96359659996763
     dec: -1.5750749130738402
     mag: {unstated: 24.217}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '144':
     ra: 39.973145099789676
     dec: -1.576885914050465
     mag: {unstated: 21.449}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '145':
     ra: 39.95706479985374
     dec: -1.5761382124057386
     mag: {unstated: 23.61}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '146':
     ra: 39.9885870000246
     dec: -1.574707415629775
     mag: {unstated: 23.892}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '147':
     ra: 39.958778299983074
     dec: -1.574887712581005
     mag: {unstated: 24.27}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '148':
     ra: 39.97588559989129
     dec: -1.5759137143307564
     mag: {unstated: 21.775}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '149':
     ra: 39.977453299837855
     dec: -1.5764477144910953
     mag: {unstated: 20.762}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '150':
     ra: 39.98314569999719
     dec: -1.574934215073283
     mag: {unstated: 23.546}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '151':
     ra: 39.97787319968402
     dec: -1.5779539145340404
     mag: {unstated: 20.798}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '152':
     ra: 39.97892519998258
     dec: -1.575044914641635
     mag: {unstated: 21.989}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '153':
     ra: 39.98188120002136
     dec: -1.5746884149439584
     mag: {unstated: 24.2}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '154':
     ra: 39.96808499991343
     dec: -1.5756384135329216
     mag: {unstated: 21.103}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '155':
     ra: 39.98452179985241
     dec: -1.5763592152140207
     mag: {unstated: 20.181}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '156':
     ra: 39.9748066999922
     dec: -1.5749197142204099
     mag: {unstated: 22.135}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '157':
     ra: 39.986565100049845
     dec: -1.574445515422993
     mag: {unstated: 22.744}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '158':
     ra: 39.964973499915246
     dec: -1.5755972132146727
     mag: {unstated: 21.108}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '159':
     ra: 39.96700170012869
     dec: -1.5735273134221204
     mag: {unstated: 24.865}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '160':
     ra: 39.97050269999286
     dec: -1.5748807137802037
     mag: {unstated: 21.469}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '161':
     ra: 39.973261400129495
     dec: -1.5735667140623597
     mag: {unstated: 24.103}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '162':
     ra: 39.96437850014018
     dec: -1.5733951131538146
     mag: {unstated: 24.929}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '163':
     ra: 39.977572900067955
     dec: -1.5742005145033275
     mag: {unstated: 21.272}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '164':
     ra: 39.97356840005199
     dec: -1.5743263140937593
     mag: {unstated: 22.298}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '165':
     ra: 39.968410300011186
     dec: -1.574685813566193
     mag: {unstated: 20.539}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '166':
     ra: 39.972705100170074
     dec: -1.5731661140054625
     mag: {unstated: 24.971}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '167':
     ra: 39.971820300003536
     dec: -1.5747864139149665
     mag: {unstated: 21.341}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '168':
     ra: 39.98258570017676
     dec: -1.5731754150160102
     mag: {unstated: 23.921}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '169':
     ra: 39.97310969993069
     dec: -1.5755079140468446
     mag: {unstated: 20.981}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '170':
     ra: 39.9676542001426
     dec: -1.5733962134888588
     mag: {unstated: 22.818}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '171':
     ra: 39.97837940005206
     dec: -1.5743619145858123
     mag: {unstated: 21.303}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '172':
     ra: 39.95974770013524
     dec: -1.57340841268016
     mag: {unstated: 21.267}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '173':
     ra: 39.98192870027857
     dec: -1.5721757149488165
     mag: {unstated: 24.172}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '174':
     ra: 39.97826000031031
     dec: -1.5718379145736012
     mag: {unstated: 24.613}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '175':
     ra: 39.978034400164766
     dec: -1.5732581145505278
     mag: {unstated: 21.757}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '176':
     ra: 39.97685260028055
     dec: -1.572118014429658
     mag: {unstated: 23.258}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '177':
     ra: 39.977970600333826
     dec: -1.5716060145440023
     mag: {unstated: 23.428}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '178':
     ra: 39.98838660032548
     dec: -1.5717662156092802
     mag: {unstated: 24.176}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '179':
     ra: 39.97432750016293
     dec: -1.5732480141713985
     mag: {unstated: 21.077}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '180':
     ra: 39.96940940011811
     dec: -1.5736487136683814
     mag: {unstated: 20.515}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '181':
     ra: 39.98825650026137
     dec: -1.5723915155959747
     mag: {unstated: 21.858}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '182':
     ra: 39.987527400367995
     dec: -1.571344415521409
     mag: {unstated: 23.72}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '183':
     ra: 39.95317429986235
     dec: -1.5760246120077908
     mag: {unstated: 19.83}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '184':
     ra: 39.96994500035313
     dec: -1.5713567137231623
     mag: {unstated: 24.346}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '185':
     ra: 39.96102930027951
     dec: -1.5720086128112478
     mag: {unstated: 21.331}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '186':
     ra: 39.98198640037122
     dec: -1.5712709149547175
     mag: {unstated: 24.294}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '187':
     ra: 39.97182350039489
     dec: -1.570962913915294
     mag: {unstated: 24.601}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '188':
     ra: 39.971294800393736
     dec: -1.5709702138612192
     mag: {unstated: 23.123}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '189':
     ra: 39.97087210021773
     dec: -1.572686513817986
     mag: {unstated: 20.564}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '190':
     ra: 39.965936500414095
     dec: -1.57073081331317
     mag: {unstated: 24.162}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '191':
     ra: 39.984907300009176
     dec: -1.5748303152534466
     mag: {unstated: 19.866}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '192':
     ra: 39.96285430036672
     dec: -1.5711704129979152
     mag: {unstated: 23.923}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '193':
     ra: 39.96814510037744
     dec: -1.5711056135390684
     mag: {unstated: 23.113}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '194':
     ra: 39.974973900477266
     dec: -1.5701818142375104
     mag: {unstated: 26.475}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '195':
     ra: 39.96506340034959
     dec: -1.5713544132238677
     mag: {unstated: 20.356}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '196':
     ra: 39.98133050021708
     dec: -1.5727719148876358
     mag: {unstated: 20.528}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '197':
     ra: 39.9642927002367
     dec: -1.5724516131450388
     mag: {unstated: 20.873}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '198':
     ra: 39.96600670027226
     dec: -1.57211711332035
     mag: {unstated: 20.052}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '199':
     ra: 39.98562080041653
     dec: -1.570855715326418
     mag: {unstated: 22.608}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '200':
     ra: 39.96552810046587
     dec: -1.570222013271398
     mag: {unstated: 24.698}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '201':
     ra: 39.98915820055532
     dec: -1.5695263156881922
     mag: {unstated: 25.778}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '202':
     ra: 39.96583950037978
     dec: -1.5710654133032484
     mag: {unstated: 21.961}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '203':
     ra: 39.981803400412
     dec: -1.5708712149360016
     mag: {unstated: 21.287}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '204':
     ra: 39.975685100521424
     dec: -1.56975581431025
     mag: {unstated: 24.224}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '205':
     ra: 39.95861770038678
     dec: -1.5709425125645782
     mag: {unstated: 20.628}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '206':
     ra: 39.98244980027863
     dec: -1.572179115002111
     mag: {unstated: 20.03}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '207':
     ra: 39.97300430058938
     dec: -1.5690716140360645
     mag: {unstated: 24.675}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '208':
     ra: 39.964964400390905
     dec: -1.5709500132137422
     mag: {unstated: 21.892}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '209':
     ra: 39.981182600606985
     dec: -1.5689614148725095
     mag: {unstated: 23.179}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '210':
     ra: 39.99023580050959
     dec: -1.569981415798398
     mag: {unstated: 21.592}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '211':
     ra: 39.96735100051788
     dec: -1.569727613457847
     mag: {unstated: 21.532}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '212':
     ra: 39.97087370065612
     dec: -1.5684035138181496
     mag: {unstated: 25.037}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '213':
     ra: 39.95580360065212
     dec: -1.568329212276735
     mag: {unstated: 22.986}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '214':
     ra: 39.98244780066729
     dec: -1.5683817150019064
     mag: {unstated: 22.871}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '215':
     ra: 39.96547740071353
     dec: -1.5678020132662125
     mag: {unstated: 23.602}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '216':
     ra: 39.98318820077487
     dec: -1.5673362150776295
     mag: {unstated: 23.671}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '217':
     ra: 39.972843400728536
     dec: -1.5677109140196075
     mag: {unstated: 22.972}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '218':
     ra: 39.982760400744155
     dec: -1.5676331150338771
     mag: {unstated: 22.696}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '219':
     ra: 39.97222200065349
     dec: -1.5684395139560516
     mag: {unstated: 21.997}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '221':
     ra: 39.97876770083981
     dec: -1.5666683146255262
     mag: {unstated: 24.285}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '222':
     ra: 39.97060200056673
     dec: -1.5692749137903603
     mag: {unstated: 20.797}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '223':
     ra: 39.976939700851176
     dec: -1.5665436144385663
     mag: {unstated: 22.568}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '224':
     ra: 39.974145500995505
     dec: -1.565112414152784
     mag: {unstated: 28.963}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '225':
     ra: 39.96155780081206
     dec: -1.5668100128653046
     mag: {unstated: 23.136}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '226':
     ra: 39.97095270095313
     dec: -1.565502413826229
     mag: {unstated: 24.663}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '227':
     ra: 39.97299430091742
     dec: -1.5658667140350415
     mag: {unstated: 24.044}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '228':
     ra: 39.97561450083137
     dec: -1.566727114303029
     mag: {unstated: 22.026}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '229':
     ra: 39.97912700096503
     dec: -1.5654477146622738
     mag: {unstated: 26.077}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '230':
     ra: 39.974229201003716
     dec: -1.5650329141613446
     mag: {unstated: 27.004}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '231':
     ra: 39.964054300850776
     dec: -1.566450613120655
     mag: {unstated: 21.818}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '232':
     ra: 39.96701410094704
     dec: -1.5655323134233887
     mag: {unstated: 23.928}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '233':
     ra: 39.971110800897414
     dec: -1.5660479138423995
     mag: {unstated: 21.527}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '234':
     ra: 39.98051770067969
     dec: -1.5682460148045072
     mag: {unstated: 19.94}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '235':
     ra: 39.980315200640995
     dec: -1.5686225147837967
     mag: {unstated: 23.497}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '236':
     ra: 39.95889970101343
     dec: -1.5648227125934229
     mag: {unstated: 23.707}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '237':
     ra: 39.97057770097277
     dec: -1.565307713787875
     mag: {unstated: 21.896}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '238':
     ra: 39.975916901122176
     dec: -1.5638882143339576
     mag: {unstated: 23.271}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '239':
     ra: 39.97605080110983
     dec: -1.5640098143476526
     mag: {unstated: 24.269}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '240':
     ra: 39.98487810084642
     dec: -1.5666499152504603
     mag: {unstated: 20.415}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '241':
     ra: 39.967131801080306
     dec: -1.5642312134354273
     mag: {unstated: 23.287}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '242':
     ra: 39.96640710109294
     dec: -1.564102313361304
     mag: {unstated: 24.13}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '243':
     ra: 39.963196200918446
     dec: -1.565783013032886
     mag: {unstated: 20.465}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '244':
     ra: 39.97516240106501
     dec: -1.5644410142567897
     mag: {unstated: 21.122}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '245':
     ra: 39.96079780103296
     dec: -1.564646212787569
     mag: {unstated: 21.406}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '246':
     ra: 39.96214400123634
     dec: -1.5626694129252634
     mag: {unstated: 26.036}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '247':
     ra: 39.96500900110084
     dec: -1.5640147132183038
     mag: {unstated: 21.708}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '248':
     ra: 39.96217340120415
     dec: -1.5629841129282704
     mag: {unstated: 22.59}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '249':
     ra: 39.970566401080866
     dec: -1.5642516137867188
     mag: {unstated: 21.442}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '250':
     ra: 39.97768260122697
     dec: -1.5628776145145469
     mag: {unstated: 23.65}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '251':
     ra: 39.96477900119806
     dec: -1.563063113194779
     mag: {unstated: 22.485}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '252':
     ra: 39.98039450108214
     dec: -1.5643130147919073
     mag: {unstated: 20.811}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '253':
     ra: 39.97828140126233
     dec: -1.5625366145757897
     mag: {unstated: 24.486}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '254':
     ra: 39.95724800093423
     dec: -1.5655841124244774
     mag: {unstated: 19.938}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '255':
     ra: 39.975311501262254
     dec: -1.5625151142720395
     mag: {unstated: 22.785}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '256':
     ra: 39.97186610129869
     dec: -1.5621333139196512
     mag: {unstated: 24.653}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '257':
     ra: 39.96990410118255
     dec: -1.5632531137189787
     mag: {unstated: 21.606}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '258':
     ra: 39.968846401293874
     dec: -1.5621577136107976
     mag: {unstated: 20.485}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '259':
     ra: 39.97764800097051
     dec: -1.565383014511008
     mag: {unstated: 20.017}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '260':
     ra: 39.975976001399495
     dec: -1.5611793143400023
     mag: {unstated: 24.639}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '261':
     ra: 39.97371070136987
     dec: -1.561451614108314
     mag: {unstated: 25.73}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '262':
     ra: 39.97688000133613
     dec: -1.5618050144324607
     mag: {unstated: 23.059}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '263':
     ra: 39.97563810138188
     dec: -1.5613487143054432
     mag: {unstated: 22.903}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '264':
     ra: 39.97600190115495
     dec: -1.5635686143426513
     mag: {unstated: 20.439}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '265':
     ra: 39.9786780013293
     dec: -1.5618853146163525
     mag: {unstated: 22.795}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '266':
     ra: 39.963611502176605
     dec: -1.553494413075364
     mag: {unstated: 21.457}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '267':
     ra: 39.96808840207263
     dec: -1.5545436135332693
     mag: {unstated: 20.993}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '268':
     ra: 39.96582590202084
     dec: -1.5550327133018582
     mag: {unstated: 24.527}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '269':
     ra: 39.967171301837546
     dec: -1.5568335134394673
     mag: {unstated: 21.389}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '270':
     ra: 39.97095860178787
     dec: -1.5573472138268332
     mag: {unstated: 24.178}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '271':
     ra: 39.96995650173129
     dec: -1.557892413724339
     mag: {unstated: 24.25}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '272':
     ra: 39.976924701510846
     dec: -1.560098414437032
     mag: {unstated: 20.74}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '273':
     ra: 39.97363620154427
     dec: -1.5597472141006945
     mag: {unstated: 24.734}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '274':
     ra: 39.961734401442534
     dec: -1.5606520128833683
     mag: {unstated: 22.738}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '275':
     ra: 39.96889660135352
     dec: -1.5615752136159324
     mag: {unstated: 20.432}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '276':
     ra: 39.96489600134964
     dec: -1.5615831132067464
     mag: {unstated: 20.046}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '277':
     ra: 39.96138150132901
     dec: -1.5617584128472723
     mag: {unstated: 20.712}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '278':
     ra: 39.97529320157317
     dec: -1.5594772142701676
     mag: {unstated: 26.267}
-    notes: in gledhill2024
+    p_member: 0.7
+    notes: in gledhill2024; 1 independent paper
   '279':
     ra: 39.962620001249974
     dec: -1.5625397129739504
     mag: {unstated: 20.805}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers
   '280':
     ra: 39.9618970010241
     dec: -1.5647410128999995
     mag: {unstated: 19.793}
-    notes: in gledhill2024, lagattuta2019
+    p_member: 0.9
+    notes: in gledhill2024, lagattuta2019; 2 independent papers

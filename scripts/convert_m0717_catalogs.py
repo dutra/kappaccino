@@ -29,9 +29,9 @@ import numpy as np
 from astropy.table import Table
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from kappaccino.image_catalog import write_image_catalog  # noqa: E402
-from kappaccino.member_catalog import write_member_catalog  # noqa: E402
-from kappaccino.sky import offsets_to_radec  # noqa: E402
+from kappaccino.io.image_catalog import write_image_catalog  # noqa: E402
+from kappaccino.io.member_catalog import write_member_catalog  # noqa: E402
+from kappaccino.io.sky import offsets_to_radec  # noqa: E402
 
 ARCS = "hlsp_frontier_model_macs0717_cats_v4.1_arcs.txt"
 PARAMS = "hlsp_frontier_model_macs0717_cats_v4.1_params.txt"

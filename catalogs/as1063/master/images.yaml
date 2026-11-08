@@ -1,12 +1,16 @@
 # Master image catalog of as1063, built on 2026-11-08 by scripts/build_master_catalog.py from diego2026, bergamini2019, caminha2016 (base diego2026).
-# Do not edit: change sources.yaml or decisions.yaml and rebuild.  crossmatch.yaml gives each system's papers.
-# 25 systems, 73 images.
+# Do not edit: change sources.yaml or decisions.yaml and rebuild.  crossmatch.yaml gives each system's papers and tier.
+# 27 systems (diamond 16, gold 8, silver 1, bronze 2, copper 0; 2 with z = 0, free), 78 images, 0 of them candidates from other papers.
+# reliability: the tier's prior.  prior (per image or knot): the prior that it belongs to its system, the reliability (times its quality below 0.8).
+# ImageConstraintsConfig(trusted_prior_min=0.8) trusts the diamond and gold images; with a PartitionConfig the rest enter the slot mixture, each weighted toward its system by its prior.
 format: lenscluster-images/1
 systems:
   D1:
     z: 1.229
+    z_err: 0.01
+    reliability: 1.0
     knots: [A, B, C, D]
-    notes: Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
+    notes: tier diamond; Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
     images:
       a:
         parity: -1
@@ -30,8 +34,10 @@ systems:
           D: {ra: 342.1867676, dec: -44.5213547, notes: Diego label 4.c; rank A; footnote flag 0.}
   D5:
     z: 1.261
+    z_err: 0.01
+    reliability: 1.0
     knots: [A, B, C]
-    notes: Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
+    notes: tier diamond; Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
     images:
       a:
         parity: 1
@@ -52,15 +58,19 @@ systems:
           C: {ra: 342.1796875, dec: -44.5216293, notes: Diego label 7.c; rank A; footnote flag 0.}
   D8:
     z: 1.2583
-    notes: Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
+    z_err: 0.01
+    reliability: 1.0
+    notes: tier diamond; Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
     images:
       a: {ra: 342.1936951, dec: -44.5301628, notes: Diego label 8.a; rank A; footnote flag 0., parity: 1}
       b: {ra: 342.1933289, dec: -44.5294189, notes: Diego label 8.b; rank A; footnote flag 0., parity: -1}
       c: {ra: 342.1816406, dec: -44.5214043, notes: Diego label 8.c; rank A; footnote flag 1.}
   D9:
     z: 1.398
+    z_err: 0.01
+    reliability: 1.0
     knots: [A, B, C]
-    notes: Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
+    notes: tier diamond; Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
     images:
       a:
         knots:
@@ -79,8 +89,10 @@ systems:
           C: {ra: 342.1923828, dec: -44.5367279, notes: Diego label 11.c; rank A; footnote flag 0.}
   D12:
     z: 1.428
+    z_err: 0.01
+    reliability: 1.0
     knots: [A, B, C, D, E, F]
-    notes: Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
+    notes: tier diamond; Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
     images:
       a:
         knots:
@@ -108,15 +120,19 @@ systems:
           F: {ra: 342.1889038, dec: -44.539772, notes: Diego label 17.c; rank A; footnote flag 0.}
   D18:
     z: 1.837
-    notes: Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
+    z_err: 0.01
+    reliability: 1.0
+    notes: tier diamond; Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
     images:
       a: {ra: 342.1693726, dec: -44.5272484, notes: Diego label 18.a; rank A; footnote flag 0.}
       b: {ra: 342.1742554, dec: -44.5371094, notes: Diego label 18.b; rank A; footnote flag 0.}
       c: {ra: 342.1818237, dec: -44.5405006, notes: Diego label 18.c; rank A; footnote flag 0.}
   D19:
     z: 0.73
+    z_err: 0.01
+    reliability: 1.0
     knots: [A, B, C]
-    notes: Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
+    notes: tier diamond; Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
     images:
       a:
         parity: 1
@@ -137,14 +153,18 @@ systems:
           C: {ra: 342.1847534, dec: -44.5256767, notes: Diego label 21.c; rank A; footnote flag 0.}
   D22:
     z: 3.116
-    notes: Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
     images:
-      a: {ra: 342.1750488, dec: -44.5410309, notes: Diego label 22.a; rank A; footnote flag 0., parity: 1}
-      b: {ra: 342.1731567, dec: -44.5399818, notes: Diego label 22.b; rank A; footnote flag 0., parity: -1}
-      c: {ra: 342.1655579, dec: -44.5295296, notes: Diego label 22.c; rank A; footnote flag 0.}
+      a: {ra: 342.1750488, dec: -44.5410309, notes: Diego label 22.a; rank A; footnote flag 0., parity: 1, prior: 0.9}
+      b: {ra: 342.1731567, dec: -44.5399818, notes: Diego label 22.b; rank A; footnote flag 0., parity: -1, prior: 0.9}
+      c: {ra: 342.1655579, dec: -44.5295296, notes: Diego label 22.c; rank A; footnote flag 0., prior: 0.9}
   D23:
     z: 6.112
-    notes: Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
+    z_err: 0.01
+    reliability: 1.0
+    notes: tier diamond; Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
     images:
       a: {ra: 342.1890564, dec: -44.5300484, notes: Diego label 23.a; rank A; footnote flag 0.}
       b: {ra: 342.1810303, dec: -44.5346184, notes: Diego label 23.b; rank A; footnote flag 0.}
@@ -153,15 +173,19 @@ systems:
       e: {ra: 342.184082, dec: -44.5316277, notes: Diego label 23.e; rank A; footnote flag 0.}
   D24:
     z: 4.113
-    notes: Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
+    z_err: 0.01
+    reliability: 1.0
+    notes: tier diamond; Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
     images:
       a: {ra: 342.1815491, dec: -44.5393753, notes: Diego label 24.a; rank A; footnote flag 0., parity: 1}
       b: {ra: 342.1791382, dec: -44.5386772, notes: Diego label 24.b; rank A; footnote flag 0., parity: -1}
       c: {ra: 342.1687927, dec: -44.522377, notes: Diego label 24.c; rank A; footnote flag 1.}
   D25:
     z: 3.118
+    z_err: 0.01
+    reliability: 1.0
     knots: [A, B, C, D, E]
-    notes: Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
+    notes: tier diamond; Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
     images:
       a:
         knots:
@@ -186,15 +210,19 @@ systems:
           E: {ra: 342.1705933, dec: -44.5223846, notes: Diego label 29.c; rank A; footnote flag 0.}
   D30:
     z: 3.606
-    notes: Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
+    z_err: 0.01
+    reliability: 1.0
+    notes: tier diamond; Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
     images:
       a: {ra: 342.1858215, dec: -44.5388489, notes: Diego label 30.a; rank A; footnote flag 0.}
       b: {ra: 342.178833, dec: -44.5367317, notes: Diego label 30.b; rank A; footnote flag 0.}
       c: {ra: 342.1697998, dec: -44.5219765, notes: Diego label 30.c; rank A; footnote flag 1.}
   D31:
     z: 1.035
+    z_err: 0.01
+    reliability: 1.0
     knots: [A, B, C, D]
-    notes: Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
+    notes: tier diamond; Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
     images:
       a:
         knots:
@@ -213,81 +241,120 @@ systems:
           D: {ra: 342.1715698, dec: -44.5299568, notes: Diego label 34.b; rank A; footnote flag 0.}
   D35:
     z: 3.666
-    notes: Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
     images:
-      a: {ra: 342.1758118, dec: -44.5363693, notes: Diego label 35.a; rank A; footnote flag 0.}
-      b: {ra: 342.1878967, dec: -44.5404205, notes: Diego label 35.b; rank A; footnote flag 0.}
-      c: {ra: 342.1705322, dec: -44.5235825, notes: Diego label 35.c; rank A; footnote flag 1.}
+      a: {ra: 342.1758118, dec: -44.5363693, notes: Diego label 35.a; rank A; footnote flag 0., prior: 0.9}
+      b: {ra: 342.1878967, dec: -44.5404205, notes: Diego label 35.b; rank A; footnote flag 0., prior: 0.9}
+      c: {ra: 342.1705322, dec: -44.5235825, notes: Diego label 35.c; rank A; footnote flag 1., prior: 0.9}
   D36:
     z: 3.23
-    notes: Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
     images:
-      a: {ra: 342.1737976, dec: -44.5411797, notes: Diego label 36.a; rank A; footnote flag 0.}
-      b: {ra: 342.1739197, dec: -44.5412369, notes: Diego label 36.b; rank A; footnote flag 0.}
-      c: {ra: 342.1650696, dec: -44.5310555, notes: Diego label 36.c; rank A; footnote flag 1.}
+      a: {ra: 342.1737976, dec: -44.5411797, notes: Diego label 36.a; rank A; footnote flag 0., prior: 0.9}
+      b: {ra: 342.1739197, dec: -44.5412369, notes: Diego label 36.b; rank A; footnote flag 0., prior: 0.9}
+      c: {ra: 342.1650696, dec: -44.5310555, notes: Diego label 36.c; rank A; footnote flag 1., prior: 0.9}
   D37:
     z: 3.082
-    notes: Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
     images:
-      a: {ra: 342.1802979, dec: -44.5246391, notes: Diego label 37.a; rank A; footnote flag 0.}
-      b: {ra: 342.1838684, dec: -44.5257568, notes: Diego label 37.b; rank A; footnote flag 0.}
+      a: {ra: 342.1802979, dec: -44.5246391, notes: Diego label 37.a; rank A; footnote flag 0., prior: 0.9}
+      b: {ra: 342.1838684, dec: -44.5257568, notes: Diego label 37.b; rank A; footnote flag 0., prior: 0.9}
   D38:
     z: 2.976
-    notes: Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
+    z_err: 0.01
+    reliability: 1.0
+    notes: tier diamond; Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
     images:
       a: {ra: 342.1983643, dec: -44.5357513, notes: Diego label 38.a; rank A; footnote flag 0.}
       b: {ra: 342.1924438, dec: -44.5250702, notes: Diego label 38.b; rank A; footnote flag 0.}
       c: {ra: 342.1815186, dec: -44.5202599, notes: Diego label 38.c; rank A; footnote flag 0.}
   D40:
     z: 5.051
-    notes: Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
+    z_err: 0.01
+    reliability: 1.0
+    notes: tier diamond; Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
     images:
       a: {ra: 342.190155, dec: -44.5309296, notes: Diego label 40.a; rank A; footnote flag 0.}
       b: {ra: 342.1908569, dec: -44.5356598, notes: Diego label 40.b; rank A; footnote flag 0.}
   D41:
     z: 5.2373
-    notes: Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
+    z_err: 0.01
+    reliability: 1.0
+    notes: tier diamond; Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
     images:
       a: {ra: 342.1837769, dec: -44.5212479, notes: Diego label 41.a; rank A; footnote flag 0.}
       b: {ra: 342.1887512, dec: -44.5227585, notes: Diego label 41.b; rank A; footnote flag 0.}
   D43:
     z: 3.2857
-    notes: Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
+    z_err: 0.01
+    reliability: 1.0
+    notes: tier diamond; Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank A.
     images:
       a: {ra: 342.1960754, dec: -44.5230103, notes: Diego label 43.a; rank A; footnote flag 0.}
       b: {ra: 342.1891785, dec: -44.5187225, notes: Diego label 43.b; rank A; footnote flag 0.}
       c: {ra: 342.2021484, dec: -44.5321312, notes: Diego label 43.c; rank A; footnote flag 1.}
   D60:
     z: 3.72
-    notes: 'Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank B system 60: spectroscopic z=3.72 added in v2; retained rank B in the paper.'
+    z_err: 0.01
+    reliability: 0.7
+    notes: 'tier silver; Spectroscopic redshift from Diego et al. 2601.11704v2 Table 1. Rank B system 60: spectroscopic z=3.72 added in v2; retained rank B in the paper.'
     images:
-      a: {ra: 342.1802368, dec: -44.5392647, notes: Diego label 60.a; rank B; footnote flag 0., parity: 1}
-      b: {ra: 342.1789246, dec: -44.5388603, notes: Diego label 60.b; rank B; footnote flag 0., parity: -1}
-      c: {ra: 342.168457, dec: -44.5235786, notes: Diego label 60.c; rank B; footnote flag 1.}
+      a: {ra: 342.1802368, dec: -44.5392647, notes: Diego label 60.a; rank B; footnote flag 0., parity: 1, prior: 0.49}
+      b: {ra: 342.1789246, dec: -44.5388603, notes: Diego label 60.b; rank B; footnote flag 0., parity: -1, prior: 0.49}
+      c: {ra: 342.168457, dec: -44.5235786, notes: Diego label 60.c; rank B; footnote flag 1., prior: 0.49}
   B28:
     z: 3.169
-    notes: from bergamini2019 system 28
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; from bergamini2019 system 28
     images:
-      a: {ra: 342.1990985, dec: -44.53600895, shape: [0.481567004332, 0.481567004332, 90.0]}
-      b: {ra: 342.1919785, dec: -44.52418195, shape: [0.481567004332, 0.481567004332, 90.0]}
-      c: {ra: 342.1829185, dec: -44.52031695, shape: [0.481567004332, 0.481567004332, 90.0]}
+      a: {ra: 342.1990985, dec: -44.53600895, shape: [0.481567004332, 0.481567004332, 90.0], prior: 0.9}
+      b: {ra: 342.1919785, dec: -44.52418195, shape: [0.481567004332, 0.481567004332, 90.0], prior: 0.9}
+      c: {ra: 342.1829185, dec: -44.52031695, shape: [0.481567004332, 0.481567004332, 90.0], prior: 0.9}
   B29:
     z: 5.894
-    notes: from bergamini2019 system 29
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; from bergamini2019 system 29
     images:
-      a: {ra: 342.1970088, dec: -44.52205873, shape: [0.963134008663, 0.963134008663, 90.0]}
-      b: {ra: 342.1900623, dec: -44.51792024, shape: [0.963134008663, 0.963134008663, 90.0]}
+      a: {ra: 342.1970088, dec: -44.52205873, shape: [0.963134008663, 0.963134008663, 90.0], prior: 0.9}
+      b: {ra: 342.1900623, dec: -44.51792024, shape: [0.963134008663, 0.963134008663, 90.0], prior: 0.9}
   B30:
     z: 3.4519
-    notes: from bergamini2019 system 30
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; from bergamini2019 system 30
     images:
-      a: {ra: 342.2007722, dec: -44.53151018, shape: [0.481567004332, 0.481567004332, 90.0]}
-      b: {ra: 342.1971163, dec: -44.52488469, shape: [0.481567004332, 0.481567004332, 90.0]}
-      c: {ra: 342.1858249, dec: -44.51772928, shape: [0.481567004332, 0.481567004332, 90.0]}
+      a: {ra: 342.2007722, dec: -44.53151018, shape: [0.481567004332, 0.481567004332, 90.0], prior: 0.9}
+      b: {ra: 342.1971163, dec: -44.52488469, shape: [0.481567004332, 0.481567004332, 90.0], prior: 0.9}
+      c: {ra: 342.1858249, dec: -44.51772928, shape: [0.481567004332, 0.481567004332, 90.0], prior: 0.9}
   B31:
     z: 3.7131
-    notes: from bergamini2019 system 31
+    z_err: 0.01
+    reliability: 0.9
+    notes: tier gold; from bergamini2019 system 31
     images:
-      a: {ra: 342.1956868, dec: -44.53742629, shape: [0.481567004332, 0.481567004332, 90.0]}
-      b: {ra: 342.1909896, dec: -44.52677105, shape: [0.481567004332, 0.481567004332, 90.0]}
-      c: {ra: 342.1763316, dec: -44.52066928, shape: [0.481567004332, 0.481567004332, 90.0]}
+      a: {ra: 342.1956868, dec: -44.53742629, shape: [0.481567004332, 0.481567004332, 90.0], prior: 0.9}
+      b: {ra: 342.1909896, dec: -44.52677105, shape: [0.481567004332, 0.481567004332, 90.0], prior: 0.9}
+      c: {ra: 342.1763316, dec: -44.52066928, shape: [0.481567004332, 0.481567004332, 90.0], prior: 0.9}
+  CM50:
+    z: 0.0
+    reliability: 0.4
+    notes: tier bronze; from caminha2016 system 50
+    images:
+      a: {ra: 342.2151785, dec: -44.51922895, shape: [1.0, 1.0, 90.0], prior: 0.4}
+      b: {ra: 342.2147685, dec: -44.51885295, shape: [1.0, 1.0, 90.0], prior: 0.4}
+  CM51:
+    z: 0.0
+    reliability: 0.4
+    notes: tier bronze; from caminha2016 system 51
+    images:
+      a: {ra: 342.2160085, dec: -44.51946195, shape: [1.0, 1.0, 90.0], prior: 0.4}
+      b: {ra: 342.2153785, dec: -44.51906495, shape: [1.0, 1.0, 90.0], prior: 0.4}
+      c: {ra: 342.2141985, dec: -44.51684995, shape: [1.0, 1.0, 90.0], prior: 0.4}

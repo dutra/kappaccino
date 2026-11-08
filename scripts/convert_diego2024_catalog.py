@@ -20,7 +20,7 @@ import numpy as np
 from astropy.table import Table
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from kappaccino.image_catalog import write_image_catalog  # noqa: E402
+from kappaccino.io.image_catalog import write_image_catalog  # noqa: E402
 
 
 def convert(table: Table) -> dict:

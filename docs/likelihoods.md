@@ -133,6 +133,89 @@ $R_i$. $\sigma_{\mathrm{extra}}$, $\sigma_{\mathrm{def}}$, $\sigma_{\mathrm{sel}
 sampled. Set `sigma_sel_prior=None` to drop the selection term (as the production fits do) or `sigma_extra_prior=None` to drop
 $\sigma_{\mathrm{extra}}$.
 
+## Uncertain images
+
+Candidate images whose family is unknown can be fit with the lens (`PartitionConfig`, `config.partition`). Each
+uncertain image may be a new image of a trusted family, an image of a new source it shares with other uncertain images,
+or unrelated to every other image. The trusted families of the image catalog are kept as given, and the choice for each
+uncertain image is summed out of the likelihood, so NUTS samples the lens with the assignment marginalized.
+
+```python
+from lenscluster.config import PartitionConfig
+
+config = replace(config, partition=PartitionConfig(catalog_path="uncertain_images.csv",
+                                                   population_catalog_path="field_photometry.csv"))
+```
+
+The init stage fits the trusted families as usual; the uncertain images enter at the final stage.
+
+### Source slots
+
+A slot is a source an uncertain image may come from, with source position $\beta_k$, redshift $z_k$ and intrinsic
+colors $c_k$. The trusted families are slots whose source is the one sampled above, at their catalog redshift. New
+slots are extra sources whose position, redshift and colors are sampled. For image $i$ and slot $k$,
+
+$$
+p(D_i \mid k) = \mathcal N\big(b_i(z_k) \mid \beta_k,\, C_i(z_k)\big)\, h_i
+\;\mathcal N(\hat z_i \mid z_k, \sigma_{z,i}^2)\; p(\mathbf c_i \mid \mathbf c_k),
+$$
+
+where the first factor is the per-image term of the trusted images, at the slot's redshift: the source-plane Gaussian
+with the covariance $C_i$ of the configured likelihood and the smoothed $|\det A_i|$. The colors scatter about the
+source's with a same-source scatter (fit on the trusted families unless `color_scatter` is set) and, for a fraction
+`outlier_fraction`, a broad outlier scatter; for a trusted slot the color term is the predictive of the family's own
+members. Given the lens and the slot parameters the images are independent, so each image's choice sums out:
+
+$$
+\ln L_{\mathrm{slots}} = \sum_i \ln\Big[\pi_0\, E_i + \sum_k \pi_k\, p(D_i \mid k)\Big],
+$$
+
+added to the likelihood of the trusted images. $E_i$ is the evidence of the image as the only image of its own
+source: the same terms integrated over the source position (analytically) and redshift (on a grid). The weights are
+fixed: $\pi_0$ = `unrelated_fraction` (0.5), the rest shared equally by the slots. The redshift and colors of a new or
+unrelated source follow a Gaussian mixture fit to `population_catalog_path` in (redshift, colors), and its position the
+Gaussian prior of width `source_prior_sigma_arcsec` (default: that of the trusted sources). That width sets the cost of
+a source, about $\ln(2\pi\sigma^2)$ in evidence, and so how readily a lone image joins one.
+
+Expanding the product over images of the sums over slots gives one term per assignment of images to slots, and
+integrating each slot's parameters over its prior turns the images assigned to it into the evidence $E_F$ of that
+family:
+
+$$
+\int \prod_i \sum_k \pi_k\, p(D_i \mid \beta_k, z_k, \mathbf c_k)\; p(\beta, z, \mathbf c)\; d\beta\, dz\, d\mathbf c
+= \sum_{Z} p(Z) \prod_{F \in Z} E_F,
+$$
+
+the sum over every partition $Z$ of the images, with the prior $p(Z)$ the weights induce. Summing out the labels with
+the sources kept as parameters costs one term per image and slot; NUTS integrates the sources. Each posterior draw gives
+the probability of every option per image, from which the outputs draw joint assignments.
+
+### Seeding and limits
+
+A slot far from every image feels no gradient, so new slots are placed before sampling: at the init start, two
+uncertain images are linked when the evidence of the pair as one new source beats each image's best alternative
+(unrelated, or its best trusted family) by more than `slot_gain_threshold`, and one slot is placed on each linked
+group. Groupings the seeding misses are not reached during sampling.
+
+The deflection is proportional to the lensing efficiency except for the external shear, so one evaluation of the lens
+at each uncertain image serves every slot redshift. Uncertain images get the diagonal blocks of the configured
+covariance: under `gp_image_plane` they are not correlated with other images, and with the knee kernel their
+deflection floor carries the GRF amplitudes weighted by $w$ at the slot's redshift (`knee_background` is not
+supported). The model assigns detected images only: it does not penalize a family whose predicted bright images are
+undetected, and two detections of one image (knots, a shredded arc) can attach to one source.
+
+### Input and outputs
+
+`catalog_path` is a CSV table with `image_label`, `ra`, `dec` (degrees) and optionally `sigma_arcsec`, `parity`,
+redshifts (`zspec_best`, `catalog_z` or `zphot_best`, with `catalog_z_sigma` or `pagul_zpdf_low`/`pagul_zpdf_high`) and
+`mag_<band>`, `mag_err_<band>`; colors are differences of adjacent bands in `bands`. `population_catalog_path` is a CSV
+photometric catalog of the field with a redshift column and the same bands; without it the mixture is fit on the
+trusted and uncertain images, which is crude.
+
+The final stage writes `final/artifacts/slots.npz` (per-draw option probabilities and sampled assignments, their
+averages, the probability that two images share a source, and the new slots' redshifts and positions) and the tables
+`uncertain_images.csv` and `uncertain_pairs.csv`. The new slots' sampled parameters (`slot.<k>.*`) are unit offsets.
+
 ## Astrometric errors
 
 $\sigma_{\mathrm{inst}}$ comes from each image's `sigma` in the catalog, otherwise from

@@ -17,7 +17,7 @@ A run writes everything under its run root, `<output_dir>/<run_name>/` from
 
 `final/artifacts/`
 : `config.json` and `config.pkl`, `posterior.npz`, `audit.json`, `summary.json`, and with uncertain images
-  `slots.npz` (see {doc}`uncertain-images`).
+  `slots.npz` (see {doc}`likelihoods`).
 
 `final/tables/`
 : `posterior_summary.csv`, `member_classification.csv`, `member_scaling_relation.csv`, `image_fit_quality.csv`,

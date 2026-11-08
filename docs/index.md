@@ -27,7 +27,6 @@ quickstart
 catalogs
 configuration
 likelihoods
-uncertain-images
 pipeline
 outputs
 mock-validation

@@ -1,0 +1,639 @@
+# Built on 2026-11-08 by scripts/build_master_catalog.py; do not edit.
+cluster: a2744
+built: '2026-11-08'
+base: bergamini2023b
+match_radius_arcsec: 0.5
+dz_max: 0.01
+frames:
+  bergamini2023b:
+    applied_arcsec: [0.0, 0.0]
+    note: base frame
+  bergamini2023a:
+    applied_arcsec: [-0.0373, -0.0756]
+    n_matches: 88
+    median_residual_arcsec: 0.0072
+  furtak2023:
+    applied_arcsec: [-0.0316, -0.0716]
+    n_matches: 128
+    median_residual_arcsec: 0.012
+  mahler2018:
+    applied_arcsec: [-0.023, -0.0972]
+    n_matches: 75
+    median_residual_arcsec: 0.0273
+counts: {master_systems: 37, gold_systems: 24, images: 108, left_out_groups: 36, free_z_systems: 2, candidate_images: 25, conflicts: 0}
+systems:
+  '1':
+    from: bergamini2023b
+    papers:
+      bergamini2023b: ['1']
+      bergamini2023a: ['1']
+      furtak2023: ['1']
+      mahler2018: ['1', '60']
+    z:
+      bergamini2023b:1: [1.688, spec]
+      bergamini2023a:1: [1.688, spec]
+      furtak2023:1: [1.6881, spec]
+      mahler2018:1: [1.688, spec]
+      mahler2018:60: [1.6981, model]
+  '2':
+    from: bergamini2023b
+    papers:
+      bergamini2023b: ['2']
+      bergamini2023a: ['2']
+      furtak2023: ['2']
+      mahler2018: ['2']
+    z:
+      bergamini2023b:2: [1.887, spec]
+      bergamini2023a:2: [1.887, spec]
+      furtak2023:2: [1.8868, spec]
+      mahler2018:2: [1.8876, spec]
+  '3':
+    from: bergamini2023b
+    papers:
+      bergamini2023b: ['3']
+      bergamini2023a: ['3']
+      furtak2023: ['3']
+      mahler2018: ['3']
+    z:
+      bergamini2023b:3: [3.98, spec]
+      bergamini2023a:3: [3.981, spec]
+      furtak2023:3: [3.9805, spec]
+      mahler2018:3: [3.9803, spec]
+  '4':
+    from: bergamini2023b
+    papers:
+      bergamini2023b: ['4']
+      bergamini2023a: ['4']
+      furtak2023: ['4']
+      mahler2018: ['4']
+    z:
+      bergamini2023b:4: [3.577, spec]
+      bergamini2023a:4: [3.577, spec]
+      furtak2023:4: [3.577, spec]
+      mahler2018:4: [3.5769, spec]
+  '6':
+    from: bergamini2023b
+    papers:
+      bergamini2023b: ['6']
+      bergamini2023a: ['6']
+      furtak2023: ['6']
+      mahler2018: ['6']
+    z:
+      bergamini2023b:6: [2.017, spec]
+      bergamini2023a:6: [2.017, spec]
+      furtak2023:6: [2.0171, spec]
+      mahler2018:6: [2.016, spec]
+  '8':
+    from: bergamini2023b
+    papers:
+      bergamini2023b: ['8']
+      bergamini2023a: ['8']
+      furtak2023: ['8']
+      mahler2018: ['8']
+    z:
+      bergamini2023b:8: [3.977, spec]
+      bergamini2023a:8: [3.977, spec]
+      furtak2023:8: [3.9766, spec]
+      mahler2018:8: [3.975, spec]
+  '10':
+    from: bergamini2023b
+    papers:
+      bergamini2023b: ['10']
+      mahler2018: ['10']
+    z:
+      bergamini2023b:10: [2.657, spec]
+      mahler2018:10: [2.6565, spec]
+  '18':
+    from: bergamini2023b
+    papers:
+      bergamini2023b: ['18']
+      bergamini2023a: ['18']
+      furtak2023: ['18']
+      mahler2018: ['18']
+    z:
+      bergamini2023b:18: [5.662, spec]
+      bergamini2023a:18: [5.662, spec]
+      furtak2023:18: [5.6624, spec]
+      mahler2018:18: [5.6625, spec]
+  '22':
+    from: bergamini2023b
+    papers:
+      bergamini2023b: ['22']
+      bergamini2023a: ['22']
+      furtak2023: ['22']
+      mahler2018: ['22']
+    z:
+      bergamini2023b:22: [5.284, spec]
+      bergamini2023a:22: [5.284, spec]
+      furtak2023:22: [5.28405, spec]
+      mahler2018:22: [5.2845, spec]
+  '24':
+    from: bergamini2023b
+    papers:
+      bergamini2023b: ['24']
+      mahler2018: ['24']
+    z:
+      bergamini2023b:24: [1.044, spec]
+      mahler2018:24: [1.043, spec]
+  '26':
+    from: bergamini2023b
+    papers:
+      bergamini2023b: ['26']
+      bergamini2023a: ['26']
+      furtak2023: ['26']
+      mahler2018: ['26']
+    z:
+      bergamini2023b:26: [3.054, spec]
+      bergamini2023a:26: [3.054, spec]
+      furtak2023:26: [3.0542, spec]
+      mahler2018:26: [3.0537, spec]
+  '30':
+    from: bergamini2023b
+    papers:
+      bergamini2023b: ['30']
+      mahler2018: ['30']
+    z:
+      bergamini2023b:30: [1.026, spec]
+      mahler2018:30: [1.0252, spec]
+  '31':
+    from: bergamini2023b
+    papers:
+      bergamini2023b: ['31']
+      furtak2023: ['85']
+      mahler2018: ['31']
+    z:
+      bergamini2023b:31: [4.757, spec]
+      furtak2023:85: [4.7525, spec]
+      mahler2018:31: [4.7594, spec]
+  '33':
+    from: bergamini2023b
+    papers:
+      bergamini2023b: ['33']
+      bergamini2023a: ['33']
+      furtak2023: ['33']
+      mahler2018: ['33']
+    z:
+      bergamini2023b:33: [5.726, spec]
+      bergamini2023a:33: [5.726, spec]
+      furtak2023:33: [5.7256, spec]
+      mahler2018:33: [5.7255, spec]
+  '34':
+    from: bergamini2023b
+    papers:
+      bergamini2023b: ['34']
+      bergamini2023a: ['34']
+      furtak2023: ['34']
+      mahler2018: ['34']
+    z:
+      bergamini2023b:34: [3.784, spec]
+      bergamini2023a:34: [3.784, spec]
+      furtak2023:34: [3.78565, spec]
+      mahler2018:34: [3.785, spec]
+  '41':
+    from: bergamini2023b
+    papers:
+      bergamini2023b: ['41']
+      mahler2018: ['41']
+    z:
+      bergamini2023b:41: [4.91, spec]
+      mahler2018:41: [4.9113, spec]
+  '42':
+    from: bergamini2023b
+    papers:
+      bergamini2023b: ['42']
+      bergamini2023a: ['42']
+      furtak2023: ['42']
+      mahler2018: ['42']
+    z:
+      bergamini2023b:42: [3.692, spec]
+      bergamini2023a:42: [3.692, spec]
+      furtak2023:42: [3.6919, spec]
+      mahler2018:42: [3.6915, spec]
+  '61':
+    from: bergamini2023b
+    papers:
+      bergamini2023b: ['61']
+      bergamini2023a: ['61']
+      furtak2023: ['61']
+      mahler2018: ['61']
+    z:
+      bergamini2023b:61: [2.951, spec]
+      bergamini2023a:61: [2.951, spec]
+      furtak2023:61: [2.9509, spec]
+      mahler2018:61: [2.951, spec]
+  '62':
+    from: bergamini2023b
+    papers:
+      bergamini2023b: ['62']
+      bergamini2023a: ['62']
+      furtak2023: ['62']
+      mahler2018: ['62']
+    z:
+      bergamini2023b:62: [4.194, spec]
+      bergamini2023a:62: [4.194, spec]
+      furtak2023:62: [4.1936, spec]
+      mahler2018:62: [4.1935, spec]
+  '63':
+    from: bergamini2023b
+    papers:
+      bergamini2023b: ['63']
+      bergamini2023a: ['63']
+      furtak2023: ['63']
+      mahler2018: ['63']
+    z:
+      bergamini2023b:63: [5.662, spec]
+      bergamini2023a:63: [5.662, spec]
+      furtak2023:63: [5.6615, spec]
+      mahler2018:63: [5.6616, spec]
+  '64':
+    from: bergamini2023b
+    papers:
+      bergamini2023b: ['64']
+      bergamini2023a: ['64']
+      furtak2023: ['64']
+      mahler2018: ['64']
+    z:
+      bergamini2023b:64: [3.409, spec]
+      bergamini2023a:64: [3.409, spec]
+      furtak2023:64: [3.4086, spec]
+      mahler2018:64: [3.4087, spec]
+  JD1:
+    from: bergamini2023b
+    papers:
+      bergamini2023b: [JD1]
+      furtak2023: ['83']
+      mahler2018: ['46']
+    z:
+      bergamini2023b:JD1: [9.756, spec]
+      furtak2023:83: [9.76, spec]
+      mahler2018:46: [4.9368, model]
+  '600':
+    from: bergamini2023b
+    papers:
+      bergamini2023b: ['600']
+      furtak2023: ['68']
+    z:
+      bergamini2023b:600: [2.58, spec]
+      furtak2023:68: [2.584, spec]
+  '28':
+    from: bergamini2023b
+    papers:
+      bergamini2023b: ['28']
+      furtak2023: ['84']
+      mahler2018: ['28']
+    z:
+      bergamini2023b:28: [0.0, free]
+      furtak2023:84: [6.873, spec]
+      mahler2018:28: [6.5166, model]
+  '53':
+    from: bergamini2023b
+    papers:
+      bergamini2023b: ['53']
+      furtak2023: ['53']
+      mahler2018: ['53']
+    z:
+      bergamini2023b:53: [0.0, free]
+      furtak2023:53: [7.04, spec]
+      mahler2018:53: [6.8098, model]
+  A200:
+    from: bergamini2023b
+    papers:
+      bergamini2023b: [A200, B200, C200]
+      furtak2023: ['65']
+    z:
+      bergamini2023b:A200: [0.0, free]
+      bergamini2023b:B200: [0.0, free]
+      bergamini2023b:C200: [0.0, free]
+      furtak2023:65: [3.5194, spec]
+  B200:
+    from: bergamini2023b
+    papers:
+      bergamini2023b: [A200, B200, C200]
+      furtak2023: ['65']
+    z:
+      bergamini2023b:A200: [0.0, free]
+      bergamini2023b:B200: [0.0, free]
+      bergamini2023b:C200: [0.0, free]
+      furtak2023:65: [3.5194, spec]
+  C200:
+    from: bergamini2023b
+    papers:
+      bergamini2023b: [A200, B200, C200]
+      furtak2023: ['65']
+    z:
+      bergamini2023b:A200: [0.0, free]
+      bergamini2023b:B200: [0.0, free]
+      bergamini2023b:C200: [0.0, free]
+      furtak2023:65: [3.5194, spec]
+  '601':
+    from: bergamini2023b
+    papers:
+      bergamini2023b: ['601']
+      furtak2023: ['67']
+    z:
+      bergamini2023b:601: [0.0, free]
+      furtak2023:67: [2.322, spec]
+  '602':
+    from: bergamini2023b
+    papers:
+      bergamini2023b: ['602']
+      furtak2023: ['69']
+    z:
+      bergamini2023b:602: [0.0, free]
+      furtak2023:69: [2.4109, spec]
+  '700':
+    from: bergamini2023b
+    papers:
+      bergamini2023b: ['700']
+      furtak2023: ['78']
+    z:
+      bergamini2023b:700: [0.0, free]
+      furtak2023:78: [2.3151, spec]
+  F86:
+    from: furtak2023
+    papers:
+      furtak2023: ['86']
+    z:
+      furtak2023:86: [6.875, spec]
+  F70:
+    from: furtak2023
+    papers:
+      furtak2023: ['70']
+    z:
+      furtak2023:70: [2.3915, spec]
+  F72:
+    from: furtak2023
+    papers:
+      furtak2023: ['72']
+    z:
+      furtak2023:72: [3.7468, spec]
+  F74:
+    from: furtak2023
+    papers:
+      furtak2023: ['74']
+    z:
+      furtak2023:74: [2.3743, spec]
+  F80:
+    from: furtak2023
+    papers:
+      furtak2023: ['80']
+    z:
+      furtak2023:80: [3.67289, spec]
+  F81:
+    from: furtak2023
+    papers:
+      furtak2023: ['81']
+    z:
+      furtak2023:81: [3.4793, spec]
+excluded: {}
+conflicts: []
+candidate_images:
+- paper_image: bergamini2023a:2F.d
+  base_systems: ['2']
+  also_in: []
+- paper_image: bergamini2023a:34A.c
+  base_systems: ['34']
+  also_in: ['furtak2023:34A.c', 'mahler2018:34.c']
+- paper_image: furtak2023:34A.c
+  base_systems: ['34']
+  also_in: ['bergamini2023a:34A.c', 'mahler2018:34.c']
+- paper_image: mahler2018:34.c
+  base_systems: ['34']
+  also_in: ['bergamini2023a:34A.c', 'furtak2023:34A.c']
+- paper_image: furtak2023:2F.c
+  base_systems: ['2']
+  also_in: []
+- paper_image: furtak2023:84.b
+  base_systems: ['28']
+  also_in: ['mahler2018:28.d']
+- paper_image: mahler2018:28.d
+  base_systems: ['28']
+  also_in: ['furtak2023:84.b']
+- paper_image: furtak2023:67B.a
+  base_systems: ['601']
+  also_in: []
+- paper_image: furtak2023:67C.a
+  base_systems: ['601']
+  also_in: []
+- paper_image: furtak2023:67B.b
+  base_systems: ['601']
+  also_in: []
+- paper_image: furtak2023:67C.b
+  base_systems: ['601']
+  also_in: []
+- paper_image: furtak2023:68D.a
+  base_systems: ['600']
+  also_in: []
+- paper_image: furtak2023:68D.b
+  base_systems: ['600']
+  also_in: []
+- paper_image: furtak2023:68D.c
+  base_systems: ['600']
+  also_in: []
+- paper_image: furtak2023:78A.a
+  base_systems: ['700']
+  also_in: []
+- paper_image: furtak2023:78C.a
+  base_systems: ['700']
+  also_in: []
+- paper_image: furtak2023:78A.b
+  base_systems: ['700']
+  also_in: []
+- paper_image: furtak2023:78C.b
+  base_systems: ['700']
+  also_in: []
+- paper_image: furtak2023:78A.c
+  base_systems: ['700']
+  also_in: []
+- paper_image: mahler2018:4.d
+  base_systems: ['4']
+  also_in: []
+- paper_image: mahler2018:8.c
+  base_systems: ['8']
+  also_in: []
+- paper_image: mahler2018:10.c
+  base_systems: ['10']
+  also_in: []
+- paper_image: mahler2018:31.c
+  base_systems: ['31']
+  also_in: []
+- paper_image: mahler2018:33.c
+  base_systems: ['33']
+  also_in: []
+- paper_image: mahler2018:53.c
+  base_systems: ['53']
+  also_in: []
+left_out:
+- papers:
+    furtak2023: ['71']
+  z:
+    furtak2023:71: [0.0, free]
+- papers:
+    furtak2023: ['77']
+  z:
+    furtak2023:77: [1.736, phot]
+- papers:
+    furtak2023: ['82']
+  z:
+    furtak2023:82: [0.0, free]
+- papers:
+    mahler2018: ['5']
+  z:
+    mahler2018:5: [4.0225, spec]
+- papers:
+    mahler2018: ['105']
+  z:
+    mahler2018:105: [4.0225, spec]
+- papers:
+    mahler2018: ['9']
+  z:
+    mahler2018:9: [2.3556, model]
+- papers:
+    mahler2018: ['11']
+  z:
+    mahler2018:11: [2.4508, model]
+- papers:
+    mahler2018: ['12']
+  z:
+    mahler2018:12: [3.6388, model]
+- papers:
+    mahler2018: ['13']
+  z:
+    mahler2018:13: [1.3905, model]
+- papers:
+    mahler2018: ['14']
+  z:
+    mahler2018:14: [2.571, model]
+- papers:
+    mahler2018: ['19']
+  z:
+    mahler2018:19: [1.9902, model]
+- papers:
+    mahler2018: ['20']
+  z:
+    mahler2018:20: [2.5127, model]
+- papers:
+    mahler2018: ['21']
+  z:
+    mahler2018:21: [2.564, model]
+- papers:
+    mahler2018: ['23']
+  z:
+    mahler2018:23: [4.4156, model]
+- papers:
+    mahler2018: ['25']
+  z:
+    mahler2018:25: [1.2168, model]
+- papers:
+    mahler2018: ['27']
+  z:
+    mahler2018:27: [2.485, model]
+- papers:
+    mahler2018: ['29']
+  z:
+    mahler2018:29: [1.9859, model]
+- papers:
+    mahler2018: ['32']
+  z:
+    mahler2018:32: [5.6678, model]
+- papers:
+    mahler2018: ['35']
+  z:
+    mahler2018:35: [2.656, spec]
+- papers:
+    mahler2018: ['36']
+  z:
+    mahler2018:36: [3.9291, model]
+- papers:
+    mahler2018: ['37']
+  z:
+    mahler2018:37: [2.6501, spec]
+- papers:
+    mahler2018: ['38']
+  z:
+    mahler2018:38: [5.4665, model]
+- papers:
+    mahler2018: ['39']
+  z:
+    mahler2018:39: [4.015, spec]
+- papers:
+    mahler2018: ['40']
+  z:
+    mahler2018:40: [4.0, spec]
+- papers:
+    mahler2018: ['43']
+  z:
+    mahler2018:43: [5.8998, model]
+- papers:
+    mahler2018: ['44']
+  z:
+    mahler2018:44: [2.224, model]
+- papers:
+    mahler2018: ['45']
+  z:
+    mahler2018:45: [5.9555, model]
+- papers:
+    mahler2018: ['47']
+  z:
+    mahler2018:47: [4.0225, spec]
+- papers:
+    mahler2018: ['147']
+  z:
+    mahler2018:147: [4.0225, spec]
+- papers:
+    mahler2018: ['48']
+  z:
+    mahler2018:48: [1.7775, model]
+- papers:
+    mahler2018: ['49']
+  z:
+    mahler2018:49: [1.1172, model]
+- papers:
+    mahler2018: ['50']
+  z:
+    mahler2018:50: [4.9179, model]
+- papers:
+    mahler2018: ['51']
+  z:
+    mahler2018:51: [4.7621, model]
+- papers:
+    mahler2018: ['52']
+  z:
+    mahler2018:52: [1.0097, model]
+- papers:
+    mahler2018: ['54']
+  z:
+    mahler2018:54: [5.4223, model]
+- papers:
+    mahler2018: ['59']
+  z:
+    mahler2018:59: [4.0575, model]
+free_z:
+- system: '7'
+  papers:
+    bergamini2023b: ['7']
+    mahler2018: ['7']
+  z:
+    bergamini2023b:7: [0.0, free]
+    mahler2018:7: [2.5791, model]
+- system: '301'
+  papers:
+    bergamini2023b: ['301']
+    furtak2023: ['66']
+  z:
+    bergamini2023b:301: [0.0, free]
+    furtak2023:66: [2.2931, phot]
+members:
+  counts: {bergamini2023a: 225, furtak2023: 419}
+  only_in:
+    furtak2023: ['10030', '10085', '10146', '10161', '10203', '1022', '10243', '10244', '10267', '10301', '10322', '10330', '10333', '10378', '10421', '10487', '10504',
+      '10505', '1052', '10546', '10547', '10663', '1067', '10670', '10674', '10679', '10685', '10691', '10722', '10738', '10797', '10815', '10865', '10961', '11009',
+      '11072', '11081', '11140', '11174', '11190', '11216', '11233', '11343', '11361', '11383', '11409', '11418', '1148', '11498', '11515', '11550', '1160', '11641',
+      '11684', '11705', '1183', '11918', '120', '12049', '12089', '12102', '12250', '12296', '12342', '1240', '1246', '12590', '12600', '12690', '12825', '12954',
+      '12961', '1305', '1311', '1377', '1415', '1446', '1697', '173', '1771', '1827', '1832', '1985', '1989', '2029', '2033', '2095', '221', '2328', '2360', '239',
+      '248', '2485', '2486', '2515', '2531', '2568', '262', '2624', '265', '2751', '2764', '2829', '288', '2921', '2952', '2974', '3016', '3027', '3108', '3235',
+      '3408', '3486', '3568', '378', '3787', '3833', '388', '394', '4054', '4527', '4631', '4813', '4856', '4866', '5025', '5058', '552', '5625', '5633', '568', '5817',
+      '5878', '602', '6215', '6276', '650', '6689', '688', '73', '7300', '733', '7410', '7590', '783', '7853', '7898', '7950', '801', '8029', '8103', '811', '8279',
+      '8287', '83', '8317', '8324', '8389', '8422', '8432', '8536', '8639', '8647', '8696', '8732', '8752', '880', '8828', '8829', '8884', '8913', '8932', '8993',
+      '9102', '9124', '9176', '920', '9251', '9317', '9381', '9501', '9535', '9544', '957', '9577', '9648', '9656', '9668', '9694', '9767', '9778', '9793', '9797',
+      '9879', '9886', '9914']

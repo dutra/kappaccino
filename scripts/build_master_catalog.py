@@ -6,7 +6,7 @@ Reads ``master/sources.yaml`` (the papers, which is the base, the match radius a
     images.yaml        the base paper's systems, plus systems from other papers the policy or a decision adds
     images_gold.yaml   the systems of images.yaml found in at least two independent papers (a paper with
                        ``derived_from: <paper>`` reused that paper's images and does not count separately)
-    members.yaml       the base paper's members, each noted with the papers that list it
+    members.yaml       the members of ``members_base`` (default the base paper), each noted with the papers that list it
     crossmatch.yaml    every paper's systems and images matched to each other, the frame offsets, the conflicts
 
 Positions are matched per (system, knot, image): each paper is first shifted onto the base frame by the median offset
@@ -17,7 +17,8 @@ that saw that source (one paper may split it into several systems, e.g. knots co
 Policy.  A group with a base system enters with the base system unchanged: names, knots, positions, z.  If the base z
 is not spectroscopic and a linked system's is, the spectroscopic z replaces it.  Two spectroscopic z that disagree by
 more than ``dz_max`` in |dz| / (1 + z) are a conflict: the base z stays and the conflict is listed until a decision
-settles it.  A group without a base system enters when a paper listing it has ``add_systems: spec`` (and gives a
+settles it.  A base system whose z is free (Lenstool's z = 0) and gets no spectroscopic z from a linked system
+is left out and listed under ``free_z`` (a ``set_z`` decision brings it in).  A group without a base system enters when a paper listing it has ``add_systems: spec`` (and gives a
 spectroscopic z) or ``add_systems: all``, taking that paper's systems renamed with its ``prefix`` and shifted onto the
 base frame; the first such paper in sources.yaml order wins.  Images another paper lists for a base system but the
 base does not are candidates in crossmatch.yaml, not added.
@@ -85,7 +86,8 @@ class Paper:
         notes = str(entry.get("notes", "")).lower()
         if float(entry["z"]) <= 0.0:
             return float(entry["z"]), "free"   # Lenstool's z = 0: the redshift is a free parameter of the model
-        kind = "spec" if "spectroscopic" in notes else "model" if "geometric" in notes or "model" in notes else self.z_kind
+        kind = ("spec" if "spectroscopic" in notes else "phot" if "photometric" in notes
+                else "model" if "geometric" in notes or "model" in notes else self.z_kind)
         return float(entry["z"]), kind
 
     def label(self, i: int) -> str:
@@ -178,7 +180,7 @@ def build(master_dir: Path) -> None:
     set_z = {d["set_z"]: (float(d["z"]), d["reason"]) for d in decisions if "set_z" in d}
     master: OrderedDict = OrderedDict()
     record: OrderedDict = OrderedDict()
-    conflicts, candidates, left_out = [], [], []
+    conflicts, candidates, left_out, free_z = [], [], [], []
 
     def group_record(members):
         by_paper = defaultdict(list)
@@ -209,6 +211,9 @@ def build(master_dir: Path) -> None:
                 entry = dict(base.systems[system])
                 z, kind = base.z_of(system)
                 z, kind, note = choose_z(z, kind, members, system)
+                if kind == "free" and system not in set_z:
+                    free_z.append({"system": system, **rec})   # a fit needs a z: a set_z decision brings it in
+                    continue
                 entry["z"] = z
                 if note:
                     entry["notes"] = "; ".join(filter(None, [str(entry.get("notes", "")), note]))
@@ -283,20 +288,22 @@ def build(master_dir: Path) -> None:
     write_image_catalog(master_dir / "images_gold.yaml", gold, defaults=defaults,
                         header=header + f"\nGold: the {len(gold)} systems found in at least two independent papers.")
 
-    members_record = write_members(master_dir, config, papers, base, reference, radius)
+    members_record = write_members(master_dir, config, papers, papers[config.get("members_base", base_name)], reference, radius)
     crossmatch = OrderedDict(
         cluster=config["cluster"], built=date.today().isoformat(), base=base_name, match_radius_arcsec=radius, dz_max=dz_max,
         frames=frames,
         counts={"master_systems": len(systems_out), "gold_systems": len(gold), "images": n_images,
-                "left_out_groups": len(left_out), "candidate_images": len(candidates), "conflicts": len(conflicts)},
+                "left_out_groups": len(left_out), "free_z_systems": len(free_z), "candidate_images": len(candidates),
+                "conflicts": len(conflicts)},
         systems=OrderedDict((name, {"from": master[name][2], **record[name]}) for name in systems_out),
         excluded={name: reason for name, reason in exclude.items()},
-        conflicts=conflicts, candidate_images=candidates, left_out=left_out, members=members_record)
+        conflicts=conflicts, candidate_images=candidates, left_out=left_out, free_z=free_z, members=members_record)
     text = yaml.safe_dump(to_plain(crossmatch), sort_keys=False, width=160, default_flow_style=None)
     (master_dir / "crossmatch.yaml").write_text(
         f"# Built on {date.today().isoformat()} by scripts/build_master_catalog.py; do not edit.\n" + text, encoding="utf-8")
     print(f"{config['cluster']}: {len(systems_out)} systems ({len(gold)} gold), {n_images} images; "
-          f"{len(left_out)} groups left out, {len(candidates)} candidate images, {len(conflicts)} conflicts")
+          f"{len(left_out)} groups left out, {len(free_z)} free-z base systems, {len(candidates)} candidate images, "
+          f"{len(conflicts)} conflicts")
     for name, frame in frames.items():
         print(f"  frame {name}: {frame}")
 

@@ -1,0 +1,300 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VOTABLE version="1.4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns="http://www.ivoa.net/xml/VOTable/v1.3"
+  xsi:schemaLocation="http://www.ivoa.net/xml/VOTable/v1.3 http://www.ivoa.net/xml/VOTable/v1.3">
+ <DESCRIPTION>
+   VizieR Astronomical Server vizier.cfa.harvard.edu
+    Date: 2026-11-08T19:09:41 [V7.6.1]
+   Explanations and Statistics of UCDs:			See LINK below
+   In case of problem, please report to:	cds-question@unistra.fr
+ </DESCRIPTION>
+<!-- VOTable description at http://www.ivoa.net/Documents/latest/VOT.html -->
+<INFO name="service_protocol" value="ASU">  IVOID of the protocol through which the data was retrieved</INFO>
+<INFO name="request_date" value="2026-11-08T19:09:41">  Query execution date</INFO>
+<INFO name="request" value="https://vizier.cfa.harvard.edu/viz-bin/votable?-source=J%2fMNRAS%2f473%2f663%2ftablea1&amp;-out.max=unlimited&amp;-out.all">  Full request URL</INFO>
+<INFO name="contact" value="cds-question@unistra.fr">  Email or URL to contact publisher</INFO>
+<INFO name="server_software" value="VizieR/7.6.1">  Software version</INFO>
+<INFO name="publisher" value="CDS">  Data centre that produced the VOTable</INFO>
+
+<!--
+Execution Reports
+ -->
+
+<RESOURCE ID="yCat_74730663" name="J/MNRAS/473/663" type="results">
+  <DESCRIPTION>MUSE and HFFs Photometry of A2744 (Mahler+, 2018)</DESCRIPTION>  <INFO name="ivoid" value="ivo://cds.vizier/j/mnras/473/663">    IVOID of underlying data collection  </INFO>
+  <INFO name="data_ivoid" value="ivo://cds.vizier/j/mnras/473/663">    IVOID of underlying data collection  </INFO>
+  <INFO name="creator" value="Mahler G.">    First author or institution  </INFO>
+  <INFO name="cites" value="bibcode:2018MNRAS.473..663M">    Article or Data origin sources  </INFO>
+  <INFO name="journal" value="MNRA">    Journal name  </INFO>
+  <INFO name="original_date" value="2018">    Year of the article publication  </INFO>
+  <INFO name="reference_url" value="https://cdsarc.cds.unistra.fr/viz-bin/cat/J/MNRAS/473/663">    Dataset landing page  </INFO>
+  <INFO name="citation" value="doi:10.26093/cds/vizier.74730663">    Dataset identifier that can be used for citation  </INFO>
+  <INFO name="publication_date" value="2024-08-18">    Date of first publication in the data centre  </INFO>
+  <INFO name="rights_uri" value="https://cds.unistra.fr/vizier-org/licences_vizier.html">    Licence URI  </INFO>
+
+  <COOSYS ID="J2000" system="eq_FK5" equinox="J2000"/>
+  <TABLE ID="J_MNRAS_473_663_tablea1" name="J/MNRAS/473/663/tablea1">
+    <DESCRIPTION>Multiply imaged systems considered in this work</DESCRIPTION>
+    <!-- Definitions of GROUPs and FIELDs -->
+
+<!-- +++No column could be found to attach a LINK in table: J/MNRAS/473/663/tablea1 -->
+    <FIELD name="recno" ucd="meta.record" datatype="int" width="8"><!-- ucd="RECORD" -->
+      <DESCRIPTION>Record number assigned by the VizieR team. Should Not be used for identification.</DESCRIPTION>
+      <LINK href="http://vizier.cfa.harvard.edu/viz-bin/VizieR-5?-info=XML&amp;-out.add=.&amp;-source=J/MNRAS/473/663/tablea1&amp;recno=${recno}"/>
+    </FIELD>
+    <FIELD name="MUL" ucd="meta.id" datatype="float" width="5" precision="1"><!-- ucd="ID_NUMBER" -->
+      <DESCRIPTION>Multiple image ID</DESCRIPTION>
+      <LINK href="http://vizier.cfa.harvard.edu/viz-bin/VizieR-4?-info=XML&amp;-out.add=.&amp;-source=J/MNRAS/473/663&amp;MUL=${MUL}"/>
+    </FIELD>
+    <FIELD name="RAJ2000" ucd="pos.eq.ra;meta.main" ref="J2000" datatype="double" width="12" precision="8" unit="deg"><!-- ucd="POS_EQ_RA_MAIN" -->
+      <DESCRIPTION>Right ascension (J2000)</DESCRIPTION>
+    </FIELD>
+    <FIELD name="DEJ2000" ucd="pos.eq.dec;meta.main" ref="J2000" datatype="double" width="10" precision="6" unit="deg"><!-- ucd="POS_EQ_DEC_MAIN" -->
+      <DESCRIPTION>Declination (J2000)</DESCRIPTION>
+    </FIELD>
+    <FIELD name="zref" ucd="src.redshift;pos.heliocentric" datatype="char" arraysize="3"><!-- ucd="REDSHIFT_HC" -->
+      <DESCRIPTION>Previous studies reporting spectroscopic redshifts in agreement with our detection (1)</DESCRIPTION>
+      <LINK href="http://vizier.cfa.harvard.edu/viz-bin/VizieR?-6N&amp;-info=XML&amp;-out.add=.&amp;&amp;lt;&amp;quot;Note&amp;quot;&amp;catid=74730663&amp;notid=2&amp;-out.emph=${zref}"/>
+    </FIELD>
+    <FIELD name="zspec" ucd="src.redshift" datatype="float" width="7" precision="4"><!-- ucd="REDSHIFT_HC" -->
+      <DESCRIPTION>? Spectroscopic redshift</DESCRIPTION>
+      <VALUES null="NaN" />
+    </FIELD>
+    <FIELD name="confid" ucd="stat.fit.goodness" datatype="unsignedByte" width="1"><!-- ucd="FIT_GOODNESS" -->
+      <DESCRIPTION>[1/3]? Confidence level attached to the spectroscopic identification of the redshift (G1)</DESCRIPTION>
+      <VALUES null="255" />
+    </FIELD>
+    <FIELD name="zmod" ucd="src.redshift;pos.heliocentric" datatype="float" width="7" precision="4"><!-- ucd="REDSHIFT_HC" -->
+      <DESCRIPTION>? Model redshift</DESCRIPTION>
+      <VALUES null="NaN" />
+    </FIELD>
+    <FIELD name="E_zmod" ucd="stat.error;stat.max" datatype="float" width="7" precision="4"><!-- ucd="ERROR" -->
+      <DESCRIPTION>? Error on zmod (upper value)</DESCRIPTION>
+      <VALUES null="NaN" />
+    </FIELD>
+    <FIELD name="e_zmod" ucd="stat.error" datatype="float" width="7" precision="4"><!-- ucd="ERROR" -->
+      <DESCRIPTION>? Error on zmod (lower value)</DESCRIPTION>
+      <VALUES null="NaN" />
+    </FIELD>
+    <FIELD name="absline" ucd="meta.id;spect.line" datatype="char" arraysize="10*"><!-- ucd="AT_LINE_ID" -->
+      <DESCRIPTION>Absorption lines detected in the spectrum</DESCRIPTION>
+    </FIELD>
+    <FIELD name="emline" ucd="meta.id;spect.line" datatype="char" arraysize="10*"><!-- ucd="AT_LINE_ID" -->
+      <DESCRIPTION>Emission lines detected in the spectrum</DESCRIPTION>
+    </FIELD>
+    <FIELD name="rmsg" ucd="stat.stdev;instr.det.noise;obs.image" datatype="float" width="5" precision="2" unit="arcsec"><!-- ucd="INST_DET_SIZE" -->
+      <DESCRIPTION>? rms of the predicted image positions according to models runs with the related set of constraints (gold)</DESCRIPTION>
+      <VALUES null="NaN" />
+    </FIELD>
+    <FIELD name="rmss" ucd="stat.stdev;instr.det.noise;obs.image" datatype="float" width="5" precision="2" unit="arcsec"><!-- ucd="INST_DET_SIZE" -->
+      <DESCRIPTION>? rms of the predicted image positions according to models runs with the related set of constraints (silver)</DESCRIPTION>
+      <VALUES null="NaN" />
+    </FIELD>
+    <FIELD name="rmsb" ucd="stat.stdev;instr.det.noise;obs.image" datatype="float" width="5" precision="2" unit="arcsec"><!-- ucd="INST_DET_SIZE" -->
+      <DESCRIPTION>? rms of the predicted image positions according to models runs with the related set of constraints (bronze)</DESCRIPTION>
+      <VALUES null="NaN" />
+    </FIELD>
+    <FIELD name="rmsc" ucd="stat.stdev;instr.det.noise;obs.image" datatype="float" width="5" precision="2" unit="arcsec"><!-- ucd="INST_DET_SIZE" -->
+      <DESCRIPTION>? rms of the predicted image positions according to models runs with the related set of constraints (copper)</DESCRIPTION>
+      <VALUES null="NaN" />
+    </FIELD>
+    <FIELD name="Cat" ucd="meta.code" datatype="char" arraysize="4"><!-- ucd="CODE_MISC" -->
+      <DESCRIPTION>Category of confidence level in which each image belongs (2)</DESCRIPTION>
+      <LINK href="http://vizier.cfa.harvard.edu/viz-bin/VizieR?-6N&amp;-info=XML&amp;-out.add=.&amp;&amp;lt;&amp;quot;Note&amp;quot;&amp;catid=74730663&amp;notid=3&amp;-out.emph=${Cat}"/>
+    </FIELD>
+    <FIELD name="Simbad" ucd="meta.ref.url" datatype="char" arraysize="6*"><!-- ucd="DATA_LINK" -->
+      <DESCRIPTION>Simbad column added by the CDS</DESCRIPTION>
+<!-- ask the {\bf\fg{FireBrick}Simbad} data-base about this object -->
+
+    </FIELD>
+<DATA><TABLEDATA>
+<TR><TD>1</TD><TD>1.1</TD><TD>003.59754770</TD><TD>-30.403918</TD><TD>M</TD><TD>1.6880</TD><TD>2</TD><TD></TD><TD></TD><TD></TD><TD>FeII</TD><TD>CIII],FeII</TD><TD>0.43</TD><TD>0.36</TD><TD>0.66</TD><TD>0.67</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>2</TD><TD>1.2</TD><TD>003.59595100</TD><TD>-30.406813</TD><TD>M</TD><TD>1.6880</TD><TD>2</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>CIII]</TD><TD>0.36</TD><TD>0.57</TD><TD>0.70</TD><TD>0.52</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>3</TD><TD>1.3</TD><TD>003.58623300</TD><TD>-30.409989</TD><TD>M</TD><TD>1.6880</TD><TD>2</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>CIII]</TD><TD>0.28</TD><TD>0.17</TD><TD>0.22</TD><TD>0.26</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>4</TD><TD>2.1</TD><TD>003.58325880</TD><TD>-30.403351</TD><TD>M</TD><TD>1.8876</TD><TD>2</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>CIII]</TD><TD>0.95</TD><TD>1.10</TD><TD>1.02</TD><TD>0.90</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>5</TD><TD>2.2</TD><TD>003.59727520</TD><TD>-30.396724</TD><TD>M</TD><TD>1.8876</TD><TD>1</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>CIII]</TD><TD>0.37</TD><TD>0.54</TD><TD>0.53</TD><TD>0.77</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>6</TD><TD>2.3</TD><TD>003.58540360</TD><TD>-30.399898</TD><TD>M</TD><TD>1.8876</TD><TD>1</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>CIII]</TD><TD>1.59</TD><TD>1.36</TD><TD>1.74</TD><TD>2.37</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>7</TD><TD>2.4</TD><TD>003.58642750</TD><TD>-30.402128</TD><TD>M</TD><TD>1.8876</TD><TD>1</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>CIII]</TD><TD>0.87</TD><TD>0.69</TD><TD>0.85</TD><TD>1.48</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>8</TD><TD>3.1</TD><TD>003.58937140</TD><TD>-30.393864</TD><TD>MJ</TD><TD>3.9803</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>LyB,SiII,O</TD><TD>HeII,OIII]</TD><TD>0.38</TD><TD>0.47</TD><TD>0.66</TD><TD>0.53</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>9</TD><TD>3.2</TD><TD>003.58879080</TD><TD>-30.393806</TD><TD>MJ</TD><TD>3.9803</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>LyB,SiII,O</TD><TD>HeII,OIII]</TD><TD>0.20</TD><TD>0.21</TD><TD>0.32</TD><TD>0.32</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>10</TD><TD>3.3</TD><TD>003.57662500</TD><TD>-30.401813</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>0.69</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>11</TD><TD>4.1</TD><TD>003.59211450</TD><TD>-30.402634</TD><TD>M</TD><TD>3.5769</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>SiII</TD><TD>Ly-a</TD><TD>0.62</TD><TD>0.17</TD><TD>0.46</TD><TD>0.97</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>12</TD><TD>4.2</TD><TD>003.59564340</TD><TD>-30.401623</TD><TD>M</TD><TD>3.5769</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>SiII</TD><TD>Ly-a</TD><TD>0.45</TD><TD>0.62</TD><TD>1.11</TD><TD>0.84</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>13</TD><TD>4.3</TD><TD>003.58043310</TD><TD>-30.408926</TD><TD>MR</TD><TD>3.5769</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>SiII</TD><TD>Ly-a</TD><TD>0.62</TD><TD>0.55</TD><TD>1.29</TD><TD>1.16</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>14</TD><TD>4.4</TD><TD>003.59319330</TD><TD>-30.404915</TD><TD>M</TD><TD>3.5769</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>SiII</TD><TD>Ly-a</TD><TD>0.54</TD><TD>0.97</TD><TD>1.45</TD><TD>0.51</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>15</TD><TD>4.5</TD><TD>003.59359340</TD><TD>-30.405106</TD><TD>MJ</TD><TD>3.5769</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>SiII</TD><TD>Ly-a</TD><TD>0.04</TD><TD>0.04</TD><TD>0.26</TD><TD>0.57</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>16</TD><TD>5.1</TD><TD>003.58692570</TD><TD>-30.390704</TD><TD>M</TD><TD>4.0225</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD></TD><TD></TD><TD></TD><TD>0.54</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>17</TD><TD>5.2</TD><TD>003.58498160</TD><TD>-30.391374</TD><TD>M</TD><TD>4.0225</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>0.10</TD><TD>0.76</TD><TD>0.43</TD><TD>0.70</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>18</TD><TD>5.3</TD><TD>003.57995830</TD><TD>-30.394772</TD><TD>M</TD><TD>4.0225</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>0.11</TD><TD>0.24</TD><TD>0.19</TD><TD>2.02</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>19</TD><TD>105.1</TD><TD>003.58343040</TD><TD>-30.392070</TD><TD>M</TD><TD>4.0225</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>0.26</TD><TD>0.11</TD><TD>0.55</TD><TD>1.56</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>20</TD><TD>105.2</TD><TD>003.58229170</TD><TD>-30.392789</TD><TD>M</TD><TD>4.0225</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>0.35</TD><TD>0.20</TD><TD>0.26</TD><TD>0.13</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>21</TD><TD>105.3</TD><TD>003.58041180</TD><TD>-30.394316</TD><TD>M</TD><TD>4.0225</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD></TD><TD></TD><TD></TD><TD>0.83</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>22</TD><TD>105.4</TD><TD>003.58106030</TD><TD>-30.393624</TD><TD>M</TD><TD>4.0225</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD></TD><TD></TD><TD></TD><TD>0.27</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>23</TD><TD>6.1</TD><TD>003.59853400</TD><TD>-30.401800</TD><TD>MRW</TD><TD>2.0160</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>MgII</TD><TD>CIII]</TD><TD>0.45</TD><TD>0.40</TD><TD>0.12</TD><TD>0.18</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>24</TD><TD>6.2</TD><TD>003.59405180</TD><TD>-30.408011</TD><TD>MW</TD><TD>2.0160</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>MgII</TD><TD>CIII]</TD><TD>0.21</TD><TD>0.38</TD><TD>0.39</TD><TD>0.75</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>25</TD><TD>6.3</TD><TD>003.58642250</TD><TD>-30.409371</TD><TD>MW</TD><TD>2.0160</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>MgII</TD><TD>CIII]</TD><TD>0.21</TD><TD>0.23</TD><TD>0.22</TD><TD>0.26</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>26</TD><TD>7.1</TD><TD>003.59826040</TD><TD>-30.402326</TD><TD>-</TD><TD></TD><TD></TD><TD>2.5791</TD><TD>0.1065</TD><TD>0.1103</TD><TD>-</TD><TD>-</TD><TD></TD><TD>0.30</TD><TD>0.35</TD><TD>0.40</TD><TD>sbc</TD><TD>Simbad</TD></TR>
+<TR><TD>27</TD><TD>7.2</TD><TD>003.59521950</TD><TD>-30.407412</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD>0.34</TD><TD>0.47</TD><TD>0.49</TD><TD>sbc</TD><TD>Simbad</TD></TR>
+<TR><TD>28</TD><TD>7.3</TD><TD>003.58459890</TD><TD>-30.409822</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD>0.07</TD><TD>0.27</TD><TD>0.20</TD><TD>sbc</TD><TD>Simbad</TD></TR>
+<TR><TD>29</TD><TD>8.1</TD><TD>003.58970880</TD><TD>-30.394339</TD><TD>M</TD><TD>3.9750</TD><TD>2</TD><TD></TD><TD></TD><TD></TD><TD>LyB,OI,CII</TD><TD>-</TD><TD>0.38</TD><TD>0.49</TD><TD>0.48</TD><TD>0.75</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>30</TD><TD>8.2</TD><TD>003.58882250</TD><TD>-30.394210</TD><TD>M</TD><TD>3.9750</TD><TD>2</TD><TD></TD><TD></TD><TD></TD><TD>LyB,OI,CII</TD><TD>-</TD><TD>0.29</TD><TD>0.37</TD><TD>0.40</TD><TD>0.13</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>31</TD><TD>8.3</TD><TD>003.57639660</TD><TD>-30.402554</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>1.03</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>32</TD><TD>9.1</TD><TD>003.58839000</TD><TD>-30.405272</TD><TD>-</TD><TD></TD><TD></TD><TD>2.3556</TD><TD>0.4538</TD><TD>0.0603</TD><TD>-</TD><TD>-</TD><TD></TD><TD>0.48</TD><TD>0.70</TD><TD>0.96</TD><TD>sbc</TD><TD>Simbad</TD></TR>
+<TR><TD>33</TD><TD>9.2</TD><TD>003.58713620</TD><TD>-30.406229</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD>0.36</TD><TD>1.00</TD><TD>0.89</TD><TD>sbc</TD><TD>Simbad</TD></TR>
+<TR><TD>34</TD><TD>9.3</TD><TD>003.60015110</TD><TD>-30.397153</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>1.47</TD><TD>1.95</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>35</TD><TD>10.1</TD><TD>003.58840110</TD><TD>-30.405880</TD><TD>M</TD><TD>2.6565</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>CIII]</TD><TD>0.77</TD><TD>0.70</TD><TD>0.63</TD><TD>0.24</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>36</TD><TD>10.2</TD><TD>003.58737760</TD><TD>-30.406485</TD><TD>M</TD><TD>2.6565</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>CIII]</TD><TD>1.27</TD><TD>1.89</TD><TD>2.27</TD><TD>3.42</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>37</TD><TD>10.3</TD><TD>003.60072080</TD><TD>-30.397095</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>4.91</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>38</TD><TD>11.1</TD><TD>003.59139300</TD><TD>-30.403847</TD><TD>-</TD><TD></TD><TD></TD><TD>2.4508</TD><TD>0.0942</TD><TD>0.0488</TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>0.19</TD><TD>0.35</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>39</TD><TD>11.2</TD><TD>003.59727080</TD><TD>-30.401435</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>0.16</TD><TD>0.49</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>40</TD><TD>11.3</TD><TD>003.58280510</TD><TD>-30.408910</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>0.16</TD><TD>0.33</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>41</TD><TD>11.4</TD><TD>003.59452980</TD><TD>-30.406546</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>0.14</TD><TD>0.25</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>42</TD><TD>12.1</TD><TD>003.59361560</TD><TD>-30.404464</TD><TD>-</TD><TD></TD><TD></TD><TD>3.6388</TD><TD>0.6205</TD><TD>0.2953</TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>0.82</TD><TD>0.28</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>43</TD><TD>12.2</TD><TD>003.59323490</TD><TD>-30.403259</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>0.21</TD><TD>0.41</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>44</TD><TD>12.3</TD><TD>003.59456460</TD><TD>-30.402986</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>0.76</TD><TD>0.32</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>45</TD><TD>12.4</TD><TD>003.57957310</TD><TD>-30.410258</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>0.98</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>46</TD><TD>13.1</TD><TD>003.59239850</TD><TD>-30.402536</TD><TD>-</TD><TD></TD><TD></TD><TD>1.3905</TD><TD>0.0385</TD><TD>0.0378</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>Simbad</TD></TR>
+<TR><TD>47</TD><TD>13.2</TD><TD>003.59377000</TD><TD>-30.402170</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD>0.20</TD><TD>0.14</TD><TD>0.19</TD><TD>sbc</TD><TD>Simbad</TD></TR>
+<TR><TD>48</TD><TD>13.3</TD><TD>003.58275780</TD><TD>-30.408035</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD>0.56</TD><TD>0.29</TD><TD>0.55</TD><TD>sbc</TD><TD>Simbad</TD></TR>
+<TR><TD>49</TD><TD>14.1</TD><TD>003.58973440</TD><TD>-30.394638</TD><TD>-</TD><TD></TD><TD></TD><TD>2.5710</TD><TD>0.0348</TD><TD>0.5613</TD><TD>-</TD><TD>-</TD><TD></TD><TD>0.22</TD><TD>0.19</TD><TD>0.22</TD><TD>sbc</TD><TD>Simbad</TD></TR>
+<TR><TD>50</TD><TD>14.2</TD><TD>003.58842450</TD><TD>-30.394434</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD>0.22</TD><TD>0.23</TD><TD>0.20</TD><TD>sbc</TD><TD>Simbad</TD></TR>
+<TR><TD>51</TD><TD>14.3</TD><TD>003.57757290</TD><TD>-30.401688</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>0.08</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>52</TD><TD>18.1</TD><TD>003.57612270</TD><TD>-30.404485</TD><TD>M</TD><TD>5.6625</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>0.84</TD><TD>0.93</TD><TD>1.00</TD><TD>1.00</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>53</TD><TD>18.2</TD><TD>003.58837860</TD><TD>-30.395646</TD><TD>M</TD><TD>5.6625</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>0.66</TD><TD>0.53</TD><TD>0.34</TD><TD>0.65</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>54</TD><TD>18.3</TD><TD>003.59072500</TD><TD>-30.395557</TD><TD>M</TD><TD>5.6625</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>0.50</TD><TD>0.63</TD><TD>0.95</TD><TD>0.18</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>55</TD><TD>19.1</TD><TD>003.58891670</TD><TD>-30.397439</TD><TD>-</TD><TD></TD><TD></TD><TD>1.9902</TD><TD>0.0966</TD><TD>0.0791</TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>1.29</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>56</TD><TD>19.2</TD><TD>003.59144270</TD><TD>-30.396684</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>1.44</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>57</TD><TD>19.3</TD><TD>003.57871770</TD><TD>-30.404017</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>0.35</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>58</TD><TD>20.1</TD><TD>003.59624130</TD><TD>-30.402970</TD><TD>-</TD><TD></TD><TD></TD><TD>2.5127</TD><TD>0.4213</TD><TD>0.1922</TD><TD>-</TD><TD>-</TD><TD></TD><TD>0.25</TD><TD>0.05</TD><TD>0.38</TD><TD>sbc</TD><TD>Simbad</TD></TR>
+<TR><TD>59</TD><TD>20.2</TD><TD>003.59519920</TD><TD>-30.405437</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD>0.35</TD><TD>0.27</TD><TD>0.30</TD><TD>sbc</TD><TD>Simbad</TD></TR>
+<TR><TD>60</TD><TD>20.3</TD><TD>003.58200070</TD><TD>-30.409552</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>0.41</TD><TD>0.76</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>61</TD><TD>21.1</TD><TD>003.59617540</TD><TD>-30.403112</TD><TD>-</TD><TD></TD><TD></TD><TD>2.5640</TD><TD>0.2476</TD><TD>0.3263</TD><TD>-</TD><TD>-</TD><TD></TD><TD>0.29</TD><TD>0.16</TD><TD>0.62</TD><TD>sbc</TD><TD>Simbad</TD></TR>
+<TR><TD>62</TD><TD>21.2</TD><TD>003.59525360</TD><TD>-30.405340</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD>0.28</TD><TD>0.24</TD><TD>0.32</TD><TD>sbc</TD><TD>Simbad</TD></TR>
+<TR><TD>63</TD><TD>21.3</TD><TD>003.58196010</TD><TD>-30.409610</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>0.44</TD><TD>1.14</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>64</TD><TD>22.1</TD><TD>003.58790670</TD><TD>-30.411612</TD><TD>M</TD><TD>5.2845</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>1.37</TD><TD>1.18</TD><TD>0.94</TD><TD>0.43</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>65</TD><TD>22.2</TD><TD>003.60004580</TD><TD>-30.404417</TD><TD>M</TD><TD>5.2845</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>1.64</TD><TD>1.53</TD><TD>1.96</TD><TD>1.72</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>66</TD><TD>22.3</TD><TD>003.59658850</TD><TD>-30.408983</TD><TD>M</TD><TD>5.2845</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>1.27</TD><TD>1.01</TD><TD>0.88</TD><TD>0.15</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>67</TD><TD>23.1</TD><TD>003.58816230</TD><TD>-30.410545</TD><TD>-</TD><TD></TD><TD></TD><TD>4.4156</TD><TD>0.3567</TD><TD>0.1839</TD><TD>-</TD><TD>-</TD><TD></TD><TD>0.29</TD><TD>0.18</TD><TD>0.66</TD><TD>sbc</TD><TD>Simbad</TD></TR>
+<TR><TD>68</TD><TD>23.2</TD><TD>003.59353380</TD><TD>-30.409717</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD>0.42</TD><TD>0.38</TD><TD>0.64</TD><TD>sbc</TD><TD>Simbad</TD></TR>
+<TR><TD>69</TD><TD>23.3</TD><TD>003.60054160</TD><TD>-30.401831</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD>0.36</TD><TD>0.05</TD><TD>0.07</TD><TD>sbc</TD><TD>Simbad</TD></TR>
+<TR><TD>70</TD><TD>24.1</TD><TD>003.59590030</TD><TD>-30.404480</TD><TD>M</TD><TD>1.0430</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>[OII]</TD><TD>0.58</TD><TD>0.69</TD><TD>0.46</TD><TD>0.08</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>71</TD><TD>24.2</TD><TD>003.59512500</TD><TD>-30.405933</TD><TD>M</TD><TD>1.0430</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>[OII]</TD><TD>0.73</TD><TD>0.82</TD><TD>0.72</TD><TD>0.58</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>72</TD><TD>24.3</TD><TD>003.58733330</TD><TD>-30.409102</TD><TD>M</TD><TD>1.0430</TD><TD>1</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>[OII]</TD><TD>0.75</TD><TD>1.04</TD><TD>0.81</TD><TD>0.25</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>73</TD><TD>25.1</TD><TD>003.59446260</TD><TD>-30.402732</TD><TD>-</TD><TD></TD><TD></TD><TD>1.2168</TD><TD>0.0316</TD><TD>0.0317</TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>0.32</TD><TD>0.30</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>74</TD><TD>25.2</TD><TD>003.59215000</TD><TD>-30.403318</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>0.14</TD><TD>0.46</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>75</TD><TD>25.3</TD><TD>003.58421450</TD><TD>-30.408281</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>0.42</TD><TD>0.71</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>76</TD><TD>26.1</TD><TD>003.59389760</TD><TD>-30.409731</TD><TD>M</TD><TD>3.0537</TD><TD>1</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>0.48</TD><TD>0.54</TD><TD>0.66</TD><TD>1.52</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>77</TD><TD>26.2</TD><TD>003.59034640</TD><TD>-30.410581</TD><TD>M</TD><TD>3.0537</TD><TD>2</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>0.61</TD><TD>0.49</TD><TD>0.64</TD><TD>1.68</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>78</TD><TD>26.3</TD><TD>003.60011030</TD><TD>-30.402942</TD><TD>M</TD><TD>3.0537</TD><TD>2</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>0.35</TD><TD>0.40</TD><TD>0.97</TD><TD>0.76</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>79</TD><TD>27.1</TD><TD>003.58072660</TD><TD>-30.403137</TD><TD>-</TD><TD></TD><TD></TD><TD>2.4850</TD><TD>0.1006</TD><TD>0.0860</TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>0.50</TD><TD>0.96</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>80</TD><TD>27.2</TD><TD>003.59569790</TD><TD>-30.396153</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>0.24</TD><TD>1.20</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>81</TD><TD>27.3</TD><TD>003.58549780</TD><TD>-30.397653</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>0.64</TD><TD>0.55</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>82</TD><TD>28.1</TD><TD>003.58044790</TD><TD>-30.405051</TD><TD>-</TD><TD></TD><TD></TD><TD>6.5166</TD><TD>0.0332</TD><TD>0.6791</TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>1.19</TD><TD>1.75</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>83</TD><TD>28.2</TD><TD>003.59783330</TD><TD>-30.395964</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>0.20</TD><TD>0.99</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>84</TD><TD>28.3</TD><TD>003.58531760</TD><TD>-30.397958</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>0.60</TD><TD>0.63</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>85</TD><TD>28.4</TD><TD>003.58745110</TD><TD>-30.401372</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>1.03</TD><TD>1.76</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>86</TD><TD>29.1</TD><TD>003.58244750</TD><TD>-30.397567</TD><TD>-</TD><TD></TD><TD></TD><TD>1.9859</TD><TD>0.0557</TD><TD>0.0424</TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>1.42</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>87</TD><TD>29.2</TD><TD>003.58052610</TD><TD>-30.400464</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>5.01</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>88</TD><TD>29.3</TD><TD>003.58360000</TD><TD>-30.396581</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>2.67</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>89</TD><TD>30.1</TD><TD>003.59101040</TD><TD>-30.397440</TD><TD>M</TD><TD>1.0252</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>[OII]</TD><TD>1.08</TD><TD>0.75</TD><TD>0.91</TD><TD>1.72</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>90</TD><TD>30.2</TD><TD>003.58667710</TD><TD>-30.398188</TD><TD>M</TD><TD>1.0252</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>[OII]</TD><TD>1.30</TD><TD>1.31</TD><TD>1.53</TD><TD>1.35</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>91</TD><TD>30.3</TD><TD>003.58192450</TD><TD>-30.401700</TD><TD>M</TD><TD>1.0252</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>[OII]</TD><TD>0.51</TD><TD>0.18</TD><TD>0.37</TD><TD>1.53</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>92</TD><TD>31.1</TD><TD>003.58593400</TD><TD>-30.403159</TD><TD>M</TD><TD>4.7594</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>0.45</TD><TD>0.32</TD><TD>0.32</TD><TD>0.60</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>93</TD><TD>31.2</TD><TD>003.58370830</TD><TD>-30.404105</TD><TD>M</TD><TD>4.7594</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>0.59</TD><TD>0.44</TD><TD>0.49</TD><TD>1.18</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>94</TD><TD>31.3</TD><TD>003.59982960</TD><TD>-30.395522</TD><TD>-</TD><TD></TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>0.78</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>95</TD><TD>32.1</TD><TD>003.58359630</TD><TD>-30.404705</TD><TD>-</TD><TD></TD><TD></TD><TD>5.6678</TD><TD>0.4284</TD><TD>0.4721</TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>0.56</TD><TD>0.79</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>96</TD><TD>32.2</TD><TD>003.58667090</TD><TD>-30.403345</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>0.15</TD><TD>0.70</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>97</TD><TD>32.3</TD><TD>003.59977650</TD><TD>-30.395981</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>0.98</TD><TD>0.56</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>98</TD><TD>33.1</TD><TD>003.58470830</TD><TD>-30.403152</TD><TD>M</TD><TD>5.7255</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>0.53</TD><TD>0.48</TD><TD>0.65</TD><TD>0.24</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>99</TD><TD>33.2</TD><TD>003.58439590</TD><TD>-30.403400</TD><TD>M</TD><TD>5.7255</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>0.46</TD><TD>0.30</TD><TD>0.35</TD><TD>0.70</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>100</TD><TD>33.3</TD><TD>003.60041830</TD><TD>-30.395110</TD><TD>M</TD><TD>5.7255</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>1.39</TD><TD>1.34</TD><TD>1.30</TD><TD>1.21</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>101</TD><TD>34.1</TD><TD>003.59342550</TD><TD>-30.410842</TD><TD>M</TD><TD>3.7850</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>102</TD><TD>34.2</TD><TD>003.59381410</TD><TD>-30.410718</TD><TD>M</TD><TD>3.7850</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>103</TD><TD>34.3</TD><TD>003.60070500</TD><TD>-30.404605</TD><TD>M</TD><TD>3.7850</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>104</TD><TD>35.1</TD><TD>003.58111058</TD><TD>-30.400215</TD><TD>M</TD><TD>2.6560</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>0,Ly-a</TD><TD></TD><TD></TD><TD>0.23</TD><TD>0.43</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>105</TD><TD>35.2</TD><TD>003.58154170</TD><TD>-30.399392</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>0.20</TD><TD>0.40</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>106</TD><TD>35.3</TD><TD>003.59783330</TD><TD>-30.395542</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>0.13</TD><TD>0.73</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>107</TD><TD>36.1</TD><TD>003.58945830</TD><TD>-30.394408</TD><TD>-</TD><TD></TD><TD></TD><TD>3.9291</TD><TD>1.3075</TD><TD>1.1899</TD><TD>-</TD><TD>-</TD><TD></TD><TD>0.06</TD><TD>0.12</TD><TD>0.19</TD><TD>sbc</TD><TD>Simbad</TD></TR>
+<TR><TD>108</TD><TD>36.2</TD><TD>003.58866660</TD><TD>-30.394300</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD>0.06</TD><TD>0.17</TD><TD>0.17</TD><TD>sbc</TD><TD>Simbad</TD></TR>
+<TR><TD>109</TD><TD>36.3</TD><TD>003.57747920</TD><TD>-30.401508</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>0.20</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>110</TD><TD>37.1</TD><TD>003.58904170</TD><TD>-30.394913</TD><TD>M</TD><TD>2.6501</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>CIII],Ly-a</TD><TD>0.16</TD><TD>0.10</TD><TD>0.11</TD><TD>2.35</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>111</TD><TD>37.2</TD><TD>003.58870830</TD><TD>-30.394852</TD><TD>M</TD><TD>2.6501</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>CIII],Ly-a</TD><TD>0.21</TD><TD>0.12</TD><TD>0.16</TD><TD>1.06</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>112</TD><TD>37.3</TD><TD>003.57944270</TD><TD>-30.400275</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>Simbad</TD></TR>
+<TR><TD>113</TD><TD>38.1</TD><TD>003.58941660</TD><TD>-30.394100</TD><TD>-</TD><TD></TD><TD></TD><TD>5.4665</TD><TD>1.2035</TD><TD>0.8191</TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>0.01</TD><TD>0.15</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>114</TD><TD>38.2</TD><TD>003.58893960</TD><TD>-30.394044</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>0.01</TD><TD>0.17</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>115</TD><TD>38.3</TD><TD>003.57639680</TD><TD>-30.402128</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>1.11</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>116</TD><TD>39.1</TD><TD>003.58879170</TD><TD>-30.392530</TD><TD>M</TD><TD>4.0150</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>LyB</TD><TD>-</TD><TD>0.24</TD><TD>0.07</TD><TD>0.51</TD><TD>0.38</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>117</TD><TD>39.2</TD><TD>003.58854170</TD><TD>-30.392508</TD><TD>M</TD><TD>4.0150</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>LyB</TD><TD>-</TD><TD>0.38</TD><TD>0.45</TD><TD>0.53</TD><TD>0.34</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>118</TD><TD>39.3</TD><TD>003.57747870</TD><TD>-30.399568</TD><TD>M</TD><TD>4.0150</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>LyB</TD><TD>-</TD><TD>0.75</TD><TD>0.89</TD><TD>1.20</TD><TD>0.84</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>119</TD><TD>40.1</TD><TD>003.58908590</TD><TD>-30.392668</TD><TD>M</TD><TD>4.0000</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>LyB</TD><TD>-</TD><TD>0.23</TD><TD>0.12</TD><TD>0.09</TD><TD>0.49</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>120</TD><TD>40.2</TD><TD>003.58819350</TD><TD>-30.392551</TD><TD>M</TD><TD>4.0000</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>LyB</TD><TD>-</TD><TD>0.21</TD><TD>0.13</TD><TD>0.12</TD><TD>0.26</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>121</TD><TD>40.3</TD><TD>003.57754430</TD><TD>-30.399376</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>1.83</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>122</TD><TD>41.1</TD><TD>003.59917580</TD><TD>-30.399582</TD><TD>M</TD><TD>4.9113</TD><TD>1</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>0.36</TD><TD>0.38</TD><TD>0.27</TD><TD>0.26</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>123</TD><TD>41.2</TD><TD>003.59355710</TD><TD>-30.407769</TD><TD>M</TD><TD>4.9113</TD><TD>1</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>0.61</TD><TD>0.53</TD><TD>0.37</TD><TD>0.12</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>124</TD><TD>41.3</TD><TD>003.58344670</TD><TD>-30.408500</TD><TD>M</TD><TD>4.9113</TD><TD>1</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>0.51</TD><TD>0.23</TD><TD>0.20</TD><TD>0.40</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>125</TD><TD>41.4</TD><TD>003.59061700</TD><TD>-30.404459</TD><TD>M</TD><TD>4.9113</TD><TD>1</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>0.85</TD><TD>0.61</TD><TD>0.44</TD><TD>0.46</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>126</TD><TD>42.1</TD><TD>003.59730560</TD><TD>-30.400612</TD><TD>M</TD><TD>3.6915</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>0.24</TD><TD>0.22</TD><TD>0.24</TD><TD>0.82</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>127</TD><TD>42.2</TD><TD>003.59096090</TD><TD>-30.403255</TD><TD>M</TD><TD>3.6915</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>1.21</TD><TD>0.50</TD><TD>0.36</TD><TD>1.35</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>128</TD><TD>42.3</TD><TD>003.58158420</TD><TD>-30.408635</TD><TD>M</TD><TD>3.6915</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>0.58</TD><TD>0.22</TD><TD>0.63</TD><TD>0.50</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>129</TD><TD>42.4</TD><TD>003.59422810</TD><TD>-30.406390</TD><TD>M</TD><TD>3.6915</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>0.21</TD><TD>0.20</TD><TD>0.22</TD><TD>0.55</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>130</TD><TD>42.5</TD><TD>003.59241250</TD><TD>-30.405194</TD><TD>M</TD><TD>3.6915</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>1.05</TD><TD>0.47</TD><TD>0.67</TD><TD>1.98</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>131</TD><TD>43.1</TD><TD>003.59783590</TD><TD>-30.402507</TD><TD>-</TD><TD></TD><TD></TD><TD>5.8998</TD><TD>0.2275</TD><TD>0.1390</TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>3.69</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>132</TD><TD>43.2</TD><TD>003.58396090</TD><TD>-30.409811</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>3.75</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>133</TD><TD>44.1</TD><TD>003.58346550</TD><TD>-30.406964</TD><TD>-</TD><TD></TD><TD></TD><TD>2.2240</TD><TD>0.5140</TD><TD>0.1725</TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>1.09</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>134</TD><TD>44.2</TD><TD>003.59669790</TD><TD>-30.399755</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>1.21</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>135</TD><TD>45.1</TD><TD>003.58484250</TD><TD>-30.398474</TD><TD>-</TD><TD></TD><TD></TD><TD>5.9555</TD><TD>0.1575</TD><TD>0.1190</TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>1.42</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>136</TD><TD>45.2</TD><TD>003.58140590</TD><TD>-30.403962</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>1.03</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>137</TD><TD>45.3</TD><TD>003.58690000</TD><TD>-30.401299</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>2.84</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>138</TD><TD>45.4</TD><TD>003.59741460</TD><TD>-30.396146</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>2.17</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>139</TD><TD>46.1</TD><TD>003.59502220</TD><TD>-30.400755</TD><TD>-</TD><TD></TD><TD></TD><TD>4.9368</TD><TD>0.2411</TD><TD>0.1549</TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>3.88</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>140</TD><TD>46.2</TD><TD>003.59251080</TD><TD>-30.401486</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>0.31</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>141</TD><TD>46.3</TD><TD>003.57751950</TD><TD>-30.408704</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>2.82</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>142</TD><TD>47.1</TD><TD>003.59016250</TD><TD>-30.392181</TD><TD>M</TD><TD>4.0225</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>0.35</TD><TD>0.20</TD><TD>0.20</TD><TD>0.98</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>143</TD><TD>47.2</TD><TD>003.58584170</TD><TD>-30.392244</TD><TD>M</TD><TD>4.0225</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>0.49</TD><TD>0.35</TD><TD>1.32</TD><TD>0.59</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>144</TD><TD>47.3</TD><TD>003.57832920</TD><TD>-30.398133</TD><TD>M</TD><TD>4.0225</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>0.53</TD><TD>0.49</TD><TD>0.90</TD><TD>0.57</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>145</TD><TD>147.1</TD><TD>003.58967920</TD><TD>-30.392136</TD><TD>M</TD><TD>4.0225</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>0.22</TD><TD>0.22</TD><TD>0.48</TD><TD>1.05</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>146</TD><TD>147.2</TD><TD>003.58645420</TD><TD>-30.392128</TD><TD>M</TD><TD>4.0225</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>0.27</TD><TD>0.37</TD><TD>0.57</TD><TD>1.17</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>147</TD><TD>147.3</TD><TD>003.57800830</TD><TD>-30.398392</TD><TD>M</TD><TD>4.0225</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>0.29</TD><TD>0.18</TD><TD>0.19</TD><TD>0.10</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>148</TD><TD>48.1</TD><TD>003.59425000</TD><TD>-30.402845</TD><TD>-</TD><TD></TD><TD></TD><TD>1.7775</TD><TD>0.3050</TD><TD>0.2038</TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>0.02</TD><TD>0.87</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>149</TD><TD>48.2</TD><TD>003.59276670</TD><TD>-30.403138</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>0.03</TD><TD>0.15</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>150</TD><TD>48.3</TD><TD>003.58204690</TD><TD>-30.408594</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>1.46</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>151</TD><TD>49.1</TD><TD>003.59263200</TD><TD>-30.408274</TD><TD>-</TD><TD></TD><TD></TD><TD>1.1172</TD><TD>0.0269</TD><TD>0.0331</TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>2.11</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>152</TD><TD>49.2</TD><TD>003.59023000</TD><TD>-30.408802</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>1.22</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>153</TD><TD>49.3</TD><TD>003.59751080</TD><TD>-30.403160</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>0.74</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>154</TD><TD>50.1</TD><TD>003.57797700</TD><TD>-30.401607</TD><TD>-</TD><TD></TD><TD></TD><TD>4.9179</TD><TD>0.3544</TD><TD>0.1974</TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>0.22</TD><TD>0.18</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>155</TD><TD>50.2</TD><TD>003.59395830</TD><TD>-30.394281</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>0.19</TD><TD>0.71</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>156</TD><TD>50.3</TD><TD>003.58511000</TD><TD>-30.393739</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>1.26</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>157</TD><TD>51.1</TD><TD>003.58687740</TD><TD>-30.405662</TD><TD>-</TD><TD></TD><TD></TD><TD>4.7621</TD><TD>0.3610</TD><TD>0.3170</TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>0.26</TD><TD>0.53</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>158</TD><TD>51.2</TD><TD>003.58645830</TD><TD>-30.405662</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>0.59</TD><TD>0.65</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>159</TD><TD>51.3</TD><TD>003.59900000</TD><TD>-30.398303</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>4.42</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>160</TD><TD>52.1</TD><TD>003.58650690</TD><TD>-30.397039</TD><TD>-</TD><TD></TD><TD></TD><TD>1.0097</TD><TD>0.0135</TD><TD>0.0014</TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>0.07</TD><TD>2.05</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>161</TD><TD>52.2</TD><TD>003.58614300</TD><TD>-30.397133</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>0.08</TD><TD>3.22</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>162</TD><TD>52.3</TD><TD>003.58843010</TD><TD>-30.396822</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>3.97</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>163</TD><TD>53.1</TD><TD>003.57984200</TD><TD>-30.401592</TD><TD>-</TD><TD></TD><TD></TD><TD>6.8098</TD><TD>0.0234</TD><TD>0.2741</TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>1.44</TD><TD>0.95</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>164</TD><TD>53.2</TD><TD>003.58354950</TD><TD>-30.396703</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD>1.30</TD><TD>1.81</TD><TD>bc</TD><TD>Simbad</TD></TR>
+<TR><TD>165</TD><TD>53.3</TD><TD>003.59704160</TD><TD>-30.394547</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>1.52</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>166</TD><TD>54.1</TD><TD>003.59234500</TD><TD>-30.409895</TD><TD>-</TD><TD></TD><TD></TD><TD>5.4223</TD><TD>0.3005</TD><TD>0.1579</TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>1.35</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>167</TD><TD>54.2</TD><TD>003.58825780</TD><TD>-30.410328</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>0.98</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>168</TD><TD>54.3</TD><TD>003.58840370</TD><TD>-30.410295</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>0.52</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>169</TD><TD>54.4</TD><TD>003.59010580</TD><TD>-30.410259</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>2.01</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>170</TD><TD>54.5</TD><TD>003.60092196</TD><TD>-30.400831</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>1.78</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>171</TD><TD>59.1</TD><TD>003.58428400</TD><TD>-30.408924</TD><TD>-</TD><TD></TD><TD></TD><TD>4.0575</TD><TD>0.6460</TD><TD>0.1358</TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>2.34</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>172</TD><TD>59.2</TD><TD>003.59812000</TD><TD>-30.400983</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD>2.28</TD><TD>c</TD><TD>Simbad</TD></TR>
+<TR><TD>173</TD><TD>60.1</TD><TD>003.59807800</TD><TD>-30.403990</TD><TD>-</TD><TD></TD><TD></TD><TD>1.6981</TD><TD>0.0564</TD><TD>0.0460</TD><TD>-</TD><TD>-</TD><TD></TD><TD>0.17</TD><TD>0.70</TD><TD>0.85</TD><TD>sbc</TD><TD>Simbad</TD></TR>
+<TR><TD>174</TD><TD>60.2</TD><TD>003.59572350</TD><TD>-30.407549</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD>0.54</TD><TD>0.56</TD><TD>0.71</TD><TD>sbc</TD><TD>Simbad</TD></TR>
+<TR><TD>175</TD><TD>60.3</TD><TD>003.58738160</TD><TD>-30.410162</TD><TD>-</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>-</TD><TD></TD><TD>0.21</TD><TD>0.14</TD><TD>0.27</TD><TD>sbc</TD><TD>Simbad</TD></TR>
+<TR><TD>176</TD><TD>61.1</TD><TD>003.59553300</TD><TD>-30.403499</TD><TD>M</TD><TD>2.9510</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>0.16</TD><TD>0.13</TD><TD>0.19</TD><TD>0.40</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>177</TD><TD>61.2</TD><TD>003.59514270</TD><TD>-30.404495</TD><TD>M</TD><TD>2.9510</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>0.14</TD><TD>0.12</TD><TD>0.18</TD><TD>0.34</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>178</TD><TD>62.1</TD><TD>003.59132600</TD><TD>-30.398643</TD><TD>M</TD><TD>4.1935</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>0.30</TD><TD>0.50</TD><TD>0.65</TD><TD>0.73</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>179</TD><TD>62.2</TD><TD>003.59058210</TD><TD>-30.398918</TD><TD>M</TD><TD>4.1935</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>0.24</TD><TD>0.34</TD><TD>0.41</TD><TD>0.43</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>180</TD><TD>63.1</TD><TD>003.58226140</TD><TD>-30.407166</TD><TD>M</TD><TD>5.6616</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>0.59</TD><TD>0.38</TD><TD>0.58</TD><TD>0.80</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>181</TD><TD>63.2</TD><TD>003.59275780</TD><TD>-30.407022</TD><TD>M</TD><TD>5.6616</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>0.57</TD><TD>0.56</TD><TD>0.20</TD><TD>0.25</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>182</TD><TD>63.3</TD><TD>003.58913340</TD><TD>-30.403419</TD><TD>M</TD><TD>5.6616</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>0.85</TD><TD>0.47</TD><TD>0.33</TD><TD>1.00</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>183</TD><TD>63.4</TD><TD>003.59880550</TD><TD>-30.398279</TD><TD>M</TD><TD>5.6616</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>0.40</TD><TD>0.53</TD><TD>0.47</TD><TD>0.31</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>184</TD><TD>64.1</TD><TD>003.58119670</TD><TD>-30.398708</TD><TD>M</TD><TD>3.4087</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>0.49</TD><TD>0.41</TD><TD>0.13</TD><TD>0.73</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+<TR><TD>185</TD><TD>64.3</TD><TD>003.59633290</TD><TD>-30.394232</TD><TD>M</TD><TD>3.4087</TD><TD>3</TD><TD></TD><TD></TD><TD></TD><TD>-</TD><TD>Ly-a</TD><TD>1.81</TD><TD>1.75</TD><TD>1.04</TD><TD>1.99</TD><TD>gsbc</TD><TD>Simbad</TD></TR>
+</TABLEDATA></DATA>
+</TABLE>
+<INFO name="matches" value="185">matching records</INFO>
+</RESOURCE>
+</VOTABLE>

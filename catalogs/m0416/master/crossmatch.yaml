@@ -16,7 +16,7 @@ frames:
     applied_arcsec: [-0.032, -0.0293]
     n_matches: 218
     median_residual_arcsec: 0.0257
-counts: {master_systems: 91, gold_systems: 86, images: 252, left_out_groups: 32, candidate_images: 20, conflicts: 0}
+counts: {master_systems: 91, gold_systems: 86, images: 252, left_out_groups: 32, free_z_systems: 0, candidate_images: 20, conflicts: 0}
 systems:
   C1:
     from: canucs2025
@@ -1073,6 +1073,7 @@ left_out:
     diego2024: ['119']
   z:
     diego2024:119: [2.678, model]
+free_z: []
 members:
   counts: {canucs2025: 213, bergamini2023: 213}
   only_in:

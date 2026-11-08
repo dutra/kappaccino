@@ -89,3 +89,17 @@ def test_decisions(tmp_path):
     assert crossmatch["conflicts"] == []
     assert images.loc[images["system_id"] == "S0", "catalog_z"].iloc[0] == 1.2
     assert "S5" not in set(images["system_id"]) and "T7" in set(images["system_id"])
+
+
+def test_free_z_base_system_left_out_until_decided(tmp_path):
+    master = _cluster(tmp_path)
+    images = tmp_path / "base" / "images.yaml"
+    systems = _systems({"S0": (1.0, "spectroscopic z", _grid(3, 0.0)), "S9": (0.0, "", [(30.0, -30.0), (34.0, -31.0)])})
+    write_image_catalog(images, systems)
+    builder.build(master)
+    crossmatch = yaml.safe_load((master / "crossmatch.yaml").read_text())
+    assert [entry["system"] for entry in crossmatch["free_z"]] == ["S9"]
+    assert "S9" not in set(load_image_catalog(master / "images.yaml", sigma_inst_arcsec=0.05)["system_id"])
+    (master / "decisions.yaml").write_text(yaml.safe_dump([{"set_z": "S9", "z": 2.0, "reason": "test"}]))
+    builder.build(master)
+    assert "S9" in set(load_image_catalog(master / "images.yaml", sigma_inst_arcsec=0.05)["system_id"])

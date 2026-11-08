@@ -1,0 +1,25 @@
+# Papers merged into the Abell 2744 master catalog (scripts/build_master_catalog.py).  Paths are relative to this folder.
+cluster: a2744
+base: bergamini2023b          # GLASS-JWST, JWST frame, quality flags, core and northern clumps; its systems enter unchanged
+members_base: bergamini2023a  # the ApJ 952 member list is not public; the A&A 670 core members (F160W, 202 spectroscopic)
+match_radius_arcsec: 0.5      # after each paper is shifted onto the base frame
+dz_max: 0.01                  # |dz| / (1 + z) above which two spectroscopic redshifts conflict
+papers:
+  bergamini2023b:
+    images: ../bergamini2023b/images.yaml
+  bergamini2023a:
+    images: ../bergamini2023a/images.yaml
+    members: ../bergamini2023a/members.yaml
+    derived_from: bergamini2023b   # same team and MUSE data; its 90 images are the 'd' rows of bergamini2023b
+    prefix: BA
+    add_systems: spec
+  furtak2023:
+    images: ../furtak2023/images.yaml
+    members: ../furtak2023/members.yaml
+    derived_from: bergamini2023b   # core images compiled from Bergamini et al. (release README); positions identical to bergamini2023a
+    prefix: F
+    add_systems: spec              # northern systems with NIRSpec / NIRCam-grism redshifts
+  mahler2018:
+    images: ../mahler2018/images.yaml
+    prefix: M
+    add_systems: none              # HST + MUSE, superseded in the core by Bergamini; add by decision only

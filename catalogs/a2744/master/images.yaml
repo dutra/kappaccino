@@ -1,0 +1,494 @@
+# Master image catalog of a2744, built on 2026-11-08 by scripts/build_master_catalog.py from bergamini2023b, bergamini2023a, furtak2023, mahler2018 (base bergamini2023b).
+# Do not edit: change sources.yaml or decisions.yaml and rebuild.  crossmatch.yaml gives each system's papers.
+# 37 systems, 108 images.
+format: lenscluster-images/1
+systems:
+  '1':
+    z: 1.688
+    knots: [A, B, C, D]
+    notes: spectroscopic z
+    images:
+      a:
+        knots:
+          A: {ra: 3.597551, dec: -30.403906, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          B: {ra: 3.597062, dec: -30.404703, notes: 'flag d, QF 2, QP 1, location BCGs'}
+          C: {ra: 3.597746, dec: -30.403511, notes: 'flag d, QF 3, QP 2, location BCGs'}
+          D: {ra: 3.598073, dec: -30.403961, notes: 'flag d, QF 1, QP 1, location BCGs'}
+      b:
+        knots:
+          A: {ra: 3.595952, dec: -30.406787, notes: 'flag d, QF 2, QP 1, location BCGs'}
+          B: {ra: 3.596384, dec: -30.406123, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          C: {ra: 3.595516, dec: -30.407178, notes: 'flag d, QF 3, QP 2, location BCGs'}
+          D: {ra: 3.59571, dec: -30.407526, notes: 'flag d, QF 1, QP 1, location BCGs'}
+      c:
+        knots:
+          A: {ra: 3.58621, dec: -30.409963, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          B: {ra: 3.585732, dec: -30.410077, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          C: {ra: 3.586444, dec: -30.409849, notes: 'flag d, QF 3, QP 2, location BCGs'}
+          D: {ra: 3.587368, dec: -30.41013, notes: 'flag d, QF 1, QP 1, location BCGs'}
+  '2':
+    z: 1.887
+    knots: [A, B, C, D, E, F, G]
+    notes: spectroscopic z
+    images:
+      a:
+        knots:
+          A: {ra: 3.583251, dec: -30.403317, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          B: {ra: 3.583015, dec: -30.403167, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          C: {ra: 3.58298, dec: -30.403028, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          D: {ra: 3.582905, dec: -30.402908, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          E: {ra: 3.582814, dec: -30.402771, notes: 'flag d, QF 3, QP 2, location BCGs'}
+          F: {ra: 3.582758, dec: -30.402661, notes: 'flag d, QF 3, QP 2, location BCGs'}
+          G: {ra: 3.582516, dec: -30.402291, notes: 'flag d, QF 3, QP 2, location BCGs'}
+      b:
+        knots:
+          A: {ra: 3.597281, dec: -30.396694, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          B: {ra: 3.59713, dec: -30.39662, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          C: {ra: 3.597087, dec: -30.396561, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          D: {ra: 3.597044, dec: -30.396509, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          E: {ra: 3.596982, dec: -30.396451, notes: 'flag d, QF 3, QP 2, location BCGs'}
+          F: {ra: 3.596934, dec: -30.396403, notes: 'flag d, QF 3, QP 2, location BCGs'}
+          G: {ra: 3.596726, dec: -30.396273, notes: 'flag d, QF 3, QP 2, location BCGs'}
+      c:
+        knots:
+          A: {ra: 3.585356, dec: -30.399856, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          B: {ra: 3.585122, dec: -30.399647, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          C: {ra: 3.585004, dec: -30.399603, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          D: {ra: 3.584902, dec: -30.399559, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          E: {ra: 3.584807, dec: -30.399495, notes: 'flag d, QF 3, QP 2, location BCGs'}
+          F: {ra: 3.58471, dec: -30.399442, notes: 'flag d, QF 3, QP 2, location BCGs'}
+          G: {ra: 3.58446, dec: -30.399268, notes: 'flag d, QF 3, QP 2, location BCGs'}
+      d:
+        knots:
+          A: {ra: 3.5864, dec: -30.402106, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          B: {ra: 3.586425, dec: -30.401849, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          C: {ra: 3.586381, dec: -30.401744, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          D: {ra: 3.58634, dec: -30.401611, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          E: {ra: 3.586309, dec: -30.401469, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          F: {ra: 3.586272, dec: -30.401331, notes: 'flag d, QF 3, QP 2, location BCGs'}
+          G: {ra: 3.586224, dec: -30.400848, notes: 'flag d, QF 3, QP 2, location BCGs'}
+  '3':
+    z: 3.98
+    knots: [A, B, C]
+    notes: spectroscopic z
+    images:
+      a:
+        knots:
+          A: {ra: 3.589365, dec: -30.393837, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          B: {ra: 3.589212, dec: -30.393824, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          C: {ra: 3.589477, dec: -30.39385, notes: 'flag d, QF 3, QP 1, location BCGs'}
+      b:
+        knots:
+          A: {ra: 3.588797, dec: -30.393777, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          B: {ra: 3.588955, dec: -30.393795, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          C: {ra: 3.588629, dec: -30.393765, notes: 'flag d, QF 3, QP 1, location BCGs'}
+      c:
+        knots:
+          A: {ra: 3.576622, dec: -30.401792, notes: 'flag *, QF 1, QP 3, location BCGs'}
+  '4':
+    z: 3.577
+    knots: [A, B]
+    notes: spectroscopic z
+    images:
+      a:
+        knots:
+          A: {ra: 3.592115, dec: -30.40264, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          B: {ra: 3.592087, dec: -30.402507, notes: 'flag d, QF 3, QP 1, location BCGs'}
+      b:
+        knots:
+          A: {ra: 3.595664, dec: -30.401614, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          B: {ra: 3.595557, dec: -30.401499, notes: 'flag d, QF 3, QP 1, location BCGs'}
+      c:
+        knots:
+          A: {ra: 3.580437, dec: -30.408922, notes: 'flag d, QF 3, QP 2, location BCGs'}
+      e:
+        knots:
+          A: {ra: 3.59364, dec: -30.405097, notes: 'flag d, QF 3, QP 3, location BCGs'}
+  '6':
+    z: 2.017
+    knots: [A]
+    notes: spectroscopic z
+    images:
+      a:
+        knots:
+          A: {ra: 3.598532, dec: -30.401773, notes: 'flag d, QF 3, QP 1, location BCGs'}
+      b:
+        knots:
+          A: {ra: 3.594046, dec: -30.407978, notes: 'flag d, QF 3, QP 1, location BCGs'}
+      c:
+        knots:
+          A: {ra: 3.586418, dec: -30.40934, notes: 'flag d, QF 3, QP 1, location BCGs'}
+  '8':
+    z: 3.977
+    knots: [A]
+    notes: spectroscopic z
+    images:
+      a:
+        knots:
+          A: {ra: 3.589702, dec: -30.394316, notes: 'flag d, QF 2, QP 2, location BCGs'}
+      b:
+        knots:
+          A: {ra: 3.588821, dec: -30.394182, notes: 'flag d, QF 2, QP 2, location BCGs'}
+  '10':
+    z: 2.657
+    notes: spectroscopic z
+    images:
+      a: {ra: 3.588386, dec: -30.405852, notes: 'flag s, QF 2, QP 1, location BCGs'}
+      b: {ra: 3.587369, dec: -30.406455, notes: 'flag s, QF 3, QP 1, location BCGs'}
+  '18':
+    z: 5.662
+    knots: [A]
+    notes: spectroscopic z
+    images:
+      a:
+        knots:
+          A: {ra: 3.57611, dec: -30.404448, notes: 'flag d, QF 3, QP 1, location BCGs'}
+      b:
+        knots:
+          A: {ra: 3.588367, dec: -30.39561, notes: 'flag d, QF 3, QP 1, location BCGs'}
+      c:
+        knots:
+          A: {ra: 3.59072, dec: -30.395523, notes: 'flag d, QF 3, QP 1, location BCGs'}
+  '22':
+    z: 5.284
+    knots: [A]
+    notes: spectroscopic z
+    images:
+      a:
+        knots:
+          A: {ra: 3.587908, dec: -30.411586, notes: 'flag d, QF 3, QP 2, location BCGs'}
+      b:
+        knots:
+          A: {ra: 3.600039, dec: -30.404396, notes: 'flag d, QF 3, QP 2, location BCGs'}
+      c:
+        knots:
+          A: {ra: 3.59658, dec: -30.408968, notes: 'flag d, QF 3, QP 2, location BCGs'}
+  '24':
+    z: 1.044
+    notes: spectroscopic z
+    images:
+      a: {ra: 3.595886, dec: -30.404448, notes: 'flag s, QF 3, QP 1, location BCGs'}
+      b: {ra: 3.595112, dec: -30.405881, notes: 'flag s, QF 9, QP 1, location BCGs'}
+      c: {ra: 3.587311, dec: -30.409064, notes: 'flag s, QF 1, QP 1, location BCGs'}
+  '26':
+    z: 3.054
+    knots: [A, B, C]
+    notes: spectroscopic z
+    images:
+      a:
+        knots:
+          A: {ra: 3.593885, dec: -30.409703, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          B: {ra: 3.593979, dec: -30.409677, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          C: {ra: 3.594018, dec: -30.409583, notes: 'flag d, QF 2, QP 3, location BCGs'}
+      b:
+        knots:
+          A: {ra: 3.590339, dec: -30.410553, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          B: {ra: 3.590257, dec: -30.410588, notes: 'flag d, QF 3, QP 1, location BCGs'}
+          C: {ra: 3.589954, dec: -30.410571, notes: 'flag d, QF 2, QP 3, location BCGs'}
+      c:
+        knots:
+          A: {ra: 3.600103, dec: -30.40292, notes: 'flag d, QF 9, QP 2, location BCGs'}
+  '30':
+    z: 1.026
+    notes: spectroscopic z
+    images:
+      a: {ra: 3.591005, dec: -30.397415, notes: 'flag s, QF 2, QP 1, location BCGs'}
+      b: {ra: 3.586672, dec: -30.398157, notes: 'flag s, QF 9, QP 1, location BCGs'}
+      c: {ra: 3.581915, dec: -30.401675, notes: 'flag s, QF 1, QP 1, location BCGs'}
+  '31':
+    z: 4.757
+    notes: spectroscopic z
+    images:
+      a: {ra: 3.58593, dec: -30.403132, notes: 'flag s, QF 3, QP 1, location BCGs'}
+      b: {ra: 3.583708, dec: -30.404073, notes: 'flag s, QF 3, QP 1, location BCGs'}
+  '33':
+    z: 5.726
+    knots: [A]
+    notes: spectroscopic z
+    images:
+      a:
+        knots:
+          A: {ra: 3.584699, dec: -30.403125, notes: 'flag d, QF 3, QP 1, location BCGs'}
+      b:
+        knots:
+          A: {ra: 3.584383, dec: -30.403371, notes: 'flag d, QF 3, QP 1, location BCGs'}
+  '34':
+    z: 3.784
+    knots: [A]
+    notes: spectroscopic z
+    images:
+      a:
+        knots:
+          A: {ra: 3.593414, dec: -30.410812, notes: 'flag d, QF 2, QP 1, location BCGs'}
+      b:
+        knots:
+          A: {ra: 3.593798, dec: -30.410692, notes: 'flag d, QF 3, QP 1, location BCGs'}
+      c:
+        knots:
+          A: {ra: 3.600574, dec: -30.404413, notes: 'flag d, QF 2, QP 1, location BCGs'}
+  '41':
+    z: 4.91
+    notes: spectroscopic z
+    images:
+      a: {ra: 3.599143, dec: -30.399557, notes: 'flag s, QF 9, QP 1, location BCGs'}
+      b: {ra: 3.593505, dec: -30.40773, notes: 'flag s, QF 9, QP 1, location BCGs'}
+      c: {ra: 3.583441, dec: -30.408475, notes: 'flag s, QF 9, QP 1, location BCGs'}
+      d: {ra: 3.590685, dec: -30.404541, notes: 'flag s, QF 2, QP 3, location BCGs'}
+  '42':
+    z: 3.692
+    knots: [A]
+    notes: spectroscopic z
+    images:
+      a:
+        knots:
+          A: {ra: 3.597304, dec: -30.400586, notes: 'flag d, QF 3, QP 1, location BCGs'}
+      b:
+        knots:
+          A: {ra: 3.590944, dec: -30.403231, notes: 'flag d, QF 3, QP 1, location BCGs'}
+      c:
+        knots:
+          A: {ra: 3.581575, dec: -30.408608, notes: 'flag d, QF 3, QP 1, location BCGs'}
+      d:
+        knots:
+          A: {ra: 3.594233, dec: -30.406367, notes: 'flag d, QF 3, QP 1, location BCGs'}
+      e:
+        knots:
+          A: {ra: 3.592403, dec: -30.405176, notes: 'flag d, QF 1, QP 3, location BCGs'}
+  '61':
+    z: 2.951
+    knots: [A]
+    notes: spectroscopic z
+    images:
+      a:
+        knots:
+          A: {ra: 3.595511, dec: -30.403465, notes: 'flag d, QF 1, QP 1, location BCGs'}
+      b:
+        knots:
+          A: {ra: 3.595127, dec: -30.404451, notes: 'flag d, QF 3, QP 1, location BCGs'}
+  '62':
+    z: 4.194
+    knots: [A]
+    notes: spectroscopic z
+    images:
+      a:
+        knots:
+          A: {ra: 3.591315, dec: -30.398623, notes: 'flag d, QF 3, QP 3, location BCGs'}
+      b:
+        knots:
+          A: {ra: 3.590571, dec: -30.398898, notes: 'flag d, QF 3, QP 3, location BCGs'}
+  '63':
+    z: 5.662
+    knots: [A]
+    notes: spectroscopic z
+    images:
+      a:
+        knots:
+          A: {ra: 3.582199, dec: -30.407119, notes: 'flag d, QF 3, QP 1, location BCGs'}
+      b:
+        knots:
+          A: {ra: 3.592823, dec: -30.407011, notes: 'flag d, QF 3, QP 2, location BCGs'}
+      c:
+        knots:
+          A: {ra: 3.589141, dec: -30.403406, notes: 'flag d, QF 3, QP 2, location BCGs'}
+      d:
+        knots:
+          A: {ra: 3.598822, dec: -30.398255, notes: 'flag d, QF 3, QP 2, location BCGs'}
+  '64':
+    z: 3.409
+    knots: [A]
+    notes: spectroscopic z
+    images:
+      a:
+        knots:
+          A: {ra: 3.58119, dec: -30.398712, notes: 'flag d, QF 3, QP 2, location BCGs'}
+      c:
+        knots:
+          A: {ra: 3.596412, dec: -30.394247, notes: 'flag d, QF 3, QP 2, location BCGs'}
+  JD1:
+    z: 9.756
+    notes: spectroscopic z
+    images:
+      a: {ra: 3.592492, dec: -30.401458, notes: 'flag *, QF 2, QP 1, location BCGs'}
+      b: {ra: 3.595004, dec: -30.40073, notes: 'flag *, QF 2, QP 1, location BCGs'}
+      c: {ra: 3.577512, dec: -30.408667, notes: 'flag *, QF 2, QP 1, location BCGs'}
+  '600':
+    z: 2.58
+    knots: [A, C, D, E]
+    notes: spectroscopic z
+    images:
+      a:
+        knots:
+          A: {ra: 3.543063, dec: -30.368102, notes: 'QF 2, QP 1, location G1-G2'}
+          C: {ra: 3.542649, dec: -30.368409, notes: 'QF 2, QP 1, location G1-G2'}
+          D: {ra: 3.543199, dec: -30.367893, notes: 'QF 2, QP 1, location G1-G2'}
+          E: {ra: 3.542933, dec: -30.367952, notes: 'QF 2, QP 1, location G1-G2'}
+      b:
+        knots:
+          A: {ra: 3.540339, dec: -30.372503, notes: 'QF 2, QP 1, location G1-G2'}
+          C: {ra: 3.540129, dec: -30.372309, notes: 'QF 2, QP 1, location G1-G2'}
+          D: {ra: 3.540398, dec: -30.372637, notes: 'QF 2, QP 1, location G1-G2'}
+          E: {ra: 3.540186, dec: -30.37264, notes: 'QF 2, QP 1, location G1-G2'}
+      c:
+        knots:
+          A: {ra: 3.540449, dec: -30.37507, notes: 'QF 2, QP 1, location G1-G2'}
+          C: {ra: 3.540147, dec: -30.375323, notes: 'QF 2, QP 1, location G1-G2'}
+          D: {ra: 3.54054, dec: -30.374834, notes: 'QF 2, QP 1, location G1-G2'}
+          E: {ra: 3.540297, dec: -30.374845, notes: 'QF 2, QP 1, location G1-G2'}
+      d:
+        knots:
+          A: {ra: 3.542075, dec: -30.372619, notes: 'QF 2, QP 1, location G1-G2'}
+  '28':
+    z: 6.873
+    notes: free z in the model; z from furtak2023:84 (spectroscopic)
+    images:
+      a: {ra: 3.580439, dec: -30.405018, notes: 'QP 1, location BCGs'}
+      b: {ra: 3.597824, dec: -30.395939, notes: 'QP 1, location BCGs'}
+      c: {ra: 3.585308, dec: -30.397926, notes: 'QP 1, location BCGs'}
+  '53':
+    z: 7.04
+    notes: free z in the model; z from furtak2023:53 (spectroscopic)
+    images:
+      a: {ra: 3.579837, dec: -30.401562, notes: 'QP 1, location BCGs'}
+      b: {ra: 3.58354, dec: -30.396673, notes: 'QP 1, location BCGs'}
+      c: {ra: 3.597214, dec: -30.394337, notes: 'QP 1, location BCGs'}
+  A200:
+    z: 3.5194
+    knots: [A]
+    notes: free z in the model; z from furtak2023:65 (spectroscopic)
+    images:
+      a:
+        knots:
+          A: {ra: 3.556366, dec: -30.376714, notes: 'QP 1, location G1-G2'}
+      b:
+        knots:
+          A: {ra: 3.556536, dec: -30.375809, notes: 'QP 1, location G1-G2'}
+  B200:
+    z: 3.5194
+    knots: [B]
+    notes: free z in the model; z from furtak2023:65 (spectroscopic)
+    images:
+      a:
+        knots:
+          B: {ra: 3.556331, dec: -30.37678, notes: 'QP 1, location G1-G2'}
+      b:
+        knots:
+          B: {ra: 3.556531, dec: -30.375736, notes: 'QP 1, location G1-G2'}
+  C200:
+    z: 3.5194
+    knots: [C]
+    notes: free z in the model; z from furtak2023:65 (spectroscopic)
+    images:
+      a:
+        knots:
+          C: {ra: 3.556468, dec: -30.37638, notes: 'QP 1, location G1-G2'}
+      b:
+        knots:
+          C: {ra: 3.556511, dec: -30.376159, notes: 'QP 1, location G1-G2'}
+  '601':
+    z: 2.322
+    knots: [A]
+    notes: free z in the model; z from furtak2023:67 (spectroscopic)
+    images:
+      a:
+        knots:
+          A: {ra: 3.544279, dec: -30.368064, notes: 'QP 1, location G1-G2'}
+      b:
+        knots:
+          A: {ra: 3.542829, dec: -30.37349, notes: 'QP 1, location G1-G2'}
+      c:
+        knots:
+          A: {ra: 3.542022, dec: -30.374625, notes: 'QP 1, location G1-G2'}
+  '602':
+    z: 2.4109
+    knots: [A]
+    notes: free z in the model; z from furtak2023:69 (spectroscopic)
+    images:
+      a:
+        knots:
+          A: {ra: 3.543093, dec: -30.369106, notes: 'QP 1, location G1-G2'}
+      b:
+        knots:
+          A: {ra: 3.540729, dec: -30.375868, notes: 'QP 1, location G1-G2'}
+      c:
+        knots:
+          A: {ra: 3.542623, dec: -30.372453, notes: 'QP 1, location G1-G2'}
+      d:
+        knots:
+          A: {ra: 3.540913, dec: -30.37222, notes: 'QP 1, location G1-G2'}
+  '700':
+    z: 2.3151
+    knots: [A]
+    notes: free z in the model; z from furtak2023:78 (spectroscopic)
+    images:
+      a:
+        knots:
+          A: {ra: 3.579703, dec: -30.357717, notes: 'QP 1, location G3'}
+      b:
+        knots:
+          A: {ra: 3.579165, dec: -30.357833, notes: 'QP 1, location G3'}
+      c:
+        knots:
+          A: {ra: 3.574908, dec: -30.356075, notes: 'QP 1, location G3'}
+  F86:
+    z: 6.875
+    notes: from furtak2023 system 86; spectroscopic z (JWST/NIRSpec, Atek+24)
+    images:
+      a: {ra: 3.57965346, dec: -30.39863839}
+      b: {ra: 3.58296179, dec: -30.39521089}
+      c: {ra: 3.59579096, dec: -30.39333922}
+  F70:
+    z: 2.3915
+    notes: from furtak2023 system 70; spectroscopic z (JWST/NIRSpec, Price+24)
+    images:
+      a: {ra: 3.55239846, dec: -30.373972}
+      b: {ra: 3.55234095, dec: -30.37405867}
+  F72:
+    z: 3.7468
+    notes: from furtak2023 system 72; spectroscopic z (JWST/NIRSpec, Price+24)
+    images:
+      a: {ra: 3.5496347, dec: -30.37844367}
+      b: {ra: 3.55110471, dec: -30.37473811}
+      c: {ra: 3.55228471, dec: -30.37222311}
+  F74:
+    z: 2.3743
+    notes: from furtak2023 system 74; spectroscopic z (JWST/NIRSpec, Price+24)
+    images:
+      a: {ra: 3.54512554, dec: -30.37489812}
+      b: {ra: 3.54524012, dec: -30.37467978}
+      c: {ra: 3.54702304, dec: -30.36946895}
+  F80:
+    z: 3.67289
+    knots: [A, B, C, D, E, F]
+    notes: from furtak2023 system 80; spectroscopic z (JWST/NIRSpec, Price+24)
+    images:
+      a:
+        knots:
+          A: {ra: 3.54645762, dec: -30.37637228}
+          B: {ra: 3.54637012, dec: -30.37645145}
+          C: {ra: 3.54631179, dec: -30.37662617}
+          D: {ra: 3.54647846, dec: -30.376592}
+          E: {ra: 3.54636179, dec: -30.37657395}
+          F: {ra: 3.54626596, dec: -30.37665812}
+      b:
+        knots:
+          A: {ra: 3.54670762, dec: -30.37579367}
+          B: {ra: 3.54708262, dec: -30.37497839}
+          C: {ra: 3.54722429, dec: -30.37463173}
+          D: {ra: 3.54727012, dec: -30.37490506}
+          E: {ra: 3.54719929, dec: -30.374777}
+          F: {ra: 3.54724512, dec: -30.37451228}
+      c:
+        knots:
+          A: {ra: 3.54912429, dec: -30.3696795}
+          B: {ra: 3.54904512, dec: -30.36971784}
+          C: {ra: 3.54901179, dec: -30.36984339}
+          D: {ra: 3.54917012, dec: -30.36984034}
+          E: {ra: 3.54905345, dec: -30.36980673}
+          F: {ra: 3.54897012, dec: -30.36986367}
+  F81:
+    z: 3.4793
+    notes: from furtak2023 system 81; spectroscopic z (JWST/NIRSpec, Price+24)
+    images:
+      a: {ra: 3.54462429, dec: -30.37659812}
+      b: {ra: 3.54625345, dec: -30.37324923}
+      c: {ra: 3.54734929, dec: -30.36957339}

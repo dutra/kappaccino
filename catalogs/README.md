@@ -23,6 +23,11 @@ catalogs/<cluster>/<source>/
 | `as1063/diego2026/` | AS1063_JWST | images.yaml | members.yaml (Beauchesne 2025) | Diego et al. 2026 Table 1 (`raw/`), `image_mapping.json`, `validation.json` |
 | `as1063/caminha2016/` | (not an entry) | images.yaml | members.yaml (no BCG) | Caminha et al. 2016, model v2.0: `source/A1063_obs_arcs_v11.dat`, `members_95_160_nonan_cuts.cat`, par, region files; systems 50 and 51 have z = 0 (free in Lenstool) |
 | `as1063/master/` | (not an entry yet) | images.yaml, images_gold.yaml | members.yaml | built from the three folders above, see below |
+| `a2744/bergamini2023b/` | (not an entry yet) | images.yaml (knots; 10 systems free z) | | Bergamini et al. 2023, ApJ 952, 84 (GLASS-JWST) Table 2, VizieR |
+| `a2744/bergamini2023a/` | (not an entry) | images.yaml | members.yaml (225, F160W) | Bergamini et al. 2023, A&A 670, A60 Tables A1, B1, VizieR |
+| `a2744/furtak2023/` | (not an entry) | images.yaml | members.yaml (419 with F814W) | UNCOVER lens model release v2.0 (Furtak et al. 2023) |
+| `a2744/mahler2018/` | (not an entry) | images.yaml | | Mahler et al. 2018, MNRAS 473, 663 Table A1, VizieR |
+| `a2744/master/` | (not an entry yet) | images.yaml, images_gold.yaml | members.yaml | built from the four folders above, base bergamini2023b |
 
 Hera and Ares positions are offsets about (0, 0) in degrees (the par files' `reference 3 0 0`), not sky coordinates.
 Positions of the real clusters are ICRS RA/Dec; the CANUCS catalog is in the frame of the CANUCS lenstool input,
@@ -78,7 +83,9 @@ catalogs/<cluster>/master/
   renamed with that paper's `prefix`.
 - Redshifts: a non-spectroscopic base z is replaced by a linked spectroscopic one. Two spectroscopic redshifts more than
   `dz_max` apart in |dz|/(1+z) are listed under `conflicts` until a `set_z` decision settles them. Lenstool's z = 0 (a
-  free redshift) is never added.
+  free redshift) is never added; a base system with a free z enters only with a spectroscopic z from a linked
+  system or a `set_z` decision, and is otherwise listed under `free_z`.
+- `members_base` names the paper whose members the master keeps, when the base paper has none (A2744).
 - A paper that reused another's image positions has `derived_from: <paper>` and does not count as independent for the
   gold catalog (Bergamini 2019 uses the Caminha 2016 positions).
 - `candidate_images` are images another paper gives a base system that the base paper does not; they are not added.

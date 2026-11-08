@@ -16,7 +16,7 @@ frames:
     applied_arcsec: [-0.0038, 0.0178]
     n_matches: 44
     median_residual_arcsec: 0.0568
-counts: {master_systems: 25, gold_systems: 16, images: 73, left_out_groups: 2, candidate_images: 0, conflicts: 0}
+counts: {master_systems: 25, gold_systems: 16, images: 73, left_out_groups: 2, free_z_systems: 0, candidate_images: 0, conflicts: 0}
 systems:
   D1:
     from: diego2026
@@ -252,6 +252,7 @@ left_out:
     caminha2016: ['51']
   z:
     caminha2016:51: [0.0, free]
+free_z: []
 members:
   counts: {diego2026: 288, bergamini2019: 222, caminha2016: 139}
   only_in:

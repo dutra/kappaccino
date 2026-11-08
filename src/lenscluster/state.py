@@ -1,4 +1,12 @@
-"""Build the model state: parameter specs, lens components, families, images, member sites."""
+"""Build the model state: parameter specs, lens components, families, images, member sites.
+
+:func:`build_state` turns a :class:`~lenscluster.config.LensClusterSolverConfig` into the
+:class:`~lenscluster.model.ModelState` that :class:`~lenscluster.evaluator.Evaluator` evaluates: it reads the declared
+lens model, member catalogs and image catalog, converts sky positions to arcsec offsets from the reference
+(:math:`x = (\\alpha_0 - \\alpha)\\cos\\delta_0 \\cdot 3600`, positive west; :math:`y = (\\delta - \\delta_0) \\cdot 3600`),
+and lays out the sampled parameters.  :func:`with_member_classes` changes which members are evaluated exactly and
+which use centered deviations without changing the physical model.
+"""
 from __future__ import annotations
 
 import math
@@ -343,7 +351,40 @@ def build_member_kinematics(records: list[dict[str, Any]], populations) -> dict[
 # ----------------------------------------------------------------------------- state assembly
 def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.ndarray | None = None, drop_member_ids=(),
                 classification: dict[str, Any] | None = None) -> ModelState:
-    """Build the full model state. Every member is sampled; classes default to all exact."""
+    """Build the full model state. Every member is sampled; classes default to all exact.
+
+    Parameters, in order: the halo (and shear, NFW, mass-sheet) parameters with priors, the scaling-relation
+    parameters of each member population, the population scatters of the member deviations, one deviation offset per
+    member (and per radius in the ``sigma_rcut`` / ``mass_rcut`` modes), member shape offsets
+    (``member_shape_scatter``), the error-model scales of the configured likelihood, two source offsets per family,
+    and the softening length.  ``initial_theta`` is set to the prior centers with the configured starts of the
+    error-model scales.
+
+    Parameters
+    ----------
+    config : LensClusterSolverConfig
+        The run configuration (model, members, scaling, likelihood).
+    exact_member_positions : array_like or None, optional
+        Positions into the member arrays of the members to evaluate exactly; the others use the far-field series.
+        None (default) evaluates every member exactly.
+    drop_member_ids : iterable of str, optional
+        Members to remove from the lens model, as ``"<population_id>:<catalog_id>"`` or a bare catalog id.  Default
+        none.
+    classification : dict or None, optional
+        Classification record stored in ``state.members.classification``.  Default None (empty).
+
+    Returns
+    -------
+    ModelState
+        The model state, with no member centered.
+
+    Raises
+    ------
+    ValueError
+        If the configuration is inconsistent, for example priors on fields a profile does not sample, half of a Cartesian shape
+        pair, an unsupported member-population profile, a family with missing or differing redshifts, a
+        nonpositive image uncertainty, a parity outside -1, 0, +1, or invalid member-kinematics sources.
+    """
     model_config = config.model
     potentials, potfiles, images_df, cosmo_config, reference = declared_model_inputs(model_config, config.scaling)
     # Members removed after the pivot and the priors were set from the full catalog (members.min_deflection_arcsec).
@@ -605,7 +646,31 @@ def convert_member_centering(state: ModelState, theta: np.ndarray, centered: np.
 def with_member_classes(state: ModelState, exact_positions: np.ndarray, classification: dict[str, Any] | None = None, *,
                         centered: np.ndarray | None = None) -> ModelState:
     """Set the exact/far-field classes and, if given, which members use centered deviations; the initial theta
-    is converted between centered and unit-offset form so that the physical model is unchanged."""
+    is converted between centered and unit-offset form so that the physical model is unchanged.
+
+    Also limits sampled member shapes, and in ``radius_deviation_members="exact"`` mode the radius deviations, to the
+    exact members.  The input state is not modified.
+
+    Parameters
+    ----------
+    state : ModelState
+        The model state.
+    exact_positions : array_like
+        Positions into the member arrays (``state.members.member_ids``) of the members to evaluate exactly; every
+        other member uses the far-field series.
+    classification : dict or None, optional
+        New classification record; None (default) keeps ``state.members.classification``.  ``centered_count`` and
+        ``centered_members`` are added to it.
+    centered : array_like or None, optional
+        Bool of shape (member,): True for members whose deviations are sampled directly (centered).  None (default)
+        keeps the current centering.
+
+    Returns
+    -------
+    ModelState
+        A new state with the classes set, the ``centered`` flag of the affected ``ParameterSpec`` entries updated and
+        ``initial_theta`` converted (latent, shape (parameter,)).
+    """
     n_members = len(state.members.member_ids)
     exact = np.asarray(sorted(set(int(i) for i in exact_positions)), dtype=np.int32)
     far = np.asarray(sorted(set(range(n_members)) - set(exact.tolist())), dtype=np.int32)

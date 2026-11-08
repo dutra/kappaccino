@@ -1,4 +1,27 @@
-"""Configuration for the single-stage smoothed-local-image-plane solver."""
+"""Typed configuration of a lenscluster run.
+
+A run is described by one :class:`LensClusterSolverConfig`, which groups the lens model
+(:class:`LensModelConfig`: reference frame, cosmology, cluster-scale halos, member populations and image
+constraints) with the settings of each stage: output paths (:class:`RunPathsConfig`), runtime
+(:class:`RuntimeConfig`), the initial search (:class:`SearchConfig`), NUTS sampling (:class:`SamplingConfig`), member
+classification (:class:`MemberConfig`), the member scaling relation (:class:`ScalingModelConfig`), the likelihood and
+error model (:class:`LikelihoodConfig`) and the output diagnostics (:class:`ImageDiagnosticsConfig`,
+:class:`TruthRecoveryConfig`, :class:`ImageCatalogCutoutConfig`).  Every class is a frozen dataclass; change a field
+with :func:`dataclasses.replace` or :meth:`LensClusterSolverConfig.with_updates`, and check a finished configuration
+with :meth:`LensClusterSolverConfig.validate`.
+
+Image-plane coordinates are offsets in arcsec from the reference point of :class:`ReferenceFrameConfig`, with
+:math:`x = 3600\\,(\\alpha_0 - \\alpha)\\cos\\delta_0` (positive toward the west) and
+:math:`y = 3600\\,(\\delta - \\delta_0)` (positive toward the north).  Position angles are in degrees, measured from
+the +x axis toward +y.
+
+Priors are ``numpyro.distributions`` objects of the physical value of each sampled quantity (see
+:mod:`lenscluster.priors`).  A prior transformed by ``exp`` (``dist.LogNormal``, ``dist.LogUniform``,
+``priors.truncated_lognormal``, ``priors.lognormal_from_moments``) is sampled as the natural log of the value; any
+other supported prior (``dist.Uniform``, ``dist.Normal``, ``dist.TruncatedNormal``, ``dist.StudentT``) is sampled as
+the value itself.  Creating one of the exp-transformed priors starts JAX, so call
+``cpu_runtime.configure_cpu_runtime`` before building a configuration.
+"""
 from __future__ import annotations
 
 import math
@@ -12,9 +35,7 @@ import numpyro.distributions as dist
 from .priors import (cut_excess_from_moments, ellipticity_box, is_distribution, lognormal_from_moments, physical_bounds, shear_box, split,
                      truncated_lognormal)
 
-# Priors are numpyro.distributions objects of the physical value of each sampled quantity (see priors.py): a prior
-# transformed by exp (dist.LogNormal, dist.LogUniform, truncated_lognormal, lognormal_from_moments) is sampled as the log
-# of the value.  Creating one of those starts JAX, so call cpu_runtime.configure_cpu_runtime before building a config.
+# Lower truncation (arcsec) of the default error-scale priors of LikelihoodConfig.
 ERROR_SCALE_FLOOR_ARCSEC = 1.0e-4
 
 
@@ -25,6 +46,20 @@ def _error_scale_prior(median: float, log_sigma: float, upper: float):
 
 @dataclass(frozen=True)
 class RunPathsConfig:
+    """Where a run writes its products and how its figures are named.
+
+    Parameters
+    ----------
+    output_dir : str or pathlib.Path, optional
+        Parent directory of all runs.  A run writes into ``output_dir / run_name``.  Default ``"results"``.
+    run_name : str or None, optional
+        Name of the run directory: a nonempty single directory name without path separators or surrounding
+        whitespace.  Required in practice: :meth:`LensClusterSolverConfig.validate` raises ``ValueError`` for None.
+        Default None.
+    figure_prefix : str or None, optional
+        Prefix of figure file names, joined to the name with an underscore (``"<prefix>_corner_globals.pdf"``).  None
+        writes most figures without a prefix (a few use ``"cluster"``).  Default None.
+    """
     output_dir: str | Path = "results"
     run_name: str | None = None
     figure_prefix: str | None = None
@@ -32,6 +67,22 @@ class RunPathsConfig:
 
 @dataclass(frozen=True)
 class ReferenceFrameConfig:
+    """Reference point of the image-plane coordinates.
+
+    Every sky position (images, members) is converted to arcsec offsets from (``ra0_deg``, ``dec0_deg``):
+    :math:`x = 3600\\,(\\alpha_0 - \\alpha)\\cos\\delta_0` (positive toward the west) and
+    :math:`y = 3600\\,(\\delta - \\delta_0)` (positive toward the north).
+
+    Parameters
+    ----------
+    reference : int, optional
+        Lenstool ``runmode reference`` code, carried with the frame (``lenstool_par`` reads it from a Lenstool
+        parameter file).  The coordinate conversion above does not depend on it.  Default ``3``.
+    ra0_deg : float, optional
+        Right ascension of the reference point, in degrees.  Default ``0.0``.
+    dec0_deg : float, optional
+        Declination of the reference point, in degrees.  Default ``0.0``.
+    """
     reference: int = 3
     ra0_deg: float = 0.0
     dec0_deg: float = 0.0
@@ -39,6 +90,30 @@ class ReferenceFrameConfig:
 
 @dataclass(frozen=True)
 class CosmologyConfig:
+    """Background cosmology of the lens model.
+
+    The lensing distances (JAX, ``jax_cosmology``) are those of a flat universe with matter density ``Om0`` and a
+    dark-energy equation of state ``w0``; ``class_name`` selects the astropy cosmology of the exact-image solver and
+    of the output maps.
+
+    Parameters
+    ----------
+    H0 : float, optional
+        Hubble constant, in km s^-1 Mpc^-1.  Must be positive.  Default ``70.0``.
+    Om0 : float, optional
+        Matter density parameter at z = 0, dimensionless.  Must be nonnegative.  Default ``0.3``.
+    Ode0 : float or None, optional
+        Dark-energy density parameter at z = 0, dimensionless.  Used only in :math:`H(z)` for the critical density
+        that defines an NFW halo's :math:`M_{200}`; the distances assume a flat universe.  None means ``1 - Om0``.
+        Default None.
+    w0 : float, optional
+        Dark-energy equation-of-state parameter, dimensionless.  Used by the JAX distances and by the astropy
+        ``"FlatwCDM"`` cosmology.  Default ``-1.0``.
+    class_name : str, optional
+        astropy cosmology used by the exact-image solver, the convergence maps and the truth comparison:
+        ``"FlatLambdaCDM"`` (ignores ``w0``) or ``"FlatwCDM"`` (uses ``w0``).  Any other value behaves as
+        ``"FlatLambdaCDM"``.  Keep it consistent with ``w0``.  Default ``"FlatLambdaCDM"``.
+    """
     H0: float = 70.0
     Om0: float = 0.3
     Ode0: float | None = None
@@ -48,6 +123,53 @@ class CosmologyConfig:
 
 @dataclass(frozen=True)
 class DPIEHaloConfig:
+    """Elliptical dPIE (Lenstool profile 81) halo, usually a cluster-scale component.
+
+    Each field below is the fixed value of the halo's parameter; a parameter with an entry in ``priors`` is sampled
+    instead.  :meth:`cluster_scale` builds a halo with the standard priors.
+
+    Parameters
+    ----------
+    id : str
+        Name of the component; the sampled parameters are named ``"<id>.<field>"``.
+    x_centre : float
+        Center x offset from the reference point, in arcsec.
+    y_centre : float
+        Center y offset from the reference point, in arcsec.
+    ellipticite : float
+        Lenstool ellipticity :math:`(a^2 - b^2)/(a^2 + b^2)` of the mass distribution, dimensionless, in [0, 1).
+    angle_pos : float
+        Position angle of the major axis, in degrees from the +x axis toward +y.
+    core_radius_kpc : float
+        Core radius, in kpc.  Must be positive.
+    cut_radius_kpc : float
+        Cut (truncation) radius, in kpc.  Must be positive.  When the cut radius is sampled (``priors["cut_excess_kpc"]``)
+        the model uses the effective core plus the sampled excess instead.
+    v_disp : float
+        Velocity dispersion of the dPIE in km s^-1 (Lenstool's fiducial :math:`\\sigma_{LT}`).  Must be positive.
+    z_lens : float
+        Redshift of the halo.  Must be positive.  The first halo's redshift sets the kpc-per-arcsec scale of the model.
+    profile_type : int, optional
+        Lenstool profile code; must be ``81`` (dPIE).  Default ``81``.
+    priors : dict of str to numpyro distribution or None, optional
+        Priors of the sampled parameters, keyed by: ``"x_centre"`` and ``"y_centre"`` (arcsec); ``"e1"`` and ``"e2"``
+        (the shape as the Cartesian pair :math:`|e|(\\cos 2\\phi, \\sin 2\\phi)` with :math:`|e| = (1 - q)/(1 + q)`,
+        dimensionless; give both or neither, see ``priors.ellipticity_box``); ``"core_radius_kpc"`` (kpc);
+        ``"cut_excess_kpc"`` (the cut radius above the effective core, :math:`r_{cut} - \\sqrt{r_{core}^2 +
+        s^2}` with :math:`s` the softening of ``ScalingModelConfig.softening_length_prior``, in kpc; see
+        ``priors.cut_excess_from_moments``); ``"v_disp"`` (km s^-1).  A parameter without an entry, or with None, is
+        fixed at its field value.  Any other key raises ``ValueError`` when the model is built.  Default: empty
+        (every parameter fixed).
+    ellipticity_soft_cap : float or None, optional
+        Smooth upper limit on the ellipticity, in Lenstool ``ellipticite`` (converted internally to the modulus
+        :math:`|e|`).  Below the cap the shape prior is the (``e1``, ``e2``) box of ``priors``; above it the log prior
+        falls as :math:`-\\mathrm{softplus}((|e| - \\mathrm{cap}) / \\mathrm{width})`, a smooth wall in place of the
+        hard edge of the box, which is stiff for NUTS.  Needs uniform ``e1`` and ``e2`` priors whose box reaches beyond
+        the cap; must lie in (0, 1).  None keeps the hard box only.  Default None.
+    ellipticity_soft_width : float, optional
+        Width of the soft wall in the modulus :math:`|e|`, dimensionless.  Used only with ``ellipticity_soft_cap``;
+        must be positive.  Default ``0.02``.
+    """
     id: str
     x_centre: float
     y_centre: float
@@ -58,26 +180,48 @@ class DPIEHaloConfig:
     v_disp: float
     z_lens: float
     profile_type: int = 81
-    # Priors (numpyro distributions) of the sampled fields: "x_centre", "y_centre" (arcsec), "e1", "e2" (the shape, see
-    # priors.ellipticity_box), "core_radius_kpc", "cut_excess_kpc" (the cut radius above the effective core,
-    # r_cut - sqrt(r_core^2 + softening^2)) and "v_disp" (km/s).  A field without a prior (or with None) is fixed at its value above.
     priors: dict[str, Any] = field(default_factory=dict)
-    # Smooth ellipticity cap (Lenstool ellipticite, (a^2 - b^2) / (a^2 + b^2)): below it the shape prior is the (e1, e2)
-    # box of priors["e1"], priors["e2"]; above it the log prior falls as -softplus((|e| - cap) / width) in the modulus |e|,
-    # so a halo that presses against the cap meets a smooth wall instead of a hard bound (a hard bound is stiff for NUTS:
-    # halo 1 of M0416 at |e| 0.61 against 0.627 set the step size, 2026-11-03).  The box must reach beyond the cap.
-    # None: the hard box only.
+    # Soft cap history: a hard bound is stiff for NUTS: halo 1 of M0416 at |e| 0.61 against 0.627 set the step size
+    # (2026-11-03).
     ellipticity_soft_cap: float | None = None
-    ellipticity_soft_width: float = 0.02        # in the modulus |e|
+    ellipticity_soft_width: float = 0.02
 
     @classmethod
     def cluster_scale(cls, id: str, x_centre: float, y_centre: float, z_lens: float, *, v_disp: float = 800.0,
                       position_half_width_arcsec: float = 5.0, ellipticity_upper: float = 0.8, softening_kpc: float = 0.0) -> "DPIEHaloConfig":
-        """A cluster-scale dPIE with the standard priors: centre uniform in a box around the light, shape uniform in the
-        (e1, e2) box of ellipticities up to ``ellipticity_upper``, core log-uniform on 0.5-100 kpc, cut radius about
-        1500 +- 300 kpc on 500-3000 kpc (the arcs do not constrain it) and a dispersion of 35% width around ``v_disp``,
-        both log-normal (sampled in log).  ``softening_kpc``: the resolution softening the model adds to the core
-        (ScalingModelConfig.softening_length_prior), which sets where the cut radius's excess starts."""
+        """Build a cluster-scale dPIE halo with the standard priors.
+
+        The center is uniform in a box around (``x_centre``, ``y_centre``); the shape is uniform in the (e1, e2) box of
+        Lenstool ellipticities up to ``ellipticity_upper`` at any angle; the core radius is log-uniform on 0.5-100 kpc;
+        the cut radius is about 1500 +- 300 kpc on 500-3000 kpc (the arcs do not constrain it), as a log-normal prior
+        of its excess above the effective core; the dispersion is a log-normal of mean ``v_disp`` and standard
+        deviation ``0.35 * v_disp`` truncated to 100-2200 km s^-1.  The core, cut excess and dispersion are sampled in
+        log.  The fixed fields (used only if a prior is later removed) are ``ellipticite`` 0.3, ``angle_pos`` 0,
+        a 10 kpc core and a 1500 kpc cut radius.
+
+        Parameters
+        ----------
+        id : str
+            Name of the component.
+        x_centre, y_centre : float
+            Center of the position prior, in arcsec from the reference point.
+        z_lens : float
+            Redshift of the halo.
+        v_disp : float, optional
+            Mean of the velocity-dispersion prior and the fixed value, in km s^-1.  Default ``800.0``.
+        position_half_width_arcsec : float, optional
+            Half-width of the uniform position box, in arcsec.  Default ``5.0``.
+        ellipticity_upper : float, optional
+            Largest Lenstool ``ellipticite`` the shape box covers, dimensionless.  Default ``0.8``.
+        softening_kpc : float, optional
+            Resolution softening added in quadrature to the core (``ScalingModelConfig.softening_length_prior``), in
+            kpc; it sets where the cut radius's excess starts.  Default ``0.0``.
+
+        Returns
+        -------
+        DPIEHaloConfig
+            The halo, with ``priors`` on the center, shape, core, cut excess and dispersion.
+        """
         half, core = float(position_half_width_arcsec), 10.0
         return cls(id=str(id), x_centre=float(x_centre), y_centre=float(y_centre), ellipticite=0.3, angle_pos=0.0, core_radius_kpc=core,
                    cut_radius_kpc=1500.0, v_disp=float(v_disp), z_lens=float(z_lens), priors={
@@ -92,8 +236,38 @@ class DPIEHaloConfig:
 
 @dataclass(frozen=True)
 class NFWHaloConfig:
-    """Elliptical NFW cluster-scale halo: mass M200 (log10 Msun, no little h) and scale radius in kpc; ellipticity is
-    in the convergence with the Lenstool convention of ``ellipticite``."""
+    """Elliptical NFW (Lenstool profile 12) cluster-scale halo.
+
+    The halo is set by its mass :math:`M_{200}` (the mass within the radius enclosing 200 times the critical density
+    at ``z_lens``, in Msun with no factor of h) and its scale radius; the ellipticity is that of the convergence, in
+    Lenstool's ``ellipticite`` convention.
+
+    Parameters
+    ----------
+    id : str
+        Name of the component; the sampled parameters are named ``"<id>.<field>"``.
+    x_centre : float
+        Center x offset from the reference point, in arcsec.
+    y_centre : float
+        Center y offset from the reference point, in arcsec.
+    ellipticite : float
+        Lenstool ellipticity :math:`(a^2 - b^2)/(a^2 + b^2)` of the convergence, dimensionless, in [0, 1).
+    angle_pos : float
+        Position angle of the major axis, in degrees from the +x axis toward +y.
+    log10_m200 : float
+        :math:`\\log_{10}(M_{200} / M_\\odot)`.  Must be finite.
+    scale_radius_kpc : float
+        NFW scale radius :math:`r_s`, in kpc.  Must be positive.
+    z_lens : float
+        Redshift of the halo.  Must be positive.
+    profile_type : int, optional
+        Lenstool profile code; must be ``12`` (NFW).  Default ``12``.
+    priors : dict of str to numpyro distribution or None, optional
+        Priors of the sampled parameters, keyed by ``"x_centre"``, ``"y_centre"`` (arcsec), ``"e1"``, ``"e2"`` (the
+        Cartesian shape, dimensionless; both or neither, see ``priors.ellipticity_box``), ``"log10_m200"``
+        (:math:`\\log_{10}` Msun) and ``"scale_radius_kpc"`` (kpc).  A parameter without an entry, or with None, is
+        fixed at its field value.  Default: empty (every parameter fixed).
+    """
     id: str
     x_centre: float
     y_centre: float
@@ -103,66 +277,201 @@ class NFWHaloConfig:
     scale_radius_kpc: float
     z_lens: float
     profile_type: int = 12
-    priors: dict[str, Any] = field(default_factory=dict)          # "x_centre", "y_centre", "e1", "e2", "log10_m200", "scale_radius_kpc"
+    priors: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
 class MassSheetConfig:
-    """Uniform external convergence at the lens redshift.  ``kappa`` is the value for a source at infinite redshift;
-    each family sees kappa x D_ls / D_s.  Multiple source redshifts constrain it; a single one cannot (mass-sheet degeneracy)."""
+    """Uniform external convergence (profile code 101) at the lens redshift.
+
+    ``kappa`` is the convergence for a source at infinite redshift; a family at redshift :math:`z_s` sees
+    :math:`\\kappa\\,D_{ls}/D_s`.  Families at several source redshifts constrain it; a single source redshift cannot
+    (mass-sheet degeneracy).
+
+    Parameters
+    ----------
+    id : str
+        Name of the component; the sampled parameter is named ``"<id>.kappa"``.
+    kappa : float
+        Convergence for a source at infinite redshift, dimensionless.  Must be finite.
+    z_lens : float
+        Redshift of the sheet.  Must be positive.
+    profile_type : int, optional
+        Profile code; must be ``101``.  Default ``101``.
+    priors : dict of str to numpyro distribution or None, optional
+        Prior of the sampled convergence under the key ``"kappa"`` (dimensionless).  Without it, or with None, the
+        convergence is fixed at ``kappa``.  Default: empty (fixed).
+    """
     id: str
     kappa: float
     z_lens: float
     profile_type: int = 101
-    priors: dict[str, Any] = field(default_factory=dict)          # "kappa"
+    priors: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
 class ShearHaloConfig:
+    """External shear (Lenstool profile 14).
+
+    Parameters
+    ----------
+    id : str
+        Name of the component; the sampled parameters are named ``"<id>.gamma1"`` and ``"<id>.gamma2"``.
+    gamma : float
+        Shear amplitude, dimensionless.  Must be finite and nonnegative.
+    angle_pos : float
+        Shear angle, in degrees from the +x axis toward +y; the Cartesian components are
+        :math:`(\\gamma_1, \\gamma_2) = \\gamma(\\cos 2\\phi, \\sin 2\\phi)`.
+    z_lens : float
+        Redshift of the shear component.  Must be positive.
+    profile_type : int, optional
+        Lenstool profile code; must be ``14``.  Default ``14``.
+    priors : dict of str to numpyro distribution or None, optional
+        Priors of the sampled Cartesian components under the keys ``"gamma1"`` and ``"gamma2"`` (dimensionless; both
+        or neither, see ``priors.shear_box``).  Without them the shear is fixed at (``gamma``, ``angle_pos``).
+        Default: empty (fixed).
+    """
     id: str
     gamma: float
     angle_pos: float
     z_lens: float
     profile_type: int = 14
-    priors: dict[str, Any] = field(default_factory=dict)          # "gamma1", "gamma2" (see priors.shear_box)
+    priors: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def free(cls, id: str, z_lens: float, *, gamma_upper: float = 0.3) -> "ShearHaloConfig":
-        """External shear with a free amplitude up to ``gamma_upper`` and a free angle: uniform in the (gamma1, gamma2) box."""
+        """Build an external shear with a free amplitude and angle.
+
+        The prior is uniform in the smallest (gamma1, gamma2) box that holds every amplitude up to ``gamma_upper`` at
+        every angle (``priors.shear_box``).
+
+        Parameters
+        ----------
+        id : str
+            Name of the component.
+        z_lens : float
+            Redshift of the shear component.
+        gamma_upper : float, optional
+            Largest shear amplitude the box covers, dimensionless.  Default ``0.3``.
+
+        Returns
+        -------
+        ShearHaloConfig
+            The shear, with fixed values ``gamma`` 0 and ``angle_pos`` 0 and priors on ``gamma1`` and ``gamma2``.
+        """
         return cls(id=str(id), gamma=0.0, angle_pos=0.0, z_lens=float(z_lens), priors=shear_box(float(gamma_upper)))
 
 
 @dataclass(frozen=True)
 class IndependentMemberHaloConfig:
+    """A cluster member taken off the scaling relation and modeled as its own dPIE halo.
+
+    The halo starts at the member's catalog position and light shape, with the population's ``corekpc``, ``cutkpc``
+    and ``sigma`` as its fixed core, cut radius and dispersion, and is removed from the population's
+    scaling relation.  Members whose catalog ``treatment`` is ``independent`` get such a halo with the default priors
+    even when they are not listed here.
+
+    Parameters
+    ----------
+    population_id : str
+        ``id`` of the :class:`MemberPopulationConfig` whose catalog holds the member.
+    catalog_id : str
+        The member's id in that catalog.
+    id : str or None, optional
+        Name of the component.  None means ``"independent_member_<population_id>_<catalog_id>"``.  Default None.
+    priors : dict of str to numpyro distribution or None, optional
+        Priors keyed as in :attr:`DPIEHaloConfig.priors`; each entry replaces the default prior of that parameter, and
+        None fixes the parameter at its starting value.  The defaults are: position truncated normal of width 0.3
+        arcsec within +-2 arcsec of the catalog position; shape uniform in the (e1, e2) box of ``ellipticite`` up to
+        0.8; core radius log-normal around the population's ``corekpc`` (0.5 dex width) on 0.01-50 kpc; cut radius
+        log-normal around ``cutkpc`` (0.5 dex width) on 1-1000 kpc, as an excess above the core; dispersion log-normal
+        of mean ``sigma`` and standard deviation ``0.5 * sigma`` on 30-1000 km s^-1 (all log-normals sampled in log).
+        Default: empty (all defaults).
+    """
     population_id: str
     catalog_id: str
     id: str | None = None
-    priors: dict[str, Any] = field(default_factory=dict)          # as DPIEHaloConfig.priors; unset fields take the defaults, None fixes one
+    priors: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
 class MemberPopulationConfig:
+    """A population of cluster members whose dPIE halos follow a luminosity scaling relation.
+
+    Member :math:`i` with luminosity ratio :math:`L_i/L_0 = 10^{-0.4 (m_i - m_0)}` gets dispersion
+    :math:`\\sigma_0 (L_i/L_0)^{\\alpha}` and core and cut radii :math:`r_0 (L_i/L_0)^{\\beta}`, times its sampled
+    deviation from the relation (see :class:`ScalingModelConfig`, which also holds the slope priors).
+    :meth:`bergamini2019` and :meth:`neutral` build populations with published or scale-free priors.
+
+    Parameters
+    ----------
+    id : str
+        Name of the population; must be unique.
+    catalog_path : str or pathlib.Path
+        Member catalog: a YAML catalog (``.yaml``/``.yml``, see ``lenscluster.member_catalog``) or a Lenstool potfile
+        (``.cat``).  Must exist.  Members with catalog ``treatment`` ``exclude`` are left out of the model.
+    mag0 : float or str
+        Pivot magnitude :math:`m_0` (mag, in the relation's band) at which ``sigma``, ``cutkpc``, ``corekpc`` and their
+        priors apply; or ``"auto"``: the image-leverage-weighted mean member magnitude (weights
+        :math:`\\sum_j 1/\\max(R_{ij}, 1'')^2` over images :math:`j`), rounded to the nearest magnitude.  With
+        ``"auto"`` the values and priors are given at ``prior_mag0`` and moved to the pivot with the centers of the
+        slope priors.
+    corekpc : float
+        Core radius at the pivot, in kpc.  Fixed unless ``ScalingModelConfig.fit_corekpc``; must be positive.
+    sigma : float
+        Velocity dispersion at the pivot, in km s^-1 (Lenstool :math:`\\sigma_{LT}`).  Used when it is not sampled
+        (``ScalingModelConfig.fixed_relation_fields``); must be positive.
+    cutkpc : float
+        Cut radius at the pivot, in kpc.  Used when it is not sampled; must be positive.
+    z_lens : float
+        Redshift of the members.  Must be positive.
+    profile_type : int, optional
+        Lenstool profile code of the members; only ``81`` (dPIE) is supported.  Default ``81``.
+    sigma_prior : numpyro distribution, optional
+        Prior of the pivot dispersion, in km s^-1, given at ``mag0`` (or ``prior_mag0`` when ``mag0`` is ``"auto"``).
+        Default: log-normal of mean 100 and standard deviation 40 km s^-1 truncated to 20-500 km s^-1, sampled in log.
+    cutkpc_prior : numpyro distribution, optional
+        Prior of the pivot cut radius, in kpc, at the same magnitude.  Default: log-normal of mean 300 and standard
+        deviation 120 kpc truncated to 20-1000 kpc, sampled in log.
+    exclude_catalog_ids : tuple of str, optional
+        Catalog ids of members to leave out of this population.  Each must exist in the catalog, without duplicates.
+        Default ``()``.
+    prior_mag0 : float or None, optional
+        Magnitude (mag) at which ``sigma``, ``cutkpc``, ``corekpc`` and their priors are given when ``mag0`` is
+        ``"auto"``; required then, ignored otherwise.  Default None.
+    band : str or None, optional
+        YAML catalogs only: the magnitude band of the scaling relation.  None uses the catalog's ``band``.  Setting it
+        for a ``.cat`` catalog raises an error.  Default None.
+    kinematics_sources : tuple of str, optional
+        YAML catalogs only: names of the catalog's kinematics sources whose measured stellar velocity dispersions
+        enter the likelihood, one log-normal term per measured member on the relation:
+        :math:`\\ln\\sigma_{meas} \\sim N(\\ln(c\\,\\sigma_i), e_i)`, with :math:`\\sigma_i` the member's model
+        dispersion (relation times deviation), :math:`c` = ``kinematics_aperture_factor`` and
+        :math:`e_i^2 = (\\mathrm{err}_i/\\sigma_{meas})^2 + \\mathrm{kinematics\\_systematic}^2`.  At most one listed
+        source per galaxy, and each must appear on some member on the relation.  Empty: no kinematics term.
+        Default ``()``.
+    kinematics_systematic : float, optional
+        Fractional systematic error of the measured dispersions (template and fitting systematics), added in quadrature
+        to the measurement error in ln sigma, dimensionless.  The conversion from stellar to dPIE dispersion is left to
+        the member scatter.  Must be nonnegative.  Default ``0.05``.
+    kinematics_aperture_factor : float, optional
+        Ratio :math:`c = \\sigma_{ap}/\\sigma_{LT}` of the measured aperture dispersion to the dPIE dispersion,
+        dimensionless.  Must be positive.  Default ``295.2 / 248.0`` (Bergamini et al. 2021: an aperture dispersion
+        of 295.2 km s^-1 at the BCG magnitude deprojected to a :math:`\\sigma_{LT}` prior of 248 km s^-1).
+    """
     id: str
     catalog_path: str | Path
-    mag0: float | str                        # pivot magnitude, or "auto": the image-leverage-weighted member magnitude, rounded
+    mag0: float | str
     corekpc: float
     sigma: float
     cutkpc: float
     z_lens: float
     profile_type: int = 81
-    # Priors of the relation's dispersion (km/s) and cut radius (kpc) at L* (prior_mag0 when mag0 is "auto"; moved to the
-    # pivot with the slope priors' centres).  Both sampled in log by default.
     sigma_prior: Any = field(default_factory=lambda: lognormal_from_moments(100.0, 40.0, low=20.0, high=500.0))
     cutkpc_prior: Any = field(default_factory=lambda: lognormal_from_moments(300.0, 120.0, low=20.0, high=1000.0))
     exclude_catalog_ids: tuple[str, ...] = ()
-    prior_mag0: float | None = None          # magnitude at which sigma, cutkpc and their priors are given when mag0 is "auto"
-    band: str | None = None                  # YAML catalogs: the magnitude band of the scaling relation (default: the file's band)
-    # Stellar kinematics (YAML catalogs): the catalog's kinematics sources whose measured dispersions enter the likelihood,
-    # one log-normal term per member, ln sigma_meas ~ N(ln(c sigma_i), e_i), with sigma_i the member's dispersion on the
-    # relation times its deviation, c = kinematics_aperture_factor (sigma_ap / sigma_LT) and
-    # e_i^2 = (err_i / sigma_meas)^2 + kinematics_systematic^2 (template and fitting systematics; the stellar-to-dPIE
-    # conversion is left to the member scatter).  The default c is Bergamini et al. 2021's: sigma_ap = 295.2 km/s at the
-    # BCG magnitude deprojected to a sigma_LT prior of 248 km/s.  Empty: no kinematics term.
+    prior_mag0: float | None = None
+    band: str | None = None
     kinematics_sources: tuple[str, ...] = ()
     kinematics_systematic: float = 0.05
     kinematics_aperture_factor: float = 295.2 / 248.0
@@ -170,10 +479,36 @@ class MemberPopulationConfig:
     @classmethod
     def bergamini2019(cls, id: str, catalog_path: str | Path, z_lens: float, *, prior_mag0: float, sigma: float = 200.0,
                       cutkpc: float = 12.0, corekpc: float = 0.15) -> "MemberPopulationConfig":
-        """A member population on the MUSE-calibrated relation of Bergamini et al. 2019 at L* (``prior_mag0``): central
-        dispersion ~220 km/s and r_cut ~10 (+13, -7) kpc from their three clusters, widened to 200 +- 70 km/s on 40-500
-        and 12 +- 10 kpc on 2-60 (log-normal); the pivot is chosen automatically from image leverage.  Pair with
-        ScalingModelConfig.bergamini2019() for the slopes."""
+        """Build a member population with priors from the MUSE-calibrated relation of Bergamini et al. 2019.
+
+        Their three clusters give a central dispersion of about 220 km s^-1 and a cut radius of about 10 (+13, -7) kpc at
+        L* (``prior_mag0``).  The priors are widened to log-normals (sampled in log): dispersion of mean ``sigma`` and
+        standard deviation ``0.35 * sigma`` on 40-500 km s^-1 (200 +- 70 km s^-1 by default), and cut radius of mean
+        ``cutkpc`` and standard deviation 10 kpc on 2-60 kpc.  The pivot is chosen automatically from image leverage
+        (``mag0="auto"``).  Pair with :meth:`ScalingModelConfig.bergamini2019` for the slopes.
+
+        Parameters
+        ----------
+        id : str
+            Name of the population.
+        catalog_path : str or pathlib.Path
+            Member catalog (YAML or Lenstool ``.cat``).
+        z_lens : float
+            Redshift of the members.
+        prior_mag0 : float
+            Magnitude of L*, at which the values and priors are given, in mag.
+        sigma : float, optional
+            Dispersion at L* and mean of its prior, in km s^-1.  Default ``200.0``.
+        cutkpc : float, optional
+            Cut radius at L* and mean of its prior, in kpc.  Default ``12.0``.
+        corekpc : float, optional
+            Core radius at L*, in kpc.  Default ``0.15``.
+
+        Returns
+        -------
+        MemberPopulationConfig
+            The population.
+        """
         return cls(id=str(id), catalog_path=catalog_path, mag0="auto", prior_mag0=float(prior_mag0), corekpc=float(corekpc),
                    sigma=float(sigma), cutkpc=float(cutkpc), z_lens=float(z_lens),
                    sigma_prior=lognormal_from_moments(float(sigma), 0.35 * float(sigma), low=40.0, high=500.0),
@@ -181,10 +516,32 @@ class MemberPopulationConfig:
 
     @classmethod
     def neutral(cls, id: str, catalog_path: str | Path, z_lens: float, *, prior_mag0: float, corekpc: float = 0.15) -> "MemberPopulationConfig":
-        """A member population with priors that do not come from any cluster's lens model, at L* (``prior_mag0``):
-        dispersion 200 +- 100 km/s on 50-500 (log-normal; an L* early type in any Faber-Jackson calibration) and a cut
-        radius log-uniform between 2 and 100 kpc (lensing barely constrains it, so scale-free).  Pair with
-        ScalingModelConfig.neutral() for the slopes."""
+        """Build a member population with priors that come from no cluster's lens model.
+
+        At L* (``prior_mag0``) the dispersion prior is a log-normal of mean 200 and standard deviation 100 km s^-1 on
+        50-500 km s^-1 (an L* early type in any Faber-Jackson calibration; sampled in log), and the cut radius is
+        log-uniform between 2 and 100 kpc (lensing barely constrains it, so the prior is scale-free).  The fixed values
+        are 200 km s^-1 and 15 kpc.  The pivot is chosen automatically from image leverage (``mag0="auto"``).  Pair
+        with :meth:`ScalingModelConfig.neutral` for the slopes.
+
+        Parameters
+        ----------
+        id : str
+            Name of the population.
+        catalog_path : str or pathlib.Path
+            Member catalog (YAML or Lenstool ``.cat``).
+        z_lens : float
+            Redshift of the members.
+        prior_mag0 : float
+            Magnitude of L*, at which the values and priors are given, in mag.
+        corekpc : float, optional
+            Core radius at L*, in kpc.  Default ``0.15``.
+
+        Returns
+        -------
+        MemberPopulationConfig
+            The population.
+        """
         return cls(id=str(id), catalog_path=catalog_path, mag0="auto", prior_mag0=float(prior_mag0), corekpc=float(corekpc),
                    sigma=200.0, cutkpc=15.0, z_lens=float(z_lens),
                    sigma_prior=lognormal_from_moments(200.0, 100.0, low=50.0, high=500.0), cutkpc_prior=dist.LogUniform(2.0, 100.0))
@@ -192,13 +549,49 @@ class MemberPopulationConfig:
 
 @dataclass(frozen=True)
 class ImageConstraintsConfig:
-    catalog_path: str | Path                 # YAML image catalog (lenscluster.image_catalog); convert Lenstool files with scripts/convert_lenstool_catalog.py
-    sigma_inst_arcsec: float = 0.1           # astrometric error of images whose catalog entry gives none (sigma_inst)
+    """The multiple-image catalog that constrains the lens.
+
+    Families without a positive redshift and families with a single image are dropped when the model is built.
+
+    Parameters
+    ----------
+    catalog_path : str or pathlib.Path
+        YAML image catalog (see ``lenscluster.image_catalog``); convert Lenstool files with
+        ``scripts/convert_lenstool_catalog.py``.  Must exist.
+    sigma_inst_arcsec : float, optional
+        Astrometric error :math:`\\sigma_{inst}`, in arcsec, of images whose catalog entry (and the catalog's
+        ``defaults``) gives none.  Must be finite and positive.  ``LikelihoodConfig.sigma_inst_arcsec`` overrides every
+        image's error.  Default ``0.1``.
+    sigma_floor_arcsec : float, optional
+        Floor on every image's astrometric error, in arcsec: smaller errors are raised to it.  Must be finite and
+        nonnegative; ``0.0`` applies no floor.  Default ``0.0``.
+    """
+    catalog_path: str | Path
+    sigma_inst_arcsec: float = 0.1
     sigma_floor_arcsec: float = 0.0
 
 
 @dataclass(frozen=True)
 class LensModelConfig:
+    """The lens model: reference frame, cosmology, mass components and image constraints.
+
+    Parameters
+    ----------
+    reference : ReferenceFrameConfig, optional
+        Reference point of the arcsec coordinates.  Default: ``ReferenceFrameConfig()``.
+    cosmology : CosmologyConfig, optional
+        Background cosmology.  Default: ``CosmologyConfig()`` (flat, H0 = 70 km s^-1 Mpc^-1, Om0 = 0.3).
+    large_halos : tuple of DPIEHaloConfig, NFWHaloConfig, ShearHaloConfig or MassSheetConfig, optional
+        Cluster-scale components.  At least one is required by :meth:`LensClusterSolverConfig.validate`; the first
+        component's ``z_lens`` sets the lens redshift.  Default ``()``.
+    member_populations : tuple of MemberPopulationConfig, optional
+        Member populations on scaling relations.  Default ``()``.
+    independent_member_halos : tuple of IndependentMemberHaloConfig, optional
+        Members modeled as their own halos.  Each must name an existing population, without duplicates.  Default
+        ``()``.
+    image_constraints : ImageConstraintsConfig or None, optional
+        The multiple-image catalog.  Required by :meth:`LensClusterSolverConfig.validate`.  Default None.
+    """
     reference: ReferenceFrameConfig = field(default_factory=ReferenceFrameConfig)
     cosmology: CosmologyConfig = field(default_factory=CosmologyConfig)
     large_halos: tuple[DPIEHaloConfig | NFWHaloConfig | ShearHaloConfig | MassSheetConfig, ...] = ()
@@ -209,6 +602,33 @@ class LensModelConfig:
 
 @dataclass(frozen=True)
 class RuntimeConfig:
+    """Random seed, chain layout, resumption and logging of a run.
+
+    Parameters
+    ----------
+    seed : int, optional
+        Random seed (nonnegative): seeds NumPy and Python ``random``, the prior draws of the search starts, the NUTS
+        PRNG key and the posterior draws of the truth comparison.  Default ``12345``.
+    chains : int, optional
+        Number of NUTS chains (positive).  Each chain starts from one of the kept search modes, the best first,
+        cycling through them.  Default ``4``.
+    resume : bool, optional
+        Skip a stage (init or final) whose saved artifacts are complete and reuse them.  Default True.
+    skip_plots : bool, optional
+        Skip the output figures and tables written after each stage.  Default False.
+    quiet : bool, optional
+        Write the log to the run's log files only, not to the terminal.  Default False.
+    nuts_chain_method : str, optional
+        NumPyro chain method: ``"parallel"`` (chains run concurrently, one JAX device per chain; needs ``chains``
+        visible JAX devices, e.g. via ``JAX_NUM_CPU_DEVICES``), ``"vectorized"`` (chains run concurrently on one
+        device) or ``"sequential"`` (one chain at a time).  Default ``"parallel"``.
+    cpu_threads_per_chain : int or None, optional
+        Logical CPUs per concurrently running chain, positive.  Read by ``cpu_runtime.resolve_cpu_plan`` and
+        ``cpu_runtime.configure_cpu_runtime``, which a launcher calls before JAX starts, to pin the process to that
+        many CPUs per chain (Linux only); the pipeline itself does not apply it.  None pins nothing.  Default None.
+    numpyro_print_summary : bool, optional
+        Print a summary table of the global parameters after sampling.  Default False.
+    """
     seed: int = 12345
     chains: int = 4
     resume: bool = True
@@ -221,47 +641,123 @@ class RuntimeConfig:
 
 @dataclass(frozen=True)
 class SearchConfig:
-    """The init search, in two stages: the large-scale model with the members on their scaling relation (the relation
-    drawn from its prior per start) from ``n_starts`` prior starts (``halo_method``); then, from each carried mode, the
-    members with the large family frozen, started from ``member_starts`` prior draws of the relation (``member_method``); then a full-dimension L-BFGS polish of the
-    modes that can seed chains.  Methods: "lbfgs" (scipy L-BFGS-B per start), "optax-lbfgs" (vmapped optax L-BFGS,
-    for GPUs), "adam" (vmapped Adam) or "svi" (vmapped mean-field Gaussian guide, the guide mean as the estimate)."""
+    """The initial optimization that finds the chain starts.
+
+    The search runs in two stages and a polish.  Stage A fits the large-scale model (halos, shear, independent halos,
+    sources and the member scaling relation, every member on its relation, error scales held at their starts) from
+    ``n_starts`` prior draws with ``halo_method``.  Stage B starts from each carried stage-A mode with
+    ``member_starts`` prior draws of the relation and optimizes the members, sources and error scales with the
+    large-scale parameters frozen, with ``member_method``.  The modes that can seed chains are then polished with
+    L-BFGS in full dimension.  Optionally (``nuts_start_max_iter``) the kept modes are optimized again on the exact NUTS
+    target before sampling.  Throughout, end points are grouped into modes, degenerate modes are rejected, and modes
+    within ``mode_margin`` of the best are kept.
+
+    Parameters
+    ----------
+    n_starts : int, optional
+        Number of stage-A starts (positive); the first is the configured model, the others are prior draws.
+        Default ``32``.
+    halo_method : str, optional
+        Optimizer of stage A: ``"lbfgs"`` (scipy L-BFGS-B, one start at a time, with screening), ``"optax-lbfgs"``
+        (vmapped optax L-BFGS over all starts, for GPUs), ``"adam"`` (vmapped Adam) or ``"svi"`` (vmapped mean-field
+        Gaussian guide; the guide mean is the estimate).  Default ``"lbfgs"``.
+    member_method : str, optional
+        Optimizer of stage B, with the same choices as ``halo_method``.  Default ``"lbfgs"``.
+    member_starts : int, optional
+        Stage-B starts per carried mode (positive): the first keeps the stage-A relation, the others draw the relation
+        from its prior.  Default ``8``.
+    lbfgs_max_iter : int, optional
+        Iteration cap per start of ``"lbfgs"`` (screening included) and ``"optax-lbfgs"``.  Positive.  Default ``400``.
+    screen_iterations : int or None, optional
+        ``"lbfgs"`` only: every start first runs this many iterations, and only the ``screen_keep`` best continue, from
+        where they stopped, up to ``lbfgs_max_iter`` iterations in total.  None runs every start to the end.  Default
+        ``50``.
+    screen_keep : int, optional
+        Number of screened starts that continue.  Default ``16``.
+    nuts_start_max_iter : int, optional
+        Iteration cap of the chain-start step: after the final member classification, every kept mode is optimized by
+        scipy L-BFGS-B on the NUTS target (all parameters free except the pinned member scatters, source-transport
+        volume included); the modes within ``mode_margin`` of the best on that target, without copies of the same
+        large-scale model, seed the chains.  ``0`` skips the step; the start's conditioning on the target is then only
+        checked and a warning logged.  Default ``4000``.
+    nuts_start_tolerance : float, optional
+        Stopping rule of the chain-start step: a mode stops once it gains less than this in log posterior over 50
+        iterations.  Default ``0.1``.
+    nuts_start_pin_scatter : bool, optional
+        Pin the member scatters at ``polish_scatter`` and ``polish_radius_scatter`` in the chain-start step; NUTS frees
+        them.  Left free, an optimizer drives them toward zero (with centered deviations the density grows as
+        :math:`-\\ln s` per member as :math:`s \\to 0`).  Default True.
+    warm_start : str or None, optional
+        A previous run directory, or its ``init/artifacts`` directory.  Its saved start, matched by parameter name,
+        replaces stages A and B; one L-BFGS run and the polish start from it.  Parameters it lacks start at the
+        configured model.  None runs the full search.  Default None.
+    stage_b_free_amplitudes : bool, optional
+        Keep the large-scale parameters other than centers, shapes and shear components (dPIE dispersion, core and cut
+        radius; NFW mass and scale radius; sheet convergence) free in stage B next to the members.  False freezes the
+        whole large-scale family.  Default False.
+    diverse_carry : int, optional
+        Besides the stage-A modes within ``mode_margin``, up to this many more non-degenerate stage-A modes within
+        ``diverse_carry_margin`` of the best go to stage B, picked by farthest-point sampling in the large-scale
+        parameters.  Each gets its own stage B and polish; the chain-start step keeps it only if it lands within
+        ``mode_margin`` of the best on the NUTS target.  ``0`` turns this off.  Default ``8``.
+    diverse_carry_margin : float, optional
+        Largest log-posterior gap to the best stage-A mode for a diverse-carry mode.  Default ``500.0``.
+    adam_steps : int, optional
+        Steps per start of ``"adam"`` (positive).  Default ``2000``.
+    adam_learning_rate : float, optional
+        Learning rate of ``"adam"`` (positive), in the unconstrained coordinates.  Default ``0.05``.
+    svi_steps : int, optional
+        Steps of ``"svi"`` (positive).  Default ``2000``.
+    svi_learning_rate : float, optional
+        Learning rate of ``"svi"`` (positive).  Default ``0.05``.
+    polish_max_iter : int, optional
+        Iteration cap of the full-dimension scipy L-BFGS-B polish of each mode that can seed chains (positive); scipy's
+        own convergence tests can stop it earlier.  Default ``6000``.
+    polish_scatter : float or None, optional
+        Member velocity scatter (in ln sigma, dimensionless) at which the member scatters are pinned while optimizing
+        (search, polish, chain-start step); NUTS frees them.  Also the scatter at which ``MemberConfig.centering="auto"``
+        compares curvatures.  None pins neither scatter.  Must be positive when set.  Default ``0.2``.
+    polish_radius_scatter : float or None, optional
+        Member radius scatter (in ln r_cut, dimensionless) pinned with ``polish_scatter``.  None pins it at
+        ``polish_scatter``.  Default ``0.3`` (the prior median).
+    polish_free_scatter : bool, optional
+        Free the member scatters in the polish (the search keeps them pinned).  Default False.
+    mode_margin : float, optional
+        Log-posterior margin: modes within it of the best are carried to stage B, polished, and can seed chains.
+        Positive.  Default ``10.0``.
+    mode_parameter_tolerance : float, optional
+        End points whose active coordinates all differ by less than this, in units of the spread (standard deviation)
+        of the starts in each coordinate, are grouped into one mode.  Positive.  Default ``0.05``.
+    max_chain_modes : int, optional
+        Largest number of modes carried from stage A, polished per stage, and used as chain starts.  Positive.
+        Default ``4``.
+    max_median_abs_determinant : float, optional
+        A mode whose median :math:`|\\det A|` over the image positions exceeds this, dimensionless, is degenerate (a
+        lens so massive that the images are demagnified) and cannot seed chains; cluster lenses sit near 0.2.
+        Positive.  Default ``10.0``.
+    """
     n_starts: int = 32
     halo_method: str = "lbfgs"
     member_method: str = "lbfgs"
     member_starts: int = 8
     lbfgs_max_iter: int = 400
-    # Screening (method "lbfgs"): every start runs screen_iterations first; only the screen_keep best continue to
-    # lbfgs_max_iter in total, from where they stopped.  None runs every start to the end.  On CANUCS (256 starts) 50/16
-    # reaches the same best stage-A mode as running all starts (log posterior equal to 1e-4) in 54 s instead of 201 s.
+    # Screening benchmark: on CANUCS (256 starts) 50/16 reaches the same best stage-A mode as running all starts (log
+    # posterior equal to 1e-4) in 54 s instead of 201 s.
     screen_iterations: int | None = 50
     screen_keep: int = 16
-    # Converged chain start: after the final classification, every kept mode is optimized on the NUTS target (all parameters
-    # free, source-transport volume included) for at most this many iterations, and the modes within mode_margin of the best
-    # on the target seed the chains (since 2026-11-04; before, only the search's best by one evaluation was optimized).  0 skips it
-    # and the init only checks the start's conditioning (pipeline.chain_start_conditioning) and warns.  Even with the
+    # Chain-start step since 2026-11-04 (before, only the search's best by one evaluation was optimized).  Even with the
     # search and the target on the same blocks, the search's optimum (no transport volume, scatters pinned, provisional
     # classes) was 47-162 in Newton decrement off the target's mode, and a start there cost a short NUTS check 11
-    # divergences in 60 iterations; converged (1700 iterations, 145 s) it ran clean (2026-11-03).  It stops once the
-    # start gains less than nuts_start_tolerance in log posterior over 50 iterations, or at the cap.
+    # divergences in 60 iterations; converged (1700 iterations, 145 s) it ran clean (2026-11-03).
     nuts_start_max_iter: int = 4000
     nuts_start_tolerance: float = 0.1
-    # Pin the member scatters at polish_scatter and polish_radius_scatter (the search's values) in the chain-start step;
-    # NUTS frees them.  Free, the
-    # step on the nov3i shared-field run drove them to 7e-4 and 5e-6 (z -16 and -22): with centered deviations the density
-    # grows as -ln s per member when s -> 0, and an optimizer follows it (2026-11-03).
+    # Free, the step on the nov3i shared-field run drove the scatters to 7e-4 and 5e-6 (z -16 and -22) (2026-11-03).
     nuts_start_pin_scatter: bool = True
-    # Warm start: a previous run directory (or its init/artifacts); its saved start, mapped by parameter name, replaces
-    # stages A and B, and the polish runs from it.  Parameters it lacks start at the configured model.
     warm_start: str | None = None
-    # Stage B keeps the large halos' v_disp, core and cut radii active next to the members (centres, shapes and shear
-    # frozen); False (the default) freezes the whole large family.  It made no difference on AS1063 or M0416 (2026-11-05).
+    # stage_b_free_amplitudes made no difference on AS1063 or M0416 (2026-11-05).
     stage_b_free_amplitudes: bool = False
-    # Diverse carry: besides the best stage-A modes within mode_margin, up to this many more stage-A modes go to stage B,
-    # picked by farthest-point sampling in the large family's coordinates among the non-degenerate modes within
-    # diverse_carry_margin of the best.  Each gets its own stage B and polish, and its best mode is passed to the chain-start
-    # step, which keeps it only if it lands within mode_margin of the best on the NUTS target.  A mode that is poor with
-    # the members on their relation can be the best once the members deviate (M0416's southern halo, 2026-11-05).  0 turns it off.
+    # Diverse carry: a mode that is poor with the members on their relation can be the best once the members deviate
+    # (M0416's southern halo, 2026-11-05).
     diverse_carry: int = 8
     diverse_carry_margin: float = 500.0
     adam_steps: int = 2000
@@ -271,123 +767,267 @@ class SearchConfig:
     polish_max_iter: int = 6000             # the only full-dimension optimization: AS1063 needs 400 iterations to reach the joint
                                             # optimum, M0416 passes the one-stage multistart after 2000 (400 left it 27 short) and
                                             # was still 10-13 short of its basin's optimum at 2000 (nov5_reltest, 2026-11-04);
-                                            # the tolerance rule stops a converged polish early
-    # The member scatters (ln sigma, ln r_cut) are pinned at these values while optimizing (search, polish, chain start);
-    # NUTS frees them.  0.2 for the velocity: the MUSE dispersions of Granata et al. 2026 scatter by 0.22 in ln sigma about
-    # the relation, and 25-31 km/s is typical of MUSE-calibrated clusters.  0.3 for the radius: its prior median.  None
-    # for the velocity leaves both free (2026-11-03).
+                                            # scipy L-BFGS-B stops a converged polish early (its default ftol, gtol)
+    # Pinned scatters: 0.2 for the velocity: the MUSE dispersions of Granata et al. 2026 scatter by 0.22 in ln sigma
+    # about the relation, and 25-31 km/s is typical of MUSE-calibrated clusters.  0.3 for the radius: its prior median
+    # (2026-11-03).
     polish_scatter: float | None = 0.2
-    polish_radius_scatter: float | None = 0.3   # None pins the radius scatter at polish_scatter
-    # True frees the member scatters in the polish (the search keeps them pinned).  Off: on the search objective (no
-    # source-transport term) a free scatter collapsed to 0.001 on CANUCS (deviation rms 0.06, fragile verdict, 2026-11-03);
-    # the chain-start step keeps them pinned too (nuts_start_pin_scatter), and NUTS frees them.
+    polish_radius_scatter: float | None = 0.3
+    # polish_free_scatter off: on the search objective (no source-transport term) a free scatter collapsed to 0.001 on
+    # CANUCS (deviation rms 0.06, fragile verdict, 2026-11-03).
     polish_free_scatter: bool = False
     mode_margin: float = 10.0
     mode_parameter_tolerance: float = 0.05
     max_chain_modes: int = 4
-    max_median_abs_determinant: float = 10.0  # a mode whose median |det A| at the images exceeds this is degenerate (a lens so
-                                            # massive that the images are demagnified) and cannot seed chains; cluster lenses sit near 0.2
+    max_median_abs_determinant: float = 10.0
 
 
 @dataclass(frozen=True)
 class SamplingConfig:
+    """NUTS settings of the final stage.
+
+    Parameters
+    ----------
+    warmup : int, optional
+        Warmup (adaptation) iterations per chain.  Positive.  Default ``250``.
+    samples : int, optional
+        Post-warmup iterations per chain, before thinning.  Positive.  Default ``200``.
+    max_tree_depth : int, optional
+        Largest NUTS tree depth (at most :math:`2^{depth} - 1` leapfrog steps per transition).  Positive.  Default
+        ``8``.
+    target_accept : float, optional
+        Target acceptance probability of the step-size adaptation, in (0, 1).  Default ``0.85``.
+    initial_step_size : float, optional
+        Step size at the start of warmup, in the unconstrained coordinates.  Positive.  Default ``1e-3``.
+    thin : int, optional
+        Keep every ``thin``-th post-warmup draw.  Positive.  Default ``1``.
+    mass_matrix : str, optional
+        Mass matrix: ``"hessian"`` (dense block of the global parameters, seeded by the Hessian at the start and
+        adapted), ``"dense"`` (the same dense block, adapted from the identity) or ``"diagonal"`` (NumPyro's diagonal
+        adaptation; any other value behaves the same).  Default ``"hessian"``.
+    dense_member_offsets : bool, optional
+        Add the member deviation offsets of ``dense_offset_members`` to the dense block (global parameters plus two per
+        member), seeded and adapted with it; the source coordinates stay diagonal.  Default True.
+    dense_offset_members : str, optional
+        Which members' offsets join the dense block when ``dense_member_offsets`` is set: ``"all"``; ``"centered"``
+        (members whose deviation is sampled directly, see ``MemberConfig.centering``); ``"exact"`` (not the far-field
+        members); ``"none"``.  The other members' offsets get a diagonal mass.  Default ``"centered"``.
+    far_field_offsets : str, optional
+        ``"sample"``: far-field members keep free offsets; ``"fixed"``: their (non-centered) offsets are pinned at the
+        relation by a normal prior of width ``sampling.FIXED_OFFSET_STD`` (1e-3) started at zero.  Far-field members
+        barely move the images, so their offsets are close to prior-only.  Default ``"sample"``.
+    stiffness_diagnostic : bool, optional
+        After sampling, find the stiffest direction at each chain's last state with its adapted mass (power iteration on
+        Hessian-vector products, about 30 per chain), the step size it allows and the parameters in it
+        (``sampling.stiffness_diagnostic``).  Default True.
+    """
     warmup: int = 250
     samples: int = 200
     max_tree_depth: int = 8
     target_accept: float = 0.85
     initial_step_size: float = 1.0e-3
     thin: int = 1
-    mass_matrix: str = "hessian"            # "hessian": dense global block seeded by the Hessian; "dense": dense global block, adapted
-                                            # from the identity; "diagonal": NumPyro's default diagonal adaptation
-    # The member offsets join the dense block (global parameters + 2 x members), Hessian-seeded and adapted with it; the
-    # source coordinates stay diagonal.  The bright members' offsets trade off against sigma*, the core and the slopes
-    # (correlations to 0.74 on M0416), which the diagonal mass cannot follow (2026-11-03).
+    mass_matrix: str = "hessian"
+    # Dense member offsets: the bright members' offsets trade off against sigma*, the core and the slopes (correlations
+    # to 0.74 on M0416), which the diagonal mass cannot follow (2026-11-03).
     dense_member_offsets: bool = True
-    # Which members' offsets join the dense block when dense_member_offsets is set: "all"; "centered" (the members the data
-    # pin, centering "auto"); "exact" (not the far-field members); "none".  The rest are sampled with a diagonal mass.
     # A 600-dimensional dense block cannot be estimated from a warmup whose draws have an ESS of tens; "centered" (the
     # default since 2026-11-04, quick tests on AS1063) cut the chain disagreement by 3, made the far-field offsets mix
     # (ESS 4 -> 785 of 400 draws) and the softest direction 4x stiffer, at 2/3 of the time per draw.
     dense_offset_members: str = "centered"
-    # "sample": far-field members keep free offsets; "fixed": their offsets are pinned at the relation (unit normal
-    # prior of width FIXED_OFFSET_STD, start 0).  Far-field members barely move the images, so the offsets are prior-only.
     far_field_offsets: str = "sample"
-    # After sampling: the stiffest direction at each chain's last state with its adapted mass (power iteration on
-    # Hessian-vector products, ~30 per chain), the step size it allows and the parameters in it (sampling.stiffness_diagnostic).
     stiffness_diagnostic: bool = True
 
 
 @dataclass(frozen=True)
 class MemberConfig:
-    classification_prior_quantile: float | None = 0.975   # classify with the cut radii at this quantile of the cutkpc and beta priors
-                                                          # (and never below the current model); None uses the current model only
-    centering: str = "none"                 # which members sample their deviation directly (centered) rather than a unit offset:
-                                            # "none" (every member a unit offset: one coordinate system throughout, and no
-                                            # optimizer trap, 2026-11-03), "auto" (data curvature of the deviation exceeds the
-                                            # prior's 1/s^2 at the start), "exact"
-    centering_ratio: float = 1.0            # auto threshold on data/prior curvature
+    """Member classification (exact kernels near images, far-field series elsewhere) and far-field validity.
+
+    Members whose images lie within ``far_field_cut_radii`` cut radii, or whose circular far-field series would leave a
+    whitened ellipticity error above ``template_tolerance`` at an image, are computed with the exact dPIE kernel
+    ("exact" members); the others use the far-field series and are kept away from the images by a smooth barrier during
+    sampling.  The classification uses a conservative (inflated) cut radius so that the sampled cut radius can grow
+    before a far-field member reaches the guard.
+
+    Parameters
+    ----------
+    classification_prior_quantile : float or None, optional
+        Classify with cut radii at least this upper quantile of the ``cutkpc`` prior, with the radius slope spanning
+        the current value and the ``1 - q`` and ``q`` quantiles of the ``beta_radius`` prior (and never below the
+        current model inflated by ``cut_radius_inflation``).  Must lie in (0.5, 1).  None uses the current model only.
+        Default ``0.975``.
+    centering : str, optional
+        Which members sample their deviation directly (centered) rather than as a unit offset times the scatter:
+        ``"none"`` (every member a unit offset: one coordinate system throughout and no optimizer trap), ``"auto"``
+        (members whose data curvature of the deviation exceeds ``centering_ratio`` times the prior's
+        :math:`1/s^2` at the start, with :math:`s` = ``SearchConfig.polish_scatter``) or ``"exact"`` (every exact
+        member).  Default ``"none"``.
+    centering_ratio : float, optional
+        ``centering="auto"`` threshold on the ratio of data to prior curvature, dimensionless.  Positive.  Default
+        ``1.0``.
+    far_field_cut_radii : float, optional
+        Guard distance :math:`k`: a member with any image within :math:`k` of its (classification) cut radii is exact,
+        and a far-field member is kept at least :math:`k` of its sampled cut radii from every image.  Positive.
+        Default ``3.0``.
+    cut_radius_inflation : float, optional
+        Members are classified with this multiple of the current pivot cut radius (or the prior quantile, whichever is
+        larger), so the sampled cut radius can grow by that factor before any far-field member reaches the guard.  At
+        least 1.  Default ``3.0``.
+    template_tolerance : float, optional
+        Tolerance on the whitened ellipticity error of the circular far-field series at an image, in units of the
+        source-plane error (dimensionless), per member and summed over the far-field members.  In (0, 1).  Default
+        ``0.1``.
+    top_exact : int or None, optional
+        Make at least the ``top_exact`` highest-scoring members exact.  Must be at least the number of members the rule
+        above makes exact (``ValueError`` otherwise).  None applies the rule only.  Default None.
+    far_field_barrier_width : float, optional
+        Width :math:`w` of the far-field guard's log-barrier, in :math:`x = \\ln(R / (k\\,r_{cut}))` (dimensionless):
+        each far-field member adds :math:`-\\mathrm{strength}\\cdot\\mathrm{softplus}(-x/w)` to the log density, so NUTS
+        turns back at the boundary instead of diverging on a hard wall (about :math:`-0.7\\,\\mathrm{strength}` at the
+        guard, :math:`-0.01\\,\\mathrm{strength}` one width outside, linear in :math:`-x` inside).  Positive.  Default
+        ``0.05``.
+    far_field_barrier_strength : float, optional
+        Strength of that barrier, in log-density units.  Positive.  Default ``25.0``.
+    min_deflection_arcsec : float or None, optional
+        Drop members whose deflection at every image, at the initial model, is below this, in arcsec.  Members with the
+        catalog ``keep`` flag or with kinematics are kept.  None (or 0) drops none.  Default None.
+    """
+    classification_prior_quantile: float | None = 0.975
+    centering: str = "none"                 # "none" since 2026-11-03
+    centering_ratio: float = 1.0
     """Member classification and far-field validity."""
-    far_field_cut_radii: float = 3.0        # a far-field member stays at least this many of its (sampled) cut radii from every image
-    cut_radius_inflation: float = 3.0       # members are classified with this multiple of the current cut radius (or the prior quantile
-                                            # below, whichever is larger), so the sampled r_cut* can grow by that factor before any
-                                            # far-field member reaches the guard
+    far_field_cut_radii: float = 3.0
+    cut_radius_inflation: float = 3.0
     template_tolerance: float = 0.1
     top_exact: int | None = None
-    # The guard is a smooth log-barrier during sampling: -strength * softplus(-x / width) per far-field member with
-    # x = ln(R / (guard r_cut)), so NUTS feels the boundary and turns back instead of diverging on a hard wall (about
-    # -0.7 strength at the guard, -1e-2 strength one width outside, linear in -x inside).
     far_field_barrier_width: float = 0.05
     far_field_barrier_strength: float = 25.0
-    min_deflection_arcsec: float | None = None   # drop members whose deflection at every image, at the initial model, is below this
+    min_deflection_arcsec: float | None = None
 
 
 @dataclass(frozen=True)
 class ScalingModelConfig:
-    # Members leave the relation in dispersion (tight scatter: Faber-Jackson is about 0.1 dex) and, for the exact members,
-    # in cut radius (loose: tidal truncation depends on the orbit).  With a dispersion deviation alone the sampler turned
-    # the biggest subhalos into point masses to patch mass the cluster halos lacked.
+    """Priors of the member scaling relation and of the members' deviations from it.
+
+    For a member of luminosity ratio :math:`L/L_0` the relation gives :math:`\\sigma = \\sigma_0 (L/L_0)^{\\alpha}` and
+    :math:`r_{core}, r_{cut} \\propto (L/L_0)^{\\beta}` (pivot values in :class:`MemberPopulationConfig`).  Members
+    leave the relation in dispersion (a tight scatter: Faber-Jackson) and, for the exact members, in cut radius (a
+    loose scatter: tidal truncation depends on the orbit).  :meth:`bergamini2019` and :meth:`neutral` set the slope
+    priors.
+
+    Parameters
+    ----------
+    member_velocity_scatter_prior : numpyro distribution, optional
+        Prior of the scatter of the members' dispersion deviations about the relation, in ln sigma (dimensionless),
+        one per population; in the ``"mass"`` modes the scatter of the joint deviation along the relation.  Default
+        ``dist.LogNormal(ln 0.10, 0.3)`` (median 0.10), sampled in log.
+    member_deviation : str, optional
+        How a member leaves the relation: ``"sigma"`` (dispersion only); ``"mass"`` (dispersion and radii together
+        along the relation, :math:`d\\ln\\sigma : d\\ln r = \\alpha : \\beta`, one scatter); ``"sigma_rcut"``
+        (independent dispersion and radius deviations, two scatters); ``"mass_rcut"`` (a mass deviation along the
+        relation plus an independent radius deviation).  Default ``"sigma_rcut"``.
+    member_radius_scatter_prior : numpyro distribution, optional
+        Prior of the scatter of the radius deviations, in ln r (dimensionless), one per population; used in the
+        ``"sigma_rcut"`` and ``"mass_rcut"`` modes.  Default ``dist.LogNormal(ln 0.3, 0.5)`` (median 0.3), sampled in
+        log.
+    member_deviation_tail : str, optional
+        Distribution of the members' unit offsets (deviation = offset times scatter): ``"normal"``, or
+        ``"student_t"`` with ``member_deviation_dof`` degrees of freedom, so a few members can sit far from the relation
+        without widening the scatter for all.  With the Student-t the scatter is the scale; the standard deviation is
+        :math:`s\\sqrt{\\nu/(\\nu - 2)}`.  Default ``"student_t"``.
+    member_deviation_dof : float, optional
+        Degrees of freedom :math:`\\nu` of the Student-t offsets; must exceed 2 (finite variance).  Default ``4.0``.
+    corekpc_prior : numpyro distribution, optional
+        Prior of the member core radius at the pivot, in kpc, when ``fit_corekpc`` is set.  Default: log-normal of
+        median 0.15 kpc and ln-width 0.7 truncated to 0.01-10 kpc, sampled in log.
+    radius_deviation_members : str, optional
+        Which members' radius deviations act on the model: ``"exact"`` (far-field members keep the relation radius, so
+        they cannot cross the far-field guard) or ``"all"``.  Default ``"exact"``.
+    fit_corekpc : bool, optional
+        Sample the member core radius at the pivot.  False fixes it at the population's ``corekpc`` moved to the pivot
+        (a 0.1 kpc member core is not a lensing observable).  Default True.
+    fixed_relation_fields : tuple of str, optional
+        Relation parameters held at nominal values instead of sampled, any of: ``"sigma"`` and ``"cutkpc"`` (the
+        population's values moved to the pivot), ``"alpha_sigma"`` and ``"beta_radius"`` (the centers of their
+        priors).  For tests against a published relation.  Default ``()``.
+    member_shape_scatter : float or None, optional
+        Scatter :math:`s` of the sampled member shapes, dimensionless, in (0, 1).  For every exact member
+        :math:`e_1 = e_{1,light} + s u_1` and :math:`e_2 = e_{2,light} + s u_2` with :math:`u \\sim N(0, 1)`, where
+        :math:`e = (1 - q)/(1 + q)(\\cos 2\\phi, \\sin 2\\phi)`; far-field members keep the light shape and their
+        offsets are prior-only.  Round catalog members are centered on :math:`e = 0`.  None fixes every member at its
+        catalog (light) shape.  Default None.
+    alpha_sigma_prior : numpyro distribution, optional
+        Prior of the dispersion slope :math:`\\alpha` (:math:`\\sigma \\propto L^{\\alpha}`), dimensionless.  Default
+        ``dist.TruncatedNormal(0.27, 0.05, low=0.05, high=0.50)`` (Faber-Jackson slope 0.27-0.28 in three
+        MUSE-calibrated clusters, Bergamini et al. 2019), sampled linearly.
+    beta_radius_prior : numpyro distribution, optional
+        Prior of the radius slope :math:`\\beta` (:math:`r_{cut}, r_{core} \\propto L^{\\beta}`), dimensionless; its
+        lower bound must be at least 0.  Default ``dist.TruncatedNormal(0.65, 0.15, low=0.0, high=1.5)`` (0.64-0.66 in
+        Bergamini et al. 2019), sampled linearly.
+    softening_length_prior : numpyro distribution or None, optional
+        Prior of a resolution softening length, in kpc, added in quadrature to every dPIE core (for members, capped
+        smoothly just below the cut radius), e.g. ``dist.LogNormal(ln(2.3 / h), 0.15)`` for an N-body simulation's
+        softening.  None for no softening.  Default None.
+    """
+    # Dispersion deviation alone: the sampler turned the biggest subhalos into point masses to patch mass the cluster
+    # halos lacked.
     member_velocity_scatter_prior: Any = field(default_factory=lambda: dist.LogNormal(math.log(0.10), 0.3))
-    member_deviation: str = "sigma_rcut"    # how a member leaves the relation: "sigma" (dispersion only), "mass" (dispersion and radii
-                                            # together along the relation, one scatter), "sigma_rcut" (independent dispersion and radius
-                                            # deviations), "mass_rcut" (mass deviation along the relation plus an independent radius deviation)
+    member_deviation: str = "sigma_rcut"
     member_radius_scatter_prior: Any = field(default_factory=lambda: dist.LogNormal(math.log(0.3), 0.5))
-    # Distribution of the member deviations (unit offsets times the scatter): "normal", or "student_t" with
-    # member_deviation_dof degrees of freedom, so a few members can sit far from the relation without widening the scatter
-    # for all (the radius scatter grew to 1.6-1.8 against a 0.3 prior for five members on M0416, 2026-11-03).  With the
-    # Student-t the scatter is the scale; the standard deviation is scatter * sqrt(dof / (dof - 2)).
+    # Student-t tail: the radius scatter grew to 1.6-1.8 against a 0.3 prior for five members on M0416 (2026-11-03).
     # Student-t is the default since 2026-11-04 (a scale-mixture form was tried and dropped: per-member funnels).
     member_deviation_tail: str = "student_t"
     member_deviation_dof: float = 4.0
-    # Member core radius at the pivot (fit_corekpc), kpc.
     corekpc_prior: Any = field(default_factory=lambda: truncated_lognormal(0.15, 0.7, low=0.01, high=10.0))
-    radius_deviation_members: str = "exact"  # which members' radius deviations act on the model: "exact" (far-field members keep
-                                            # the relation radius, so they cannot cross the far-field guard) or "all"
-    fit_corekpc: bool = True                # sample the member core radius at the pivot; False fixes it at the population's corekpc
-                                            # moved to the pivot (a 0.1 kpc member core is not a lensing observable)
-    # Relation parameters held at their nominal values instead of sampled: any of "sigma", "cutkpc" (the population's values
-    # moved to the pivot) and "alpha_sigma", "beta_radius" (the centres of their priors).  For tests against a published relation.
+    radius_deviation_members: str = "exact"
+    fit_corekpc: bool = True
     fixed_relation_fields: tuple[str, ...] = ()
-    # Sampled member shapes: None fixes every member's ellipticity at its catalog (light) shape.  A number s samples, for
-    # every exact member, e1 = e1_light + s u1 and e2 = e2_light + s u2 with u ~ N(0, 1) (e = (1 - q) / (1 + q) times
-    # (cos 2 phi, sin 2 phi), the packed lens convention); far-field members keep the light shape and their offsets are
-    # prior-only, as for the radius deviations.  Round catalog members are centred on e = 0.
     member_shape_scatter: float | None = None
-    # Faber-Jackson slope 0.27-0.28 and beta_cut 0.64-0.66 in three MUSE-calibrated clusters (Bergamini et al. 2019).
     alpha_sigma_prior: Any = field(default_factory=lambda: dist.TruncatedNormal(0.27, 0.05, low=0.05, high=0.50))
     beta_radius_prior: Any = field(default_factory=lambda: dist.TruncatedNormal(0.65, 0.15, low=0.0, high=1.5))
-    # Resolution softening (kpc) added in quadrature to the member cores, e.g. dist.LogNormal(ln(2.3 / h), 0.15) for an
-    # N-body simulation's softening; None for none.
     softening_length_prior: Any | None = None
 
     @classmethod
     def bergamini2019(cls, **overrides) -> "ScalingModelConfig":
-        """The slope priors of the defaults: alpha 0.27 +- 0.05 and beta 0.65 +- 0.15 (Bergamini et al. 2019)."""
+        """Build the scaling model with the default slope priors of Bergamini et al. 2019.
+
+        The slopes are :math:`\\alpha` = 0.27 +- 0.05 and :math:`\\beta` = 0.65 +- 0.15 (the class defaults).
+
+        Parameters
+        ----------
+        **overrides
+            Other fields of :class:`ScalingModelConfig` to set.
+
+        Returns
+        -------
+        ScalingModelConfig
+            The scaling model.
+        """
         return cls(**overrides)
 
     @classmethod
     def neutral(cls, **overrides) -> "ScalingModelConfig":
-        """Slope priors from scaling arguments only: alpha 0.25 +- 0.10 (L ~ sigma^4) on 0-0.5 and beta 0.5 +- 0.25
-        (constant mass-to-light, 2 alpha + beta = 1) on 0-1.5."""
+        """Build the scaling model with slope priors from scaling arguments only.
+
+        :math:`\\alpha` = 0.25 +- 0.10 on 0-0.5 (:math:`L \\propto \\sigma^4`) and :math:`\\beta` = 0.5 +- 0.25 on 0-1.5
+        (constant mass-to-light ratio, :math:`2\\alpha + \\beta = 1`), both truncated normals.
+
+        Parameters
+        ----------
+        **overrides
+            Other fields of :class:`ScalingModelConfig` to set; ``alpha_sigma_prior`` and ``beta_radius_prior`` cannot
+            be overridden here.
+
+        Returns
+        -------
+        ScalingModelConfig
+            The scaling model.
+
+        Raises
+        ------
+        TypeError
+            If ``overrides`` contains ``alpha_sigma_prior`` or ``beta_radius_prior``.
+        """
         return cls(alpha_sigma_prior=dist.TruncatedNormal(0.25, 0.10, low=0.0, high=0.5),
                    beta_radius_prior=dist.TruncatedNormal(0.5, 0.25, low=0.0, high=1.5), **overrides)
 
@@ -397,63 +1037,228 @@ LIKELIHOOD_MODES = frozenset({"smoothed", "gp_image_plane", "source-anisotropic"
 
 @dataclass(frozen=True)
 class LikelihoodConfig:
-    # "smoothed" (local image-plane with per-image source-plane floors, the model of the paper); "gp_image_plane" (correlated
-    # image-plane displacements within each family, no source-plane floor); diagnostics only: "source-anisotropic",
-    # "source-isotropic".
+    """Likelihood of the image positions and its error model.
+
+    In the ``"smoothed"`` mode (the model of the paper) each image contributes a local image-plane term with the
+    source-plane positional covariance :math:`C = \\sigma_{meas}^2 A A^T + \\sigma_{def}^2 I + \\sigma_{sel}^2 R`
+    (the paper's Eq. position_covariance), where :math:`A` is the lens Jacobian at the image,
+    :math:`\\sigma_{meas}^2 = \\sigma_{inst}^2 + \\sigma_{extra}^2` and
+    :math:`R = (I + A A^T/\\lambda_{sel}^2)^{-1}` (Eq. selection_weight).  The ``"gp_image_plane"`` mode replaces the
+    floors by correlated errors within blocks of images, with an image-plane kernel (``gp_kernel="image_plane"``) or a
+    mass field with a knee spectrum plus an image-plane GP (``gp_kernel="knee"``).  Fields prefixed ``gp_`` apply to the
+    ``"gp_image_plane"`` mode only, and ``gp_knee*`` fields to its knee kernel.  The default error-scale priors are
+    log-normals truncated below at 1e-4 arcsec and above at the stated value, sampled in log.
+
+    Parameters
+    ----------
+    likelihood_mode : str, optional
+        ``"smoothed"`` (local image-plane term with per-image source-plane floors); ``"gp_image_plane"`` (correlated
+        image-plane displacements, no source-plane floors); and, for diagnostics only, ``"source-anisotropic"`` (the
+        Gaussian source-plane term with covariance :math:`C`, without the determinant factor) and
+        ``"source-isotropic"`` (a source-plane Gaussian of variance :math:`\\sigma_{def}^2 + \\sigma_{meas}^2` per image,
+        without the Jacobian).  Default ``"smoothed"``.
+    sigma_inst_arcsec : float or None, optional
+        Astrometric error :math:`\\sigma_{inst}`, in arcsec, that replaces every image's error, the catalog's included
+        (``ImageConstraintsConfig.sigma_floor_arcsec`` still applies).  Positive.  None keeps the catalog values.
+        Default None.
+    sigma_shared_prior : numpyro distribution, optional
+        ``gp_kernel="image_plane"``: prior of the shared (correlated) image-plane displacement amplitude
+        :math:`\\sigma_{shared}`, in arcsec.  The family covariance is
+        :math:`S = \\sigma_{shared}^2 (K \\otimes I) + (\\sigma_{inst,i}^2 + \\sigma_{white}^2) I` with the Gaussian kernel
+        :math:`K_{ij} = \\exp(-|\\theta_i - \\theta_j|^2 / 2\\ell^2)`, and the source-plane covariance
+        :math:`C = B S B^T + \\sigma_{fl}^2 I` with :math:`B` = blockdiag(:math:`A_i`); :math:`\\sigma_{shared}` and
+        :math:`\\sigma_{white}` replace :math:`\\sigma_{extra}`, :math:`\\sigma_{def}` and :math:`\\sigma_{sel}`.
+        Default: median 0.15 arcsec, ln-width 0.5, truncated at 1 arcsec.
+    sigma_white_prior : numpyro distribution, optional
+        ``gp_kernel="image_plane"``: prior of the white (uncorrelated) image-plane scatter :math:`\\sigma_{white}`, in
+        arcsec.  Log-normal so the white scatter is learned and kept away from zero when :math:`\\sigma_{inst}` is
+        small; ``dist.TruncatedNormal(0.0, 0.05, low=0.0)`` is the half-normal alternative.  Default: median 0.015
+        arcsec, ln-width 0.5, truncated at 0.1 arcsec.
+    sigma_shared_start_arcsec : float, optional
+        ``gp_kernel="image_plane"``: start of :math:`\\sigma_{shared}` in the search, in arcsec.  Positive.  Default
+        ``0.168``.
+    sigma_white_start_arcsec : float, optional
+        ``gp_kernel="image_plane"``: start of :math:`\\sigma_{white}`, in arcsec.  Positive.  Default ``0.02``.
+    gp_correlation_length_arcsec : float, optional
+        ``gp_kernel="image_plane"``: the correlation length :math:`\\ell`, in arcsec: its fixed value when
+        ``gp_correlation_length_prior`` is None, else its start.  Positive.  Default ``7.0``.
+    gp_correlation_length_prior : numpyro distribution or None, optional
+        ``gp_kernel="image_plane"``: prior of :math:`\\ell`, in arcsec.  None fixes :math:`\\ell` at
+        ``gp_correlation_length_arcsec``.  Only same-family pairs separated by a few to about 15 arcsec constrain it,
+        and above about 30 arcsec every family's kernel is a block of ones.  Default: median 7 arcsec, ln-width 0.5
+        (68% between 4.2 and 11.5 arcsec), truncated at 30 arcsec.
+    gp_floor_arcsec : float, optional
+        Fixed source-plane floor :math:`\\sigma_{fl}` of the ``"gp_image_plane"`` covariance, in arcsec; a smoothness
+        floor only.  Nonnegative.  Default ``0.0015`` (1.5 mas).
+    gp_kernel : str, optional
+        Structure of the GP term: ``"image_plane"`` (an image-plane displacement times the Jacobian,
+        :math:`C = B S B^T`) or ``"knee"`` (a mass field plus the image-plane GP; see ``gp_knee``).  Default
+        ``"image_plane"``.
+    gp_reference_redshift : float, optional
+        Knee kernel: reference source redshift :math:`z_{ref}` of the redshift weights
+        :math:`w = (D_{ds}/D_s)(z) / (D_{ds}/D_s)(z_{ref})` that scale each family's deflection error.  Positive.
+        Default ``2.0``.
+    gp_blocks : str, optional
+        Knee kernel: blocks of images that share one covariance: ``"all"`` (every image), ``"system"`` (all knots of a
+        galaxy) or ``"family"``.  The init search always uses ``"system"`` blocks.  Default ``"all"``.
+    gp_knee_gamma : float, optional
+        Knee kernel: slope :math:`\\gamma` of the convergence spectrum
+        :math:`P_\\kappa = P_0 / (1 + (k/k_t)^{\\gamma})`, dimensionless: its fixed value, or its start when sampled.
+        Positive, and inside ``gp_knee_gamma_prior`` when that is set.  Default ``4.0`` (the slope of an NFW cusp).
+    gp_knee_gamma_prior : numpyro distribution or None, optional
+        Knee kernel: prior of the sampled slope, a ``dist.Uniform`` or a two-sided ``dist.TruncatedNormal`` whose bounds
+        are also those of the slope tables.  Bounds 2-6 span the slopes of :math:`P_\\kappa` below the truncation for
+        halos with :math:`\\rho \\propto r^{-n}`, n = 2 (isothermal) to 0 (cored).  None fixes the slope at
+        ``gp_knee_gamma``.  Default ``dist.Uniform(2.0, 6.0)``.
+    gp_knee_gamma_step : float, optional
+        Spacing of the tabulated slopes (cubic spline between), dimensionless; must divide the prior's range into at
+        least 2 intervals.  Default ``0.25``.
+    gp_knee_scales_arcsec : tuple of float, optional
+        Knee kernel: (shortest, longest) wavelength of the mass field, in arcsec: from the smallest image separation
+        resolved to the scale of the cluster halos.  ``0 < min < max``; the upper bound of ``gp_knee_prior`` must not
+        exceed the longest.  Default ``(0.2, 30.0)``.
+    gp_knee_project_modes : tuple of str, optional
+        Knee kernel: low-order modes removed from the mass field over the images, any of ``"translation"``,
+        ``"convergence"`` and ``"shear"`` (``gp_knee.project_low_order``).  Under a flat shear prior it leaves the
+        likelihood unchanged and makes the external shear the total shear over the images.  Needs
+        ``gp_blocks="all"``; not with the ``"knee_foreground"`` or ``"knee_background"`` spectra.  Empty: none.  Default
+        ``()``.
+    gp_knee_lambda_grid : tuple of (float, float, int), optional
+        Knee kernel: tabulated knee wavelengths (min, max in arcsec, count), log-spaced; the sampled
+        :math:`\\ln\\lambda_t` is clamped to the grid.  ``0 < min < max`` and count at least 8.  Default
+        ``(0.5, 80.0, 64)``.
+    gp_knee_r_step_arcsec : float, optional
+        Knee kernel: separation step of the kernel tables, in arcsec.  Positive.  Default ``0.02``.
+    gp_sigma_alpha_prior : numpyro distribution or None, optional
+        Knee kernel: prior of the mass field's rms deflection error per component at :math:`z_{ref}`, in arcsec.  The
+        upper truncation keeps the error model from replacing the lens: a deflection error above 0.3 arcsec is a
+        missing cluster component, not substructure.  None drops the mass field (only the image-plane GP remains).
+        Default: median 0.08 arcsec, ln-width 0.7, truncated at 0.3 arcsec.
+    gp_sigma_alpha_start_arcsec : float, optional
+        Start of the rms deflection error, in arcsec.  Positive.  Default ``0.08``.
+    gp_knee_prior : numpyro distribution, optional
+        Knee kernel: prior of the knee wavelength :math:`\\lambda_t = 2\\pi/k_t`, in arcsec.  Its upper bound must not
+        exceed ``gp_knee_scales_arcsec[1]`` (a knee above it is the scale of the cluster halos and the external shear)
+        nor the largest tabulated wavelength.  Default: median 6 arcsec, ln-width 0.5, truncated at 30 arcsec.
+    gp_knee_start_arcsec : float, optional
+        Start of the knee wavelength, in arcsec, strictly inside the bounds of ``gp_knee_prior``.  Default ``6.0``.
+    gp_knee_sigma_shared_prior : numpyro distribution, optional
+        Knee kernel: prior of the image-plane GP amplitude :math:`\\sigma_{shared}`, in arcsec; an image-plane
+        displacement above 0.3 arcsec is lensing, not astrometry or feature selection.  Default: median 0.10 arcsec,
+        ln-width 0.7, truncated at 0.3 arcsec.
+    gp_knee_sigma_shared_start_arcsec : float, optional
+        Start of that amplitude, in arcsec.  Positive.  Default ``0.10``.
+    gp_knee_ell_prior : numpyro distribution, optional
+        Knee kernel: prior of the image-plane GP correlation length, in arcsec; coherence over more than 5 arcsec is
+        lensing.  Default: median 2 arcsec, ln-width 0.5, truncated at 5 arcsec.
+    gp_knee_ell_start_arcsec : float, optional
+        Start of that correlation length, in arcsec.  Positive.  Default ``2.0``.
+    gp_knee_spectrum : str, optional
+        Knee kernel: shape of the mass-field spectrum (``scripts/compare_grf_spectra.py`` compares them):
+        ``"knee"`` (:math:`P = 1/(1 + (k/k_t)^{\\gamma})`, the one-halo term of one population of truncated halos);
+        ``"two_knee"`` (a second, independent knee field with the same slope, for a second population; the upper bound
+        of ``gp_knee2_prior`` must not exceed the lower bound of ``gp_knee_prior``, so the two cannot swap);
+        ``"broken_power_law"`` (:math:`P = x^{-\\beta_{low}} (1 + x^{\\gamma})^{-(\\gamma - \\beta_{low})/\\gamma}`,
+        :math:`x = k/k_b`, with :math:`\\beta_{low}` sampled on ``gp_knee_beta_low_prior`` and :math:`\\gamma` fixed;
+        :math:`\\beta_{low} = 0` is the knee); ``"power_law"`` (:math:`P = k^{-\\gamma}` between the cutoffs, no knee,
+        :math:`\\gamma` sampled on ``gp_knee_gamma_prior``); ``"knee_background"`` (a second knee field on a thin mass
+        plane at ``gp_knee2_plane_redshift`` behind the cluster, weighted by :math:`D_{ps}/D_s`, zero for sources in
+        front of it; to first order, without the plane's coupling to the cluster deflection); ``"knee_foreground"``
+        (a second knee field with redshift weight 1 for every source, for mass well in front of the cluster).  The
+        spectra other than ``"knee"`` need the mass field (``gp_sigma_alpha_prior``).  The image solver's
+        mean-deflection correction is implemented for ``"knee"`` only.  Default ``"knee"``.
+    gp_knee2_sigma_alpha_prior : numpyro distribution, optional
+        Second-field spectra: prior of the second field's rms deflection error, in arcsec.  Default: median 0.05
+        arcsec, ln-width 0.7, truncated at 0.3 arcsec.
+    gp_knee2_sigma_alpha_start_arcsec : float, optional
+        Start of that rms deflection error, in arcsec.  Positive.  Default ``0.05``.
+    gp_knee2_prior : numpyro distribution, optional
+        Second-field spectra: prior of the second knee wavelength, in arcsec; bounded above by at most the largest
+        tabulated wavelength.  Default: median 3 arcsec, ln-width 0.5, truncated at 10 arcsec.
+    gp_knee2_start_arcsec : float, optional
+        Start of the second knee wavelength, in arcsec, strictly inside the bounds of ``gp_knee2_prior``.  Default
+        ``3.0``.
+    gp_knee2_plane_redshift : float, optional
+        ``"knee_background"``: redshift of the background mass plane; must exceed the cluster redshift.  Default
+        ``0.7``.
+    gp_knee_beta_low_prior : numpyro distribution, optional
+        ``"broken_power_law"``: prior of the low-k slope :math:`\\beta_{low}`, dimensionless; its bounds are those of
+        the tables and must lie below ``gp_knee_gamma``.  Default ``dist.Uniform(-1.0, 3.5)``.
+    gp_knee_beta_low_step : float, optional
+        Spacing of the tabulated low-k slopes, dimensionless; must divide the prior's range into at least 2 intervals.
+        Default ``0.25``.
+    gp_knee_beta_low_start : float, optional
+        Start of :math:`\\beta_{low}`, inside its prior's bounds.  Default ``0.0``.
+    gp_knee_fixed_arcsec : float or None, optional
+        Fixed knee wavelength of the mass field, in arcsec (no sampled knee); must lie inside the knee tables and
+        ``gp_knee_scales_arcsec``; not with ``"power_law"``.  None samples it.  Default None.
+    gp_knee_ell_fixed_arcsec : float or None, optional
+        Fixed correlation length of the knee kernel's image-plane GP, in arcsec (no sampled length).  Positive.  None
+        samples it.  Default None.
+    gp_knee_sigma_white_prior : numpyro distribution, optional
+        Knee kernel: prior of the white image-plane scatter :math:`\\sigma_{white}`, in arcsec; log-normal rather than
+        half-normal (``dist.TruncatedNormal(0.0, 0.03, low=0.0)``), so the white scatter is inferred and kept away from
+        zero when :math:`\\sigma_{inst}` is small.  Default: median 0.015 arcsec, ln-width 0.5, truncated at 0.1
+        arcsec.
+    gp_knee_sigma_white_start_arcsec : float, optional
+        Start of that white scatter, in arcsec.  Positive.  Default ``0.012``.
+    sigma_extra_prior : numpyro distribution or None, optional
+        ``"smoothed"`` and source-plane modes: prior of the extra measurement scatter :math:`\\sigma_{extra}`, in
+        arcsec, added in quadrature to :math:`\\sigma_{inst}` (image registration, feature centering, manual marking).
+        None fixes the measurement error at the catalog value.  Default: median 0.05 arcsec, ln-width 1.0, truncated at
+        1 arcsec.
+    sigma_def_prior : numpyro distribution, optional
+        ``"smoothed"`` and source-plane modes: prior of the residual deflection error :math:`\\sigma_{def}`, isotropic
+        in the source plane, in arcsec.  Always sampled; cannot be None.  Default: median 0.1 arcsec, ln-width 1.0,
+        truncated at 1 arcsec.
+    sigma_sel_prior : numpyro distribution or None, optional
+        ``"smoothed"`` and source-plane modes: prior of the feature-selection scatter :math:`\\sigma_{sel}` in the
+        source plane, in arcsec, weighted by the stretching through :math:`R`: the selection variance is halved where
+        the absolute Jacobian eigenvalue equals :math:`\\lambda_{sel}`.  None disables the term.  Default: median 0.04
+        arcsec, ln-width 1.0, truncated at 1 arcsec.
+    lambda_sel_prior : numpyro distribution, optional
+        Prior of the stretching scale :math:`\\lambda_{sel}` of the selection term, dimensionless; sampled with
+        :math:`\\sigma_{sel}` (not used when ``sigma_sel_prior`` is None).  Default ``dist.LogNormal(ln 0.7, 1.0)``,
+        sampled in log.
+    source_position_prior_mean_arcsec : tuple of float, optional
+        Mean (x, y) of the Gaussian prior on each family's source position, in arcsec.  Default ``(0.0, 0.0)``.
+    source_position_prior_sigma_arcsec : float, optional
+        Standard deviation of that prior per axis, in arcsec.  Positive.  Default ``100.0``.
+    freeze_determinant_gradient : bool, optional
+        Hold :math:`\\nabla\\det A` (the third derivatives of the potential) fixed in the backward pass.  The
+        log-likelihood is unchanged; its gradient differs by about 1e-4 relative (AS1063, M0416) and costs 15-35% less.
+        NUTS stays exact (the energy is exact and the leapfrog map stays reversible and volume preserving); only the
+        integrator's accuracy, hence the acceptance rate, can suffer.  Default False.
+    """
     likelihood_mode: str = "smoothed"
-    # Source-plane positional covariance per image, C = sigma_meas^2 A A^T + sigma_def^2 I + sigma_sel^2 R (the paper's
-    # Eq. position_covariance), with sigma_meas^2 = sigma_inst^2 + sigma_extra^2.
-    sigma_inst_arcsec: float | None = None    # overrides the catalog's instrumental astrometric error for every image
-    # gp_image_plane only.  Image-plane displacement covariance per family
-    # S = sigma_shared^2 (K kron I) + (sigma_inst,i^2 + sigma_white^2) I with the Gaussian kernel K_ij = exp(-|theta_i - theta_j|^2 / 2 ell^2);
-    # source-plane covariance C = B S B^T + sigma_fl^2 I with B = blockdiag(A_i).  sigma_shared and sigma_white (both
-    # log-normal) are sampled and replace sigma_extra, sigma_def and sigma_sel; ell and sigma_fl are fixed.  The prior on
-    # sigma_shared is truncated at 1": the untruncated prior puts 7e-5 of its mass there, and a 32" value carried a spurious init mode.
+    sigma_inst_arcsec: float | None = None
+    # sigma_shared prior truncated at 1": the untruncated prior puts 7e-5 of its mass there, and a 32" value carried a
+    # spurious init mode.
     sigma_shared_prior: Any = field(default_factory=lambda: _error_scale_prior(0.15, 0.5, 1.0))
-    # sigma_white log-normal (sampled as its log), the knee kernel's prior, so the white scatter is learned and kept away
-    # from zero when sigma_inst is small; dist.TruncatedNormal(0.0, 0.05, low=0.0) is the half-normal alternative.
     sigma_white_prior: Any = field(default_factory=lambda: _error_scale_prior(0.015, 0.5, 0.1))
-    sigma_shared_start_arcsec: float = 0.168      # start of the init search (the sigma_img posterior median of the oct31a M0416 run)
+    sigma_shared_start_arcsec: float = 0.168      # the sigma_img posterior median of the oct31a M0416 run
     sigma_white_start_arcsec: float = 0.02
-    gp_correlation_length_arcsec: float = 7.0     # ell: the fixed value, or the start of the init search when ell is sampled
-    # ell is sampled (log-normal; this prior) unless the prior is None, which fixes ell at gp_correlation_length_arcsec.  The
-    # width 0.5 puts 68% of the prior between 4.2" and 11.5"; only the ~40 same-family pairs separated by 3" to 15" constrain
-    # ell, and above the 30" truncation every family's kernel is a block of ones, where ell is unidentified.
+    gp_correlation_length_arcsec: float = 7.0
+    # ell prior: only the ~40 same-family pairs separated by 3" to 15" constrain ell (M0416).
     gp_correlation_length_prior: Any | None = field(default_factory=lambda: _error_scale_prior(7.0, 0.5, 30.0))
-    gp_floor_arcsec: float = 0.0015               # sigma_fl, a smoothness floor only (1.5 mas)
-    # gp_image_plane only.  gp_kernel selects the structure of the GP term: "image_plane" (above: an image-plane displacement
-    # multiplied by the Jacobian, C = B S B^T) or "knee" (below: a mass field plus the image-plane GP).  Under "knee" the
-    # redshift weight w = (D_ds/D_s)(z) / (D_ds/D_s)(gp_reference_redshift) scales each family's deflection error.
+    gp_floor_arcsec: float = 0.0015
     gp_kernel: str = "image_plane"
     gp_reference_redshift: float = 2.0
-    # gp_kernel = "knee" (gp_knee.py, .agents/gp-knee-plan.md): a curl-free mass field on the potential with a knee convergence
-    # spectrum P_kappa = P0 / (1 + (k/k_t)^gamma) between gp_knee_scales, plus the image-plane GP, on blocks given by gp_blocks:
-    # "all" (one covariance over every image), "system" (all knots of a galaxy; run.xsh --fast) or "family" (regression).
-    # Sites: images.gp_sigma_alpha (rms deflection error per component at z_ref; None drops the mass field), images.gp_knee
-    # (lambda_t = 2 pi / k_t), images.gp_knee_gamma (the slope gamma, prior gp_knee_gamma_prior; None fixes it at
-    # gp_knee_gamma), images.sigma_shared, images.gp_ell (image-plane GP), images.sigma_white.  sigma_fl fixed.
-    # The uniform bounds 2-6 are the slopes of P_kappa below the truncation of a random population of halos with
-    # rho ~ r^-n for n = 2 (isothermal) to 0 (cored); n = 1 (NFW cusp) gives 4, the start.
+    # Knee kernel: gp_knee.py, .agents/gp-knee-plan.md.  gp_blocks "system" is run.xsh --fast; "family" is for
+    # regression.  Sites: images.gp_sigma_alpha, images.gp_knee (lambda_t), images.gp_knee_gamma, images.sigma_shared,
+    # images.gp_ell, images.sigma_white.
     gp_blocks: str = "all"
-    gp_knee_gamma: float = 4.0                                        # fixed slope, or the start when it is sampled
-    # Prior of the sampled slope, a Uniform or a TruncatedNormal whose bounds are also those of its tables (run.xsh uses
-    # dist.TruncatedNormal(4, 0.5, low=2, high=6): the slope of an NFW-like cusp, within a quarter of n); None fixes it.
+    gp_knee_gamma: float = 4.0
+    # run.xsh uses dist.TruncatedNormal(4, 0.5, low=2, high=6): the slope of an NFW-like cusp, within a quarter of n.
     gp_knee_gamma_prior: Any | None = field(default_factory=lambda: dist.Uniform(2.0, 6.0))
-    gp_knee_gamma_step: float = 0.25                                  # spacing of the tabulated slopes (cubic spline between)
-    # Wavelength range of the GRF (arcsec): from the smallest image separation resolved to the scale of the cluster halos.
+    gp_knee_gamma_step: float = 0.25
     # With the long end at 100" and the halos free (all-image blocks), the field took the halo-scale misfit: sigma_alpha
     # and the knee at their caps (0.28", 25"), the external shear down to 0.02 (lens-free test, 2026-11-02).  Truncated at
     # 30" the halos and the shear carry those scales and the field is left with the structure below them.
     gp_knee_scales_arcsec: tuple[float, float] = (0.2, 30.0)
-    # Low-order modes removed from the mass field over the images ("translation", "convergence", "shear"; empty = none):
-    # the residual projection of gp_knee.project_low_order.  Under the flat shear prior it leaves the likelihood unchanged
-    # and makes the external shear the total shear over the images.  gp_blocks "all" only.
     gp_knee_project_modes: tuple[str, ...] = ()
-    gp_knee_lambda_grid: tuple[float, float, int] = (0.5, 80.0, 64)   # tabulated knee wavelengths: min, max, count (ln lambda clamped to it)
+    gp_knee_lambda_grid: tuple[float, float, int] = (0.5, 80.0, 64)
     gp_knee_r_step_arcsec: float = 0.02
-    # Upper bounds (truncations) keep the error model from replacing the lens: a deflection error above 0.3" is a missing
-    # cluster component, not substructure; a knee above 30" is the scale of the cluster halos and the external shear; an
-    # image-plane displacement above 0.3" or coherent over more than 5" is lensing, not astrometry or feature selection.
     gp_sigma_alpha_prior: Any | None = field(default_factory=lambda: _error_scale_prior(0.08, 0.7, 0.3))
     gp_sigma_alpha_start_arcsec: float = 0.08
     gp_knee_prior: Any = field(default_factory=lambda: _error_scale_prior(6.0, 0.5, 30.0))
@@ -462,84 +1267,146 @@ class LikelihoodConfig:
     gp_knee_sigma_shared_start_arcsec: float = 0.10
     gp_knee_ell_prior: Any = field(default_factory=lambda: _error_scale_prior(2.0, 0.5, 5.0))
     gp_knee_ell_start_arcsec: float = 2.0
-    # Shape of the mass-field spectrum (scripts/compare_grf_spectra.py compares them):
-    #   "knee": P = 1 / (1 + (k / k_t)^gamma), the one-halo term of one population of truncated halos;
-    #   "two_knee": a second, independent knee field (images.gp_sigma_alpha2, images.gp_knee2) with the same slope, for a
-    #     second population; gp_knee2_prior.upper must not exceed gp_knee_prior.lower so the two cannot swap;
-    #   "broken_power_law": P = x^-beta_low (1 + x^gamma)^-((gamma - beta_low) / gamma), x = k / k_b, beta_low sampled
-    #     (images.gp_knee_beta_low, prior gp_knee_beta_low_prior), gamma the fixed high-k slope; beta_low = 0 is the knee;
-    #   "power_law": P = k^-gamma between the cutoffs, no knee site (gamma sampled on gp_knee_gamma_prior);
-    #   "knee_background": a second knee field on a thin mass plane at gp_knee2_plane_redshift behind the cluster, weighted by
-    #     D_ps / D_s (zero for sources in front of it), images.gp_sigma_alpha2 and images.gp_knee2 (first order: the plane's
-    #     coupling to the cluster deflection is left out);
-    #   "knee_foreground": a second knee field with redshift weight 1 for every source (mass well in front of the cluster,
-    #     whose D_ps / D_s is close to 1), images.gp_sigma_alpha2 and images.gp_knee2.
-    # The image solver's mean-deflection correction is implemented for "knee" only.
     gp_knee_spectrum: str = "knee"
     gp_knee2_sigma_alpha_prior: Any = field(default_factory=lambda: _error_scale_prior(0.05, 0.7, 0.3))
     gp_knee2_sigma_alpha_start_arcsec: float = 0.05
     gp_knee2_prior: Any = field(default_factory=lambda: _error_scale_prior(3.0, 0.5, 10.0))
     gp_knee2_start_arcsec: float = 3.0
-    gp_knee2_plane_redshift: float = 0.7            # knee_background: the redshift of the background mass plane
-    gp_knee_beta_low_prior: Any = field(default_factory=lambda: dist.Uniform(-1.0, 3.5))   # its bounds are those of the tables
+    gp_knee2_plane_redshift: float = 0.7
+    gp_knee_beta_low_prior: Any = field(default_factory=lambda: dist.Uniform(-1.0, 3.5))
     gp_knee_beta_low_step: float = 0.25
     gp_knee_beta_low_start: float = 0.0
-    # Fixed scales (arcsec) instead of sampled ones: the mass field's knee (no images.gp_knee site) and the image-plane GP's
-    # correlation length (no images.gp_ell site).  None samples them.
     gp_knee_fixed_arcsec: float | None = None
     gp_knee_ell_fixed_arcsec: float | None = None
-    # sigma_white log-normal (sampled as its log) rather than half-normal (dist.TruncatedNormal(0.0, 0.03, low=0.0)), so the
-    # white image-plane scatter is inferred and kept away from zero when sigma_inst is small (2026-11-05: the fits put it at
-    # 0.006-0.02").
+    # gp_knee_sigma_white log-normal: the fits put it at 0.006-0.02" (2026-11-05).
     gp_knee_sigma_white_prior: Any = field(default_factory=lambda: _error_scale_prior(0.015, 0.5, 0.1))
     gp_knee_sigma_white_start_arcsec: float = 0.012
-    # Extra measurement scatter (arcsec, log-normal) added in quadrature to sigma_inst: image registration, feature
-    # centring, manual marking.  None fixes the measurement error at the catalog value.
     sigma_extra_prior: Any | None = field(default_factory=lambda: _error_scale_prior(0.05, 1.0, 1.0))
-    # Residual deflection error, isotropic in the source plane (arcsec, log-normal).
     sigma_def_prior: Any = field(default_factory=lambda: _error_scale_prior(0.1, 1.0, 1.0))
-    # Feature-selection scatter sigma_sel (arcsec, log-normal) in the source plane, weighted by the stretching through
-    # R = (I + A A^T / lambda_sel^2)^-1 (the paper's Eq. selection_weight): the selection variance is halved where the
-    # absolute Jacobian eigenvalue equals lambda_sel.  None disables the term.
     sigma_sel_prior: Any | None = field(default_factory=lambda: _error_scale_prior(0.04, 1.0, 1.0))
-    # The dimensionless stretching scale lambda_sel of the selection term (log-normal), sampled with sigma_sel.
     lambda_sel_prior: Any = field(default_factory=lambda: dist.LogNormal(math.log(0.7), 1.0))
     source_position_prior_mean_arcsec: tuple[float, float] = (0.0, 0.0)
     source_position_prior_sigma_arcsec: float = 100.0
-    # Hold grad det A (the third derivatives of the potential) fixed in the backward pass.  The log-likelihood is unchanged;
-    # its gradient differs by 1e-4 relative (AS1063, M0416) and costs 15-35% less, since the reverse pass through the third
-    # derivatives dominates.  NUTS stays exact (the energy is exact and the leapfrog map stays reversible and volume
-    # preserving); only the integrator's accuracy, hence the acceptance rate, can suffer.
     freeze_determinant_gradient: bool = False
 
 
 @dataclass(frozen=True)
 class ImageDiagnosticsConfig:
-    fold_max_draws: int = 128  # shared draw budget for fold contours and critical bands
-    fold_pair_max_separation_arcsec: float = 5.0  # automatic, model-verified local fold candidates
+    """Exact-image solver and posterior image diagnostics written after sampling.
+
+    The best fit's model images are found with ``exact_image_finder``; posterior draws always use one batched local
+    Levenberg-Marquardt (LM) solve started at the observed positions, without fallback.  Predicted images are matched to
+    the observed ones within ``match_tolerance_arcsec``.
+
+    Parameters
+    ----------
+    fold_max_draws : int, optional
+        Largest number of posterior draws for the fold contours and critical bands, between 1
+        and 128.  Default ``128``.
+    fold_pair_max_separation_arcsec : float, optional
+        Largest separation of a candidate fold image pair (same family, model-verified), in arcsec.  Positive.
+        Default ``5.0``.
+    posterior_image_diagnostic_draws : int, optional
+        Number of posterior draws, evenly spaced, for which the exact images are recomputed in the image recovery
+        tables.  Nonnegative; ``0`` reports the best fit only.  Default ``32``.
+    exact_image_min_distance_arcsec : float, optional
+        ``"lenstronomy"``: its ``min_distance``, in arcsec.  ``"local-lm-adaptive"``: starting half-size of the 3 x 3
+        box of fallback starts (at most ``exact_image_lm_trust_radius_arcsec``).  Default ``0.5``.
+    exact_image_precision_limit : float, optional
+        ``"lenstronomy"``: its ``precision_limit``.  LM solvers: lower limit of the source-plane tolerance of
+        convergence, in arcsec.  Default ``1e-2``.
+    exact_image_num_iter_max : int, optional
+        ``"lenstronomy"``: its ``num_iter_max``.  Default ``100``.
+    exact_image_finder : str, optional
+        Finder of the best fit's images: ``"global-jax"`` (seeds from a coarse grid over each family window, one
+        batched LM solve; also reports extra model images), ``"local-lm-adaptive"`` (LM from the observed positions,
+        with a shrinking-box fallback for images not found), ``"local-lm"`` (LM from the observed positions) or
+        ``"lenstronomy"`` (lenstronomy's image-position solver).  Default ``"global-jax"``.
+    exact_image_grid_pitch_arcsec : float, optional
+        ``"global-jax"``: pitch of the coarse grid over each family window, in arcsec.  Positive.  Default ``0.5``.
+    exact_image_fine_pitch_arcsec : float, optional
+        ``"global-jax"``: pitch of the sub-grid seeded inside near-source cells close to a critical curve, in arcsec;
+        at most the coarse pitch.  Default ``0.1``.
+    exact_image_critical_det_threshold : float, optional
+        ``"global-jax"``: :math:`|\\det A|` (dimensionless) below which a cell counts as close to a critical curve.
+        Default ``0.25``.
+    exact_image_seed_tolerance_pitches : float, optional
+        ``"global-jax"``: a cell is near the source when :math:`|\\beta - \\beta_{source}|` is within this many coarse
+        pitches (scaled by the local stretching).  Positive.  Default ``3.0``.
+    exact_image_window_margin_arcsec : float, optional
+        ``"global-jax"``: margin added around each family's image span to form its search window, in arcsec.  Default
+        ``3.0``.
+    exact_image_min_separation_arcsec : float, optional
+        Two roots closer than this, in arcsec, are one image.  Default ``0.05``.
+    exact_image_displacement_tol_arcsec : float, optional
+        LM convergence tolerance on the step and the source-plane residual, in arcsec; a ``"global-jax"`` root must
+        meet it in both planes.  Default ``1e-4``.
+    exact_image_identification_tol_arcsec : float, optional
+        A solve identifies an image when the Newton step at its end point is below this, in arcsec (a looser test than
+        convergence, met by near-roots).  Default ``1e-3``.
+    exact_image_lm_max_iter : int, optional
+        LM iteration budget per solve.  Default ``100``.
+    exact_image_lm_trust_radius_arcsec : float, optional
+        LM steps are softly limited to this length (tanh scaling), in arcsec; ``0`` or less disables the limit.
+        Default ``1.0``.
+    exact_image_adaptive_max_levels : int, optional
+        ``"local-lm-adaptive"``: number of times the fallback box is halved.  Default ``8``.
+    match_tolerance_arcsec : float, optional
+        Largest distance between a predicted and an observed image for a match, in arcsec; unmatched predictions are
+        extra images.  Default ``5.0``.
+    posterior_diagnostic_draws : int, optional
+        Number of joint posterior draws, besides the best, for the member field diagnostics and the covariance error
+        plots.  Nonnegative; ``0`` reports the best fit only.  Default ``32``.
+    """
+    fold_max_draws: int = 128
+    fold_pair_max_separation_arcsec: float = 5.0
     posterior_image_diagnostic_draws: int = 32
     exact_image_min_distance_arcsec: float = 0.5
     exact_image_precision_limit: float = 1.0e-2
     exact_image_num_iter_max: int = 100
-    exact_image_finder: str = "global-jax"      # best-fit finder: "global-jax" (grid seeds over each family window, one batched solve,
-                                                # reports extra images), "local-lm-adaptive", "local-lm" or "lenstronomy"
-    exact_image_grid_pitch_arcsec: float = 0.5        # coarse grid of the global search over each family window
-    exact_image_fine_pitch_arcsec: float = 0.1        # sub-grid seeded inside near-source cells close to a critical curve
-    exact_image_critical_det_threshold: float = 0.25  # |det A| below which a cell counts as close to a critical curve
-    exact_image_seed_tolerance_pitches: float = 3.0   # a cell is near the source when |beta - source| is within this many coarse pitches
-    exact_image_window_margin_arcsec: float = 3.0     # added around each family's image span
-    exact_image_min_separation_arcsec: float = 0.05   # two roots closer than this are one image
+    exact_image_finder: str = "global-jax"
+    exact_image_grid_pitch_arcsec: float = 0.5
+    exact_image_fine_pitch_arcsec: float = 0.1
+    exact_image_critical_det_threshold: float = 0.25
+    exact_image_seed_tolerance_pitches: float = 3.0
+    exact_image_window_margin_arcsec: float = 3.0
+    exact_image_min_separation_arcsec: float = 0.05
     exact_image_displacement_tol_arcsec: float = 1.0e-4
     exact_image_identification_tol_arcsec: float = 1.0e-3
     exact_image_lm_max_iter: int = 100
     exact_image_lm_trust_radius_arcsec: float = 1.0
     exact_image_adaptive_max_levels: int = 8
     match_tolerance_arcsec: float = 5.0
-    posterior_diagnostic_draws: int = 32  # additional joint field draws; zero reports the best fit only
+    posterior_diagnostic_draws: int = 32
 
 
 @dataclass(frozen=True)
 class TruthRecoveryConfig:
+    """Comparison with true lens maps (simulated clusters) and the source redshift of the critical-curve outputs.
+
+    Parameters
+    ----------
+    kappa_true_fits : str or pathlib.Path or None, optional
+        FITS map (with WCS) of the true convergence.  Setting it turns on the truth comparison: model maps of the
+        posterior median and draws on the map's grid, residuals and the projected-mass aperture profile.  None skips
+        it.  Default None.
+    gammax_true_fits : str or pathlib.Path or None, optional
+        FITS map of the true shear component :math:`\\gamma_1`.  With ``gammay_true_fits`` it adds the true
+        :math:`\\det A` and magnification.  Default None.
+    gammay_true_fits : str or pathlib.Path or None, optional
+        FITS map of the true shear component :math:`\\gamma_2`.  Default None.
+    posterior_truth_recovery_draws : int, optional
+        Number of random posterior draws, besides the posterior median, mapped for the 16th and 84th percentiles.
+        Nonnegative.  Default ``16``.
+    truth_grid_size : int, optional
+        Largest number of pixels per side of the comparison grid (the true map's footprint, resampled).  Nonnegative;
+        ``0`` keeps the native grid.  Default ``256``.
+    caustic_source_redshift : float, optional
+        Source redshift of the critical curves, convergence maps and truth comparison.  The true maps are compared at
+        this redshift; the magnification comparison reads the maps' ``ZSOURCE`` (or ``REDSHIFT``) header and falls back
+        to it.  When it is not behind the lens, the critical-curve figure uses the highest family redshift and the
+        truth comparison is skipped.  Default ``9.0``.
+    """
     kappa_true_fits: str | Path | None = None
     gammax_true_fits: str | Path | None = None
     gammay_true_fits: str | Path | None = None
@@ -550,6 +1417,26 @@ class TruthRecoveryConfig:
 
 @dataclass(frozen=True)
 class RGBDisplayConfig:
+    """Overrides of the calibrated Lupton (asinh) RGB display of the imaging cutouts.
+
+    Each None keeps the display recipe's default for the bands (HST Frontier Fields, JWST NIRCam or a three-band
+    composite).
+
+    Parameters
+    ----------
+    q : float or None, optional
+        Lupton asinh softening parameter, dimensionless.  Default None.
+    stretch : float or None, optional
+        Lupton linear stretch, in the reference band's flux units.  Default None.
+    minimum : float or None, optional
+        Black level, in the reference band's flux units.  Default None.
+    red_gain : float or None, optional
+        Gain of the red channel, dimensionless.  The three gains apply only when all three are set.  Default None.
+    green_gain : float or None, optional
+        Gain of the green channel, dimensionless.  Default None.
+    blue_gain : float or None, optional
+        Gain of the blue channel, dimensionless.  Default None.
+    """
     q: float | None = None
     stretch: float | None = None
     minimum: float | None = None
@@ -560,13 +1447,47 @@ class RGBDisplayConfig:
 
 @dataclass(frozen=True)
 class ImageCatalogCutoutConfig:
+    """Imaging behind the cluster mass figure, the RGB cutouts and the fold-diagnostic panels.
+
+    Parameters
+    ----------
+    image_dir : str or pathlib.Path or None, optional
+        Directory of the cluster's FITS imaging.  None skips the figures that need imaging.  Default None.
+    candidate_catalog_path : str or pathlib.Path or None, optional
+        Optional catalog of proposed image associations, drawn on the RGB critical-curve figure for display only.
+        Default None.
+    rgb_critical_image_cutouts : tuple of str, optional
+        Image labels of the top inset panels of the RGB critical-curve figure, in order, at most four.  Default ``()``.
+    rgb_critical_fold_cutouts : tuple of str, optional
+        System ids of the right inset panels of that figure, in order, at most four.  Default ``()``.
+    image_scale : str, optional
+        Pixel scale of the imaging to use when several exist: ``"auto"``, ``"20mas"``, ``"30mas"``, ``"40mas"`` or
+        ``"60mas"``.  Default ``"60mas"``.
+    bands : tuple of str or None, optional
+        Bands of the RGB composite.  None uses the HST Frontier Fields bands (F435W, F606W, F814W, F105W, F125W,
+        F140W, F160W).  Default None.
+    figure_suffix : str, optional
+        Suffix appended to the cluster mass figure name and related products, e.g. ``"_jwst"``.  Default ``""``.
+    rgb : RGBDisplayConfig, optional
+        Display overrides.  Default: ``RGBDisplayConfig()`` (recipe defaults).
+    mode : str, optional
+        Not read by the current pipeline.  Default ``"full"``.
+    dpi : int or None, optional
+        Not read by the current pipeline.  Default None.
+    max_side_pixels : int or None, optional
+        Not read by the current pipeline.  Default None.
+    critical_lines : str, optional
+        Not read by the current pipeline.  Default ``"auto"``.
+    cutouts : bool, optional
+        Not read by the current pipeline.  Default True.
+    """
     image_dir: str | Path | None = None
-    candidate_catalog_path: str | Path | None = None  # optional display-only proposed associations
-    rgb_critical_image_cutouts: tuple[str, ...] = ()  # ordered top panels, at most four
-    rgb_critical_fold_cutouts: tuple[str, ...] = ()   # ordered right panels, at most four
+    candidate_catalog_path: str | Path | None = None
+    rgb_critical_image_cutouts: tuple[str, ...] = ()
+    rgb_critical_fold_cutouts: tuple[str, ...] = ()
     image_scale: str = "60mas"
     bands: tuple[str, ...] | None = None
-    figure_suffix: str = ""                  # appended to the cluster mass figure name, e.g. "_jwst"
+    figure_suffix: str = ""
     rgb: RGBDisplayConfig = field(default_factory=RGBDisplayConfig)
     mode: str = "full"
     dpi: int | None = None
@@ -577,6 +1498,33 @@ class ImageCatalogCutoutConfig:
 
 @dataclass(frozen=True)
 class LensClusterSolverConfig:
+    """Complete configuration of a lenscluster run.
+
+    Parameters
+    ----------
+    model : LensModelConfig or None, optional
+        The lens model.  Required by :meth:`validate`.  Default None.
+    paths : RunPathsConfig, optional
+        Output directory and naming.  Default: ``RunPathsConfig()``.
+    runtime : RuntimeConfig, optional
+        Seed, chains and logging.  Default: ``RuntimeConfig()``.
+    search : SearchConfig, optional
+        The initial search.  Default: ``SearchConfig()``.
+    sampling : SamplingConfig, optional
+        NUTS settings.  Default: ``SamplingConfig()``.
+    members : MemberConfig, optional
+        Member classification.  Default: ``MemberConfig()``.
+    scaling : ScalingModelConfig, optional
+        Member scaling relation and deviations.  Default: ``ScalingModelConfig()``.
+    likelihood : LikelihoodConfig, optional
+        Likelihood and error model.  Default: ``LikelihoodConfig()``.
+    image_diagnostics : ImageDiagnosticsConfig, optional
+        Exact-image solver and posterior image diagnostics.  Default: ``ImageDiagnosticsConfig()``.
+    truth : TruthRecoveryConfig, optional
+        Truth comparison and critical-curve redshift.  Default: ``TruthRecoveryConfig()``.
+    image_catalog : ImageCatalogCutoutConfig, optional
+        Imaging for the figures.  Default: ``ImageCatalogCutoutConfig()``.
+    """
     model: LensModelConfig | None = None
     paths: RunPathsConfig = field(default_factory=RunPathsConfig)
     runtime: RuntimeConfig = field(default_factory=RuntimeConfig)
@@ -590,13 +1538,52 @@ class LensClusterSolverConfig:
     image_catalog: ImageCatalogCutoutConfig = field(default_factory=ImageCatalogCutoutConfig)
 
     def with_updates(self, **updates: Any) -> "LensClusterSolverConfig":
+        """Return a copy with some top-level sections replaced.
+
+        Parameters
+        ----------
+        **updates
+            Fields of :class:`LensClusterSolverConfig` and their new values, e.g. ``sampling=SamplingConfig(warmup=500)``.
+
+        Returns
+        -------
+        LensClusterSolverConfig
+            The new configuration (this one is unchanged).
+
+        Raises
+        ------
+        TypeError
+            If a key is not a field of :class:`LensClusterSolverConfig`.
+        """
         return replace(self, **updates)
 
     def validate(self) -> "LensClusterSolverConfig":
+        """Check the configuration (see :func:`validate_config`).
+
+        Returns
+        -------
+        LensClusterSolverConfig
+            This configuration, unchanged, so the call can be chained.
+
+        Raises
+        ------
+        ValueError
+            If a field is missing, out of range or inconsistent with another, or a catalog file does not exist.
+        """
         validate_config(self)
         return self
 
     def to_json_dict(self) -> dict[str, Any]:
+        """Return the configuration as JSON-serializable nested dictionaries.
+
+        Priors become their ``priors.to_dict`` descriptions, paths become strings, infinite floats become ``"inf"`` or
+        ``"-inf"`` and tuples become lists.
+
+        Returns
+        -------
+        dict
+            Nested dictionaries keyed by field name.
+        """
         return _jsonable(asdict(self))
 
 
@@ -616,6 +1603,24 @@ def _jsonable(value: Any) -> Any:
 
 
 def validate_run_label(label: str) -> str:
+    """Check that a run name is usable as a single directory name.
+
+    Parameters
+    ----------
+    label : str
+        The run name.
+
+    Returns
+    -------
+    str
+        ``label``, unchanged.
+
+    Raises
+    ------
+    ValueError
+        If ``label`` is empty, has leading or trailing whitespace, is ``"."`` or ``".."``, or contains a path
+        separator, a null character or a line break.
+    """
     if not label or label.strip() != label or label in {".", ".."} or any(c in label for c in "/\\\0\n\r"):
         raise ValueError("run label must be a nonempty single directory name")
     return label
@@ -632,6 +1637,23 @@ def _positive_int(name: str, value: Any) -> None:
 
 
 def validate_config(config: LensClusterSolverConfig) -> None:
+    """Check a configuration before a run.
+
+    Checks the run name, the lens model (at least one large halo, the image constraints, positive halo and population
+    parameters, existing catalog files, unique ids), the allowed string options, the numeric ranges of every section,
+    the priors (supported ``numpyro.distributions``, positive quantities where required) and the consistency of the
+    GP knee settings with their tables.
+
+    Parameters
+    ----------
+    config : LensClusterSolverConfig
+        The configuration to check.
+
+    Raises
+    ------
+    ValueError
+        At the first problem found, with a message naming the field.
+    """
     validate_run_label(config.paths.run_name or "")
     _validate_model_config(config.model)
     runtime = config.runtime

@@ -832,6 +832,47 @@ def plot_bias_and_coverage(campaign: Campaign, path: Path) -> Path | None:
 
 # ----------------------------------------------------------------------------- driver
 def write_aggregate_plots(campaign_root: str | Path, output_dir: str | Path | None = None, *, converged_only: bool = False) -> list[Path]:
+    """Write the campaign-level tables and figures from every completed realization's ``recovery.json``.
+
+    Parameters
+    ----------
+    campaign_root : str or Path
+        Directory holding the ``seed_*`` folders (``<output_dir>/<campaign_name>/<run_name>``).
+    output_dir : str or Path or None, optional
+        Directory for the outputs; None writes to ``<campaign_root>/aggregate_plots``.  Default ``None``.
+    converged_only : bool, optional
+        If True, leave out realizations whose sampler did not converge (max R-hat >= 1.01 or min n_eff < 50, from the
+        saved diagnostics) from every table and figure except ``seed_summary.csv``.  If False, use every completed
+        realization and only flag the unconverged ones.  Default ``False``.
+
+    Returns
+    -------
+    list of Path
+        The figures written (PDF); figures with nothing to show are not written and not listed.  The tables are not
+        listed.
+
+    Raises
+    ------
+    FileNotFoundError
+        If there is no ``seed_*/recovery/recovery.json`` under ``campaign_root``.
+    ValueError
+        If ``converged_only`` is True and no realization converged.
+
+    Notes
+    -----
+    Files written in the output directory (``aggregate_plots/`` relative to the campaign root by default):
+    ``parameter_recovery_table.csv``, ``seed_summary.csv`` (one row per realization with its convergence verdict),
+    ``campaign_selection.json`` (convergence rule, included and failed seeds), ``mock_coverage_table.csv``,
+    ``mock_results.tex``, and the figures ``mock_parameter_recovery_paper.pdf``,
+    ``mock_parameter_recovery_grouped.pdf``, ``mock_standardized_residuals.pdf``, ``mock_bias_and_coverage.pdf``,
+    ``mock_aggregate_subhalo_recovery_shmf.pdf``, ``mock_magnification_recovery.pdf``,
+    ``mock_m2d_aperture_recovery_components.pdf``, ``mock_aggregate_image_residual_distribution.pdf``,
+    ``mock_calibration.pdf``, ``mock_relation_recovery.pdf``, ``mock_grf_gp_field_recovery.pdf``,
+    ``mock_<block>_truth_deviation_corner.pdf`` (one per parameter block), ``mock_combined_truth_deviation_corner.pdf``
+    and ``mock_aggregate_chain_traces.pdf``.  The field-recovery, deviation-corner and chain-trace figures also write
+    companion data files next to them (``.csv``, ``.txt``, ``.npz`` and ``.json`` files of the same stem, and
+    ``mock_truth_deviation_corners.json``).
+    """
     campaign = load_campaign(campaign_root, converged_only=converged_only)
     output = Path(output_dir) if output_dir is not None else campaign.root / "aggregate_plots"
     output.mkdir(parents=True, exist_ok=True)

@@ -21,14 +21,16 @@ catalogs/<cluster>/<source>/
 | `ares/` | images.yaml | members.yaml | FF-SIMS Ares |
 | `m0416/canucs2025/` | images.yaml (knots, parities) | members.yaml (DR1 light shapes, Granata 2026 kinematics) | Rihtarsic et al. 2025 |
 | `m0416/bergamini2023/` | images.yaml | members.cat | Bergamini et al. 2023 |
-| `m0416/diego2024/` | images.ecsv / .fits | | Diego et al. 2024 (PEARLS) |
+| `m0416/diego2024/` | images.yaml, images.ecsv / .fits | | Diego et al. 2024 (PEARLS) |
+| `m0416/master/` | images.yaml, images_gold.yaml | members.yaml | our merge of the three M0416 catalogs |
 | `as1063/bergamini2019/` | images.yaml | members.cat | Bergamini et al. 2019 |
 | `as1063/diego2026/` | images.yaml | members.yaml (Beauchesne 2025) | Diego et al. 2026 |
-| `as1063/caminha2016/` | | | Caminha et al. 2016 |
+| `as1063/caminha2016/` | images.yaml | members.yaml | Caminha et al. 2016 |
+| `as1063/master/` | images.yaml, images_gold.yaml | members.yaml | our merge of the three AS1063 catalogs |
 
 Positions of the real clusters are ICRS RA/Dec in degrees. Hera and Ares positions are offsets about (0, 0) in degrees
 (the Lenstool `reference 3 0 0` convention), not sky coordinates. `catalogs/README.md` records the astrometric frames
-of each source.
+of each source, and how the `master/` catalogs are built (`scripts/build_master_catalog.py`).
 
 ## Multiple images
 

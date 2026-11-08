@@ -17,10 +17,12 @@ catalogs/<cluster>/<source>/
 | `ares/` | ARES | images.yaml | members.yaml | FF-SIMS Ares, the same files |
 | `m0416/canucs2025/` | M0416_CANUCS2025 (default) | images.yaml (knots, parities) | members.yaml (DR1 light shapes, Granata 2026 kinematics) | Rihtarsic et al. 2025 MAST release: `source/hlsp_canucs_*lenstool-*` and `allmultim`; `image_f200w_photometry.*` is our F200W photometry of the images |
 | `m0416/bergamini2023/` | M0416_BERGAMINI2023 | images.yaml | members.cat | Bergamini et al. 2023 (2022 release): `source/obs_arcs.cat`, the par files; members.cat was `CM_cat_MACSJ0416.cat` |
-| `m0416/diego2024/` | (comparison only) | images.ecsv / .fits | | Diego et al. 2024 PEARLS Table B.1, `raw/` and the earlier BUFFALO/Flashlights table |
+| `m0416/diego2024/` | (comparison only) | images.yaml (every rank), images.ecsv / .fits | | Diego et al. 2024 PEARLS Table B.1, `raw/` and the earlier BUFFALO/Flashlights table; images.yaml by `scripts/convert_diego2024_catalog.py` |
+| `m0416/master/` | (not an entry yet) | images.yaml, images_gold.yaml | members.yaml | built from the three folders above, see below |
 | `as1063/bergamini2019/` | AS1063 | images.yaml | members.cat | Bergamini et al. 2019 RXC J2248: `source/obs_arcs.dat`, the par files |
 | `as1063/diego2026/` | AS1063_JWST | images.yaml | members.yaml (Beauchesne 2025) | Diego et al. 2026 Table 1 (`raw/`), `image_mapping.json`, `validation.json` |
-| `as1063/caminha2016/` | (not an entry) | | | Caminha et al. 2016: `source/A1063_obs_arcs_v11.dat`, `members_95_160_nonan_cuts.cat`, par, region files |
+| `as1063/caminha2016/` | (not an entry) | images.yaml | members.yaml (no BCG) | Caminha et al. 2016, model v2.0: `source/A1063_obs_arcs_v11.dat`, `members_95_160_nonan_cuts.cat`, par, region files; systems 50 and 51 have z = 0 (free in Lenstool) |
+| `as1063/master/` | (not an entry yet) | images.yaml, images_gold.yaml | members.yaml | built from the three folders above, see below |
 
 Hera and Ares positions are offsets about (0, 0) in degrees (the par files' `reference 3 0 0`), not sky coordinates.
 Positions of the real clusters are ICRS RA/Dec; the CANUCS catalog is in the frame of the CANUCS lenstool input,
@@ -51,27 +53,38 @@ One folder per paper, `catalogs/<cluster>/<author><year>/`, with the cluster nam
 - `README.md` gives the bibcode, the URL and date of the download, the converter and its arguments, and the astrometric
   frame (the offset from the cluster's reference frame, when known).
 
-## Master catalogs (planned)
+## Master catalogs
 
-Each cluster with more than one paper gets a `master/` folder, our own catalog built from the paper folders:
+A cluster with more than one paper has a `master/` folder, our own catalog built from the paper folders by
+`python scripts/build_master_catalog.py catalogs/<cluster>/master`:
 
 ```
 catalogs/<cluster>/master/
-    images.yaml        the merged images, with reliability and the papers each image is in
-    members.yaml       the merged members, spectroscopic over photometric redshifts
-    crossmatch.yaml    our system/image id -> {paper: its id}, for every image in any paper
-    decisions.yaml     each conflict and how it was resolved (redshift, membership of a system, rejected image)
+    sources.yaml       input: the papers, the base paper, the match radius, which papers may add systems
+    decisions.yaml     input: hand-made choices (set_z, exclude, include), each with a reason
+    images.yaml        output: the base paper's systems, plus systems other papers add
+    images_gold.yaml   output: the systems of images.yaml found in at least two independent papers
+    members.yaml       output: the base paper's members, each noted with the papers that list it
+    crossmatch.yaml    output: frame offsets, every system's ids in every paper, conflicts, candidates, left-out systems
 ```
 
-- `master/` is written by a script from the paper folders and `decisions.yaml`, never edited by hand, so a new paper
-  means rerunning the script.
-- Each paper's positions are shifted to the cluster's reference frame (the offsets in its README) before matching.
-- `crossmatch.yaml` handles renamed, split and merged systems (1.1 / 1a / knots A and B). The number of papers an image
-  is in, and how they agree, sets its `reliability`, so a fit can select the gold or the gold and silver images.
-- Entries in `decisions.yaml` name the system or image, the papers in conflict, the choice and the reason, for example
-  system 14 takes the Bergamini spectroscopic redshift over the Diego photometric one.
+- The outputs are never edited by hand: change `sources.yaml` or `decisions.yaml` and rebuild.
+- Each paper is shifted onto the base paper's frame by the median offset of its positions from the base's, measured by
+  the script and recorded in `crossmatch.yaml` (Bergamini 2023 to CANUCS: 0.23"). Then every pair of papers is matched
+  mutual-nearest within `match_radius_arcsec`, per (system, knot, image).
+- Systems linked through matched images form one group, so renamed, split and merged systems line up (CANUCS K6 and K7
+  are one Bergamini system, `05`, and two Diego sources). A group with a base system enters with the base system as it
+  is; a group without one enters only when a paper listing it is allowed to add systems (`add_systems: spec` or `all`),
+  renamed with that paper's `prefix`.
+- Redshifts: a non-spectroscopic base z is replaced by a linked spectroscopic one. Two spectroscopic redshifts more than
+  `dz_max` apart in |dz|/(1+z) are listed under `conflicts` until a `set_z` decision settles them. Lenstool's z = 0 (a
+  free redshift) is never added.
+- A paper that reused another's image positions has `derived_from: <paper>` and does not count as independent for the
+  gold catalog (Bergamini 2019 uses the Caminha 2016 positions).
+- `candidate_images` are images another paper gives a base system that the base paper does not; they are not added.
+  `left_out` are the groups no policy or decision added.
 
-Existing pieces to build on: `as1063/diego2026/image_mapping.json` (Diego labels to our systems and knots) and
-`validation.json`, and `scripts/match_published_images.py` (published M0416 images matched to our systems).
+Related: `as1063/diego2026/image_mapping.json` (Diego labels to our systems and knots) and
+`scripts/match_published_images.py` (published M0416 images compared with the images a fit predicts).
 `scripts/build_hff_master_catalog.py` is different: it finds candidate families in the BUFFALO photometry and writes
 to `results/`, not here.

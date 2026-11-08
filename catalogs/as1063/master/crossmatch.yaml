@@ -1,0 +1,264 @@
+# Built on 2026-11-08 by scripts/build_master_catalog.py; do not edit.
+cluster: as1063
+built: '2026-11-08'
+base: diego2026
+match_radius_arcsec: 0.5
+dz_max: 0.01
+frames:
+  diego2026:
+    applied_arcsec: [0.0, 0.0]
+    note: base frame
+  bergamini2019:
+    applied_arcsec: [-0.0038, 0.0178]
+    n_matches: 44
+    median_residual_arcsec: 0.0568
+  caminha2016:
+    applied_arcsec: [-0.0038, 0.0178]
+    n_matches: 44
+    median_residual_arcsec: 0.0568
+counts: {master_systems: 25, gold_systems: 16, images: 73, left_out_groups: 2, candidate_images: 0, conflicts: 0}
+systems:
+  D1:
+    from: diego2026
+    papers:
+      diego2026: [D1]
+      bergamini2019: ['2']
+      caminha2016: ['2']
+    z:
+      diego2026:D1: [1.229, spec]
+      bergamini2019:2: [1.229, spec]
+      caminha2016:2: [1.229, spec]
+  D5:
+    from: diego2026
+    papers:
+      diego2026: [D5]
+      bergamini2019: ['3']
+      caminha2016: ['3']
+    z:
+      diego2026:D5: [1.261, spec]
+      bergamini2019:3: [1.26, spec]
+      caminha2016:3: [1.26, spec]
+  D8:
+    from: diego2026
+    papers:
+      diego2026: [D8]
+      bergamini2019: ['13']
+      caminha2016: ['13']
+    z:
+      diego2026:D8: [1.2583, spec]
+      bergamini2019:13: [1.2582, spec]
+      caminha2016:13: [1.2582, spec]
+  D9:
+    from: diego2026
+    papers:
+      diego2026: [D9]
+      bergamini2019: ['4']
+      caminha2016: ['4']
+    z:
+      diego2026:D9: [1.398, spec]
+      bergamini2019:4: [1.398, spec]
+      caminha2016:4: [1.398, spec]
+  D12:
+    from: diego2026
+    papers:
+      diego2026: [D12]
+      bergamini2019: ['6']
+      caminha2016: ['6']
+    z:
+      diego2026:D12: [1.428, spec]
+      bergamini2019:6: [1.429, spec]
+      caminha2016:6: [1.429, spec]
+  D18:
+    from: diego2026
+    papers:
+      diego2026: [D18]
+      bergamini2019: ['8']
+      caminha2016: ['8']
+    z:
+      diego2026:D18: [1.837, spec]
+      bergamini2019:8: [1.837, spec]
+      caminha2016:8: [1.837, spec]
+  D19:
+    from: diego2026
+    papers:
+      diego2026: [D19]
+      bergamini2019: ['23']
+      caminha2016: ['23']
+    z:
+      diego2026:D19: [0.73, spec]
+      bergamini2019:23: [0.7301, spec]
+      caminha2016:23: [0.7301, spec]
+  D22:
+    from: diego2026
+    papers:
+      diego2026: [D22]
+    z:
+      diego2026:D22: [3.116, spec]
+  D23:
+    from: diego2026
+    papers:
+      diego2026: [D23]
+      bergamini2019: ['14']
+      caminha2016: ['14']
+    z:
+      diego2026:D23: [6.112, spec]
+      bergamini2019:14: [6.112, spec]
+      caminha2016:14: [6.112, spec]
+  D24:
+    from: diego2026
+    papers:
+      diego2026: [D24]
+      bergamini2019: ['18']
+      caminha2016: ['18']
+    z:
+      diego2026:D24: [4.113, spec]
+      bergamini2019:18: [4.113, spec]
+      caminha2016:18: [4.113, spec]
+  D25:
+    from: diego2026
+    papers:
+      diego2026: [D25]
+      bergamini2019: ['20']
+      caminha2016: ['20']
+    z:
+      diego2026:D25: [3.118, spec]
+      bergamini2019:20: [3.118, spec]
+      caminha2016:20: [3.118, spec]
+  D30:
+    from: diego2026
+    papers:
+      diego2026: [D30]
+      bergamini2019: ['33']
+      caminha2016: ['33']
+    z:
+      diego2026:D30: [3.606, spec]
+      bergamini2019:33: [3.6045, spec]
+      caminha2016:33: [3.6045, spec]
+  D31:
+    from: diego2026
+    papers:
+      diego2026: [D31]
+      bergamini2019: ['7']
+      caminha2016: ['7']
+    z:
+      diego2026:D31: [1.035, spec]
+      bergamini2019:7: [1.035, spec]
+      caminha2016:7: [1.035, spec]
+  D35:
+    from: diego2026
+    papers:
+      diego2026: [D35]
+    z:
+      diego2026:D35: [3.666, spec]
+  D36:
+    from: diego2026
+    papers:
+      diego2026: [D36]
+    z:
+      diego2026:D36: [3.23, spec]
+  D37:
+    from: diego2026
+    papers:
+      diego2026: [D37]
+    z:
+      diego2026:D37: [3.082, spec]
+  D38:
+    from: diego2026
+    papers:
+      diego2026: [D38]
+      bergamini2019: ['24']
+      caminha2016: ['24']
+    z:
+      diego2026:D38: [2.976, spec]
+      bergamini2019:24: [2.978, spec]
+      caminha2016:24: [2.978, spec]
+  D40:
+    from: diego2026
+    papers:
+      diego2026: [D40]
+      bergamini2019: ['26']
+      caminha2016: ['26']
+    z:
+      diego2026:D40: [5.051, spec]
+      bergamini2019:26: [5.051, spec]
+      caminha2016:26: [5.051, spec]
+  D41:
+    from: diego2026
+    papers:
+      diego2026: [D41]
+      bergamini2019: ['25']
+      caminha2016: ['25']
+    z:
+      diego2026:D41: [5.2373, spec]
+      bergamini2019:25: [5.2373, spec]
+      caminha2016:25: [5.2373, spec]
+  D43:
+    from: diego2026
+    papers:
+      diego2026: [D43]
+      bergamini2019: ['27']
+      caminha2016: ['27']
+    z:
+      diego2026:D43: [3.2857, spec]
+      bergamini2019:27: [3.286, spec]
+      caminha2016:27: [3.286, spec]
+  D60:
+    from: diego2026
+    papers:
+      diego2026: [D60]
+    z:
+      diego2026:D60: [3.72, spec]
+  B28:
+    from: bergamini2019
+    papers:
+      bergamini2019: ['28']
+      caminha2016: ['28']
+    z:
+      bergamini2019:28: [3.169, spec]
+      caminha2016:28: [3.169, spec]
+  B29:
+    from: bergamini2019
+    papers:
+      bergamini2019: ['29']
+      caminha2016: ['29']
+    z:
+      bergamini2019:29: [5.894, spec]
+      caminha2016:29: [5.894, spec]
+  B30:
+    from: bergamini2019
+    papers:
+      bergamini2019: ['30']
+      caminha2016: ['30']
+    z:
+      bergamini2019:30: [3.4519, spec]
+      caminha2016:30: [3.4519, spec]
+  B31:
+    from: bergamini2019
+    papers:
+      bergamini2019: ['31']
+      caminha2016: ['31']
+    z:
+      bergamini2019:31: [3.7131, spec]
+      caminha2016:31: [3.7131, spec]
+excluded: {}
+conflicts: []
+candidate_images: []
+left_out:
+- papers:
+    caminha2016: ['50']
+  z:
+    caminha2016:50: [0.0, free]
+- papers:
+    caminha2016: ['51']
+  z:
+    caminha2016:51: [0.0, free]
+members:
+  counts: {diego2026: 288, bergamini2019: 222, caminha2016: 139}
+  only_in:
+    bergamini2019: ['10394', '1250', '1809', '2168', '2226', '2430', '2507', '2601', '2638', '2748', '2772', '2773', '2866', '2939', '2962', '3103', '3209', '3257',
+      '3339', '3398', '3516', '3660', '3710', '4173', '4200', '4205', '4223', '4289', '4302', '4423', '4636', '4736', '4812', '4823', '4872', '5036', '5037', '5075',
+      '5095', '5329', '5399', '5435', '5525', '5953', '6026', '6194', '6251', '6321', '6323', '6324', '6343', '6699', '7068', '7073', '7180', '7195', '7202', '7221',
+      '7377', '7380', '7415', '7484', '7711', '7739', '7796', '7802', '7843', '7869', '7909', '7925', '7978', '8001', '8301', '8351', '8438', '8496', '8614', '8946',
+      '8988', '9057', '9063', '9372', '9456', '9826']
+    caminha2016: ['10394', '3108', '3257', '3516', '4000', '4173', '4289', '4302', '4421', '4423', '4580', '4736', '5036', '5037', '5075', '5399', '6194', '6251',
+      '6321', '6323', '6324', '7202', '7796', '7869', '7909', '8001', '8614', '8988', '9223', '9456', '9826']

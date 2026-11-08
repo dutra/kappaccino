@@ -1,0 +1,20 @@
+# Papers merged into the MACS J0416 master catalog (scripts/build_master_catalog.py).  Paths are relative to this folder.
+cluster: m0416
+base: canucs2025              # JWST frame, knots, parities; its systems enter unchanged
+match_radius_arcsec: 0.5      # after each paper is shifted onto the base frame
+dz_max: 0.01                  # |dz| / (1 + z) above which two spectroscopic redshifts conflict
+papers:
+  canucs2025:
+    images: ../canucs2025/images.yaml
+    members: ../canucs2025/members.yaml
+  bergamini2023:
+    images: ../bergamini2023/images.yaml
+    members: ../bergamini2023/members.cat
+    z_kind: spec              # every family is spectroscopically confirmed (Bergamini et al. 2023)
+    prefix: B
+    add_systems: spec
+  diego2024:
+    images: ../diego2024/images.yaml
+    prefix: P
+    add_systems: none         # many redshifts are lens-model predictions; add systems by decision only
+    drop_images_with_notes: [rank C, rank D]

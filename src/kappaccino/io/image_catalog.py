@@ -24,12 +24,15 @@ A system is one background source at one redshift.  Each image of it has either 
             knots:
               A: {ra: 64.0369043, dec: -24.0674839, bands: {F150W: [25.8, 0.06]}}
 
-Fields.  System: ``z`` (required), ``reliability`` (0 to 1, default 1), ``knots`` (list of names), ``images``,
-``notes``.  Image: ``ra``/``dec`` (degrees, ICRS) or ``knots``; ``parity`` (-1, 0 or +1, 0 = unknown); ``sigma``
-(astrometric error in arcsec, the default for its knots); ``notes``.  Position (an image without knots, or one knot):
+Fields.  System: ``z`` (required; 0 when it is unknown, as in Lenstool), ``z_err`` (its 1-sigma uncertainty),
+``reliability`` (0 to 1, default 1), ``knots`` (list of names), ``images``, ``notes``.  Image: ``ra``/``dec`` (degrees,
+ICRS) or ``knots``; ``parity`` (-1, 0 or +1, 0 = unknown); ``sigma`` (astrometric error in arcsec, the default for its
+knots); ``prior`` (the default for its knots); ``notes``.  Position (an image without knots, or one knot):
 ``ra``, ``dec``, ``sigma``, ``shape`` ([a, b, theta]: semi-axes, of which the ratio b/a is used, and position angle in
-degrees), ``mag``, ``mag_err`` (mag), ``bands`` ({band: [mag, err]} or {band: {mag, err, detected, use}}), ``notes``.  A knot may also be written ``[ra, dec]`` or ``[ra, dec, sigma]``.
-``defaults`` sets ``sigma``, ``shape``, ``mag``, ``mag_err`` and ``reliability`` for every entry that omits them;
+degrees), ``mag``, ``mag_err`` (mag), ``bands`` ({band: [mag, err]} or {band: {mag, err, detected, use}}), ``prior`` (0 to 1,
+default 1: the prior probability that this image belongs to its system; see ``ImageConstraintsConfig.trusted_prior_min``),
+``notes``.  A knot may also be written ``[ra, dec]`` or ``[ra, dec, sigma]``.
+``defaults`` sets ``sigma``, ``shape``, ``mag``, ``mag_err``, ``reliability`` and ``prior`` for every entry that omits them;
 an astrometric error missing everywhere takes the configured ``sigma_inst_arcsec``.
 
 The solver sees one family per (system, knot): its id is the system name followed by the knot name (D1 + A = D1A), and
@@ -53,14 +56,14 @@ FORMAT = "lenscluster-images/1"
 NAME_RE = re.compile(r"^[A-Z0-9]+$")
 IMAGE_RE = re.compile(r"^[a-z]+$")
 TOP_KEYS = {"format", "defaults", "systems", "notes"}
-DEFAULT_KEYS = {"sigma", "shape", "mag", "mag_err", "reliability"}
-SYSTEM_KEYS = {"z", "reliability", "knots", "images", "notes"}
-POSITION_KEYS = {"ra", "dec", "sigma", "shape", "mag", "mag_err", "bands", "notes"}
+DEFAULT_KEYS = {"sigma", "shape", "mag", "mag_err", "reliability", "prior"}
+SYSTEM_KEYS = {"z", "z_err", "reliability", "knots", "images", "notes"}
+POSITION_KEYS = {"ra", "dec", "sigma", "shape", "mag", "mag_err", "bands", "prior", "notes"}
 IMAGE_KEYS = POSITION_KEYS | {"parity", "knots"}
-KNOTTED_IMAGE_KEYS = {"parity", "sigma", "knots", "notes"}
+KNOTTED_IMAGE_KEYS = {"parity", "sigma", "prior", "knots", "notes"}
 BAND_KEYS = {"mag", "err", "detected", "use"}
-COLUMNS = ["image_label", "family_id", "image_id", "system_id", "knot_id", "ra", "dec", "catalog_z", "family_reliability",
-           "sigma_inst_arcsec", "parity", "catalog_a", "catalog_b", "catalog_theta", "catalog_mag", "catalog_mag_err",
+COLUMNS = ["image_label", "family_id", "image_id", "system_id", "knot_id", "ra", "dec", "catalog_z", "catalog_z_err", "family_reliability",
+           "association_prior", "sigma_inst_arcsec", "parity", "catalog_a", "catalog_b", "catalog_theta", "catalog_mag", "catalog_mag_err",
            "catalog_source"]
 
 
@@ -99,7 +102,8 @@ def load_image_catalog(path: str | Path, *, sigma_inst_arcsec: float, sigma_floo
           ``system_id``, ``knot_id`` (str; ``knot_id`` is ``""`` for an image
           without knots);
         * ``ra``, ``dec`` (degrees, ICRS);
-        * ``catalog_z`` (source redshift); ``family_reliability`` (0 to 1);
+        * ``catalog_z`` (source redshift), ``catalog_z_err`` (NaN when not given);
+          ``family_reliability`` (0 to 1); ``association_prior`` (0 to 1, the image's ``prior``);
         * ``sigma_inst_arcsec`` (astrometric error, arcsec, at least
           ``sigma_floor_arcsec``);
         * ``parity`` (int: -1, +1, or 0 when unknown);
@@ -222,7 +226,9 @@ def _position(entry: Any, where: str, *, sigma: float, defaults: dict) -> dict[s
            "sigma_inst_arcsec": _number(entry["sigma"], f"{where}.sigma", positive=True) if "sigma" in entry else sigma,
            "catalog_a": shape[0], "catalog_b": shape[1], "catalog_theta": shape[2],
            "catalog_mag": _number(entry["mag"], f"{where}.mag") if "mag" in entry else defaults.get("mag", np.nan),
-           "catalog_mag_err": _number(entry["mag_err"], f"{where}.mag_err", positive=True) if "mag_err" in entry else defaults.get("mag_err", np.nan)}
+           "catalog_mag_err": _number(entry["mag_err"], f"{where}.mag_err", positive=True) if "mag_err" in entry else defaults.get("mag_err", np.nan),
+           "association_prior": (_number(entry["prior"], f"{where}.prior", lower=0.0, upper=1.0) if "prior" in entry
+                                 else defaults.get("prior", 1.0))}
     if "bands" in entry:
         row.update(_bands(entry["bands"], f"{where}.bands"))
     return row
@@ -242,6 +248,8 @@ def _defaults(value: Any, where: str, sigma_inst_arcsec: float) -> dict[str, Any
         out["mag_err"] = _number(entry["mag_err"], f"{where}.mag_err", positive=True)
     if "reliability" in entry:
         out["reliability"] = _number(entry["reliability"], f"{where}.reliability", lower=0.0, upper=1.0)
+    if "prior" in entry:
+        out["prior"] = _number(entry["prior"], f"{where}.prior", lower=0.0, upper=1.0)
     return out
 
 
@@ -264,6 +272,7 @@ def _flatten(document: Any, source: str, sigma_inst_arcsec: float) -> list[dict[
         if "z" not in system:
             raise CatalogError(f"{here}: missing z.")
         z = _number(system["z"], f"{here}.z")
+        z_err = _number(system["z_err"], f"{here}.z_err", positive=True) if "z_err" in system else np.nan
         reliability = (_number(system["reliability"], f"{here}.reliability", lower=0.0, upper=1.0) if "reliability" in system
                        else defaults.get("reliability", 1.0))
         declared = system.get("knots")
@@ -291,6 +300,8 @@ def _flatten(document: Any, source: str, sigma_inst_arcsec: float) -> list[dict[
                     raise CatalogError(f"{where} lists knots but {here} declares none; add knots: [...] to the system.")
                 _check_keys(image, KNOTTED_IMAGE_KEYS, where)
                 sigma = _number(image["sigma"], f"{where}.sigma", positive=True) if "sigma" in image else defaults["sigma"]
+                knot_defaults = ({**defaults, "prior": _number(image["prior"], f"{where}.prior", lower=0.0, upper=1.0)}
+                                 if "prior" in image else defaults)
                 knots = _require_mapping(image["knots"], f"{where}.knots")
                 if not knots:
                     raise CatalogError(f"{where}.knots is empty.")
@@ -299,7 +310,7 @@ def _flatten(document: Any, source: str, sigma_inst_arcsec: float) -> list[dict[
                     knot_id = _name(knot_key, NAME_RE, "knot", f"{where}.knots")
                     if knot_id not in declared:
                         raise CatalogError(f"{where}.knots.{knot_id} is not declared in {here}.knots {declared}.")
-                    entries.append((knot_id, _position(knot, f"{where}.knots.{knot_id}", sigma=sigma, defaults=defaults)))
+                    entries.append((knot_id, _position(knot, f"{where}.knots.{knot_id}", sigma=sigma, defaults=knot_defaults)))
             else:
                 if declared is not None:
                     raise CatalogError(f"{where} gives one position but {here} declares knots; list them under knots:.")
@@ -313,7 +324,7 @@ def _flatten(document: Any, source: str, sigma_inst_arcsec: float) -> list[dict[
                     raise CatalogError(f"{here}: family name {family_id} (system {system_id}, knot {knot_id or '-'}) collides with "
                                        f"system/knot {owner}; rename one of them.")
                 rows.append({"image_label": f"{family_id}.{image_id}", "family_id": family_id, "image_id": image_id,
-                             "system_id": system_id, "knot_id": knot_id, "catalog_z": z, "family_reliability": reliability,
+                             "system_id": system_id, "knot_id": knot_id, "catalog_z": z, "catalog_z_err": z_err, "family_reliability": reliability,
                              "parity": int(parity), **measured})
         if declared is not None and set(declared) - seen_knots:
             raise CatalogError(f"{here}: knots {sorted(set(declared) - seen_knots)} are declared but appear in no image.")

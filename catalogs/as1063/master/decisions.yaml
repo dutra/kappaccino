@@ -1,0 +1,5 @@
+# Hand-made choices for the Abell S1063 master catalog; each needs a reason.  See scripts/build_master_catalog.py.
+- set_member: B1809
+  role: bcg
+  treatment: independent
+  reason: the BCG, absent from the base (Beauchesne) members, which model it with the ICL; a dPIE of its own as in Bergamini et al. 2019

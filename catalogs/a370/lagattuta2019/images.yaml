@@ -1,0 +1,322 @@
+# Lagattuta et al. 2019, MNRAS 485, 3738: multiple images converted on 2026-11-08 by scripts/convert_a370_catalogs.py.
+# Every row, published systems; image n -> nth lowercase letter, knot letters capitalized.  See the README for the redshifts.
+format: lenscluster-images/1
+systems:
+  '1':
+    z: 0.8041
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.967047, dec: -1.5769172, notes: 'class gold, note -'}
+      b: {ra: 39.976273, dec: -1.5760558, notes: 'class gold, note -'}
+      c: {ra: 39.968691, dec: -1.5766113, notes: 'class gold, note -'}
+  '2':
+    z: 0.7251
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.973825, dec: -1.584229, notes: 'class gold, note -'}
+      b: {ra: 39.971003, dec: -1.5850422, notes: 'class gold, note -'}
+      c: {ra: 39.968722, dec: -1.5845058, notes: 'class gold, note -'}
+      d: {ra: 39.969394, dec: -1.5847328, notes: 'class gold, note -'}
+      e: {ra: 39.96963, dec: -1.5848508, notes: 'class gold, note -'}
+  '3':
+    z: 1.9553
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.965658, dec: -1.566856, notes: 'class gold, note -'}
+      b: {ra: 39.968526, dec: -1.5657906, notes: 'class gold, note -'}
+      c: {ra: 39.978925, dec: -1.5674624, notes: 'class bronze, note -'}
+  '4':
+    z: 1.2728
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.979704, dec: -1.5764364, notes: 'class gold, note -'}
+      b: {ra: 39.970688, dec: -1.5763221, notes: 'class gold, note -'}
+      c: {ra: 39.961971, dec: -1.5779671, notes: 'class gold, note -'}
+  '5':
+    z: 1.2775
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.973473, dec: -1.5890463, notes: 'class gold, note -'}
+      b: {ra: 39.970576, dec: -1.5891946, notes: 'class gold, note -'}
+      c: {ra: 39.969472, dec: -1.5890961, notes: 'class gold, note -'}
+      d: {ra: 39.96858, dec: -1.5890045, notes: 'class gold, note -'}
+  '6':
+    z: 1.0633
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.969405, dec: -1.5771811, notes: 'class gold, note -'}
+      b: {ra: 39.964334, dec: -1.5782307, notes: 'class gold, note -'}
+      c: {ra: 39.979641, dec: -1.5770904, notes: 'class gold, note -'}
+  '7':
+    z: 2.7512
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.969788, dec: -1.5804299, notes: 'class gold, note -'}
+      b: {ra: 39.969882, dec: -1.5807608, notes: 'class gold, note -'}
+      c: {ra: 39.968815, dec: -1.5856313, notes: 'class gold, note -'}
+      d: {ra: 39.986567, dec: -1.5775688, notes: 'class gold, note -'}
+      e: {ra: 39.961533, dec: -1.5800028, notes: 'class gold, note -'}
+  '8':
+    z: 2.884
+    notes: geometric z (lens-model prediction; free in the model)
+    images:
+      a: {ra: 39.964485, dec: -1.5698065, notes: 'class silver, note -'}
+      b: {ra: 39.961889, dec: -1.5736473, notes: 'class silver, note -'}
+  '9':
+    z: 1.5182
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.962402, dec: -1.5778911, notes: 'class gold, note -'}
+      b: {ra: 39.969486, dec: -1.5762654, notes: 'class gold, note -'}
+      c: {ra: 39.982022, dec: -1.5765337, notes: 'class gold, note -'}
+  '10':
+    z: 2.7512
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.968142, dec: -1.5710778, notes: 'class -, note 1,2'}
+      b: {ra: 39.968454, dec: -1.5715778, notes: 'class gold, note 2'}
+      c: {ra: 39.969046, dec: -1.5774833, notes: 'class copper, note 2'}
+  '11':
+    z: 7.04
+    notes: geometric z (lens-model prediction; free in the model)
+    images:
+      a: {ra: 39.963839, dec: -1.5693802, notes: 'class silver, note -'}
+      b: {ra: 39.960789, dec: -1.5741702, notes: 'class silver, note -'}
+      c: {ra: 39.98846, dec: -1.5719676, notes: 'class copper, note -'}
+  '12':
+    z: 3.4809
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.969682, dec: -1.566636, notes: 'class gold, note -'}
+      b: {ra: 39.959198, dec: -1.5753221, notes: 'class gold, note -'}
+      c: {ra: 39.9841, dec: -1.5709127, notes: 'class gold, note -'}
+  '13':
+    z: 4.248
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.979513, dec: -1.5717782, notes: 'class gold, note -'}
+      b: {ra: 39.97521, dec: -1.5688203, notes: 'class gold, note -'}
+      c: {ra: 39.956759, dec: -1.5775032, notes: 'class gold, note -'}
+  '14':
+    z: 3.1309
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.972309, dec: -1.578091, notes: 'class gold, note -'}
+      b: {ra: 39.972192, dec: -1.5801027, notes: 'class gold, note -'}
+      c: {ra: 39.974254, dec: -1.585577, notes: 'class gold, note -'}
+      d: {ra: 39.981313, dec: -1.5782202, notes: 'class gold, note -'}
+      e: {ra: 39.957673, dec: -1.580459, notes: 'class gold, note -'}
+  '15':
+    z: 3.7084
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.971328, dec: -1.580604, notes: 'class gold, note -'}
+      b: {ra: 39.971935, dec: -1.5870512, notes: 'class gold, note -'}
+      c: {ra: 39.971027, dec: -1.5777907, notes: 'class gold, note -'}
+      d: {ra: 39.984008, dec: -1.5784556, notes: 'class gold, note -'}
+      e: {ra: 39.958795, dec: -1.5805488, notes: 'class silver, note -'}
+      f: {ra: 39.970391, dec: -1.5696387, notes: 'class copper, note -'}
+      g: {ra: 39.97045, dec: -1.5689437, notes: 'class copper, note -'}
+  '16':
+    z: 3.7743
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.964016, dec: -1.5880782, notes: 'class gold, note -'}
+      b: {ra: 39.966037, dec: -1.5890355, notes: 'class -, note 1'}
+      c: {ra: 39.984414, dec: -1.5841111, notes: 'class gold, note -'}
+  '17':
+    z: 4.2567
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.969758, dec: -1.5885333, notes: 'class gold, note -'}
+      b: {ra: 39.985403, dec: -1.5808406, notes: 'class gold, note -'}
+      c: {ra: 39.960235, dec: -1.5836508, notes: 'class gold, note -'}
+  '18':
+    z: 4.4296
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.97583, dec: -1.5870613, notes: 'class gold, note -'}
+      b: {ra: 39.981476, dec: -1.5820728, notes: 'class gold, note -'}
+      c: {ra: 39.957362, dec: -1.5820861, notes: 'class gold, note -'}
+  '19':
+    z: 5.6493
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.971996, dec: -1.5878654, notes: 'class gold, note -'}
+      b: {ra: 39.985142, dec: -1.5790944, notes: 'class gold, note -'}
+      c: {ra: 39.958316, dec: -1.5813093, notes: 'class gold, note -'}
+  '20':
+    z: 5.7505
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.965279, dec: -1.5878055, notes: 'class gold, note -'}
+      b: {ra: 39.963619, dec: -1.5868798, notes: 'class gold, note -'}
+  '21':
+    z: 1.2567
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.966733, dec: -1.5846943, notes: 'class gold, note -'}
+      b: {ra: 39.967252, dec: -1.5849694, notes: 'class gold, note -'}
+      c: {ra: 39.981539, dec: -1.5814028, notes: 'class gold, note -'}
+  '22':
+    z: 3.1309
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.974406, dec: -1.5861017, notes: 'class gold, note -'}
+      b: {ra: 39.981675, dec: -1.5796852, notes: 'class gold, note -'}
+      c: {ra: 39.957906, dec: -1.5810108, notes: 'class silver, note -'}
+  '23':
+    z: 5.9386
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.980113, dec: -1.5667264, notes: 'class gold, note -'}
+      b: {ra: 39.957315, dec: -1.572744, notes: 'class gold, note -'}
+      c: {ra: 39.977166, dec: -1.5662748, notes: 'class gold, note -'}
+  '24':
+    z: 4.916
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.963111, dec: -1.570603, notes: 'class gold, note -'}
+      b: {ra: 39.96204, dec: -1.5723407, notes: 'class gold, note -'}
+  '25':
+    z: 3.8145
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.987084, dec: -1.5790992, notes: 'class gold, note -'}
+      b: {ra: 39.961703, dec: -1.5832126, notes: 'class gold, note -'}
+      c: {ra: 39.966982, dec: -1.5867999, notes: 'class bronze, note -'}
+  '26':
+    z: 3.9359
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.979924, dec: -1.571393, notes: 'class gold, note -'}
+      b: {ra: 39.97446, dec: -1.5680963, notes: 'class gold, note -'}
+      c: {ra: 39.95717, dec: -1.5769717, notes: 'class gold, note -'}
+  '27':
+    z: 3.0161
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.980691, dec: -1.5711198, notes: 'class gold, note -'}
+      b: {ra: 39.958292, dec: -1.5759068, notes: 'class gold, note -'}
+      c: {ra: 39.97244, dec: -1.5671511, notes: 'class gold, note -'}
+  '28':
+    z: 2.9101
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.963492, dec: -1.5822806, notes: 'class gold, note -'}
+      b: {ra: 39.967058, dec: -1.5845583, notes: 'class gold, note -'}
+      c: {ra: 39.987817, dec: -1.5774528, notes: 'class gold, note -'}
+  '29':
+    z: 4.4897
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.968425, dec: -1.5646657, notes: 'class gold, note -'}
+      b: {ra: 39.983596, dec: -1.5674774, notes: 'class bronze, note -'}
+      c: {ra: 39.960838, dec: -1.5691328, notes: 'class silver, note -'}
+  '30':
+    z: 5.6459
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.983351, dec: -1.5704081, notes: 'class gold, note -'}
+      b: {ra: 39.972404, dec: -1.5663533, notes: 'class gold, note -'}
+  '31':
+    z: 5.4476
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.97475, dec: -1.5693301, notes: 'class gold, note -'}
+      b: {ra: 39.980667, dec: -1.5747346, notes: 'class bronze, note -'}
+      c: {ra: 39.956156, dec: -1.5786786, notes: 'class bronze, note -'}
+  '32':
+    z: 4.4953
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.966285, dec: -1.5693446, notes: 'class gold, note -'}
+      b: {ra: 39.988097, dec: -1.5751871, notes: 'class gold, note -'}
+      c: {ra: 39.960682, dec: -1.5783795, notes: 'class gold, note -'}
+  '33':
+    z: 4.882
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.962722, dec: -1.5860036, notes: 'class gold, note -'}
+      b: {ra: 39.966215, dec: -1.5879961, notes: 'class gold, note -'}
+  '34':
+    z: 5.2437
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.970107, dec: -1.5701499, notes: 'class gold, note -'}
+      b: {ra: 39.971805, dec: -1.5880395, notes: 'class gold, note -'}
+      c: {ra: 39.958566, dec: -1.5817008, notes: 'class gold, note -'}
+      d: {ra: 39.985048, dec: -1.579559, notes: 'class gold, note -'}
+  '35':
+    z: 6.1735
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.981538, dec: -1.5658624, notes: 'class gold, note -'}
+      b: {ra: 39.975825, dec: -1.5644423, notes: 'class gold, note -'}
+  '36':
+    z: 6.2855
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.962444, dec: -1.5807098, notes: 'class gold, note -'}
+      b: {ra: 39.965996, dec: -1.5843845, notes: 'class gold, note -'}
+  '37':
+    z: 5.6489
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.970391, dec: -1.5687943, notes: 'class gold, note 2'}
+      b: {ra: 39.970428, dec: -1.5694203, notes: 'class gold, note 2'}
+  '38':
+    z: 3.2
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.977154, dec: -1.5737917, notes: 'class gold, note -'}
+      b: {ra: 39.975063, dec: -1.5721045, notes: 'class gold, note -'}
+  '39':
+    z: 4.9441
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.970546, dec: -1.5693801, notes: 'class copper, note -'}
+      b: {ra: 39.969977, dec: -1.5700367, notes: 'class copper, note -'}
+      c: {ra: 39.985223, dec: -1.5793885, notes: 'class copper, note -'}
+      d: {ra: 39.971395, dec: -1.58802, notes: 'class copper, note -'}
+  '40':
+    z: 4.3381
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.970632, dec: -1.5710393, notes: 'class copper, note -'}
+      b: {ra: 39.983162, dec: -1.5796664, notes: 'class copper, note -'}
+      c: {ra: 39.973383, dec: -1.5874465, notes: 'class copper, note -'}
+      d: {ra: 39.957967, dec: -1.5815081, notes: 'class copper, note -'}
+  '41':
+    z: 1.272
+    notes: geometric z (lens-model prediction; free in the model)
+    images:
+      a: {ra: 39.965442, dec: -1.5780222, notes: 'class silver, note -'}
+      b: {ra: 39.967933, dec: -1.5773472, notes: 'class silver, note -'}
+      c: {ra: 39.982296, dec: -1.576975, notes: 'class silver, note -'}
+  '42':
+    z: 1.0315
+    notes: spectroscopic z
+    images:
+      a: {ra: 39.963579, dec: -1.5656333, notes: 'class gold, note -'}
+      b: {ra: 39.962958, dec: -1.5661111, notes: 'class gold, note -'}
+      c: {ra: 39.963375, dec: -1.5659528, notes: 'class gold, note -'}
+  '43':
+    z: 1.973
+    notes: geometric z (lens-model prediction; free in the model)
+    images:
+      a: {ra: 39.962117, dec: -1.57525, notes: 'class bronze, note -'}
+      b: {ra: 39.984054, dec: -1.5733556, notes: 'class copper, note -'}
+      c: {ra: 39.966563, dec: -1.5696694, notes: 'class bronze, note -'}
+  '44':
+    z: 2.336
+    notes: geometric z (lens-model prediction; free in the model)
+    images:
+      a: {ra: 39.977717, dec: -1.5827917, notes: 'class silver, note -'}
+      b: {ra: 39.976646, dec: -1.5836028, notes: 'class silver, note -'}
+  '45':
+    z: 8.593
+    notes: geometric z (lens-model prediction; free in the model)
+    images:
+      a: {ra: 39.9824, dec: -1.5811, notes: 'class copper, note -'}
+      b: {ra: 39.975875, dec: -1.58726, notes: 'class copper, note -'}

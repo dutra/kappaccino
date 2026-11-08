@@ -1,0 +1,426 @@
+# Mahler et al. 2018, MNRAS 473, 663 (VizieR J/MNRAS/473/663): multiple images converted from J_MNRAS_473_663_tablea1.vot.xml on 2026-11-08 by scripts/convert_a2744_catalogs.py.
+# Every row, published systems; knot n -> nth capital letter, image n -> nth lowercase letter.  0 systems without a published z have z = 0 (free in the model).
+# Image notes carry the published quality flags.  Positions J2000 degrees as published; no errors or photometry.
+format: lenscluster-images/1
+systems:
+  '1':
+    z: 1.688
+    notes: spectroscopic z
+    images:
+      a: {ra: 3.5975477, dec: -30.403918, notes: 'confid 2, categories gsbc'}
+      b: {ra: 3.595951, dec: -30.406813, notes: 'confid 2, categories gsbc'}
+      c: {ra: 3.586233, dec: -30.409989, notes: 'confid 2, categories gsbc'}
+  '2':
+    z: 1.8876
+    notes: spectroscopic z
+    images:
+      a: {ra: 3.5832588, dec: -30.403351, notes: 'confid 2, categories gsbc'}
+      b: {ra: 3.5972752, dec: -30.396724, notes: 'confid 1, categories gsbc'}
+      c: {ra: 3.5854036, dec: -30.399898, notes: 'confid 1, categories gsbc'}
+      d: {ra: 3.5864275, dec: -30.402128, notes: 'confid 1, categories gsbc'}
+  '3':
+    z: 3.9803
+    notes: spectroscopic z
+    images:
+      a: {ra: 3.5893714, dec: -30.393864, notes: 'confid 3, categories gsbc'}
+      b: {ra: 3.5887908, dec: -30.393806, notes: 'confid 3, categories gsbc'}
+      c: {ra: 3.576625, dec: -30.401813, notes: 'confid --, categories c'}
+  '4':
+    z: 3.5769
+    notes: spectroscopic z
+    images:
+      a: {ra: 3.5921145, dec: -30.402634, notes: 'confid 3, categories gsbc'}
+      b: {ra: 3.5956434, dec: -30.401623, notes: 'confid 3, categories gsbc'}
+      c: {ra: 3.5804331, dec: -30.408926, notes: 'confid 3, categories gsbc'}
+      d: {ra: 3.5931933, dec: -30.404915, notes: 'confid 3, categories gsbc'}
+      e: {ra: 3.5935934, dec: -30.405106, notes: 'confid 3, categories gsbc'}
+  '5':
+    z: 4.0225
+    notes: spectroscopic z
+    images:
+      a: {ra: 3.5869257, dec: -30.390704, notes: 'confid 3, categories c'}
+      b: {ra: 3.5849816, dec: -30.391374, notes: 'confid 3, categories gsbc'}
+      c: {ra: 3.5799583, dec: -30.394772, notes: 'confid 3, categories gsbc'}
+  '105':
+    z: 4.0225
+    notes: spectroscopic z
+    images:
+      a: {ra: 3.5834304, dec: -30.39207, notes: 'confid 3, categories gsbc'}
+      b: {ra: 3.5822917, dec: -30.392789, notes: 'confid 3, categories gsbc'}
+      c: {ra: 3.5804118, dec: -30.394316, notes: 'confid 3, categories c'}
+      d: {ra: 3.5810603, dec: -30.393624, notes: 'confid 3, categories c'}
+  '6':
+    z: 2.016
+    notes: spectroscopic z
+    images:
+      a: {ra: 3.598534, dec: -30.4018, notes: 'confid 3, categories gsbc'}
+      b: {ra: 3.5940518, dec: -30.408011, notes: 'confid 3, categories gsbc'}
+      c: {ra: 3.5864225, dec: -30.409371, notes: 'confid 3, categories gsbc'}
+  '7':
+    z: 2.5791
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5982604, dec: -30.402326, notes: 'confid --, categories sbc'}
+      b: {ra: 3.5952195, dec: -30.407412, notes: 'confid --, categories sbc'}
+      c: {ra: 3.5845989, dec: -30.409822, notes: 'confid --, categories sbc'}
+  '8':
+    z: 3.975
+    notes: spectroscopic z
+    images:
+      a: {ra: 3.5897088, dec: -30.394339, notes: 'confid 2, categories gsbc'}
+      b: {ra: 3.5888225, dec: -30.39421, notes: 'confid 2, categories gsbc'}
+      c: {ra: 3.5763966, dec: -30.402554, notes: 'confid --, categories c'}
+  '9':
+    z: 2.3556
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.58839, dec: -30.405272, notes: 'confid --, categories sbc'}
+      b: {ra: 3.5871362, dec: -30.406229, notes: 'confid --, categories sbc'}
+      c: {ra: 3.6001511, dec: -30.397153, notes: 'confid --, categories bc'}
+  '10':
+    z: 2.6565
+    notes: spectroscopic z
+    images:
+      a: {ra: 3.5884011, dec: -30.40588, notes: 'confid 3, categories gsbc'}
+      b: {ra: 3.5873776, dec: -30.406485, notes: 'confid 3, categories gsbc'}
+      c: {ra: 3.6007208, dec: -30.397095, notes: 'confid --, categories c'}
+  '11':
+    z: 2.4508
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.591393, dec: -30.403847, notes: 'confid --, categories bc'}
+      b: {ra: 3.5972708, dec: -30.401435, notes: 'confid --, categories bc'}
+      c: {ra: 3.5828051, dec: -30.40891, notes: 'confid --, categories bc'}
+      d: {ra: 3.5945298, dec: -30.406546, notes: 'confid --, categories bc'}
+  '12':
+    z: 3.6388
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5936156, dec: -30.404464, notes: 'confid --, categories bc'}
+      b: {ra: 3.5932349, dec: -30.403259, notes: 'confid --, categories bc'}
+      c: {ra: 3.5945646, dec: -30.402986, notes: 'confid --, categories bc'}
+      d: {ra: 3.5795731, dec: -30.410258, notes: 'confid --, categories c'}
+  '13':
+    z: 1.3905
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5923985, dec: -30.402536, notes: confid --}
+      b: {ra: 3.59377, dec: -30.40217, notes: 'confid --, categories sbc'}
+      c: {ra: 3.5827578, dec: -30.408035, notes: 'confid --, categories sbc'}
+  '14':
+    z: 2.571
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5897344, dec: -30.394638, notes: 'confid --, categories sbc'}
+      b: {ra: 3.5884245, dec: -30.394434, notes: 'confid --, categories sbc'}
+      c: {ra: 3.5775729, dec: -30.401688, notes: 'confid --, categories c'}
+  '18':
+    z: 5.6625
+    notes: spectroscopic z
+    images:
+      a: {ra: 3.5761227, dec: -30.404485, notes: 'confid 3, categories gsbc'}
+      b: {ra: 3.5883786, dec: -30.395646, notes: 'confid 3, categories gsbc'}
+      c: {ra: 3.590725, dec: -30.395557, notes: 'confid 3, categories gsbc'}
+  '19':
+    z: 1.9902
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5889167, dec: -30.397439, notes: 'confid --, categories c'}
+      b: {ra: 3.5914427, dec: -30.396684, notes: 'confid --, categories c'}
+      c: {ra: 3.5787177, dec: -30.404017, notes: 'confid --, categories c'}
+  '20':
+    z: 2.5127
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5962413, dec: -30.40297, notes: 'confid --, categories sbc'}
+      b: {ra: 3.5951992, dec: -30.405437, notes: 'confid --, categories sbc'}
+      c: {ra: 3.5820007, dec: -30.409552, notes: 'confid --, categories bc'}
+  '21':
+    z: 2.564
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5961754, dec: -30.403112, notes: 'confid --, categories sbc'}
+      b: {ra: 3.5952536, dec: -30.40534, notes: 'confid --, categories sbc'}
+      c: {ra: 3.5819601, dec: -30.40961, notes: 'confid --, categories bc'}
+  '22':
+    z: 5.2845
+    notes: spectroscopic z
+    images:
+      a: {ra: 3.5879067, dec: -30.411612, notes: 'confid 3, categories gsbc'}
+      b: {ra: 3.6000458, dec: -30.404417, notes: 'confid 3, categories gsbc'}
+      c: {ra: 3.5965885, dec: -30.408983, notes: 'confid 3, categories gsbc'}
+  '23':
+    z: 4.4156
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5881623, dec: -30.410545, notes: 'confid --, categories sbc'}
+      b: {ra: 3.5935338, dec: -30.409717, notes: 'confid --, categories sbc'}
+      c: {ra: 3.6005416, dec: -30.401831, notes: 'confid --, categories sbc'}
+  '24':
+    z: 1.043
+    notes: spectroscopic z
+    images:
+      a: {ra: 3.5959003, dec: -30.40448, notes: 'confid 3, categories gsbc'}
+      b: {ra: 3.595125, dec: -30.405933, notes: 'confid 3, categories gsbc'}
+      c: {ra: 3.5873333, dec: -30.409102, notes: 'confid 1, categories gsbc'}
+  '25':
+    z: 1.2168
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5944626, dec: -30.402732, notes: 'confid --, categories bc'}
+      b: {ra: 3.59215, dec: -30.403318, notes: 'confid --, categories bc'}
+      c: {ra: 3.5842145, dec: -30.408281, notes: 'confid --, categories bc'}
+  '26':
+    z: 3.0537
+    notes: spectroscopic z
+    images:
+      a: {ra: 3.5938976, dec: -30.409731, notes: 'confid 1, categories gsbc'}
+      b: {ra: 3.5903464, dec: -30.410581, notes: 'confid 2, categories gsbc'}
+      c: {ra: 3.6001103, dec: -30.402942, notes: 'confid 2, categories gsbc'}
+  '27':
+    z: 2.485
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5807266, dec: -30.403137, notes: 'confid --, categories bc'}
+      b: {ra: 3.5956979, dec: -30.396153, notes: 'confid --, categories bc'}
+      c: {ra: 3.5854978, dec: -30.397653, notes: 'confid --, categories bc'}
+  '28':
+    z: 6.5166
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5804479, dec: -30.405051, notes: 'confid --, categories bc'}
+      b: {ra: 3.5978333, dec: -30.395964, notes: 'confid --, categories bc'}
+      c: {ra: 3.5853176, dec: -30.397958, notes: 'confid --, categories bc'}
+      d: {ra: 3.5874511, dec: -30.401372, notes: 'confid --, categories bc'}
+  '29':
+    z: 1.9859
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5824475, dec: -30.397567, notes: 'confid --, categories c'}
+      b: {ra: 3.5805261, dec: -30.400464, notes: 'confid --, categories c'}
+      c: {ra: 3.5836, dec: -30.396581, notes: 'confid --, categories c'}
+  '30':
+    z: 1.0252
+    notes: spectroscopic z
+    images:
+      a: {ra: 3.5910104, dec: -30.39744, notes: 'confid 3, categories gsbc'}
+      b: {ra: 3.5866771, dec: -30.398188, notes: 'confid 3, categories gsbc'}
+      c: {ra: 3.5819245, dec: -30.4017, notes: 'confid 3, categories gsbc'}
+  '31':
+    z: 4.7594
+    notes: spectroscopic z
+    images:
+      a: {ra: 3.585934, dec: -30.403159, notes: 'confid 3, categories gsbc'}
+      b: {ra: 3.5837083, dec: -30.404105, notes: 'confid 3, categories gsbc'}
+      c: {ra: 3.5998296, dec: -30.395522, notes: 'confid 3, categories c'}
+  '32':
+    z: 5.6678
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5835963, dec: -30.404705, notes: 'confid --, categories bc'}
+      b: {ra: 3.5866709, dec: -30.403345, notes: 'confid --, categories bc'}
+      c: {ra: 3.5997765, dec: -30.395981, notes: 'confid --, categories bc'}
+  '33':
+    z: 5.7255
+    notes: spectroscopic z
+    images:
+      a: {ra: 3.5847083, dec: -30.403152, notes: 'confid 3, categories gsbc'}
+      b: {ra: 3.5843959, dec: -30.4034, notes: 'confid 3, categories gsbc'}
+      c: {ra: 3.6004183, dec: -30.39511, notes: 'confid 3, categories gsbc'}
+  '34':
+    z: 3.785
+    notes: spectroscopic z
+    images:
+      a: {ra: 3.5934255, dec: -30.410842, notes: 'confid 3, categories gsbc'}
+      b: {ra: 3.5938141, dec: -30.410718, notes: 'confid 3, categories gsbc'}
+      c: {ra: 3.600705, dec: -30.404605, notes: 'confid 3, categories gsbc'}
+  '35':
+    z: 2.656
+    notes: spectroscopic z
+    images:
+      a: {ra: 3.58111058, dec: -30.400215, notes: 'confid 3, categories bc'}
+      b: {ra: 3.5815417, dec: -30.399392, notes: 'confid --, categories bc'}
+      c: {ra: 3.5978333, dec: -30.395542, notes: 'confid --, categories bc'}
+  '36':
+    z: 3.9291
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5894583, dec: -30.394408, notes: 'confid --, categories sbc'}
+      b: {ra: 3.5886666, dec: -30.3943, notes: 'confid --, categories sbc'}
+      c: {ra: 3.5774792, dec: -30.401508, notes: 'confid --, categories c'}
+  '37':
+    z: 2.6501
+    notes: spectroscopic z
+    images:
+      a: {ra: 3.5890417, dec: -30.394913, notes: 'confid 3, categories gsbc'}
+      b: {ra: 3.5887083, dec: -30.394852, notes: 'confid 3, categories gsbc'}
+      c: {ra: 3.5794427, dec: -30.400275, notes: confid --}
+  '38':
+    z: 5.4665
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5894166, dec: -30.3941, notes: 'confid --, categories bc'}
+      b: {ra: 3.5889396, dec: -30.394044, notes: 'confid --, categories bc'}
+      c: {ra: 3.5763968, dec: -30.402128, notes: 'confid --, categories c'}
+  '39':
+    z: 4.015
+    notes: spectroscopic z
+    images:
+      a: {ra: 3.5887917, dec: -30.39253, notes: 'confid 3, categories gsbc'}
+      b: {ra: 3.5885417, dec: -30.392508, notes: 'confid 3, categories gsbc'}
+      c: {ra: 3.5774787, dec: -30.399568, notes: 'confid --, categories gsbc'}
+  '40':
+    z: 4.0
+    notes: spectroscopic z
+    images:
+      a: {ra: 3.5890859, dec: -30.392668, notes: 'confid 3, categories gsbc'}
+      b: {ra: 3.5881935, dec: -30.392551, notes: 'confid 3, categories gsbc'}
+      c: {ra: 3.5775443, dec: -30.399376, notes: 'confid --, categories c'}
+  '41':
+    z: 4.9113
+    notes: spectroscopic z
+    images:
+      a: {ra: 3.5991758, dec: -30.399582, notes: 'confid 1, categories gsbc'}
+      b: {ra: 3.5935571, dec: -30.407769, notes: 'confid 1, categories gsbc'}
+      c: {ra: 3.5834467, dec: -30.4085, notes: 'confid 1, categories gsbc'}
+      d: {ra: 3.590617, dec: -30.404459, notes: 'confid 1, categories gsbc'}
+  '42':
+    z: 3.6915
+    notes: spectroscopic z
+    images:
+      a: {ra: 3.5973056, dec: -30.400612, notes: 'confid 3, categories gsbc'}
+      b: {ra: 3.5909609, dec: -30.403255, notes: 'confid 3, categories gsbc'}
+      c: {ra: 3.5815842, dec: -30.408635, notes: 'confid 3, categories gsbc'}
+      d: {ra: 3.5942281, dec: -30.40639, notes: 'confid 3, categories gsbc'}
+      e: {ra: 3.5924125, dec: -30.405194, notes: 'confid 3, categories gsbc'}
+  '43':
+    z: 5.8998
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5978359, dec: -30.402507, notes: 'confid --, categories c'}
+      b: {ra: 3.5839609, dec: -30.409811, notes: 'confid --, categories c'}
+  '44':
+    z: 2.224
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5834655, dec: -30.406964, notes: 'confid --, categories c'}
+      b: {ra: 3.5966979, dec: -30.399755, notes: 'confid --, categories c'}
+  '45':
+    z: 5.9555
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5848425, dec: -30.398474, notes: 'confid --, categories c'}
+      b: {ra: 3.5814059, dec: -30.403962, notes: 'confid --, categories c'}
+      c: {ra: 3.5869, dec: -30.401299, notes: 'confid --, categories c'}
+      d: {ra: 3.5974146, dec: -30.396146, notes: 'confid --, categories c'}
+  '46':
+    z: 4.9368
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5950222, dec: -30.400755, notes: 'confid --, categories c'}
+      b: {ra: 3.5925108, dec: -30.401486, notes: 'confid --, categories c'}
+      c: {ra: 3.5775195, dec: -30.408704, notes: 'confid --, categories c'}
+  '47':
+    z: 4.0225
+    notes: spectroscopic z
+    images:
+      a: {ra: 3.5901625, dec: -30.392181, notes: 'confid 3, categories gsbc'}
+      b: {ra: 3.5858417, dec: -30.392244, notes: 'confid 3, categories gsbc'}
+      c: {ra: 3.5783292, dec: -30.398133, notes: 'confid 3, categories gsbc'}
+  '147':
+    z: 4.0225
+    notes: spectroscopic z
+    images:
+      a: {ra: 3.5896792, dec: -30.392136, notes: 'confid 3, categories gsbc'}
+      b: {ra: 3.5864542, dec: -30.392128, notes: 'confid 3, categories gsbc'}
+      c: {ra: 3.5780083, dec: -30.398392, notes: 'confid 3, categories gsbc'}
+  '48':
+    z: 1.7775
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.59425, dec: -30.402845, notes: 'confid --, categories bc'}
+      b: {ra: 3.5927667, dec: -30.403138, notes: 'confid --, categories bc'}
+      c: {ra: 3.5820469, dec: -30.408594, notes: 'confid --, categories c'}
+  '49':
+    z: 1.1172
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.592632, dec: -30.408274, notes: 'confid --, categories c'}
+      b: {ra: 3.59023, dec: -30.408802, notes: 'confid --, categories c'}
+      c: {ra: 3.5975108, dec: -30.40316, notes: 'confid --, categories c'}
+  '50':
+    z: 4.9179
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.577977, dec: -30.401607, notes: 'confid --, categories bc'}
+      b: {ra: 3.5939583, dec: -30.394281, notes: 'confid --, categories bc'}
+      c: {ra: 3.58511, dec: -30.393739, notes: 'confid --, categories c'}
+  '51':
+    z: 4.7621
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5868774, dec: -30.405662, notes: 'confid --, categories bc'}
+      b: {ra: 3.5864583, dec: -30.405662, notes: 'confid --, categories bc'}
+      c: {ra: 3.599, dec: -30.398303, notes: 'confid --, categories c'}
+  '52':
+    z: 1.0097
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.5865069, dec: -30.397039, notes: 'confid --, categories bc'}
+      b: {ra: 3.586143, dec: -30.397133, notes: 'confid --, categories bc'}
+      c: {ra: 3.5884301, dec: -30.396822, notes: 'confid --, categories c'}
+  '53':
+    z: 6.8098
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.579842, dec: -30.401592, notes: 'confid --, categories bc'}
+      b: {ra: 3.5835495, dec: -30.396703, notes: 'confid --, categories bc'}
+      c: {ra: 3.5970416, dec: -30.394547, notes: 'confid --, categories c'}
+  '54':
+    z: 5.4223
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.592345, dec: -30.409895, notes: 'confid --, categories c'}
+      b: {ra: 3.5882578, dec: -30.410328, notes: 'confid --, categories c'}
+      c: {ra: 3.5884037, dec: -30.410295, notes: 'confid --, categories c'}
+      d: {ra: 3.5901058, dec: -30.410259, notes: 'confid --, categories c'}
+      e: {ra: 3.60092196, dec: -30.400831, notes: 'confid --, categories c'}
+  '59':
+    z: 4.0575
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.584284, dec: -30.408924, notes: 'confid --, categories c'}
+      b: {ra: 3.59812, dec: -30.400983, notes: 'confid --, categories c'}
+  '60':
+    z: 1.6981
+    notes: geometric z (lens-model prediction)
+    images:
+      a: {ra: 3.598078, dec: -30.40399, notes: 'confid --, categories sbc'}
+      b: {ra: 3.5957235, dec: -30.407549, notes: 'confid --, categories sbc'}
+      c: {ra: 3.5873816, dec: -30.410162, notes: 'confid --, categories sbc'}
+  '61':
+    z: 2.951
+    notes: spectroscopic z
+    images:
+      a: {ra: 3.595533, dec: -30.403499, notes: 'confid 3, categories gsbc'}
+      b: {ra: 3.5951427, dec: -30.404495, notes: 'confid 3, categories gsbc'}
+  '62':
+    z: 4.1935
+    notes: spectroscopic z
+    images:
+      a: {ra: 3.591326, dec: -30.398643, notes: 'confid 3, categories gsbc'}
+      b: {ra: 3.5905821, dec: -30.398918, notes: 'confid 3, categories gsbc'}
+  '63':
+    z: 5.6616
+    notes: spectroscopic z
+    images:
+      a: {ra: 3.5822614, dec: -30.407166, notes: 'confid 3, categories gsbc'}
+      b: {ra: 3.5927578, dec: -30.407022, notes: 'confid 3, categories gsbc'}
+      c: {ra: 3.5891334, dec: -30.403419, notes: 'confid 3, categories gsbc'}
+      d: {ra: 3.5988055, dec: -30.398279, notes: 'confid 3, categories gsbc'}
+  '64':
+    z: 3.4087
+    notes: spectroscopic z
+    images:
+      a: {ra: 3.5811967, dec: -30.398708, notes: 'confid 3, categories gsbc'}
+      c: {ra: 3.5963329, dec: -30.394232, notes: 'confid 3, categories gsbc'}

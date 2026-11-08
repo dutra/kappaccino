@@ -76,7 +76,8 @@ def write_outputs(config: LensClusterSolverConfig, state: ModelState, evaluator:
     write_member_diagnostic_plots(config, state, evaluator, posterior, paths, log=log)
     if not member_table.empty:
         plots.plot_scaling_relation(member_table, np.asarray(posterior.physical), state.parameter_specs,
-                                    plots.figure_path(figures, "scaling_relation.pdf", prefix))
+                                    plots.figure_path(figures, "scaling_relation.pdf", prefix),
+                                    fixed=fixed_relation_values(state, member_table))
 
     recovery = image_recovery_tables(state, evaluator, posterior, config.image_diagnostics, best, log=log)
     for name, frame in recovery.items():
@@ -179,3 +180,19 @@ def write_outputs(config: LensClusterSolverConfig, state: ModelState, evaluator:
     (tables / "run_summary.json").write_text(json.dumps(summary, indent=2, default=float))
     write_run_results(paths.root, name=prefix)
     return summary
+
+
+def fixed_relation_values(state, member_table) -> dict[str, float]:
+    """``{"<population>.<field>": value}`` of the scaling-relation fields that are not sampled: the base values of the
+    packed lens spec (``scaling.fixed_relation_fields``, or a slope a Lenstool file holds fixed)."""
+    sampled = {spec.name for spec in state.parameter_specs}
+    base = {"sigma": "sigma_ref_base", "cutkpc": "cut_ref_base", "alpha_sigma": "alpha_sigma_base", "beta_radius": "beta_radius_base"}
+    members = np.asarray(state.members.component_indices, dtype=int)
+    out = {}
+    if members.size == 0:
+        return out
+    for population in member_table["potfile_id"].unique():
+        for field, attribute in base.items():
+            if f"{population}.{field}" not in sampled:
+                out[f"{population}.{field}"] = float(np.asarray(getattr(state.packed_lens_spec, attribute), dtype=float)[members[0]])
+    return out

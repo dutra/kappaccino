@@ -1,0 +1,226 @@
+runmode
+        reference 3 39.96977320027389 -1.5721295137055904
+        inverse 3 0.03
+        image 1 A370_multfile_allknots.fk5.dat
+	ampli 0 4000 9.0 kappa.fits
+        grille 1 100 2.0
+        source 0
+        verbose 0
+        mult_wcs 1
+	restart 1 1376185
+        end
+grille
+        polaire 1
+        nlens 284
+        nlens_opt 8
+	nlens_crit 284
+	nombre 80
+        end
+image
+        multfile 1 A370_multfile_allknots.fk5.dat
+        mult_wcs 1
+        forme 0
+        sigposArcsec 0.3
+        end
+potentiel 1
+        profil 81
+        x_centre                -54.866728
+        y_centre                -7.351158
+        ellipticite     0.896832
+        angle_pos       65.380357
+        core_radius_kpc 76.242644
+        cut_radius_kpc  800.
+        v_disp                  552.762601
+        alpha                   0.500
+        z_lens                  0.375
+        end
+potentiel 2
+        profil 81
+        x_centre                -0.241821
+        y_centre                -21.485306
+        ellipticite     0.425769
+        angle_pos       82.739766
+        core_radius_kpc 83.554850
+        cut_radius_kpc  800.
+        v_disp                  952.502574
+        alpha                   0.500
+        z_lens                  0.375
+        end
+potentiel 3
+        profil 81
+        x_centre                0.24
+        y_centre                0.77
+        ellipticite     0.2
+        angle_pos       -63.9
+        core_radius_kpc 0.15
+        cut_radius_kpc  468.225966
+        v_disp                  367.594001
+        alpha                   0.500
+        z_lens                  0.375
+        end
+potentiel 4
+        profil 81
+        x_centre                -5.67
+        y_centre                -36.5
+        ellipticite     0.3
+        angle_pos       -81.9
+        core_radius_kpc 0.15
+        cut_radius_kpc  486.591822
+        v_disp                  398.018444
+        alpha                   0.500
+        z_lens                  0.375
+        end
+potentiel 5
+        profil 81
+        x_centre                2.26
+        y_centre                -46.2
+        ellipticite     0.26
+        angle_pos       25.7
+        core_radius_kpc 0.15
+        cut_radius_kpc  140.989162
+        v_disp                  62.625747
+        alpha                   0.500
+        z_lens                  0.375
+        end
+potentiel 6
+        profil 81
+        x_centre                -21.141209
+        y_centre                -18.401085
+        ellipticite     0.737414
+        angle_pos       78.969608
+        core_radius_kpc 173.939039
+        cut_radius_kpc  800.
+        v_disp                  886.322492
+        alpha                   0.500
+        z_lens                  0.375
+        end
+potentiel 7
+        profil 81
+        x_centre                5.792858
+        y_centre                -81.601706
+        ellipticite     0.887404
+        angle_pos       68.795468
+        core_radius_kpc 84.027303
+        cut_radius_kpc  800.
+        v_disp                  512.644788
+        alpha                   0.500
+        z_lens                  0.375
+        end
+potentiel 9
+        profil 81
+        x_centre                29.301824
+        y_centre                11.528519
+        ellipticite     0.739559
+        angle_pos       154.351664
+        core_radius_kpc 29.420472
+        cut_radius_kpc  800.
+        v_disp                  215.164499
+        alpha                   0.500
+        z_lens                  0.375
+        end
+limit 1
+        x_centre    1 -62. -50. 0.01
+        y_centre    1 -13. -5. 0.01
+        ellipticite 1 0.01 0.9 0.01
+        angle_pos   1 0. 180. 1.
+        core_radius_kpc 1 1. 500. 1.
+	cut_radius_kpc 0 10. 1000. 10.
+        v_disp          1 10. 1000. 1.
+        end
+limit 2
+        x_centre    1 -3. 3. 0.01
+        y_centre    1 -26. -18. 0.01
+        ellipticite 1 0.01 0.9 0.01
+        angle_pos   1 0. 180. 1.
+        core_radius_kpc 1 1. 500. 1.
+	cut_radius_kpc 0 10. 1000. 10.
+        v_disp          1 10. 1200. 1.
+        end
+limit 3
+        x_centre    0 -3. 3. 0.01
+        y_centre    0 -3. 3. 0.01
+        ellipticite 0 0.01 0.9 0.001
+        angle_pos   0 0.1 180. 2.
+        core_radius_kpc 0 1. 200. 5.
+	cut_radius_kpc 1 10. 500. 1.
+        v_disp          1 10. 600. 1.
+        end
+limit 4
+        x_centre    0 -10. -2. 0.01
+        y_centre    0 -40. -30. 0.01
+        ellipticite 0 0.01 0.9 0.001
+        angle_pos   0 0.1 180. 2.
+        core_radius_kpc 0 1. 200. 5.
+	cut_radius_kpc 1 10. 500. 10.
+        v_disp          1 10. 600. 1.
+        end
+limit 5
+        x_centre    0 -10. -2. 0.01
+        y_centre    0 -40. -30. 0.01
+        ellipticite 0 0.01 0.9 0.01
+        angle_pos   0 0.1 180. 2.
+        core_radius_kpc 0 1. 200. 5.
+	cut_radius_kpc 1 10. 200. 1.
+        v_disp          1 3. 100. 1.
+        end
+limit 6
+        x_centre    1 -23. -15. 0.01
+        y_centre    1 -25. -15. 0.01
+        ellipticite 1 0.01 0.9 0.01
+        angle_pos   1 0. 180. 2.
+        core_radius_kpc 1 1. 500. 1.
+	cut_radius_kpc 0 10. 1000. 10.
+        v_disp          1 10. 1000. 1.
+        end
+limit 7
+        x_centre    1 -5. 11. 0.01
+        y_centre    1 -86. -67. 0.01
+        ellipticite 1 0.01 0.9 0.01
+        angle_pos   1 0.1 180. 2.
+        core_radius_kpc 1 1. 500. 5.
+	cut_radius_kpc 0 10. 200. 1.
+        v_disp          1 15. 900. 1.
+        end
+limit 9
+        x_centre    1 22. 34. 0.01
+        y_centre    1 6. 14. 0.01
+        ellipticite 1 0.01 0.9 0.01
+        angle_pos   1 0. 180. 2.
+        core_radius_kpc 1 1. 500. 1.
+	cut_radius_kpc 0 10. 1000. 10.
+        v_disp          1 10. 900. 1.
+        end
+potfile
+        filein 3 CM_final_wo8.fk5.dat
+        type 81
+        mag0 20.701
+        zlens  0.375
+        corekpc 0.15
+        sigma   3 158. 27.
+        cutkpc 0 12.6 12.6
+        slope   0 4. 4.
+        vdslope 0 4. 4.
+        end
+cline
+        nplan 9 0.8041 0.7251 1.9553 1.2728 1.2775 2.7512 1.5192 7.6942 9.0
+        dmax 150.
+        limitLow 2.
+        limitHigh 10.
+        algorithm marchingsquares
+        pas 2.
+        end
+cosmology
+        H0 70.
+        omegaM 0.3
+        omegaX 0.7
+        end
+field
+	xmin     -150.000000
+	xmax     150.000000
+	ymin     -150.000000
+	ymax     150.000000
+	end
+champ
+        dmax 150.
+        end
+fini

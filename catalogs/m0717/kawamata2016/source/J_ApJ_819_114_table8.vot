@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VOTABLE version="1.4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns="http://www.ivoa.net/xml/VOTable/v1.3"
+  xsi:schemaLocation="http://www.ivoa.net/xml/VOTable/v1.3 http://www.ivoa.net/xml/VOTable/v1.3">
+ <DESCRIPTION>
+   VizieR Astronomical Server vizier.cfa.harvard.edu
+    Date: 2026-11-08T19:27:00 [V7.6.1]
+   Explanations and Statistics of UCDs:			See LINK below
+   In case of problem, please report to:	cds-question@unistra.fr
+ </DESCRIPTION>
+<!-- VOTable description at http://www.ivoa.net/Documents/latest/VOT.html -->
+<INFO name="service_protocol" value="ASU">  IVOID of the protocol through which the data was retrieved</INFO>
+<INFO name="request_date" value="2026-11-08T19:27:00">  Query execution date</INFO>
+<INFO name="request" value="https://vizier.cfa.harvard.edu/viz-bin/votable?-source=J/ApJ/819/114/table8&amp;-out.all&amp;-out.max=unlimited">  Full request URL</INFO>
+<INFO name="contact" value="cds-question@unistra.fr">  Email or URL to contact publisher</INFO>
+<INFO name="server_software" value="VizieR/7.6.1">  Software version</INFO>
+<INFO name="publisher" value="CDS">  Data centre that produced the VOTable</INFO>
+
+<!--
+Execution Reports
+ -->
+
+<RESOURCE ID="yCat_18190114" name="J/ApJ/819/114" type="results">
+  <DESCRIPTION>Strong lensing mass modeling of 4 HFF clusters (Kawamata+, 2016)</DESCRIPTION>  <INFO name="ivoid" value="ivo://cds.vizier/j/apj/819/114">    IVOID of underlying data collection  </INFO>
+  <INFO name="data_ivoid" value="ivo://cds.vizier/j/apj/819/114">    IVOID of underlying data collection  </INFO>
+  <INFO name="creator" value="Kawamata R.">    First author or institution  </INFO>
+  <INFO name="cites" value="bibcode:2016ApJ...819..114K">    Article or Data origin sources  </INFO>
+  <INFO name="journal" value="ApJ">    Journal name  </INFO>
+  <INFO name="original_date" value="2016">    Year of the article publication  </INFO>
+  <INFO name="reference_url" value="https://cdsarc.cds.unistra.fr/viz-bin/cat/J/ApJ/819/114">    Dataset landing page  </INFO>
+  <INFO name="citation" value="doi:10.26093/cds/vizier.18190114">    Dataset identifier that can be used for citation  </INFO>
+  <INFO name="publication_date" value="2018-05-16">    Date of first publication in the data centre  </INFO>
+  <INFO name="rights_uri" value="https://cds.unistra.fr/vizier-org/licences_vizier.html">    Licence URI  </INFO>
+
+  <COOSYS ID="J2000" system="eq_FK5" equinox="J2000"/>
+  <TABLE ID="J_ApJ_819_114_table8" name="J/ApJ/819/114/table8">
+    <DESCRIPTION>MACS J0717.5+3745 Multiple Image Systems</DESCRIPTION>
+    <!-- Definitions of GROUPs and FIELDs -->
+
+<!-- +++No column could be found to attach a LINK in table: J/ApJ/819/114/table8 -->
+    <FIELD name="recno" ucd="meta.record" datatype="int" width="8"><!-- ucd="RECORD" -->
+      <DESCRIPTION>Record number assigned by the VizieR team. Should Not be used for identification.</DESCRIPTION>
+      <LINK href="http://vizier.cfa.harvard.edu/viz-bin/VizieR-5?-info=XML&amp;-out.add=.&amp;-source=J/ApJ/819/114/table8&amp;recno=${recno}"/>
+    </FIELD>
+    <FIELD name="ImgS" ucd="meta.id;meta.main" datatype="char" arraysize="6"><!-- ucd="ID_MAIN" -->
+      <DESCRIPTION>Identification number (1)</DESCRIPTION>
+    </FIELD>
+    <FIELD name="RAJ2000" ucd="pos.eq.ra;meta.main" ref="J2000" datatype="double" width="10" precision="6" unit="deg"><!-- ucd="POS_EQ_RA_MAIN" -->
+      <DESCRIPTION>Right Ascension in decimal degrees (J2000)</DESCRIPTION>
+    </FIELD>
+    <FIELD name="DEJ2000" ucd="pos.eq.dec;meta.main" ref="J2000" datatype="double" width="10" precision="6" unit="deg"><!-- ucd="POS_EQ_DEC_MAIN" -->
+      <DESCRIPTION>Declination in decimal degrees (J2000)</DESCRIPTION>
+    </FIELD>
+    <FIELD name="zspec" ucd="src.redshift" datatype="float" width="6" precision="3"><!-- ucd="REDSHIFT_HC" -->
+      <DESCRIPTION>? Spectroscopic redshift</DESCRIPTION>
+      <VALUES null="NaN" />
+    </FIELD>
+    <FIELD name="zmodel" ucd="stat.param" datatype="float" width="5" precision="2"><!-- ucd="MODEL_RESULT" -->
+      <DESCRIPTION>? Model-predicted redshift</DESCRIPTION>
+      <VALUES null="NaN" />
+    </FIELD>
+    <FIELD name="E_zmodel" ucd="stat.error;stat.max" datatype="float" width="5" precision="2"><!-- ucd="ERROR" -->
+      <DESCRIPTION>? Upper limit uncertainty in zmodel</DESCRIPTION>
+      <VALUES null="NaN" />
+    </FIELD>
+    <FIELD name="e_zmodel" ucd="stat.error" datatype="float" width="5" precision="2"><!-- ucd="ERROR" -->
+      <DESCRIPTION>? Lower limit uncertainty in zmodel</DESCRIPTION>
+      <VALUES null="NaN" />
+    </FIELD>
+    <FIELD name="zprior" ucd="src.redshift;pos.heliocentric" datatype="float" width="5" precision="2"><!-- ucd="REDSHIFT_HC" -->
+      <DESCRIPTION>? Prior photometric redshift</DESCRIPTION>
+      <VALUES null="NaN" />
+    </FIELD>
+    <FIELD name="e_zprior" ucd="stat.error" datatype="float" width="4" precision="1"><!-- ucd="ERROR" -->
+      <DESCRIPTION>? Uncertainty in z</DESCRIPTION>
+      <VALUES null="NaN" />
+    </FIELD>
+    <FIELD name="Ref" ucd="meta.ref;pos.frame" datatype="char" arraysize="10*"><!-- ucd="REFER_CODE" -->
+      <DESCRIPTION>Reference(s) (3)</DESCRIPTION>
+      <LINK href="http://vizier.cfa.harvard.edu/viz-bin/VizieR?-6N&amp;-info=XML&amp;-out.add=.&amp;&amp;lt;&amp;quot;Note&amp;quot;&amp;catid=18190114&amp;notid=3&amp;-out.emph=${Ref}"/>
+    </FIELD>
+<DATA><TABLEDATA>
+<TR><TD>1</TD><TD> 1.1</TD><TD>109.395338</TD><TD>+37.741175</TD><TD>2.963</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>ZB, ML</TD></TR>
+<TR><TD>2</TD><TD> 1.2</TD><TD>109.393826</TD><TD>+37.740092</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>ZB</TD></TR>
+<TR><TD>3</TD><TD> 1.3</TD><TD>109.390988</TD><TD>+37.738286</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>ZB</TD></TR>
+<TR><TD>4</TD><TD> 1.4</TD><TD>109.384352</TD><TD>+37.736947</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>ZB</TD></TR>
+<TR><TD>5</TD><TD> 1.5</TD><TD>109.405784</TD><TD>+37.761374</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>EV</TD></TR>
+<TR><TD>6</TD><TD> 2.1</TD><TD>109.392813</TD><TD>+37.741003</TD><TD></TD><TD>2.82</TD><TD>0.18</TD><TD>0.11</TD><TD></TD><TD></TD><TD>ZB</TD></TR>
+<TR><TD>7</TD><TD> 2.2</TD><TD>109.390434</TD><TD>+37.739247</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>ZB</TD></TR>
+<TR><TD>8</TD><TD> 3.1</TD><TD>109.398546</TD><TD>+37.741503</TD><TD>1.855</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>ZB, ML</TD></TR>
+<TR><TD>9</TD><TD> 3.2</TD><TD>109.394459</TD><TD>+37.739172</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>ZB</TD></TR>
+<TR><TD>10</TD><TD> 3.3</TD><TD>109.407155</TD><TD>+37.753830</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>ML</TD></TR>
+<TR><TD>11</TD><TD> 4.1</TD><TD>109.380870</TD><TD>+37.750119</TD><TD>1.855</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>ZB, KS</TD></TR>
+<TR><TD>12</TD><TD> 4.2</TD><TD>109.376438</TD><TD>+37.744689</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>ZB</TD></TR>
+<TR><TD>13</TD><TD> 4.3</TD><TD>109.391094</TD><TD>+37.763300</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>ZB</TD></TR>
+<TR><TD>14</TD><TD> 5.1</TD><TD>109.379908</TD><TD>+37.746861</TD><TD></TD><TD>4.45</TD><TD>0.18</TD><TD>0.19</TD><TD>5.10</TD><TD>0.5</TD><TD>ZB</TD></TR>
+<TR><TD>15</TD><TD> 5.2</TD><TD>109.377917</TD><TD>+37.742803</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>ZB</TD></TR>
+<TR><TD>16</TD><TD> 5.3</TD><TD>109.400034</TD><TD>+37.767403</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>ML</TD></TR>
+<TR><TD>17</TD><TD> 6.1</TD><TD>109.364357</TD><TD>+37.757097</TD><TD></TD><TD>2.04</TD><TD>0.04</TD><TD>0.03</TD><TD></TD><TD></TD><TD>ZB</TD></TR>
+<TR><TD>18</TD><TD> 6.2</TD><TD>109.362705</TD><TD>+37.752681</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>ZB</TD></TR>
+<TR><TD>19</TD><TD> 6.3</TD><TD>109.373863</TD><TD>+37.769703</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>ZB</TD></TR>
+<TR><TD>20</TD><TD> 7.1</TD><TD>109.366570</TD><TD>+37.766339</TD><TD></TD><TD>2.07</TD><TD>0.04</TD><TD>0.04</TD><TD></TD><TD></TD><TD>ZB</TD></TR>
+<TR><TD>21</TD><TD> 7.2</TD><TD>109.365037</TD><TD>+37.764119</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>ZB</TD></TR>
+<TR><TD>22</TD><TD> 7.3</TD><TD>109.359047</TD><TD>+37.751781</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>ZB</TD></TR>
+<TR><TD>23</TD><TD> 8.1</TD><TD>109.366652</TD><TD>+37.769674</TD><TD></TD><TD>2.61</TD><TD>0.07</TD><TD>0.07</TD><TD></TD><TD></TD><TD>ZB</TD></TR>
+<TR><TD>24</TD><TD> 8.2</TD><TD>109.362062</TD><TD>+37.763125</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>ZB</TD></TR>
+<TR><TD>25</TD><TD> 8.3</TD><TD>109.356509</TD><TD>+37.751928</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>ZB</TD></TR>
+<TR><TD>26</TD><TD>12.1</TD><TD>109.385165</TD><TD>+37.751836</TD><TD>1.710</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>ZB, TT</TD></TR>
+<TR><TD>27</TD><TD>12.2</TD><TD>109.377617</TD><TD>+37.742914</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>ZB</TD></TR>
+<TR><TD>28</TD><TD>12.3</TD><TD>109.391219</TD><TD>+37.760630</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>ZB</TD></TR>
+<TR><TD>29</TD><TD>13.1</TD><TD>109.385674</TD><TD>+37.750722</TD><TD>2.547</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>ZB, ML</TD></TR>
+<TR><TD>30</TD><TD>13.2</TD><TD>109.377564</TD><TD>+37.739614</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>ZB</TD></TR>
+<TR><TD>31</TD><TD>13.3</TD><TD>109.396212</TD><TD>+37.763333</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>ZB</TD></TR>
+<TR><TD>32</TD><TD>14.1</TD><TD>109.388791</TD><TD>+37.752164</TD><TD>1.855</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>ML, ML</TD></TR>
+<TR><TD>33</TD><TD>14.2</TD><TD>109.379664</TD><TD>+37.739703</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>ML</TD></TR>
+<TR><TD>34</TD><TD>14.3</TD><TD>109.396192</TD><TD>+37.760419</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>ML</TD></TR>
+<TR><TD>35</TD><TD>15.1</TD><TD>109.367663</TD><TD>+37.772058</TD><TD>2.405</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>ML, ML</TD></TR>
+<TR><TD>36</TD><TD>15.2</TD><TD>109.358624</TD><TD>+37.760133</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>ML</TD></TR>
+<TR><TD>37</TD><TD>15.3</TD><TD>109.356540</TD><TD>+37.754641</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>ML</TD></TR>
+<TR><TD>38</TD><TD>16.1</TD><TD>109.369170</TD><TD>+37.773291</TD><TD></TD><TD>3.03</TD><TD>0.06</TD><TD>0.06</TD><TD></TD><TD></TD><TD>ML</TD></TR>
+<TR><TD>39</TD><TD>16.2</TD><TD>109.358561</TD><TD>+37.759558</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>ML</TD></TR>
+<TR><TD>40</TD><TD>16.3</TD><TD>109.356930</TD><TD>+37.753699</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>ML</TD></TR>
+<TR><TD>41</TD><TD>17.1</TD><TD>109.369371</TD><TD>+37.771866</TD><TD></TD><TD>2.48</TD><TD>0.05</TD><TD>0.05</TD><TD></TD><TD></TD><TD>ML</TD></TR>
+<TR><TD>42</TD><TD>17.2</TD><TD>109.359393</TD><TD>+37.758839</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>ML</TD></TR>
+<TR><TD>43</TD><TD>17.3</TD><TD>109.358227</TD><TD>+37.753608</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>ML</TD></TR>
+<TR><TD>44</TD><TD>17.4</TD><TD>109.360754</TD><TD>+37.758241</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>45</TD><TD>18.1</TD><TD>109.364249</TD><TD>+37.768633</TD><TD></TD><TD>2.04</TD><TD>0.06</TD><TD>0.06</TD><TD></TD><TD></TD><TD>ML</TD></TR>
+<TR><TD>46</TD><TD>18.2</TD><TD>109.361215</TD><TD>+37.764333</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>ML</TD></TR>
+<TR><TD>47</TD><TD>19.1</TD><TD>109.409067</TD><TD>+37.754682</TD><TD>6.387</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>EV</TD></TR>
+<TR><TD>48</TD><TD>19.2</TD><TD>109.407728</TD><TD>+37.742741</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>EV</TD></TR>
+<TR><TD>49</TD><TD>19.3</TD><TD>109.381057</TD><TD>+37.731611</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>JR</TD></TR>
+<TR><TD>50</TD><TD>20.1</TD><TD>109.374191</TD><TD>+37.765149</TD><TD></TD><TD>2.58</TD><TD>0.24</TD><TD>0.25</TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>51</TD><TD>20.2</TD><TD>109.373400</TD><TD>+37.764658</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>52</TD><TD>23.1</TD><TD>109.379564</TD><TD>+37.762852</TD><TD></TD><TD>3.84</TD><TD>0.40</TD><TD>0.35</TD><TD>3.50</TD><TD>0.5</TD><TD>DB</TD></TR>
+<TR><TD>53</TD><TD>23.2</TD><TD>109.378995</TD><TD>+37.762003</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>54</TD><TD>25.1</TD><TD>109.380288</TD><TD>+37.744750</TD><TD></TD><TD>4.53</TD><TD>0.18</TD><TD>0.23</TD><TD>5.00</TD><TD>0.5</TD><TD>DB</TD></TR>
+<TR><TD>55</TD><TD>25.2</TD><TD>109.379513</TD><TD>+37.742756</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>56</TD><TD>25.3</TD><TD>109.402914</TD><TD>+37.766408</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>57</TD><TD>25.4</TD><TD>109.386063</TD><TD>+37.742033</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>58</TD><TD>27.1</TD><TD>109.397351</TD><TD>+37.747949</TD><TD></TD><TD>2.25</TD><TD>0.64</TD><TD>0.75</TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>59</TD><TD>27.2</TD><TD>109.397551</TD><TD>+37.747566</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>60</TD><TD>29.1</TD><TD>109.400879</TD><TD>+37.743175</TD><TD></TD><TD>1.61</TD><TD>0.02</TD><TD>0.02</TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>61</TD><TD>29.2</TD><TD>109.392875</TD><TD>+37.738603</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>62</TD><TD>29.3</TD><TD>109.406088</TD><TD>+37.749953</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>63</TD><TD>31.1</TD><TD>109.374705</TD><TD>+37.756359</TD><TD></TD><TD>1.55</TD><TD>0.02</TD><TD>0.02</TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>64</TD><TD>31.2</TD><TD>109.371020</TD><TD>+37.750555</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>65</TD><TD>31.3</TD><TD>109.381612</TD><TD>+37.764983</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>66</TD><TD>32.1</TD><TD>109.369513</TD><TD>+37.757724</TD><TD></TD><TD>2.43</TD><TD>0.04</TD><TD>0.05</TD><TD>3.00</TD><TD>0.5</TD><TD>DB</TD></TR>
+<TR><TD>67</TD><TD>32.2</TD><TD>109.380947</TD><TD>+37.769383</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>68</TD><TD>32.3</TD><TD>109.366249</TD><TD>+37.749216</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>69</TD><TD>33.1</TD><TD>109.383753</TD><TD>+37.758266</TD><TD></TD><TD>3.87</TD><TD>0.08</TD><TD>0.10</TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>70</TD><TD>33.2</TD><TD>109.386605</TD><TD>+37.764129</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>71</TD><TD>33.3</TD><TD>109.370353</TD><TD>+37.738692</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>72</TD><TD>36.1</TD><TD>109.364321</TD><TD>+37.771974</TD><TD></TD><TD>2.59</TD><TD>0.08</TD><TD>0.07</TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>73</TD><TD>36.2</TD><TD>109.358243</TD><TD>+37.763341</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>74</TD><TD>36.3</TD><TD>109.353315</TD><TD>+37.755850</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>75</TD><TD>45.1</TD><TD>109.389817</TD><TD>+37.739200</TD><TD></TD><TD>3.06</TD><TD>0.25</TD><TD>0.20</TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>76</TD><TD>45.2</TD><TD>109.383456</TD><TD>+37.737881</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>77</TD><TD>49.1</TD><TD>109.402967</TD><TD>+37.733258</TD><TD></TD><TD>4.00</TD><TD>0.36</TD><TD>0.36</TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>78</TD><TD>49.2</TD><TD>109.392978</TD><TD>+37.730708</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>79</TD><TD>50.1</TD><TD>109.374442</TD><TD>+37.743736</TD><TD></TD><TD>2.97</TD><TD>0.08</TD><TD>0.07</TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>80</TD><TD>50.2</TD><TD>109.379582</TD><TD>+37.750708</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>81</TD><TD>50.3</TD><TD>109.392803</TD><TD>+37.767181</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>82</TD><TD>52.2</TD><TD>109.360222</TD><TD>+37.760497</TD><TD></TD><TD>3.02</TD><TD>0.27</TD><TD>0.18</TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>83</TD><TD>52.3</TD><TD>109.357034</TD><TD>+37.752486</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>84</TD><TD>53.1</TD><TD>109.370197</TD><TD>+37.761283</TD><TD></TD><TD>2.55</TD><TD>0.06</TD><TD>0.07</TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>85</TD><TD>53.2</TD><TD>109.379324</TD><TD>+37.768266</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>86</TD><TD>53.3</TD><TD>109.365095</TD><TD>+37.747151</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>87</TD><TD>55.1</TD><TD>109.405801</TD><TD>+37.731841</TD><TD></TD><TD>4.79</TD><TD>0.26</TD><TD>0.24</TD><TD>4.60</TD><TD>0.5</TD><TD>DB</TD></TR>
+<TR><TD>88</TD><TD>55.2</TD><TD>109.397047</TD><TD>+37.729001</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>89</TD><TD>55.3</TD><TD>109.414033</TD><TD>+37.741602</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>90</TD><TD>56.1</TD><TD>109.393140</TD><TD>+37.762794</TD><TD></TD><TD>3.92</TD><TD>0.13</TD><TD>0.14</TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>91</TD><TD>56.2</TD><TD>109.387349</TD><TD>+37.755964</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>92</TD><TD>56.3</TD><TD>109.375753</TD><TD>+37.735622</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>93</TD><TD>57.1</TD><TD>109.392990</TD><TD>+37.762203</TD><TD></TD><TD>3.91</TD><TD>0.12</TD><TD>0.12</TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>94</TD><TD>57.2</TD><TD>109.388044</TD><TD>+37.756514</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>95</TD><TD>57.3</TD><TD>109.375941</TD><TD>+37.735131</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>96</TD><TD>58.1</TD><TD>109.393003</TD><TD>+37.762389</TD><TD></TD><TD>4.01</TD><TD>0.10</TD><TD>0.10</TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>97</TD><TD>58.2</TD><TD>109.387824</TD><TD>+37.756392</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>98</TD><TD>58.3</TD><TD>109.375824</TD><TD>+37.735178</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>99</TD><TD>60.1</TD><TD>109.402547</TD><TD>+37.763613</TD><TD></TD><TD>2.85</TD><TD>0.06</TD><TD>0.07</TD><TD>3.00</TD><TD>0.5</TD><TD>DB</TD></TR>
+<TR><TD>100</TD><TD>60.2</TD><TD>109.381086</TD><TD>+37.740666</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>101</TD><TD>60.3</TD><TD>109.380654</TD><TD>+37.741346</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>102</TD><TD>60.4</TD><TD>109.387206</TD><TD>+37.741291</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>103</TD><TD>60.5</TD><TD>109.382704</TD><TD>+37.744707</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>104</TD><TD>61.1</TD><TD>109.392209</TD><TD>+37.760494</TD><TD></TD><TD>2.67</TD><TD>0.13</TD><TD>0.13</TD><TD>3.15</TD><TD>0.5</TD><TD>DB</TD></TR>
+<TR><TD>105</TD><TD>61.2</TD><TD>109.389374</TD><TD>+37.757278</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>106</TD><TD>62.1</TD><TD>109.379533</TD><TD>+37.745114</TD><TD></TD><TD>3.85</TD><TD>0.44</TD><TD>0.38</TD><TD>3.60</TD><TD>0.5</TD><TD>DB</TD></TR>
+<TR><TD>107</TD><TD>62.2</TD><TD>109.379020</TD><TD>+37.744105</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>108</TD><TD>63.1</TD><TD>109.372561</TD><TD>+37.749536</TD><TD></TD><TD>2.93</TD><TD>0.21</TD><TD>0.19</TD><TD>3.40</TD><TD>0.5</TD><TD>DB</TD></TR>
+<TR><TD>109</TD><TD>63.2</TD><TD>109.373289</TD><TD>+37.751282</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>110</TD><TD>64.1</TD><TD>109.387693</TD><TD>+37.738889</TD><TD></TD><TD>3.79</TD><TD>0.15</TD><TD>0.10</TD><TD>3.85</TD><TD>0.5</TD><TD>DB</TD></TR>
+<TR><TD>111</TD><TD>64.2</TD><TD>109.383957</TD><TD>+37.738396</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>112</TD><TD>64.3</TD><TD>109.405246</TD><TD>+37.763783</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>113</TD><TD>64.4</TD><TD>109.383980</TD><TD>+37.743955</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>114</TD><TD>65.1</TD><TD>109.388637</TD><TD>+37.739259</TD><TD></TD><TD>4.40</TD><TD>0.14</TD><TD>0.26</TD><TD>4.10</TD><TD>0.5</TD><TD>DB</TD></TR>
+<TR><TD>115</TD><TD>65.2</TD><TD>109.382017</TD><TD>+37.738436</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>DB</TD></TR>
+<TR><TD>116</TD><TD>65.3</TD><TD>109.383471</TD><TD>+37.744588</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>117</TD><TD>65.4</TD><TD>109.404961</TD><TD>+37.764683</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>118</TD><TD>66.1</TD><TD>109.386218</TD><TD>+37.751924</TD><TD></TD><TD>5.78</TD><TD>0.26</TD><TD>0.21</TD><TD>6.20</TD><TD>0.5</TD><TD>--</TD></TR>
+<TR><TD>119</TD><TD>66.2</TD><TD>109.376999</TD><TD>+37.736450</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>120</TD><TD>66.3</TD><TD>109.399102</TD><TD>+37.764959</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>121</TD><TD>67.1</TD><TD>109.385440</TD><TD>+37.758508</TD><TD></TD><TD>4.19</TD><TD>0.14</TD><TD>0.12</TD><TD>4.50</TD><TD>0.5</TD><TD>--</TD></TR>
+<TR><TD>122</TD><TD>67.2</TD><TD>109.387777</TD><TD>+37.762834</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>123</TD><TD>67.3</TD><TD>109.371791</TD><TD>+37.737295</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>124</TD><TD>68.1</TD><TD>109.383107</TD><TD>+37.762585</TD><TD></TD><TD>4.04</TD><TD>0.27</TD><TD>0.26</TD><TD>4.00</TD><TD>0.5</TD><TD>--</TD></TR>
+<TR><TD>125</TD><TD>68.2</TD><TD>109.382235</TD><TD>+37.760399</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>126</TD><TD>69.1</TD><TD>109.390481</TD><TD>+37.737919</TD><TD></TD><TD>3.13</TD><TD>0.11</TD><TD>0.22</TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>127</TD><TD>69.2</TD><TD>109.384688</TD><TD>+37.736875</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>128</TD><TD>70.1</TD><TD>109.365316</TD><TD>+37.747671</TD><TD></TD><TD>3.40</TD><TD>0.12</TD><TD>0.10</TD><TD>4.00</TD><TD>0.5</TD><TD>--</TD></TR>
+<TR><TD>129</TD><TD>70.2</TD><TD>109.368518</TD><TD>+37.758292</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>130</TD><TD>70.3</TD><TD>109.382338</TD><TD>+37.770699</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>131</TD><TD>71.1</TD><TD>109.362599</TD><TD>+37.747559</TD><TD></TD><TD>3.26</TD><TD>0.10</TD><TD>0.08</TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>132</TD><TD>71.2</TD><TD>109.366909</TD><TD>+37.760808</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>133</TD><TD>71.3</TD><TD>109.378027</TD><TD>+37.770166</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>134</TD><TD>72.1</TD><TD>109.362867</TD><TD>+37.747774</TD><TD></TD><TD>3.24</TD><TD>0.07</TD><TD>0.08</TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>135</TD><TD>72.2</TD><TD>109.366909</TD><TD>+37.760366</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>136</TD><TD>72.3</TD><TD>109.378480</TD><TD>+37.770341</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>137</TD><TD>73.1</TD><TD>109.362941</TD><TD>+37.747799</TD><TD></TD><TD>3.26</TD><TD>0.07</TD><TD>0.08</TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>138</TD><TD>73.2</TD><TD>109.366888</TD><TD>+37.760233</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>139</TD><TD>73.3</TD><TD>109.378606</TD><TD>+37.770383</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>140</TD><TD>74.1</TD><TD>109.373152</TD><TD>+37.744011</TD><TD></TD><TD>3.80</TD><TD>0.17</TD><TD>0.15</TD><TD>4.50</TD><TD>0.5</TD><TD>--</TD></TR>
+<TR><TD>141</TD><TD>74.2</TD><TD>109.378399</TD><TD>+37.751095</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>142</TD><TD>74.3</TD><TD>109.392850</TD><TD>+37.768771</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>143</TD><TD>75.1</TD><TD>109.373027</TD><TD>+37.745508</TD><TD></TD><TD>4.49</TD><TD>0.19</TD><TD>0.22</TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>144</TD><TD>75.2</TD><TD>109.377178</TD><TD>+37.750574</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>145</TD><TD>75.3</TD><TD>109.393355</TD><TD>+37.770141</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>146</TD><TD>76.1</TD><TD>109.370552</TD><TD>+37.745834</TD><TD></TD><TD>3.60</TD><TD>0.11</TD><TD>0.11</TD><TD>4.50</TD><TD>0.5</TD><TD>--</TD></TR>
+<TR><TD>147</TD><TD>76.2</TD><TD>109.376077</TD><TD>+37.753657</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>148</TD><TD>76.3</TD><TD>109.388875</TD><TD>+37.769833</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>149</TD><TD>77.1</TD><TD>109.363617</TD><TD>+37.750477</TD><TD></TD><TD>3.43</TD><TD>0.17</TD><TD>0.14</TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>150</TD><TD>77.2</TD><TD>109.365372</TD><TD>+37.756216</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>151</TD><TD>77.3</TD><TD>109.380145</TD><TD>+37.772541</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>152</TD><TD>78.1</TD><TD>109.367431</TD><TD>+37.756481</TD><TD></TD><TD>3.32</TD><TD>0.11</TD><TD>0.11</TD><TD>4.00</TD><TD>0.5</TD><TD>--</TD></TR>
+<TR><TD>153</TD><TD>78.2</TD><TD>109.365128</TD><TD>+37.749532</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>154</TD><TD>78.3</TD><TD>109.382085</TD><TD>+37.771633</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>155</TD><TD>79.1</TD><TD>109.367048</TD><TD>+37.746459</TD><TD></TD><TD>3.38</TD><TD>0.11</TD><TD>0.10</TD><TD>4.10</TD><TD>0.5</TD><TD>--</TD></TR>
+<TR><TD>156</TD><TD>79.2</TD><TD>109.371065</TD><TD>+37.758450</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>157</TD><TD>79.3</TD><TD>109.384278</TD><TD>+37.770033</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>158</TD><TD>80.1</TD><TD>109.372394</TD><TD>+37.739899</TD><TD></TD><TD>4.62</TD><TD>0.16</TD><TD>0.15</TD><TD>5.10</TD><TD>0.5</TD><TD>--</TD></TR>
+<TR><TD>159</TD><TD>80.2</TD><TD>109.381475</TD><TD>+37.754354</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>160</TD><TD>80.3</TD><TD>109.391454</TD><TD>+37.767049</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>161</TD><TD>81.1</TD><TD>109.373064</TD><TD>+37.739655</TD><TD></TD><TD>3.87</TD><TD>0.08</TD><TD>0.10</TD><TD>4.00</TD><TD>0.5</TD><TD>--</TD></TR>
+<TR><TD>162</TD><TD>81.2</TD><TD>109.382140</TD><TD>+37.754277</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>163</TD><TD>81.3</TD><TD>109.391518</TD><TD>+37.766093</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>164</TD><TD>82.1</TD><TD>109.373004</TD><TD>+37.739002</TD><TD></TD><TD>4.53</TD><TD>0.22</TD><TD>0.17</TD><TD>5.00</TD><TD>0.5</TD><TD>--</TD></TR>
+<TR><TD>165</TD><TD>82.2</TD><TD>109.382391</TD><TD>+37.754409</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>166</TD><TD>82.3</TD><TD>109.391816</TD><TD>+37.766214</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>167</TD><TD>83.1</TD><TD>109.402100</TD><TD>+37.731199</TD><TD></TD><TD>2.49</TD><TD>0.10</TD><TD>0.10</TD><TD>2.60</TD><TD>0.5</TD><TD>--</TD></TR>
+<TR><TD>168</TD><TD>83.2</TD><TD>109.404937</TD><TD>+37.732524</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>169</TD><TD>84.1</TD><TD>109.397229</TD><TD>+37.729200</TD><TD></TD><TD>4.67</TD><TD>0.32</TD><TD>0.36</TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>170</TD><TD>84.2</TD><TD>109.404811</TD><TD>+37.731449</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>171</TD><TD>85.1</TD><TD>109.379628</TD><TD>+37.746559</TD><TD></TD><TD>4.33</TD><TD>0.16</TD><TD>0.20</TD><TD>4.50</TD><TD>0.5</TD><TD>--</TD></TR>
+<TR><TD>172</TD><TD>85.2</TD><TD>109.377965</TD><TD>+37.743293</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+<TR><TD>173</TD><TD>85.3</TD><TD>109.399954</TD><TD>+37.767516</TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD></TD><TD>--</TD></TR>
+</TABLEDATA></DATA>
+</TABLE>
+<INFO name="matches" value="173">matching records</INFO>
+</RESOURCE>
+</VOTABLE>

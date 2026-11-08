@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VOTABLE version="1.4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns="http://www.ivoa.net/xml/VOTable/v1.3"
+  xsi:schemaLocation="http://www.ivoa.net/xml/VOTable/v1.3 http://www.ivoa.net/xml/VOTable/v1.3">
+ <DESCRIPTION>
+   VizieR Astronomical Server vizier.cfa.harvard.edu
+    Date: 2026-11-08T19:09:39 [V7.6.1]
+   Explanations and Statistics of UCDs:			See LINK below
+   In case of problem, please report to:	cds-question@unistra.fr
+ </DESCRIPTION>
+<!-- VOTable description at http://www.ivoa.net/Documents/latest/VOT.html -->
+<INFO name="service_protocol" value="ASU">  IVOID of the protocol through which the data was retrieved</INFO>
+<INFO name="request_date" value="2026-11-08T19:09:39">  Query execution date</INFO>
+<INFO name="request" value="https://vizier.cfa.harvard.edu/viz-bin/votable?-source=J%2fApJ%2f952%2f84%2ftable2&amp;-out.max=unlimited&amp;-out.all">  Full request URL</INFO>
+<INFO name="contact" value="cds-question@unistra.fr">  Email or URL to contact publisher</INFO>
+<INFO name="server_software" value="VizieR/7.6.1">  Software version</INFO>
+<INFO name="publisher" value="CDS">  Data centre that produced the VOTable</INFO>
+
+<!--
+Execution Reports
+ -->
+
+<RESOURCE ID="yCat_19520084" name="J/ApJ/952/84" type="results">
+  <DESCRIPTION>GLASS-JWST ERSP. III. A2744 JWST &amp; MUSE obs. (Bergamini+, 2023)</DESCRIPTION>  <INFO name="ivoid" value="ivo://cds.vizier/j/apj/952/84">    IVOID of underlying data collection  </INFO>
+  <INFO name="data_ivoid" value="ivo://cds.vizier/j/apj/952/84">    IVOID of underlying data collection  </INFO>
+  <INFO name="creator" value="Bergamini P.">    First author or institution  </INFO>
+  <INFO name="cites" value="bibcode:2023ApJ...952...84B">    Article or Data origin sources  </INFO>
+  <INFO name="journal" value="ApJ">    Journal name  </INFO>
+  <INFO name="original_date" value="2023">    Year of the article publication  </INFO>
+  <INFO name="reference_url" value="https://cdsarc.cds.unistra.fr/viz-bin/cat/J/ApJ/952/84">    Dataset landing page  </INFO>
+  <INFO name="citation" value="doi:10.26093/cds/vizier/ba-xr-2m">    Dataset identifier that can be used for citation  </INFO>
+  <INFO name="publication_date" value="2026-08-03">    Date of first publication in the data centre  </INFO>
+  <INFO name="rights_uri" value="https://cds.unistra.fr/vizier-org/licences_vizier.html">    Licence URI  </INFO>
+
+  <COOSYS ID="J2000" system="eq_FK5" equinox="J2000"/>
+  <TABLE ID="J_ApJ_952_84_table2" name="J/ApJ/952/84/table2">
+    <DESCRIPTION>Complete catalog of multiple images</DESCRIPTION>
+    <!-- Definitions of GROUPs and FIELDs -->
+    <FIELD name="recno" ucd="meta.record" datatype="int" width="8"><!-- ucd="RECORD" -->
+      <DESCRIPTION>Record number assigned by the VizieR team. Should Not be used for identification.</DESCRIPTION>
+      <LINK href="http://vizier.cfa.harvard.edu/viz-bin/VizieR-5?-info=XML&amp;-out.add=.&amp;-source=J/ApJ/952/84/table2&amp;recno=${recno}"/>
+    </FIELD>
+    <FIELD name="ID" ucd="meta.id;meta.main" datatype="char" arraysize="7*"><!-- ucd="ID_MAIN" -->
+      <DESCRIPTION>Image ID (1)</DESCRIPTION>
+      <LINK href="http://vizier.cfa.harvard.edu/viz-bin/VizieR-5?-info=XML&amp;-out.add=.&amp;-source=J/ApJ/952/84/table2&amp;recno=${recno}"/>
+    </FIELD>
+    <FIELD name="Flag" ucd="meta.code;src" datatype="char" arraysize="1"><!-- ucd="CODE_MISC" -->
+      <DESCRIPTION>Flag (2)</DESCRIPTION>
+      <LINK href="http://vizier.cfa.harvard.edu/viz-bin/VizieR?-6N&amp;-info=XML&amp;-out.add=.&amp;&amp;lt;&amp;quot;Note&amp;quot;&amp;catid=19520084&amp;notid=2&amp;-out.emph=${Flag}"/>
+    </FIELD>
+    <FIELD name="RAJ2000" ucd="pos.eq.ra;meta.main" ref="J2000" datatype="double" width="10" precision="6" unit="deg"><!-- ucd="POS_EQ_RA_MAIN" -->
+      <DESCRIPTION>[3.54/3.61] Right Ascension (J2000)</DESCRIPTION>
+    </FIELD>
+    <FIELD name="DEJ2000" ucd="pos.eq.dec;meta.main" ref="J2000" datatype="double" width="10" precision="6" unit="deg"><!-- ucd="POS_EQ_DEC_MAIN" -->
+      <DESCRIPTION>[-30.42/-30.35] Declination (J2000)</DESCRIPTION>
+    </FIELD>
+    <FIELD name="q_pos" ucd="meta.code.qual;pos.eq" datatype="unsignedByte" width="1"><!-- ucd="CODE_QUALITY" -->
+      <DESCRIPTION>[1/3] Positional quality flag, QP (3)</DESCRIPTION>
+    </FIELD>
+    <FIELD name="zspec" ucd="src.redshift" datatype="float" width="6" precision="3"><!-- ucd="REDSHIFT_HC" -->
+      <DESCRIPTION>[1/9.8]? Spectroscopic redshift of the source</DESCRIPTION>
+      <VALUES null="NaN" />
+    </FIELD>
+    <FIELD name="q_zspec" ucd="meta.code.qual;src.redshift" datatype="unsignedByte" width="1"><!-- ucd="CODE_QUALITY" -->
+      <DESCRIPTION>[1/9]? Redshift quality flag, QF (4)</DESCRIPTION>
+      <VALUES null="255" />
+      <LINK href="http://vizier.cfa.harvard.edu/viz-bin/VizieR?-6N&amp;-info=XML&amp;-out.add=.&amp;&amp;lt;&amp;quot;Note&amp;quot;&amp;catid=19520084&amp;notid=4&amp;-out.emph=${q_zspec}"/>
+    </FIELD>
+    <FIELD name="Loc" ucd="meta.note" datatype="char" arraysize="5"><!-- ucd="POS_LOCATION" -->
+      <DESCRIPTION>Location (5)</DESCRIPTION>
+      <LINK href="http://vizier.cfa.harvard.edu/viz-bin/VizieR?-6N&amp;-info=XML&amp;-out.add=.&amp;&amp;lt;&amp;quot;Note&amp;quot;&amp;catid=19520084&amp;notid=5&amp;-out.emph=${Loc}"/>
+    </FIELD>
+    <FIELD name="M18" ucd="meta.ref.url" datatype="short" width="3"><!-- ucd="DATA_LINK" -->
+      <DESCRIPTION>Display data from Mahler+ 2018, J/MNRAS/473/663 within 0.2"</DESCRIPTION>
+      <VALUES null="-32768" />
+    </FIELD>
+    <FIELD name="B23" ucd="meta.ref.url" datatype="short" width="3"><!-- ucd="DATA_LINK" -->
+      <DESCRIPTION>Display data from Bergamini+ 2023, J/A+A/670/A60 if any</DESCRIPTION>
+      <VALUES null="-32768" />
+    </FIELD>
+    <FIELD name="Simbad" ucd="meta.ref.url" datatype="char" arraysize="6*"><!-- ucd="DATA_LINK" -->
+      <DESCRIPTION>Simbad column added by the CDS</DESCRIPTION>
+<!-- ask the {\bf\fg{FireBrick}Simbad} data-base about this object -->
+
+    </FIELD>
+<DATA><TABLEDATA>
+<TR><TD>1</TD><TD>1.1a</TD><TD>d</TD><TD>003.597551</TD><TD>-30.403906</TD><TD>1</TD><TD>1.688</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>2</TD><TD>1.1b</TD><TD>d</TD><TD>003.595952</TD><TD>-30.406787</TD><TD>1</TD><TD>1.688</TD><TD>2</TD><TD>BCGs</TD><TD>1</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>3</TD><TD>1.1c</TD><TD>d</TD><TD>003.586210</TD><TD>-30.409963</TD><TD>1</TD><TD>1.688</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>4</TD><TD>1.2a</TD><TD>d</TD><TD>003.597062</TD><TD>-30.404703</TD><TD>1</TD><TD>1.688</TD><TD>2</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>5</TD><TD>1.2b</TD><TD>d</TD><TD>003.596384</TD><TD>-30.406123</TD><TD>1</TD><TD>1.688</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>6</TD><TD>1.2c</TD><TD>d</TD><TD>003.585732</TD><TD>-30.410077</TD><TD>1</TD><TD>1.688</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>7</TD><TD>1.3a</TD><TD>d</TD><TD>003.597746</TD><TD>-30.403511</TD><TD>2</TD><TD>1.688</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>8</TD><TD>1.3b</TD><TD>d</TD><TD>003.595516</TD><TD>-30.407178</TD><TD>2</TD><TD>1.688</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>9</TD><TD>1.3c</TD><TD>d</TD><TD>003.586444</TD><TD>-30.409849</TD><TD>2</TD><TD>1.688</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>10</TD><TD>1.4a</TD><TD>d</TD><TD>003.598073</TD><TD>-30.403961</TD><TD>1</TD><TD>1.688</TD><TD>1</TD><TD>BCGs</TD><TD>1</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>11</TD><TD>1.4b</TD><TD>d</TD><TD>003.595710</TD><TD>-30.407526</TD><TD>1</TD><TD>1.688</TD><TD>1</TD><TD>BCGs</TD><TD>1</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>12</TD><TD>1.4c</TD><TD>d</TD><TD>003.587368</TD><TD>-30.410130</TD><TD>1</TD><TD>1.688</TD><TD>1</TD><TD>BCGs</TD><TD>1</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>13</TD><TD>2.1a</TD><TD>d</TD><TD>003.583251</TD><TD>-30.403317</TD><TD>1</TD><TD>1.887</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>14</TD><TD>2.1b</TD><TD>d</TD><TD>003.597281</TD><TD>-30.396694</TD><TD>1</TD><TD>1.887</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>15</TD><TD>2.1c</TD><TD>d</TD><TD>003.585356</TD><TD>-30.399856</TD><TD>1</TD><TD>1.887</TD><TD>3</TD><TD>BCGs</TD><TD>1</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>16</TD><TD>2.1d</TD><TD>d</TD><TD>003.586400</TD><TD>-30.402106</TD><TD>1</TD><TD>1.887</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>17</TD><TD>2.2a</TD><TD>d</TD><TD>003.583015</TD><TD>-30.403167</TD><TD>1</TD><TD>1.887</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>18</TD><TD>2.2b</TD><TD>d</TD><TD>003.597130</TD><TD>-30.396620</TD><TD>1</TD><TD>1.887</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>19</TD><TD>2.2c</TD><TD>d</TD><TD>003.585122</TD><TD>-30.399647</TD><TD>1</TD><TD>1.887</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>20</TD><TD>2.2d</TD><TD>d</TD><TD>003.586425</TD><TD>-30.401849</TD><TD>1</TD><TD>1.887</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>21</TD><TD>2.3a</TD><TD>d</TD><TD>003.582980</TD><TD>-30.403028</TD><TD>1</TD><TD>1.887</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>22</TD><TD>2.3b</TD><TD>d</TD><TD>003.597087</TD><TD>-30.396561</TD><TD>1</TD><TD>1.887</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>23</TD><TD>2.3c</TD><TD>d</TD><TD>003.585004</TD><TD>-30.399603</TD><TD>1</TD><TD>1.887</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>24</TD><TD>2.3d</TD><TD>d</TD><TD>003.586381</TD><TD>-30.401744</TD><TD>1</TD><TD>1.887</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>25</TD><TD>2.4a</TD><TD>d</TD><TD>003.582905</TD><TD>-30.402908</TD><TD>1</TD><TD>1.887</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>26</TD><TD>2.4b</TD><TD>d</TD><TD>003.597044</TD><TD>-30.396509</TD><TD>1</TD><TD>1.887</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>27</TD><TD>2.4c</TD><TD>d</TD><TD>003.584902</TD><TD>-30.399559</TD><TD>1</TD><TD>1.887</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>28</TD><TD>2.4d</TD><TD>d</TD><TD>003.586340</TD><TD>-30.401611</TD><TD>1</TD><TD>1.887</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>29</TD><TD>2.5a</TD><TD>d</TD><TD>003.582814</TD><TD>-30.402771</TD><TD>2</TD><TD>1.887</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>30</TD><TD>2.5b</TD><TD>d</TD><TD>003.596982</TD><TD>-30.396451</TD><TD>2</TD><TD>1.887</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>31</TD><TD>2.5c</TD><TD>d</TD><TD>003.584807</TD><TD>-30.399495</TD><TD>2</TD><TD>1.887</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>32</TD><TD>2.5d</TD><TD>d</TD><TD>003.586309</TD><TD>-30.401469</TD><TD>1</TD><TD>1.887</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>33</TD><TD>2.6a</TD><TD>d</TD><TD>003.582758</TD><TD>-30.402661</TD><TD>2</TD><TD>1.887</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>34</TD><TD>2.6b</TD><TD>d</TD><TD>003.596934</TD><TD>-30.396403</TD><TD>2</TD><TD>1.887</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>35</TD><TD>2.6c</TD><TD>d</TD><TD>003.584710</TD><TD>-30.399442</TD><TD>2</TD><TD>1.887</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>36</TD><TD>2.6d</TD><TD>d</TD><TD>003.586272</TD><TD>-30.401331</TD><TD>2</TD><TD>1.887</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>37</TD><TD>2.7a</TD><TD>d</TD><TD>003.582516</TD><TD>-30.402291</TD><TD>2</TD><TD>1.887</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>38</TD><TD>2.7b</TD><TD>d</TD><TD>003.596726</TD><TD>-30.396273</TD><TD>2</TD><TD>1.887</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>39</TD><TD>2.7c</TD><TD>d</TD><TD>003.584460</TD><TD>-30.399268</TD><TD>2</TD><TD>1.887</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>40</TD><TD>2.7d</TD><TD>d</TD><TD>003.586224</TD><TD>-30.400848</TD><TD>2</TD><TD>1.887</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>41</TD><TD>3.1a</TD><TD>d</TD><TD>003.589365</TD><TD>-30.393837</TD><TD>1</TD><TD>3.980</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>42</TD><TD>3.1b</TD><TD>d</TD><TD>003.588797</TD><TD>-30.393777</TD><TD>1</TD><TD>3.980</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>43</TD><TD>3.1c</TD><TD>*</TD><TD>003.576622</TD><TD>-30.401792</TD><TD>3</TD><TD>3.980</TD><TD>1</TD><TD>BCGs</TD><TD>1</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>44</TD><TD>3.2a</TD><TD>d</TD><TD>003.589212</TD><TD>-30.393824</TD><TD>1</TD><TD>3.980</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>45</TD><TD>3.2b</TD><TD>d</TD><TD>003.588955</TD><TD>-30.393795</TD><TD>1</TD><TD>3.980</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>46</TD><TD>3.3a</TD><TD>d</TD><TD>003.589477</TD><TD>-30.393850</TD><TD>1</TD><TD>3.980</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>47</TD><TD>3.3b</TD><TD>d</TD><TD>003.588629</TD><TD>-30.393765</TD><TD>1</TD><TD>3.980</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>48</TD><TD>4.1a</TD><TD>d</TD><TD>003.592115</TD><TD>-30.402640</TD><TD>1</TD><TD>3.577</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>49</TD><TD>4.1b</TD><TD>d</TD><TD>003.595664</TD><TD>-30.401614</TD><TD>1</TD><TD>3.577</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>50</TD><TD>4.1c</TD><TD>d</TD><TD>003.580437</TD><TD>-30.408922</TD><TD>2</TD><TD>3.577</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>51</TD><TD>4.1e</TD><TD>d</TD><TD>003.593640</TD><TD>-30.405097</TD><TD>3</TD><TD>3.577</TD><TD>3</TD><TD>BCGs</TD><TD>1</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>52</TD><TD>4.2a</TD><TD>d</TD><TD>003.592087</TD><TD>-30.402507</TD><TD>1</TD><TD>3.577</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>53</TD><TD>4.2b</TD><TD>d</TD><TD>003.595557</TD><TD>-30.401499</TD><TD>1</TD><TD>3.577</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>54</TD><TD>6.1a</TD><TD>d</TD><TD>003.598532</TD><TD>-30.401773</TD><TD>1</TD><TD>2.017</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>55</TD><TD>6.1b</TD><TD>d</TD><TD>003.594046</TD><TD>-30.407978</TD><TD>1</TD><TD>2.017</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>56</TD><TD>6.1c</TD><TD>d</TD><TD>003.586418</TD><TD>-30.409340</TD><TD>1</TD><TD>2.017</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>57</TD><TD>8.1a</TD><TD>d</TD><TD>003.589702</TD><TD>-30.394316</TD><TD>2</TD><TD>3.977</TD><TD>2</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>58</TD><TD>8.1b</TD><TD>d</TD><TD>003.588821</TD><TD>-30.394182</TD><TD>2</TD><TD>3.977</TD><TD>2</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>59</TD><TD>10a</TD><TD>s</TD><TD>003.588386</TD><TD>-30.405852</TD><TD>1</TD><TD>2.657</TD><TD>2</TD><TD>BCGs</TD><TD>2</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>60</TD><TD>10b</TD><TD>s</TD><TD>003.587369</TD><TD>-30.406455</TD><TD>1</TD><TD>2.657</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>61</TD><TD>18.1a</TD><TD>d</TD><TD>003.576110</TD><TD>-30.404448</TD><TD>1</TD><TD>5.662</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>62</TD><TD>18.1b</TD><TD>d</TD><TD>003.588367</TD><TD>-30.395610</TD><TD>1</TD><TD>5.662</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>63</TD><TD>18.1c</TD><TD>d</TD><TD>003.590720</TD><TD>-30.395523</TD><TD>1</TD><TD>5.662</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>64</TD><TD>22.1a</TD><TD>d</TD><TD>003.587908</TD><TD>-30.411586</TD><TD>2</TD><TD>5.284</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>65</TD><TD>22.1b</TD><TD>d</TD><TD>003.600039</TD><TD>-30.404396</TD><TD>2</TD><TD>5.284</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>66</TD><TD>22.1c</TD><TD>d</TD><TD>003.596580</TD><TD>-30.408968</TD><TD>2</TD><TD>5.284</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>67</TD><TD>24a</TD><TD>s</TD><TD>003.595886</TD><TD>-30.404448</TD><TD>1</TD><TD>1.044</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>68</TD><TD>24b</TD><TD>s</TD><TD>003.595112</TD><TD>-30.405881</TD><TD>1</TD><TD>1.044</TD><TD>9</TD><TD>BCGs</TD><TD>2</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>69</TD><TD>24c</TD><TD>s</TD><TD>003.587311</TD><TD>-30.409064</TD><TD>1</TD><TD>1.044</TD><TD>1</TD><TD>BCGs</TD><TD>2</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>70</TD><TD>26.1a</TD><TD>d</TD><TD>003.593885</TD><TD>-30.409703</TD><TD>1</TD><TD>3.054</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>71</TD><TD>26.1b</TD><TD>d</TD><TD>003.590339</TD><TD>-30.410553</TD><TD>1</TD><TD>3.054</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>72</TD><TD>26.1c</TD><TD>d</TD><TD>003.600103</TD><TD>-30.402920</TD><TD>2</TD><TD>3.054</TD><TD>9</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>73</TD><TD>26.2a</TD><TD>d</TD><TD>003.593979</TD><TD>-30.409677</TD><TD>1</TD><TD>3.054</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>74</TD><TD>26.2b</TD><TD>d</TD><TD>003.590257</TD><TD>-30.410588</TD><TD>1</TD><TD>3.054</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>75</TD><TD>26.3a</TD><TD>d</TD><TD>003.594018</TD><TD>-30.409583</TD><TD>3</TD><TD>3.054</TD><TD>2</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>76</TD><TD>26.3b</TD><TD>d</TD><TD>003.589954</TD><TD>-30.410571</TD><TD>3</TD><TD>3.054</TD><TD>2</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>77</TD><TD>30a</TD><TD>s</TD><TD>003.591005</TD><TD>-30.397415</TD><TD>1</TD><TD>1.026</TD><TD>2</TD><TD>BCGs</TD><TD>2</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>78</TD><TD>30b</TD><TD>s</TD><TD>003.586672</TD><TD>-30.398157</TD><TD>1</TD><TD>1.026</TD><TD>9</TD><TD>BCGs</TD><TD>2</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>79</TD><TD>30c</TD><TD>s</TD><TD>003.581915</TD><TD>-30.401675</TD><TD>1</TD><TD>1.026</TD><TD>1</TD><TD>BCGs</TD><TD>2</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>80</TD><TD>31a</TD><TD>s</TD><TD>003.585930</TD><TD>-30.403132</TD><TD>1</TD><TD>4.757</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>81</TD><TD>31b</TD><TD>s</TD><TD>003.583708</TD><TD>-30.404073</TD><TD>1</TD><TD>4.757</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>82</TD><TD>33.1a</TD><TD>d</TD><TD>003.584699</TD><TD>-30.403125</TD><TD>1</TD><TD>5.726</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>83</TD><TD>33.1b</TD><TD>d</TD><TD>003.584383</TD><TD>-30.403371</TD><TD>1</TD><TD>5.726</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>84</TD><TD>34.1a</TD><TD>d</TD><TD>003.593414</TD><TD>-30.410812</TD><TD>1</TD><TD>3.784</TD><TD>2</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>85</TD><TD>34.1b</TD><TD>d</TD><TD>003.593798</TD><TD>-30.410692</TD><TD>1</TD><TD>3.784</TD><TD>3</TD><TD>BCGs</TD><TD>1</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>86</TD><TD>34.1c</TD><TD>d</TD><TD>003.600574</TD><TD>-30.404413</TD><TD>1</TD><TD>3.784</TD><TD>2</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>87</TD><TD>41a</TD><TD>s</TD><TD>003.599143</TD><TD>-30.399557</TD><TD>1</TD><TD>4.910</TD><TD>9</TD><TD>BCGs</TD><TD>2</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>88</TD><TD>41b</TD><TD>s</TD><TD>003.593505</TD><TD>-30.407730</TD><TD>1</TD><TD>4.910</TD><TD>9</TD><TD>BCGs</TD><TD>1</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>89</TD><TD>41c</TD><TD>s</TD><TD>003.583441</TD><TD>-30.408475</TD><TD>1</TD><TD>4.910</TD><TD>9</TD><TD>BCGs</TD><TD>2</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>90</TD><TD>41d</TD><TD>s</TD><TD>003.590685</TD><TD>-30.404541</TD><TD>3</TD><TD>4.910</TD><TD>2</TD><TD>BCGs</TD><TD>0</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>91</TD><TD>42.1a</TD><TD>d</TD><TD>003.597304</TD><TD>-30.400586</TD><TD>1</TD><TD>3.692</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>92</TD><TD>42.1b</TD><TD>d</TD><TD>003.590944</TD><TD>-30.403231</TD><TD>1</TD><TD>3.692</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>93</TD><TD>42.1c</TD><TD>d</TD><TD>003.581575</TD><TD>-30.408608</TD><TD>1</TD><TD>3.692</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>94</TD><TD>42.1d</TD><TD>d</TD><TD>003.594233</TD><TD>-30.406367</TD><TD>1</TD><TD>3.692</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>95</TD><TD>42.1e</TD><TD>d</TD><TD>003.592403</TD><TD>-30.405176</TD><TD>3</TD><TD>3.692</TD><TD>1</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>96</TD><TD>61.1a</TD><TD>d</TD><TD>003.595511</TD><TD>-30.403465</TD><TD>1</TD><TD>2.951</TD><TD>1</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>97</TD><TD>61.1b</TD><TD>d</TD><TD>003.595127</TD><TD>-30.404451</TD><TD>1</TD><TD>2.951</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>98</TD><TD>62.1a</TD><TD>d</TD><TD>003.591315</TD><TD>-30.398623</TD><TD>3</TD><TD>4.194</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>99</TD><TD>62.1b</TD><TD>d</TD><TD>003.590571</TD><TD>-30.398898</TD><TD>3</TD><TD>4.194</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>100</TD><TD>63.1a</TD><TD>d</TD><TD>003.582199</TD><TD>-30.407119</TD><TD>1</TD><TD>5.662</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>101</TD><TD>63.1b</TD><TD>d</TD><TD>003.592823</TD><TD>-30.407011</TD><TD>2</TD><TD>5.662</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>102</TD><TD>63.1c</TD><TD>d</TD><TD>003.589141</TD><TD>-30.403406</TD><TD>2</TD><TD>5.662</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>103</TD><TD>63.1d</TD><TD>d</TD><TD>003.598822</TD><TD>-30.398255</TD><TD>2</TD><TD>5.662</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>104</TD><TD>64.1a</TD><TD>d</TD><TD>003.581190</TD><TD>-30.398712</TD><TD>2</TD><TD>3.409</TD><TD>3</TD><TD>BCGs</TD><TD>2</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>105</TD><TD>64.1c</TD><TD>d</TD><TD>003.596412</TD><TD>-30.394247</TD><TD>2</TD><TD>3.409</TD><TD>3</TD><TD>BCGs</TD><TD>0</TD><TD>1</TD><TD>Simbad</TD></TR>
+<TR><TD>106</TD><TD>JD1A</TD><TD>*</TD><TD>003.592492</TD><TD>-30.401458</TD><TD>1</TD><TD>9.756</TD><TD>2</TD><TD>BCGs</TD><TD>1</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>107</TD><TD>JD1B</TD><TD>*</TD><TD>003.595004</TD><TD>-30.400730</TD><TD>1</TD><TD>9.756</TD><TD>2</TD><TD>BCGs</TD><TD>1</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>108</TD><TD>JD1C</TD><TD>*</TD><TD>003.577512</TD><TD>-30.408667</TD><TD>1</TD><TD>9.756</TD><TD>2</TD><TD>BCGs</TD><TD>1</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>109</TD><TD>600.1a</TD><TD></TD><TD>003.543063</TD><TD>-30.368102</TD><TD>1</TD><TD>2.580</TD><TD>2</TD><TD>G1-G2</TD><TD>0</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>110</TD><TD>600.1b</TD><TD></TD><TD>003.540339</TD><TD>-30.372503</TD><TD>1</TD><TD>2.580</TD><TD>2</TD><TD>G1-G2</TD><TD>0</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>111</TD><TD>600.1c</TD><TD></TD><TD>003.540449</TD><TD>-30.375070</TD><TD>1</TD><TD>2.580</TD><TD>2</TD><TD>G1-G2</TD><TD>0</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>112</TD><TD>600.1d</TD><TD></TD><TD>003.542075</TD><TD>-30.372619</TD><TD>1</TD><TD>2.580</TD><TD>2</TD><TD>G1-G2</TD><TD>0</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>113</TD><TD>600.3a</TD><TD></TD><TD>003.542649</TD><TD>-30.368409</TD><TD>1</TD><TD>2.580</TD><TD>2</TD><TD>G1-G2</TD><TD>0</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>114</TD><TD>600.3b</TD><TD></TD><TD>003.540129</TD><TD>-30.372309</TD><TD>1</TD><TD>2.580</TD><TD>2</TD><TD>G1-G2</TD><TD>0</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>115</TD><TD>600.3c</TD><TD></TD><TD>003.540147</TD><TD>-30.375323</TD><TD>1</TD><TD>2.580</TD><TD>2</TD><TD>G1-G2</TD><TD>0</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>116</TD><TD>600.4a</TD><TD></TD><TD>003.543199</TD><TD>-30.367893</TD><TD>1</TD><TD>2.580</TD><TD>2</TD><TD>G1-G2</TD><TD>0</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>117</TD><TD>600.4b</TD><TD></TD><TD>003.540398</TD><TD>-30.372637</TD><TD>1</TD><TD>2.580</TD><TD>2</TD><TD>G1-G2</TD><TD>0</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>118</TD><TD>600.4c</TD><TD></TD><TD>003.540540</TD><TD>-30.374834</TD><TD>1</TD><TD>2.580</TD><TD>2</TD><TD>G1-G2</TD><TD>0</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>119</TD><TD>600.5a</TD><TD></TD><TD>003.542933</TD><TD>-30.367952</TD><TD>1</TD><TD>2.580</TD><TD>2</TD><TD>G1-G2</TD><TD>0</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>120</TD><TD>600.5b</TD><TD></TD><TD>003.540186</TD><TD>-30.372640</TD><TD>1</TD><TD>2.580</TD><TD>2</TD><TD>G1-G2</TD><TD>0</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>121</TD><TD>600.5c</TD><TD></TD><TD>003.540297</TD><TD>-30.374845</TD><TD>1</TD><TD>2.580</TD><TD>2</TD><TD>G1-G2</TD><TD>0</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>122</TD><TD>7a</TD><TD></TD><TD>003.598254</TD><TD>-30.402310</TD><TD>1</TD><TD></TD><TD></TD><TD>BCGs</TD><TD>1</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>123</TD><TD>7b</TD><TD></TD><TD>003.595216</TD><TD>-30.407384</TD><TD>1</TD><TD></TD><TD></TD><TD>BCGs</TD><TD>1</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>124</TD><TD>7c</TD><TD></TD><TD>003.584596</TD><TD>-30.409797</TD><TD>1</TD><TD></TD><TD></TD><TD>BCGs</TD><TD>1</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>125</TD><TD>28a</TD><TD></TD><TD>003.580439</TD><TD>-30.405018</TD><TD>1</TD><TD></TD><TD></TD><TD>BCGs</TD><TD>1</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>126</TD><TD>28b</TD><TD></TD><TD>003.597824</TD><TD>-30.395939</TD><TD>1</TD><TD></TD><TD></TD><TD>BCGs</TD><TD>1</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>127</TD><TD>28c</TD><TD></TD><TD>003.585308</TD><TD>-30.397926</TD><TD>1</TD><TD></TD><TD></TD><TD>BCGs</TD><TD>1</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>128</TD><TD>53a</TD><TD></TD><TD>003.579837</TD><TD>-30.401562</TD><TD>1</TD><TD></TD><TD></TD><TD>BCGs</TD><TD>1</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>129</TD><TD>53b</TD><TD></TD><TD>003.583540</TD><TD>-30.396673</TD><TD>1</TD><TD></TD><TD></TD><TD>BCGs</TD><TD>1</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>130</TD><TD>53c</TD><TD></TD><TD>003.597214</TD><TD>-30.394337</TD><TD>1</TD><TD></TD><TD></TD><TD>BCGs</TD><TD>0</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>131</TD><TD>A200.1a</TD><TD></TD><TD>003.556366</TD><TD>-30.376714</TD><TD>1</TD><TD></TD><TD></TD><TD>G1-G2</TD><TD>0</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>132</TD><TD>A200.1b</TD><TD></TD><TD>003.556536</TD><TD>-30.375809</TD><TD>1</TD><TD></TD><TD></TD><TD>G1-G2</TD><TD>0</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>133</TD><TD>B200.2a</TD><TD></TD><TD>003.556331</TD><TD>-30.376780</TD><TD>1</TD><TD></TD><TD></TD><TD>G1-G2</TD><TD>0</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>134</TD><TD>B200.2b</TD><TD></TD><TD>003.556531</TD><TD>-30.375736</TD><TD>1</TD><TD></TD><TD></TD><TD>G1-G2</TD><TD>0</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>135</TD><TD>C200.3a</TD><TD></TD><TD>003.556468</TD><TD>-30.376380</TD><TD>1</TD><TD></TD><TD></TD><TD>G1-G2</TD><TD>0</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>136</TD><TD>C200.3b</TD><TD></TD><TD>003.556511</TD><TD>-30.376159</TD><TD>1</TD><TD></TD><TD></TD><TD>G1-G2</TD><TD>0</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>137</TD><TD>301.1a</TD><TD></TD><TD>003.554637</TD><TD>-30.373839</TD><TD>1</TD><TD></TD><TD></TD><TD>G1-G2</TD><TD>0</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>138</TD><TD>301.1b</TD><TD></TD><TD>003.553188</TD><TD>-30.375998</TD><TD>1</TD><TD></TD><TD></TD><TD>G1-G2</TD><TD>0</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>139</TD><TD>301.1c</TD><TD></TD><TD>003.552300</TD><TD>-30.378605</TD><TD>1</TD><TD></TD><TD></TD><TD>G1-G2</TD><TD>0</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>140</TD><TD>601.1a</TD><TD></TD><TD>003.544279</TD><TD>-30.368064</TD><TD>1</TD><TD></TD><TD></TD><TD>G1-G2</TD><TD>0</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>141</TD><TD>601.1b</TD><TD></TD><TD>003.542829</TD><TD>-30.373490</TD><TD>1</TD><TD></TD><TD></TD><TD>G1-G2</TD><TD>0</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>142</TD><TD>601.1c</TD><TD></TD><TD>003.542022</TD><TD>-30.374625</TD><TD>1</TD><TD></TD><TD></TD><TD>G1-G2</TD><TD>0</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>143</TD><TD>602.1a</TD><TD></TD><TD>003.543093</TD><TD>-30.369106</TD><TD>1</TD><TD></TD><TD></TD><TD>G1-G2</TD><TD>0</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>144</TD><TD>602.1b</TD><TD></TD><TD>003.540729</TD><TD>-30.375868</TD><TD>1</TD><TD></TD><TD></TD><TD>G1-G2</TD><TD>0</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>145</TD><TD>602.1c</TD><TD></TD><TD>003.542623</TD><TD>-30.372453</TD><TD>1</TD><TD></TD><TD></TD><TD>G1-G2</TD><TD>0</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>146</TD><TD>602.1d</TD><TD></TD><TD>003.540913</TD><TD>-30.372220</TD><TD>1</TD><TD></TD><TD></TD><TD>G1-G2</TD><TD>0</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>147</TD><TD>700.1a</TD><TD></TD><TD>003.579703</TD><TD>-30.357717</TD><TD>1</TD><TD></TD><TD></TD><TD>G3</TD><TD>0</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>148</TD><TD>700.1b</TD><TD></TD><TD>003.579165</TD><TD>-30.357833</TD><TD>1</TD><TD></TD><TD></TD><TD>G3</TD><TD>0</TD><TD>0</TD><TD>Simbad</TD></TR>
+<TR><TD>149</TD><TD>700.1c</TD><TD></TD><TD>003.574908</TD><TD>-30.356075</TD><TD>1</TD><TD></TD><TD></TD><TD>G3</TD><TD>0</TD><TD>0</TD><TD>Simbad</TD></TR>
+</TABLEDATA></DATA>
+</TABLE>
+<INFO name="matches" value="149">matching records</INFO>
+</RESOURCE>
+</VOTABLE>

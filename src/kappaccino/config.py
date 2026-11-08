@@ -567,10 +567,16 @@ class ImageConstraintsConfig:
     sigma_floor_arcsec : float, optional
         Floor on every image's astrometric error, in arcsec: smaller errors are raised to it.  Must be finite and
         nonnegative; ``0.0`` applies no floor.  Default ``0.0``.
+    trusted_prior_min : float, optional
+        Images whose catalog ``prior`` (the prior probability that the image belongs to its system) is below this are
+        not trusted: they leave their families, and with a :class:`PartitionConfig` without ``catalog_path`` they are
+        the uncertain images, each weighted toward its catalog system by its prior.  In [0, 1].  Default ``0.0`` (every
+        image trusted).
     """
     catalog_path: str | Path
     sigma_inst_arcsec: float = 0.1
     sigma_floor_arcsec: float = 0.0
+    trusted_prior_min: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -1530,10 +1536,18 @@ class PartitionConfig:
 
     Parameters
     ----------
-    catalog_path : str or pathlib.Path
+    catalog_path : str or pathlib.Path or None, optional
         CSV table of the uncertain images: ``image_label``, ``ra``, ``dec`` (degrees); optional ``sigma_arcsec``
         (astrometric error), ``parity`` (-1, 0, +1), redshifts (``zspec_best``, ``catalog_z``, ``zphot_best`` with
-        ``catalog_z_sigma`` or ``pagul_zpdf_low``/``pagul_zpdf_high``), ``mag_<band>`` and ``mag_err_<band>``.  Must exist.
+        ``catalog_z_sigma`` or ``pagul_zpdf_low``/``pagul_zpdf_high``), ``mag_<band>`` and ``mag_err_<band>``, and the
+        claimed association: ``claimed_family`` with ``association_prior``.  Must exist.  None (default) takes the
+        uncertain images from the image catalog: every image the run does not trust (``ImageConstraintsConfig.
+        trusted_prior_min``, a family without a positive redshift, a family left with one image), claimed by its own
+        family with its catalog ``prior``.
+    association_weight : bool, optional
+        Weight each image with a claimed family by its ``association_prior``: that family's slot (trusted, or a new
+        slot seeded on the uncertain images claimed by the same family) gets the prior, the other options share the
+        rest as they would without a claim.  Default True.
     population_catalog_path : str or pathlib.Path or None, optional
         CSV photometric catalog of the field (a redshift column and the same ``mag_<band>`` columns) for the prior of a
         source's redshift and colors.  None fits it on the trusted and uncertain images themselves.  Default None.
@@ -1562,7 +1576,8 @@ class PartitionConfig:
     posterior_draws : int, optional
         Posterior draws used for the assignment probabilities and joint draws.  Default 500.
     """
-    catalog_path: str | Path
+    catalog_path: str | Path | None = None
+    association_weight: bool = True
     population_catalog_path: str | Path | None = None
     bands: tuple[str, ...] | None = None
     redshift_grid: tuple[float, float, int] | None = None
@@ -2152,3 +2167,5 @@ def _validate_model_config(model: LensModelConfig | None) -> None:
         raise ValueError("image_constraints.sigma_inst_arcsec must be finite and positive.")
     if not math.isfinite(float(constraints.sigma_floor_arcsec)) or constraints.sigma_floor_arcsec < 0.0:
         raise ValueError("image_constraints.sigma_floor_arcsec must be finite and nonnegative.")
+    if not 0.0 <= float(constraints.trusted_prior_min) <= 1.0:
+        raise ValueError("image_constraints.trusted_prior_min must be in [0, 1].")

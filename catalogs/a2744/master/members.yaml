@@ -1,0 +1,1556 @@
+# Master member catalog of a2744, built on 2026-11-08 by scripts/build_master_catalog.py: the bergamini2023a members plus the other papers' members with a F160W magnitude.
+# p_member: 1 with a spectroscopic z within 0.03 (1 + z) of z = 0.308, a bcg role or kinematics; 0.02 for a spectroscopic interloper; 0.9 when two independent papers list it, else 0.7.  Use with MemberConfig.membership = 'marginalize'.  Do not edit.
+band: F160W
+members:
+  '36034':
+    ra: 3.592037
+    dec: -30.405741
+    mag: {F160W: 17.299999237060547}
+    z: {value: 0.3185, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '37824':
+    ra: 3.586257
+    dec: -30.400172
+    mag: {F160W: 17.34000015258789}
+    z: {value: 0.2997, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '835':
+    ra: 3.58929
+    dec: -30.369074
+    mag: {F160W: 16.8799991607666}
+    z: {value: 0.3002, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '40689':
+    ra: 3.594796
+    dec: -30.391654
+    mag: {F160W: 17.579999923706055}
+    z: {value: 0.3006, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '736':
+    ra: 3.575038
+    dec: -30.428344
+    mag: {F160W: 17.690000534057617}
+    z: {value: 0.317, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '938':
+    ra: 3.610666
+    dec: -30.395618
+    mag: {F160W: 17.700000762939453}
+    z: {value: 0.3033, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '814':
+    ra: 3.587469
+    dec: -30.371246
+    mag: {F160W: 17.760000228881836}
+    z: {value: 0.3038, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '947':
+    ra: 3.612408
+    dec: -30.409245
+    mag: {F160W: 17.84000015258789}
+    z: {value: 0.3031, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '34423':
+    ra: 3.579662
+    dec: -30.409189
+    mag: {F160W: 17.84000015258789}
+    z: {value: 0.3027, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '40059':
+    ra: 3.585386
+    dec: -30.394279
+    mag: {F160W: 17.889999389648438}
+    z: {value: 0.3202, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '783':
+    ra: 3.583084
+    dec: -30.433553
+    mag: {F160W: 18.0}
+    z: {value: 0.2927, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '20227':
+    ra: 3.609542
+    dec: -30.38211
+    mag: {F160W: 18.030000686645508}
+    z: {value: 0.32, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '39382':
+    ra: 3.587646
+    dec: -30.396426
+    mag: {F160W: 18.06999969482422}
+    z: {value: 0.3031, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '36210':
+    ra: 3.59251
+    dec: -30.404611
+    mag: {F160W: 18.239999771118164}
+    z: {value: 0.315, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '809':
+    ra: 3.5865
+    dec: -30.36738
+    mag: {F160W: 18.290000915527344}
+    z: {value: 0.3007, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '697':
+    ra: 3.566354
+    dec: -30.38826
+    mag: {F160W: 18.399999618530273}
+    z: {value: 0.3025, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '36527':
+    ra: 3.578511
+    dec: -30.403375
+    mag: {F160W: 18.40999984741211}
+    z: {value: 0.3155, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '38067':
+    ra: 3.5749
+    dec: -30.398381
+    mag: {F160W: 18.459999084472656}
+    z: {value: 0.3175, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '740':
+    ra: 3.575081
+    dec: -30.377074
+    mag: {F160W: 18.489999771118164}
+    z: {value: 0.3142, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '730':
+    ra: 3.573503
+    dec: -30.422861
+    mag: {F160W: 18.5}
+    z: {value: 0.3188, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '37947':
+    ra: 3.592998
+    dec: -30.39933
+    mag: {F160W: 18.56999969482422}
+    z: {value: 0.3092, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '834':
+    ra: 3.589103
+    dec: -30.419803
+    mag: {F160W: 18.59000015258789}
+    z: {value: 0.3044, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '894':
+    ra: 3.602057
+    dec: -30.377689
+    mag: {F160W: 18.600000381469727}
+    z: {value: 0.3011, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '41259':
+    ra: 3.593289
+    dec: -30.384378
+    mag: {F160W: 18.600000381469727}
+    z: {value: 0.2964, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '40592':
+    ra: 3.58922
+    dec: -30.389839
+    mag: {F160W: 18.639999389648438}
+    z: {value: 0.3151, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '41644':
+    ra: 3.570173
+    dec: -30.386449
+    mag: {F160W: 18.65999984741211}
+    z: {value: 0.2969, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '37954':
+    ra: 3.586559
+    dec: -30.399391
+    mag: {F160W: 18.700000762939453}
+    z: {value: 0.3229, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '35061':
+    ra: 3.573945
+    dec: -30.408829
+    mag: {F160W: 18.709999084472656}
+    z: {value: 0.3135, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '39428':
+    ra: 3.588152
+    dec: -30.395075
+    mag: {F160W: 18.709999084472656}
+    z: {value: 0.3002, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '41950':
+    ra: 3.589184
+    dec: -30.387396
+    mag: {F160W: 18.719999313354492}
+    z: {value: 0.3169, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '38907':
+    ra: 3.585204
+    dec: -30.394649
+    mag: {F160W: 18.809999465942383}
+    z: {value: 0.3009, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '642':
+    ra: 3.556336
+    dec: -30.387018
+    mag: {F160W: 18.8799991607666}
+    z: {value: 0.3115, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '38117':
+    ra: 3.582159
+    dec: -30.398571
+    mag: {F160W: 18.889999389648438}
+    z: {value: 0.2986, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '39072':
+    ra: 3.598969
+    dec: -30.397533
+    mag: {F160W: 18.899999618530273}
+    z: {value: 0.3162, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '41856':
+    ra: 3.585314
+    dec: -30.387545
+    mag: {F160W: 18.90999984741211}
+    z: {value: 0.3008, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '804':
+    ra: 3.585629
+    dec: -30.366902
+    mag: {F160W: 18.979999542236328}
+    z: {value: 0.2998, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '37344':
+    ra: 3.604341
+    dec: -30.400124
+    mag: {F160W: 18.979999542236328}
+    z: {value: 0.319, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '41440':
+    ra: 3.605429
+    dec: -30.384843
+    mag: {F160W: 18.989999771118164}
+    z: {value: 0.3112, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '38010':
+    ra: 3.588385
+    dec: -30.398355
+    mag: {F160W: 19.010000228881836}
+    z: {value: 0.3173, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '678':
+    ra: 3.56251
+    dec: -30.402406
+    mag: {F160W: 19.049999237060547}
+    z: {value: 0.3025, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '38930':
+    ra: 3.58868
+    dec: -30.396077
+    mag: {F160W: 19.06999969482422}
+    z: {value: 0.302, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '40243':
+    ra: 3.580953
+    dec: -30.390808
+    mag: {F160W: 19.149999618530273}
+    z: {value: 0.2931, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '32284':
+    ra: 3.60265
+    dec: -30.416956
+    mag: {F160W: 19.15999984741211}
+    z: {value: 0.3132, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '690':
+    ra: 3.565544
+    dec: -30.387093
+    mag: {F160W: 19.15999984741211}
+    z: {value: 0.2991, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '40478':
+    ra: 3.571507
+    dec: -30.390436
+    mag: {F160W: 19.18000030517578}
+    z: {value: 0.2965, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '20018':
+    ra: 3.581566
+    dec: -30.376517
+    mag: {F160W: 19.219999313354492}
+    z: {value: 0.313, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '902':
+    ra: 3.604284
+    dec: -30.414554
+    mag: {F160W: 19.25}
+    z: {value: 0.3061, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '966':
+    ra: 3.61805
+    dec: -30.40367
+    mag: {F160W: 19.260000228881836}
+    z: {value: 0.3115, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '42443':
+    ra: 3.594708
+    dec: -30.389115
+    mag: {F160W: 19.260000228881836}
+    z: {value: 0.3035, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '40314':
+    ra: 3.590342
+    dec: -30.390939
+    mag: {F160W: 19.260000228881836}
+    z: {value: 0.2972, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '720':
+    ra: 3.571365
+    dec: -30.42284
+    mag: {F160W: 19.290000915527344}
+    z: {value: 0.303, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '41363':
+    ra: 3.588146
+    dec: -30.385006
+    mag: {F160W: 19.299999237060547}
+    z: {value: 0.2977, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '692':
+    ra: 3.565347
+    dec: -30.382948
+    mag: {F160W: 19.3799991607666}
+    z: {value: 0.303, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '768':
+    ra: 3.580711
+    dec: -30.418875
+    mag: {F160W: 19.389999389648438}
+    z: {value: 0.2934, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '956':
+    ra: 3.615142
+    dec: -30.383729
+    mag: {F160W: 19.40999984741211}
+    z: {value: 0.3061, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '38729':
+    ra: 3.578864
+    dec: -30.397111
+    mag: {F160W: 19.420000076293945}
+    z: {value: 0.319, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '973':
+    ra: 3.618739
+    dec: -30.392932
+    mag: {F160W: 19.420000076293945}
+    z: {value: 0.3015, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '36892':
+    ra: 3.587938
+    dec: -30.400852
+    mag: {F160W: 19.440000534057617}
+    z: {value: 0.315, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '863':
+    ra: 3.593561
+    dec: -30.426049
+    mag: {F160W: 19.459999084472656}
+    z: {value: 0.2968, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '35339':
+    ra: 3.595907
+    dec: -30.406213
+    mag: {F160W: 19.489999771118164}
+    z: {value: 0.3161, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '950':
+    ra: 3.613184
+    dec: -30.389698
+    mag: {F160W: 19.489999771118164}
+    z: {value: 0.3026, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '20132':
+    ra: 3.595399
+    dec: -30.380404
+    mag: {F160W: 19.5}
+    z: {value: 0.32, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '921':
+    ra: 3.607012
+    dec: -30.403478
+    mag: {F160W: 19.510000228881836}
+    z: {value: 0.2966, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '655':
+    ra: 3.559037
+    dec: -30.410659
+    mag: {F160W: 19.510000228881836}
+    z: {value: 0.2984, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '32547':
+    ra: 3.601355
+    dec: -30.415365
+    mag: {F160W: 19.510000228881836}
+    z: {value: 0.3197, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '37068':
+    ra: 3.605266
+    dec: -30.400808
+    mag: {F160W: 19.520000457763672}
+    z: {value: 0.3197, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '888':
+    ra: 3.600962
+    dec: -30.417843
+    mag: {F160W: 19.59000015258789}
+    z: {value: 0.3042, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '41418':
+    ra: 3.592547
+    dec: -30.385314
+    mag: {F160W: 19.6200008392334}
+    z: {value: 0.3164, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '931':
+    ra: 3.609576
+    dec: -30.378771
+    mag: {F160W: 19.6200008392334}
+    z: {value: 0.3009, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '39503':
+    ra: 3.581389
+    dec: -30.393932
+    mag: {F160W: 19.6299991607666}
+    z: {value: 0.2998, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '634':
+    ra: 3.555379
+    dec: -30.384632
+    mag: {F160W: 19.65999984741211}
+    z: {value: 0.3007, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '34556':
+    ra: 3.591721
+    dec: -30.407807
+    mag: {F160W: 19.709999084472656}
+    z: {value: 0.3194, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '816':
+    ra: 3.587541
+    dec: -30.373945
+    mag: {F160W: 19.709999084472656}
+    z: {value: 0.2963, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '961':
+    ra: 3.616679
+    dec: -30.402709
+    mag: {F160W: 19.719999313354492}
+    z: {value: 0.2943, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '41303':
+    ra: 3.583714
+    dec: -30.38468
+    mag: {F160W: 19.75}
+    z: {value: 0.3029, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '33910':
+    ra: 3.589134
+    dec: -30.409573
+    mag: {F160W: 19.75}
+    z: {value: 0.3173, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '42149':
+    ra: 3.598764
+    dec: -30.388018
+    mag: {F160W: 19.760000228881836}
+    z: {value: 0.3027, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '33540':
+    ra: 3.588817
+    dec: -30.410722
+    mag: {F160W: 19.770000457763672}
+    z: {value: 0.3223, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '787':
+    ra: 3.583285
+    dec: -30.432301
+    mag: {F160W: 19.780000686645508}
+    z: {value: 0.2942, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '39646':
+    ra: 3.578948
+    dec: -30.394119
+    mag: {F160W: 19.799999237060547}
+    z: {value: 0.3191, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '40884':
+    ra: 3.590278
+    dec: -30.382698
+    mag: {F160W: 19.860000610351562}
+    z: {value: 0.3019, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '37229':
+    ra: 3.594463
+    dec: -30.40035
+    mag: {F160W: 19.889999389648438}
+    z: {value: 0.3036, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '33328':
+    ra: 3.569589
+    dec: -30.412164
+    mag: {F160W: 19.950000762939453}
+    z: {value: 0.299, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '40270':
+    ra: 3.594239
+    dec: -30.390462
+    mag: {F160W: 19.969999313354492}
+    z: {value: 0.3163, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '42269':
+    ra: 3.595506
+    dec: -30.388688
+    mag: {F160W: 19.969999313354492}
+    z: {value: 0.3032, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '13996':
+    ra: 3.57345
+    dec: -30.377932
+    mag: {F160W: 20.0}
+    z: {value: 0.3184, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '39710':
+    ra: 3.584986
+    dec: -30.392877
+    mag: {F160W: 20.010000228881836}
+    z: {value: 0.2954, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '35693':
+    ra: 3.587039
+    dec: -30.404948
+    mag: {F160W: 20.040000915527344}
+    z: {value: 0.2987, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '40551':
+    ra: 3.58952
+    dec: -30.389499
+    mag: {F160W: 20.079999923706055}
+    z: {value: 0.2939, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '21367':
+    ra: 3.597859
+    dec: -30.405556
+    mag: {F160W: 20.1200008392334}
+    z: {value: 0.3208, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '40832':
+    ra: 3.588038
+    dec: -30.382557
+    mag: {F160W: 20.170000076293945}
+    z: {value: 0.3116, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '39876':
+    ra: 3.580373
+    dec: -30.392204
+    mag: {F160W: 20.209999084472656}
+    z: {value: 0.2935, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '33699':
+    ra: 3.582507
+    dec: -30.409986
+    mag: {F160W: 20.239999771118164}
+    z: {value: 0.3188, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '38275':
+    ra: 3.585521
+    dec: -30.397156
+    mag: {F160W: 20.239999771118164}
+    z: {value: 0.3124, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '41655':
+    ra: 3.573735
+    dec: -30.385976
+    mag: {F160W: 20.260000228881836}
+    z: {value: 0.2965, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '41651':
+    ra: 3.573383
+    dec: -30.386313
+    mag: {F160W: 20.34000015258789}
+    z: {value: 0.3079, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '37230':
+    ra: 3.583991
+    dec: -30.39926
+    mag: {F160W: 20.34000015258789}
+    z: {value: 0.32, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '40802':
+    ra: 3.570861
+    dec: -30.382004
+    mag: {F160W: 20.3700008392334}
+    z: {value: 0.3066, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '36220':
+    ra: 3.605275
+    dec: -30.402932
+    mag: {F160W: 20.389999389648438}
+    z: {value: 0.3161, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '39283':
+    ra: 3.60083
+    dec: -30.394896
+    mag: {F160W: 20.389999389648438}
+    z: {value: 0.3061, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '713':
+    ra: 3.569303
+    dec: -30.384236
+    mag: {F160W: 20.420000076293945}
+    z: {value: 0.2961, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '20089':
+    ra: 3.597633
+    dec: -30.3792
+    mag: {F160W: 20.510000228881836}
+    z: {value: 0.28, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '32768':
+    ra: 3.585709
+    dec: -30.413971
+    mag: {F160W: 20.59000015258789}
+    z: {value: 0.3023, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '42195':
+    ra: 3.578348
+    dec: -30.3871
+    mag: {F160W: 20.610000610351562}
+    z: {value: 0.3076, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '13311':
+    ra: 3.56007
+    dec: -30.389342
+    mag: {F160W: 20.610000610351562}
+    z: {value: 0.2999, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '33870':
+    ra: 3.595124
+    dec: -30.409366
+    mag: {F160W: 20.6299991607666}
+    z: {value: 0.3199, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '35908':
+    ra: 3.585035
+    dec: -30.403315
+    mag: {F160W: 20.6299991607666}
+    z: {value: 0.3037, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '37609':
+    ra: 3.578591
+    dec: -30.399109
+    mag: {F160W: 20.68000030517578}
+    z: {value: 0.3054, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '36043':
+    ra: 3.584377
+    dec: -30.402887
+    mag: {F160W: 20.829999923706055}
+    z: {value: 0.3159, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '41908':
+    ra: 3.604401
+    dec: -30.38496
+    mag: {F160W: 20.84000015258789}
+    z: {value: 0.2962, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '34439':
+    ra: 3.59028
+    dec: -30.407401
+    mag: {F160W: 20.920000076293945}
+    z: {value: 0.3182, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '40032':
+    ra: 3.593885
+    dec: -30.390837
+    mag: {F160W: 20.959999084472656}
+    z: {value: 0.297, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '36339':
+    ra: 3.588145
+    dec: -30.40198
+    mag: {F160W: 20.969999313354492}
+    z: {value: 0.2986, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '32088':
+    ra: 3.603422
+    dec: -30.416769
+    mag: {F160W: 20.989999771118164}
+    z: {value: 0.3179, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '38143':
+    ra: 3.6022
+    dec: -30.396988
+    mag: {F160W: 21.010000228881836}
+    z: {value: 0.3031, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '44545':
+    ra: 3.578469
+    dec: -30.381318
+    mag: {F160W: 21.040000915527344}
+    z: {value: 0.3179, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '36953':
+    ra: 3.57281
+    dec: -30.400534
+    mag: {F160W: 21.049999237060547}
+    z: {value: 0.3143, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '37825':
+    ra: 3.602715
+    dec: -30.397571
+    mag: {F160W: 21.079999923706055}
+    z: {value: 0.299, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '40428':
+    ra: 3.578347
+    dec: -30.389464
+    mag: {F160W: 21.1200008392334}
+    z: {value: 0.2947, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '20064':
+    ra: 3.577544
+    dec: -30.37887
+    mag: {F160W: 21.260000228881836}
+    z: {value: 0.308, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '36298':
+    ra: 3.594832
+    dec: -30.40213
+    mag: {F160W: 21.299999237060547}
+    z: {value: 0.3162, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '35576':
+    ra: 3.587971
+    dec: -30.404253
+    mag: {F160W: 21.309999465942383}
+    z: {value: 0.2998, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '40239':
+    ra: 3.593166
+    dec: -30.390349
+    mag: {F160W: 21.329999923706055}
+    z: {value: 0.3013, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '36849':
+    ra: 3.596757
+    dec: -30.400513
+    mag: {F160W: 21.329999923706055}
+    z: {value: 0.3167, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '34538':
+    ra: 3.5734
+    dec: -30.407461
+    mag: {F160W: 21.459999084472656}
+    z: {value: 0.3141, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '36843':
+    ra: 3.579074
+    dec: -30.400089
+    mag: {F160W: 21.5}
+    z: {value: 0.3056, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '40703':
+    ra: 3.596256
+    dec: -30.388517
+    mag: {F160W: 21.540000915527344}
+    z: {value: 0.2964, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '33671':
+    ra: 3.583831
+    dec: -30.409506
+    mag: {F160W: 21.559999465942383}
+    z: {value: 0.3023, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '33410':
+    ra: 3.589721
+    dec: -30.410222
+    mag: {F160W: 21.56999969482422}
+    z: {value: 0.3154, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '40708':
+    ra: 3.571061
+    dec: -30.388157
+    mag: {F160W: 21.610000610351562}
+    z: {value: 0.3032, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '38252':
+    ra: 3.592874
+    dec: -30.396356
+    mag: {F160W: 21.610000610351562}
+    z: {value: 0.2975, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '37214':
+    ra: 3.585389
+    dec: -30.399007
+    mag: {F160W: 21.670000076293945}
+    z: {value: 0.30068, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a; spectroscopic member
+  '36163':
+    ra: 3.588499
+    dec: -30.402102
+    mag: {F160W: 21.700000762939453}
+    z: {value: 0.2992, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '39727':
+    ra: 3.584373
+    dec: -30.391755
+    mag: {F160W: 21.75}
+    z: {value: 0.32, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '41636':
+    ra: 3.573693
+    dec: -30.385685
+    mag: {F160W: 21.790000915527344}
+    z: {value: 0.2971, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '37542':
+    ra: 3.584458
+    dec: -30.398342
+    mag: {F160W: 22.020000457763672}
+    z: {value: 0.3235, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '38175':
+    ra: 3.583312
+    dec: -30.396542
+    mag: {F160W: 22.049999237060547}
+    z: {value: 0.3073, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '35190':
+    ra: 3.601244
+    dec: -30.404885
+    mag: {F160W: 22.110000610351562}
+    z: {value: 0.3049, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '38267':
+    ra: 3.597298
+    dec: -30.396046
+    mag: {F160W: 22.149999618530273}
+    z: {value: 0.3189, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '33803':
+    ra: 3.59374
+    dec: -30.409224
+    mag: {F160W: 22.18000030517578}
+    z: {value: 0.3033, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '37367':
+    ra: 3.601857
+    dec: -30.398661
+    mag: {F160W: 22.219999313354492}
+    z: {value: 0.3144, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '42079':
+    ra: 3.593478
+    dec: -30.387595
+    mag: {F160W: 22.239999771118164}
+    z: {value: 0.2962, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '8024000':
+    ra: 3.567362
+    dec: -30.400881
+    mag: {F160W: 22.299999237060547}
+    z: {value: 0.3023, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '34705':
+    ra: 3.594676
+    dec: -30.405899
+    mag: {F160W: 22.309999465942383}
+    z: {value: 0.3072, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '41265':
+    ra: 3.578737
+    dec: -30.384233
+    mag: {F160W: 22.329999923706055}
+    z: {value: 0.3168, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '37199':
+    ra: 3.603831
+    dec: -30.399122
+    mag: {F160W: 22.3700008392334}
+    z: {value: 0.3026, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '41937':
+    ra: 3.573015
+    dec: -30.38726
+    mag: {F160W: 22.43000030517578}
+    z: {value: 0.3219, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '35514':
+    ra: 3.574778
+    dec: -30.403672
+    mag: {F160W: 22.43000030517578}
+    z: {value: 0.3039, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '32680':
+    ra: 3.592097
+    dec: -30.413109
+    mag: {F160W: 22.450000762939453}
+    z: {value: 0.3067, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '36814':
+    ra: 3.593414
+    dec: -30.400024
+    mag: {F160W: 22.489999771118164}
+    z: {value: 0.304, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '36982':
+    ra: 3.582898
+    dec: -30.399701
+    mag: {F160W: 22.489999771118164}
+    z: {value: 0.2914, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '40944':
+    ra: 3.593025
+    dec: -30.38297
+    mag: {F160W: 22.5}
+    z: {value: 0.3005, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '37231':
+    ra: 3.581618
+    dec: -30.399105
+    mag: {F160W: 22.510000228881836}
+    z: {value: 0.3049, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '10440000':
+    ra: 3.569048
+    dec: -30.394963
+    mag: {F160W: 22.559999465942383}
+    z: {value: 0.3077, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '33503':
+    ra: 3.597475
+    dec: -30.409964
+    mag: {F160W: 22.559999465942383}
+    z: {value: 0.3051, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '10657000':
+    ra: 3.569981
+    dec: -30.394634
+    mag: {F160W: 22.610000610351562}
+    z: {value: 0.3011, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '41388':
+    ra: 3.598749
+    dec: -30.384458
+    mag: {F160W: 22.610000610351562}
+    z: {value: 0.3089, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '36872':
+    ra: 3.595752
+    dec: -30.399971
+    mag: {F160W: 22.6200008392334}
+    z: {value: 0.316, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '34828':
+    ra: 3.592717
+    dec: -30.406107
+    mag: {F160W: 22.649999618530273}
+    z: {value: 0.31878, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a; spectroscopic member
+  '38459':
+    ra: 3.572068
+    dec: -30.395969
+    mag: {F160W: 22.65999984741211}
+    z: {value: 0.299, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '39956':
+    ra: 3.584993
+    dec: -30.39087
+    mag: {F160W: 22.670000076293945}
+    z: {value: 0.3161, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '33933':
+    ra: 3.585939
+    dec: -30.408434
+    mag: {F160W: 22.709999084472656}
+    z: {value: 0.308, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '41467':
+    ra: 3.586832
+    dec: -30.384627
+    mag: {F160W: 22.739999771118164}
+    z: {value: 0.3085, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '41842':
+    ra: 3.591221
+    dec: -30.386717
+    mag: {F160W: 22.760000228881836}
+    z: {value: 0.3132, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '38253':
+    ra: 3.584471
+    dec: -30.396056
+    mag: {F160W: 22.780000686645508}
+    z: {value: 0.3224, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '41531':
+    ra: 3.589828
+    dec: -30.385639
+    mag: {F160W: 22.850000381469727}
+    z: {value: 0.3174, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '4206000':
+    ra: 3.60081
+    dec: -30.40953
+    mag: {F160W: 22.8700008392334}
+    z: {value: 0.3068, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '36346':
+    ra: 3.588851
+    dec: -30.401771
+    mag: {F160W: 22.889999389648438}
+    z: {value: 0.3059, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '41930':
+    ra: 3.608089
+    dec: -30.387068
+    mag: {F160W: 22.899999618530273}
+    z: {value: 0.2962, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '33753':
+    ra: 3.567161
+    dec: -30.408755
+    mag: {F160W: 22.920000076293945}
+    z: {value: 0.317, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '33911':
+    ra: 3.577555
+    dec: -30.408196
+    mag: {F160W: 22.940000534057617}
+    z: {value: 0.3068, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '39609':
+    ra: 3.605171
+    dec: -30.392616
+    mag: {F160W: 22.979999542236328}
+    z: {value: 0.3217, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '35436':
+    ra: 3.589433
+    dec: -30.404231
+    mag: {F160W: 23.100000381469727}
+    z: {value: 0.3184, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '4136000':
+    ra: 3.590889
+    dec: -30.410893
+    mag: {F160W: 23.110000610351562}
+    z: {value: 0.2983, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '41419':
+    ra: 3.577521
+    dec: -30.384813
+    mag: {F160W: 23.1200008392334}
+    z: {value: 0.3219, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '3476000':
+    ra: 3.585092
+    dec: -30.412314
+    mag: {F160W: 23.1299991607666}
+    z: {value: 0.3071, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '32671':
+    ra: 3.588878
+    dec: -30.413346
+    mag: {F160W: 23.139999389648438}
+    z: {value: 0.3047, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '35134':
+    ra: 3.598182
+    dec: -30.404825
+    mag: {F160W: 23.149999618530273}
+    z: {value: 0.3002, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '38748':
+    ra: 3.579869
+    dec: -30.394391
+    mag: {F160W: 23.149999618530273}
+    z: {value: 0.3201, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '12269000':
+    ra: 3.577314
+    dec: -30.390297
+    mag: {F160W: 23.209999084472656}
+    z: {value: 0.3131, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '12325000':
+    ra: 3.60593
+    dec: -30.390167
+    mag: {F160W: 23.239999771118164}
+    z: {value: 0.3059, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '38900':
+    ra: 3.579626
+    dec: -30.394091
+    mag: {F160W: 23.260000228881836}
+    z: {value: 0.3193, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '42040':
+    ra: 3.5736
+    dec: -30.387182
+    mag: {F160W: 23.270000457763672}
+    z: {value: 0.28258, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '10930000':
+    ra: 3.57267
+    dec: -30.393633
+    mag: {F160W: 23.280000686645508}
+    z: {value: 0.3198, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '35978':
+    ra: 3.596444
+    dec: -30.403275
+    mag: {F160W: 23.280000686645508}
+    z: {value: 0.2989, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '11577000':
+    ra: 3.590109
+    dec: -30.391576
+    mag: {F160W: 23.309999465942383}
+    z: {value: 0.308, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '36776':
+    ra: 3.584729
+    dec: -30.399826
+    mag: {F160W: 23.329999923706055}
+    z: {value: 0.3002, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '3547000':
+    ra: 3.566721
+    dec: -30.411992
+    mag: {F160W: 23.360000610351562}
+    z: {value: 0.3002, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '33468':
+    ra: 3.595517
+    dec: -30.409682
+    mag: {F160W: 23.420000076293945}
+    z: {value: 0.3219, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '12191000':
+    ra: 3.581882
+    dec: -30.390474
+    mag: {F160W: 23.440000534057617}
+    z: {value: 0.3229, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '37304':
+    ra: 3.583931
+    dec: -30.398595
+    mag: {F160W: 23.450000762939453}
+    z: {value: 0.2986, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '40432':
+    ra: 3.584083
+    dec: -30.388909
+    mag: {F160W: 23.459999084472656}
+    z: {value: 0.289, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '34433':
+    ra: 3.588518
+    dec: -30.406316
+    mag: {F160W: 23.469999313354492}
+    z: {value: 0.3174, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '5079000':
+    ra: 3.58648
+    dec: -30.407004
+    mag: {F160W: 23.540000915527344}
+    z: {value: 0.3199, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '3795000':
+    ra: 3.592497
+    dec: -30.412103
+    mag: {F160W: 23.549999237060547}
+    z: {value: 0.3089, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '10265000':
+    ra: 3.597219
+    dec: -30.395534
+    mag: {F160W: 23.559999465942383}
+    z: {value: 0.3196, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '12018000':
+    ra: 3.605043
+    dec: -30.391671
+    mag: {F160W: 23.639999389648438}
+    z: {value: 0.2986, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '8216000':
+    ra: 3.597727
+    dec: -30.400602
+    mag: {F160W: 23.690000534057617}
+    z: {value: 0.3155, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '4938000':
+    ra: 3.582862
+    dec: -30.408838
+    mag: {F160W: 23.700000762939453}
+    z: {value: 0.3007, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '35340':
+    ra: 3.58851
+    dec: -30.404209
+    mag: {F160W: 23.729999542236328}
+    z: {value: 0.3198, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '7420000':
+    ra: 3.568412
+    dec: -30.402023
+    mag: {F160W: 23.799999237060547}
+    z: {value: 0.3054, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '8330000':
+    ra: 3.569485
+    dec: -30.399955
+    mag: {F160W: 23.829999923706055}
+    z: {value: 0.3049, kind: spec}
+    p_member: 1.0
+    notes: in bergamini2023a, furtak2023; spectroscopic member
+  '14319':
+    ra: 3.598659
+    dec: -30.383098
+    mag: {F160W: 23.3799991607666}
+    p_member: 0.7
+    notes: in bergamini2023a, furtak2023; 1 independent paper
+  '15369':
+    ra: 3.575794
+    dec: -30.380405
+    mag: {F160W: 23.719999313354492}
+    p_member: 0.7
+    notes: in bergamini2023a, furtak2023; 1 independent paper
+  '9490':
+    ra: 3.574867
+    dec: -30.397183
+    mag: {F160W: 23.799999237060547}
+    p_member: 0.7
+    notes: in bergamini2023a, furtak2023; 1 independent paper
+  '10127':
+    ra: 3.566005
+    dec: -30.393924
+    mag: {F160W: 21.1200008392334}
+    p_member: 0.7
+    notes: in bergamini2023a, furtak2023; 1 independent paper
+  '12163':
+    ra: 3.607988
+    dec: -30.390726
+    mag: {F160W: 23.139999389648438}
+    p_member: 0.7
+    notes: in bergamini2023a, furtak2023; 1 independent paper
+  '14786':
+    ra: 3.593635
+    dec: -30.382101
+    mag: {F160W: 23.15999984741211}
+    p_member: 0.7
+    notes: in bergamini2023a, furtak2023; 1 independent paper
+  '5889':
+    ra: 3.578093
+    dec: -30.40574
+    mag: {F160W: 23.760000228881836}
+    p_member: 0.7
+    notes: in bergamini2023a, furtak2023; 1 independent paper
+  '15699':
+    ra: 3.594368
+    dec: -30.378664
+    mag: {F160W: 22.520000457763672}
+    p_member: 0.7
+    notes: in bergamini2023a, furtak2023; 1 independent paper
+  '15508':
+    ra: 3.578849
+    dec: -30.379423
+    mag: {F160W: 23.8799991607666}
+    p_member: 0.7
+    notes: in bergamini2023a, furtak2023; 1 independent paper
+  '7737':
+    ra: 3.597161
+    dec: -30.402246
+    mag: {F160W: 23.969999313354492}
+    p_member: 0.7
+    notes: in bergamini2023a, furtak2023; 1 independent paper
+  '13676':
+    ra: 3.568877
+    dec: -30.385314
+    mag: {F160W: 20.360000610351562}
+    p_member: 0.7
+    notes: in bergamini2023a, furtak2023; 1 independent paper
+  '15624':
+    ra: 3.57514
+    dec: -30.378524
+    mag: {F160W: 21.579999923706055}
+    p_member: 0.7
+    notes: in bergamini2023a, furtak2023; 1 independent paper
+  '5421':
+    ra: 3.606797
+    dec: -30.405592
+    mag: {F160W: 20.389999389648438}
+    p_member: 0.7
+    notes: in bergamini2023a, furtak2023; 1 independent paper
+  '14659':
+    ra: 3.601322
+    dec: -30.382501
+    mag: {F160W: 23.43000030517578}
+    p_member: 0.7
+    notes: in bergamini2023a, furtak2023; 1 independent paper
+  '2937':
+    ra: 3.580614
+    dec: -30.414102
+    mag: {F160W: 22.850000381469727}
+    p_member: 0.7
+    notes: in bergamini2023a, furtak2023; 1 independent paper
+  '15691':
+    ra: 3.571676
+    dec: -30.379704
+    mag: {F160W: 23.549999237060547}
+    p_member: 0.7
+    notes: in bergamini2023a, furtak2023; 1 independent paper
+  '9592':
+    ra: 3.607186
+    dec: -30.39723
+    mag: {F160W: 23.559999465942383}
+    p_member: 0.7
+    notes: in bergamini2023a, furtak2023; 1 independent paper
+  '2818':
+    ra: 3.576712
+    dec: -30.414622
+    mag: {F160W: 23.559999465942383}
+    p_member: 0.7
+    notes: in bergamini2023a, furtak2023; 1 independent paper
+  '16198':
+    ra: 3.573701
+    dec: -30.376807
+    mag: {F160W: 22.989999771118164}
+    p_member: 0.7
+    notes: in bergamini2023a, furtak2023; 1 independent paper
+  '5315':
+    ra: 3.581605
+    dec: -30.407436
+    mag: {F160W: 23.579999923706055}
+    p_member: 0.7
+    notes: in bergamini2023a, furtak2023; 1 independent paper
+  '3313':
+    ra: 3.575661
+    dec: -30.413496
+    mag: {F160W: 23.610000610351562}
+    p_member: 0.7
+    notes: in bergamini2023a, furtak2023; 1 independent paper
+  '15308':
+    ra: 3.570284
+    dec: -30.380798
+    mag: {F160W: 23.639999389648438}
+    p_member: 0.7
+    notes: in bergamini2023a, furtak2023; 1 independent paper
+  '14680':
+    ra: 3.570831
+    dec: -30.382935
+    mag: {F160W: 23.670000076293945}
+    p_member: 0.7
+    notes: in bergamini2023a, furtak2023; 1 independent paper

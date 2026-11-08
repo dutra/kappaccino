@@ -31,6 +31,7 @@ results/*
 notebooks/*
 !notebooks/fit_hera.ipynb
 !notebooks/fit_ares.ipynb
+!notebooks/fit_as1063_master.ipynb
 !notebooks/run_ff_sims_fit.ipynb
 !notebooks/replot_truth_recovery_critical_line.ipynb
 *.zip

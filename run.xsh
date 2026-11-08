@@ -153,6 +153,12 @@ def _usage() -> str:
         "  --offset-tail student_t|normal: member deviation tails (default student_t, dof 4)\n"
         "  --bcg-cut-prior lognormal|uniform: BCG cut-radius prior (default lognormal, unbounded)\n"
         "  --skip-plots: no figures or tables after sampling (quick tests; the sampler diagnostics are in the log)\n"
+        "  --truth-fit: HERA, ARES only: instead of fitting the images, fit the model directly to the true deflection over the\n"
+        "          strong-lensing region (kappaccino.diagnostics.truth_fit), with the members on the scaling relation; writes\n"
+        "          <run>/truth_fit/ (residual deflection and convergence, image-plane floor, residual correlation vs the knee prior)\n"
+        "  --truth-fit-compare RUN_DIR: with --truth-fit, also score that image fit of the same model (its best posterior draw, or\n"
+        "          its init start) and split its error into model limit and missing constraints\n"
+        "  --truth-fit-variants relation[,free]: the variants to fit (default relation; free also frees the exact members' offsets)\n"
         "  --fast: exploratory settings: members deflecting every image by < 0.03\" are dropped, far-field members allowed down to\n"
         "          2 cut radii from an image, classification at the current model, 16 search starts, 300+150 draws at tree depth 7\n"
         "          (check the audit's far-field error before trusting a fast run)\n"
@@ -179,18 +185,19 @@ def _parse_args(argv: list[str]) -> dict:
               "halo_search": "lbfgs", "member_search": "lbfgs", "likelihood": "grf_gp", "gp_blocks": None,
               "warm_start": None, "gp_band_max": None, "start_tolerance": None, "start_max_iter": None, "gp_knee_gamma": None, "gp_knee_fixed": None, "fix_relation": None, "relation_prior": None, "kinematics": None, "drop_halos": None, "member_shapes": None,
               "warmup": None, "samples": None, "dense_offsets": None, "far_offsets": None, "offset_tail": None, "bcg_cut_prior": "lognormal",
-              "skip_plots": False}
+              "skip_plots": False, "truth_fit": False, "truth_fit_compare": None, "truth_fit_variants": "relation"}
     flag_to_key = {"--campaign": "campaign", "--run-label": "run_label", "--stage": "stage", "--imaging": "imaging",
                    "--halo-search": "halo_search", "--member-search": "member_search", "--likelihood": "likelihood",
                    "--gp-blocks": "gp_blocks", "--warm-start": "warm_start",
                    "--gp-band-max": "gp_band_max", "--start-tolerance": "start_tolerance", "--start-max-iter": "start_max_iter",
                    "--gp-knee-gamma": "gp_knee_gamma", "--gp-knee-fixed": "gp_knee_fixed", "--fix-relation": "fix_relation", "--relation-prior": "relation_prior", "--kinematics": "kinematics", "--drop-halos": "drop_halos", "--member-shapes": "member_shapes", "--warmup": "warmup", "--samples": "samples",
                    "--dense-offsets": "dense_offsets", "--far-offsets": "far_offsets", "--offset-tail": "offset_tail",
-                   "--bcg-cut-prior": "bcg_cut_prior"}
+                   "--bcg-cut-prior": "bcg_cut_prior", "--truth-fit-compare": "truth_fit_compare",
+                   "--truth-fit-variants": "truth_fit_variants"}
     index = 2
     while index < len(argv):
         flag = argv[index]
-        if flag in {"--dry-run", "--fast", "--skip-plots"}:
+        if flag in {"--dry-run", "--fast", "--skip-plots", "--truth-fit"}:
             values[flag.lstrip("-").replace("-", "_")] = True
             index += 1
             continue
@@ -295,6 +302,7 @@ def _ff_sims_clusters():
             # the chains multi-well and did not improve the fit.
             "independent_member_halos": (),
             "kappa_true_fits": "data/imaging/ares/ffsims/kappa_z9_0.fits",
+            "alpha_true_fits": "data/imaging/ares/ffsims/deflAnglesAres.fits",
             "gammax_true_fits": "data/imaging/ares/ffsims/gammax_z9_0.fits",
             "gammay_true_fits": "data/imaging/ares/ffsims/gammay_z9_0.fits",
             # Ares is semi-analytic: its subhalos are analytic profiles, so there is no resolution softening to match.
@@ -312,6 +320,7 @@ def _ff_sims_clusters():
             "member_population": MemberPopulationConfig.bergamini2019("potfile_1", "catalogs/hera/members.yaml", 0.507, prior_mag0=19.82),
             "independent_member_halos": (),
             "kappa_true_fits": "data/imaging/hera/ffsims/kappa_z9_0.fits",
+            "alpha_true_fits": "data/imaging/hera/ffsims/deflAnglesHera.fits",
             "gammax_true_fits": "data/imaging/hera/ffsims/gammax_z9_0.fits",
             "gammay_true_fits": "data/imaging/hera/ffsims/gammay_z9_0.fits",
             # Hera is an N-body cluster (H0 = 72, softening 2.3 h^-1 kpc = 3.19 kpc): added in quadrature to the member cores so
@@ -746,7 +755,7 @@ def build_config(
                              cut_radius_inflation=float(cluster_config.get("cut_radius_inflation", MemberConfig.cut_radius_inflation)),
                              classification_prior_quantile=cluster_config.get("classification_prior_quantile", MemberConfig.classification_prior_quantile)),
         truth=TruthRecoveryConfig(kappa_true_fits=cluster_config.get("kappa_true_fits"), gammax_true_fits=cluster_config.get("gammax_true_fits"),
-                                  gammay_true_fits=cluster_config.get("gammay_true_fits")),
+                                  gammay_true_fits=cluster_config.get("gammay_true_fits"), alpha_true_fits=cluster_config.get("alpha_true_fits")),
         image_catalog=ImageCatalogCutoutConfig(
             candidate_catalog_path=M0416_CANDIDATES if cluster == "M0416_CANUCS2025" else None,
             rgb_critical_image_cutouts=M0416_RGB_IMAGE_CUTOUTS if cluster.startswith("M0416") else (),
@@ -848,6 +857,34 @@ def _fast_mode_warning(config) -> None:
     Console(stderr=False).print(Panel(text, title="[bold]WARNING: --fast[/bold]", border_style="yellow", style="yellow", expand=False))
 
 
+def truth_fit(config, options) -> int:
+    """--truth-fit: the direct fit of the model to the true deflection (kappaccino.diagnostics.truth_fit)."""
+    from kappaccino.diagnostics.truth_fit import VARIANTS, run_truth_fit
+    truth = config.truth
+    if truth.alpha_true_fits is None or truth.kappa_true_fits is None:
+        print("--truth-fit needs the true deflection and convergence maps (alpha_true_fits, kappa_true_fits): HERA or ARES.")
+        return 2
+    variants = tuple(v.strip() for v in options["truth_fit_variants"].split(",") if v.strip())
+    if set(variants) - set(VARIANTS):
+        print(f"--truth-fit-variants: choose from {', '.join(VARIANTS)}")
+        return 2
+    import numpy as np
+    compare = None
+    if options["truth_fit_compare"]:
+        from kappaccino.io.artifacts import is_final_complete, load_posterior, load_start
+        source = Path(options["truth_fit_compare"])
+        if is_final_complete(source / "final" / "artifacts"):
+            posterior = load_posterior(source / "final" / "artifacts")
+            compare = np.asarray(posterior.samples[int(np.nanargmax(posterior.log_prob))])
+        else:
+            compare = np.asarray(load_start(source / "init" / "artifacts"))
+    output = Path(str(config.paths.output_dir)) / str(config.paths.run_name) / "truth_fit"
+    print(f"[truth fit] {config.paths.run_name}: variants {', '.join(variants)} -> {output}")
+    run_truth_fit(config, deflection_path=truth.alpha_true_fits, kappa_path=truth.kappa_true_fits, output_dir=output,
+                  variants=variants, compare_theta=compare, compare_label=Path(options["truth_fit_compare"]).name if compare is not None else "image fit")
+    return 0
+
+
 def main(argv=None):
     options = _parse_args(sys.argv if argv is None else argv)
     cluster = options["cluster"]
@@ -883,6 +920,8 @@ def main(argv=None):
     if options["offset_tail"] is not None:
         config = replace(config, scaling=replace(config.scaling, member_deviation_tail=options["offset_tail"]))
     config = config.validate()
+    if options["truth_fit"]:
+        return truth_fit(config, options)
     if options["dry_run"]:
         from kappaccino.pipeline import dry_run
         print(json.dumps({"dry_run": True, "cpu_plan": cpu_plan.to_dict(), **dry_run(config)}, indent=2, default=str))

@@ -29,6 +29,7 @@ configuration
 likelihoods
 pipeline
 outputs
+posterior
 mock-validation
 scripts
 ```

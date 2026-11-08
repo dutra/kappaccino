@@ -53,13 +53,13 @@ knotted_families = {"production": 5, "smoke": 1}
 knots_per_family = (2, 3)
 knot_offset_range_arcsec = (0.05, 1.0)
 
-$MPLCONFIGDIR = "/tmp/matplotlib-lenscluster-mock"
-os.environ["MPLCONFIGDIR"] = "/tmp/matplotlib-lenscluster-mock"
+$MPLCONFIGDIR = "/tmp/matplotlib-kappaccino-mock"
+os.environ["MPLCONFIGDIR"] = "/tmp/matplotlib-kappaccino-mock"
 sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
 
 from dataclasses import replace
 
-from lenscluster.config import (
+from kappaccino.config import (
     ImageDiagnosticsConfig,
     LensClusterSolverConfig,
     LikelihoodConfig,
@@ -71,7 +71,7 @@ from lenscluster.config import (
     SearchConfig,
     TruthRecoveryConfig,
 )
-from lenscluster.cpu_runtime import configure_cpu_runtime, resolve_cpu_plan, threads_per_chain_if_supported
+from kappaccino.cpu_runtime import configure_cpu_runtime, resolve_cpu_plan, threads_per_chain_if_supported
 
 VALID_PRESETS = ("smoke", "production")
 
@@ -242,7 +242,7 @@ def _solver(*, production: bool, fast: bool, seed: int, likelihood: str, gp_bloc
 def build_config(preset: str, *, seed: int, realizations: int, campaign_name: str, output_dir: str, mode: str, fast: bool = False,
                  likelihood: str = "grf_gp", gp_blocks: str | None = None, warmup: int | None = None, samples: int | None = None,
                  knotted: int | None = None):
-    from lenscluster.mock_validation import MockConfig, MockValidationConfig, MockValidationPathsConfig, MockValidationRuntimeConfig
+    from kappaccino.mock_validation import MockConfig, MockValidationConfig, MockValidationPathsConfig, MockValidationRuntimeConfig
     production = preset == "production"
     mock = MockConfig(
         seed=seed,
@@ -310,7 +310,7 @@ def main(argv=None):
     if options["dry_run"]:
         print(json.dumps({"dry_run": True, "cpu_plan": cpu_plan.to_dict(), "campaign_dir": str(campaign_dir), **config.to_json_dict()}, indent=2, default=str))
         return 0
-    from lenscluster.mock_validation import fisher_precheck, rescore_mock_validation, run_mock_validation, write_aggregate_plots
+    from kappaccino.mock_validation import fisher_precheck, rescore_mock_validation, run_mock_validation, write_aggregate_plots
     if options["fisher_only"]:
         start = time.monotonic()
         try:

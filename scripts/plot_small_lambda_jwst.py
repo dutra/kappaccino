@@ -23,15 +23,15 @@ def main():
     import pandas as pd
     from dataclasses import replace
     from _covariance_plot_cli import load_run
-    from lenscluster.cutouts import imaging_variants,load_cluster_imaging
+    from kappaccino.cutouts import imaging_variants,load_cluster_imaging
     config,state,evaluator,posterior,paths=load_run(args.run)
     view=next(v for v in imaging_variants(config,overview_only=True) if v.figure_suffix=='_jwst')
     view=replace(view,image_dir=args.image_dir)
     config=replace(config,image_catalog=view)
     try:extra=pd.read_csv(paths.tables/'image_recovery_extra_images.csv',dtype={'family_id':str})
     except (FileNotFoundError, pd.errors.EmptyDataError):extra=pd.DataFrame()
-    from lenscluster.image_position_contours import load_or_compute_contours
-    from lenscluster.small_lambda_jwst import write_small_lambda_jwst
+    from kappaccino.image_position_contours import load_or_compute_contours
+    from kappaccino.small_lambda_jwst import write_small_lambda_jwst
     contours=load_or_compute_contours(config,state,evaluator,posterior,extra,paths.tables)
     imaging=load_cluster_imaging(view,config.model,config.paths.run_name)
     write_small_lambda_jwst(config,state,evaluator,posterior,paths,imaging,contours,

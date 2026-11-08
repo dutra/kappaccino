@@ -17,11 +17,11 @@ from scipy.special import jv
 from conftest import synthetic_cluster_config, write_offset_catalog
 import numpyro.distributions as dist
 
-from lenscluster import gp_knee, priors
-from lenscluster.evaluator import Evaluator
-from lenscluster.image_catalog import write_image_catalog
-from lenscluster.sky import offsets_to_radec
-from lenscluster.state import build_state
+from kappaccino import gp_knee, priors
+from kappaccino.evaluator import Evaluator
+from kappaccino.image_catalog import write_image_catalog
+from kappaccino.sky import offsets_to_radec
+from kappaccino.state import build_state
 from test_gp_image_plane import big_config, fold_config, set_scale
 
 BLOCKS = ("family", "system", "all")
@@ -273,8 +273,8 @@ def test_critical_line_sweeping_across_an_image_keeps_the_target_smooth(tmp_path
 def test_fold_pair_in_a_two_knot_system_survives_a_displaced_source(tmp_path):
     """Knot A is a 4 mas fold pair.  With its source sampled four conditional sigmas off the centroid, the lens alone can
     lose the pair; the lens plus the GP mean deflection keeps both images for every direction of the offset."""
-    from lenscluster.diagnostics import predictions_at
-    from lenscluster.exact_images import ExactImageSolver
+    from kappaccino.diagnostics import predictions_at
+    from kappaccino.exact_images import ExactImageSolver
     config, _ = two_knot_config(tmp_path, depth=0.004)
     # A marginal toy: with the spectrum's long end at 30" (the default) the (4, 4) offset loses one image.  The test is
     # about the mean-deflection mechanism, so it keeps the 100" range it was written for.
@@ -298,6 +298,7 @@ def test_fold_pair_in_a_two_knot_system_survives_a_displaced_source(tmp_path):
 
 
 # ----------------------------------------------------------------------------- 4. speed
+@pytest.mark.slow                       # wall-clock timing: machine-dependent, flaky on shared runners
 def test_knee_on_all_images_costs_under_three_times_the_family_gp(tmp_path):
     base = big_config(tmp_path)                                  # 40 families, 160 images
     timings = {}
@@ -323,7 +324,7 @@ def test_block_whitening_and_gaussian_term_equal_the_direct_formulas(tmp_path):
     """The source conditional's Cholesky factor from the reversed precision equals chol(P^-1), and the Gaussian term from
     the whitening's solves (L^-1 b - L^-1 J beta) equals the direct one (residual per slot, then a triangular solve)."""
     from jax.scipy.linalg import solve_triangular
-    from lenscluster import gp_image_plane as gp
+    from kappaccino import gp_image_plane as gp
     config, _ = two_knot_config(tmp_path)
     state = build_state(knee_config(config, "system"))
     evaluator = Evaluator(state, "gp_image_plane")

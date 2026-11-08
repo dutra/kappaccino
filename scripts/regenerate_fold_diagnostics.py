@@ -12,9 +12,9 @@ def main():
     parser.add_argument('--imaging', choices=('saved', 'jwst'), default='saved')
     parser.add_argument('--recompute', action='store_true', help='Recompute fold geometry instead of reusing saved diagnostics')
     args = parser.parse_args()
-    from lenscluster.cutouts import imaging_variants, load_cluster_imaging
-    from lenscluster.fold_diagnostics import compute_fold_diagnostics, save_fold_data, render_fold_diagnostics, load_fold_data
-    from lenscluster import artifacts
+    from kappaccino.cutouts import imaging_variants, load_cluster_imaging
+    from kappaccino.fold_diagnostics import compute_fold_diagnostics, save_fold_data, render_fold_diagnostics, load_fold_data
+    from kappaccino import artifacts
     import numpy as np
     log = lambda message: print(message, flush=True)
     final = Path(args.run_directory).resolve() / 'final'

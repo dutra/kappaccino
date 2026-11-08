@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import numpy as np
 import pandas as pd
 
-from lenscluster.mass_figure import arc_direction_table, extra_arc_direction_table, grid_pixels
+from kappaccino.mass_figure import arc_direction_table, extra_arc_direction_table, grid_pixels
 
 
 def test_extra_directions_use_positions_and_family_redshifts():
@@ -56,8 +56,8 @@ def test_stick_endpoints_follow_display_axis_reflections():
 
 
 def test_covariance_ellipse_contours_and_identity(monkeypatch):
-    from lenscluster import covariance_cutouts
-    from lenscluster.mass_figure import covariance_ellipse_curves
+    from kappaccino import covariance_cutouts
+    from kappaccino.mass_figure import covariance_ellipse_curves
     a = np.array([[[.1,.03],[.03,.8]], [[-.2,0.],[0.,.6]]])
     c = np.array([[[.04,.002],[.002,.01]], [[.01,0.],[0.,.02]]])
     monkeypatch.setattr(covariance_cutouts, 'best_geometry', lambda *args: dict(a=a,c=c,valid=np.array([True,True])))

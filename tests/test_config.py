@@ -4,8 +4,8 @@ from dataclasses import replace
 
 import pytest
 
-from lenscluster import artifacts
-from lenscluster.config import ImageDiagnosticsConfig, MemberConfig, SamplingConfig
+from kappaccino import artifacts
+from kappaccino.config import ImageDiagnosticsConfig, MemberConfig, SamplingConfig
 
 
 def test_config_validates_and_round_trips(tmp_path, synthetic_config):

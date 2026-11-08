@@ -1,6 +1,6 @@
 import json
 from types import SimpleNamespace as NS
-from lenscluster.mock_validation import runner, aggregate_plots
+from kappaccino.mock_validation import runner, aggregate_plots
 
 def test_refresh_after_each_saved_recovery_and_resume(tmp_path, monkeypatch):
     config=NS(runtime=NS(realizations=2,seed=10,resume=True),mock=NS(mode='test'))

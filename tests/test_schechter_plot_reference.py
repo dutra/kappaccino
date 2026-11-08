@@ -3,7 +3,7 @@ import numpy as np
 from scipy.integrate import quad
 from scipy.special import gammainc
 
-from lenscluster.mock_validation.aggregate_plots import _schechter_curve
+from kappaccino.mock_validation.aggregate_plots import _schechter_curve
 
 
 def test_reference_normalization_and_generator_cdf():

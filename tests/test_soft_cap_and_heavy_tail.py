@@ -11,11 +11,11 @@ import numpy as np
 import pytest
 from scipy import stats
 
-from lenscluster import priors
-from lenscluster.evaluator import Evaluator
-from lenscluster.inputs import lenstool_ellipticite_to_axis_ratio
-from lenscluster.sampling import distribution_for_site, sample_sites
-from lenscluster.state import build_state
+from kappaccino import priors
+from kappaccino.evaluator import Evaluator
+from kappaccino.inputs import lenstool_ellipticite_to_axis_ratio
+from kappaccino.sampling import distribution_for_site, sample_sites
+from kappaccino.state import build_state
 
 
 def _tail(config, tail="student_t", dof=4.0):

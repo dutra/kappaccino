@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 import numpy as np
 import pytest
-from lenscluster.mock_validation import aggregate_chains as plots
+from kappaccino.mock_validation import aggregate_chains as plots
 
 
 def test_chain_shape_rejects_incorrect_flat_order(tmp_path):

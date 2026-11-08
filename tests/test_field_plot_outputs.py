@@ -2,7 +2,7 @@
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-from lenscluster import gp_plots, field_plots
+from kappaccino import gp_plots, field_plots
 
 
 def test_standard_gp_outputs_include_field_figures(monkeypatch, tmp_path):

@@ -54,7 +54,7 @@ def main():
     style = {"font.size":10, "axes.labelsize":10, "legend.fontsize":9,
              "mathtext.fontset":"dejavusans", "mathtext.default":"regular",
              "axes.linewidth":.9, "pdf.fonttype":42, "axes.grid":False}
-    with plt.style.context(ROOT / "src/lenscluster/style.mplstyle"), plt.rc_context(style):
+    with plt.style.context(ROOT / "src/kappaccino/style.mplstyle"), plt.rc_context(style):
         fig, axes = plt.subplots(1, 2, figsize=(7.1, 3.3))
         blue, orange, purple, ink = "tab:blue", "tab:orange", "tab:purple", "#252930"
         left, right = axes

@@ -92,7 +92,7 @@ Production run artifacts, sampling code and the original fold figures are not ch
 The current fits are under `/tmp/k12_source_rgb/{physical,gp}/{F115W,F200W,F444W}`; F150W comes from `/tmp/fold_source_validation/{physical,gp}`. Render them with:
 
 ```bash
-MPLCONFIGDIR=/tmp/matplotlib-lenscluster /Users/isaque.dutra/miniforge3/envs/lenscluster/bin/python scripts/plot_fold_source_rgb.py
+MPLCONFIGDIR=/tmp/matplotlib-kappaccino /Users/isaque.dutra/miniforge3/envs/lenscluster/bin/python scripts/plot_fold_source_rgb.py
 ```
 
 Outputs are in `/tmp/k12_source_rgb/figures`: two source portraits, a physical-versus-fixed-GP comparison, an observed-fold/source comparison, and a four-band grayscale view. Calibrated source maps and RGB arrays are also retained in FITS, with input provenance in JSON. All bands use the same absolute source coordinates and surface-brightness units, including the different F444W pixel area. The RGB uses one common exposure, with no per-band renormalization or sharpening.

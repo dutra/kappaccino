@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from numpyro.diagnostics import effective_sample_size, split_gelman_rubin
 
-from lenscluster.chain_traces import trace_data, write_chain_traces
+from kappaccino.chain_traces import trace_data, write_chain_traces
 
 
 def fixture(chains=2, draws=30):
@@ -65,7 +65,7 @@ def test_pdf_provenance_and_style_isolation(tmp_path):
 
 
 def test_normal_output_hook(tmp_path, monkeypatch):
-    from lenscluster import outputs
+    from kappaccino import outputs
     p, specs = fixture()
     state = SimpleNamespace(parameter_specs=specs)
     config = SimpleNamespace(paths=SimpleNamespace(figure_prefix='test'))

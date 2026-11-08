@@ -2,7 +2,7 @@
 import argparse
 
 from _covariance_plot_cli import load_run
-from lenscluster.gp_plots import write_gp_plots
+from kappaccino.gp_plots import write_gp_plots
 
 
 def main():

@@ -1,9 +1,9 @@
 # Running a fit
 
-{func}`lenscluster.pipeline.run` runs a fit in two stages, init and final. Run both, or one at a time:
+{func}`kappaccino.pipeline.run` runs a fit in two stages, init and final. Run both, or one at a time:
 
 ```python
-from lenscluster.pipeline import dry_run, run
+from kappaccino.pipeline import dry_run, run
 
 dry_run(config)                   # describe the model, write nothing
 result = run(config)              # init + final
@@ -11,12 +11,12 @@ init = run(config, stage="init")  # the search alone
 result = run(config, stage="final")  # sample from a completed init
 ```
 
-{func}`~lenscluster.pipeline.run_init` and {func}`~lenscluster.pipeline.run_final` are the two stages as separate
+{func}`~kappaccino.pipeline.run_init` and {func}`~kappaccino.pipeline.run_final` are the two stages as separate
 functions.
 
 ## Dry run
 
-{func}`~lenscluster.pipeline.dry_run` builds the model and prints, as JSON, the number of parameters,
+{func}`~kappaccino.pipeline.dry_run` builds the model and prints, as JSON, the number of parameters,
 the provisional member classification, and the search and sampling sizes. It writes nothing.
 
 ## Init stage
@@ -93,10 +93,10 @@ Use a new run label for each changed configuration.
 ## CPU chains
 
 NUTS runs one chain per JAX CPU device. `RuntimeConfig(chains, nuts_chain_method, cpu_threads_per_chain)` sets the
-plan, and {func}`lenscluster.cpu_runtime.configure_cpu_runtime` must run before JAX initializes:
+plan, and {func}`kappaccino.cpu_runtime.configure_cpu_runtime` must run before JAX initializes:
 
 ```python
-from lenscluster.cpu_runtime import configure_cpu_runtime
+from kappaccino.cpu_runtime import configure_cpu_runtime
 
 configure_cpu_runtime(4, "parallel")    # at the top of the script, before JAX starts
 ```
@@ -109,7 +109,7 @@ rather than silently running the chains on one device.
 For exploration, shorten the search and the chains and use independent GP blocks:
 
 ```python
-from lenscluster.config import SamplingConfig
+from kappaccino.config import SamplingConfig
 
 quick = replace(
     config,

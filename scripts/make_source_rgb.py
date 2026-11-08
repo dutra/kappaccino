@@ -21,8 +21,8 @@ sys.path.insert(0, str(ROOT / "src"))
 import numpy as np
 from scipy.ndimage import zoom
 
-from lenscluster import cutouts
-from lenscluster.rgb import make_calibrated_rgb
+from kappaccino import cutouts
+from kappaccino.rgb import make_calibrated_rgb
 
 
 def parse_args():
@@ -110,8 +110,8 @@ def main():
     import matplotlib
     matplotlib.use("pdf")
     import matplotlib.pyplot as plt
-    from lenscluster.plot_style import PAPER_STYLE
-    plt.style.use(str(ROOT / "src/lenscluster/style.mplstyle")); plt.rcParams.update(PAPER_STYLE)
+    from kappaccino.plot_style import PAPER_STYLE
+    plt.style.use(str(ROOT / "src/kappaccino/style.mplstyle")); plt.rcParams.update(PAPER_STYLE)
     fig, axes = plt.subplots(1, 3, figsize=(7.2, 2.6), constrained_layout=True)
     image_extent = [ext[0], ext[1], ext[2], ext[3]]
     axes[0].imshow(rgb_data, origin="lower", extent=image_extent)

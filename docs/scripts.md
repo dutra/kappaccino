@@ -45,7 +45,7 @@ These scripts read a run directory and redraw one product without rerunning infe
 | `regenerate_truth_recovery.py RUN` | the truth maps and dependent figures, with the conditional GRF |
 | `regenerate_member_diagnostics.py RUN` | the member and likelihood diagnostic suite |
 | `regenerate_scaling_relation.py RUN` | `scaling_relation.pdf` |
-| `python -m lenscluster.results_tex RUN/final` | `<prefix>_results.tex` |
+| `python -m kappaccino.results_tex RUN/final` | `<prefix>_results.tex` |
 
 Truth maps cached before the conditional GRF was added must be recomputed with `regenerate_truth_recovery.py` before
 regenerating the magnification figures that depend on them.

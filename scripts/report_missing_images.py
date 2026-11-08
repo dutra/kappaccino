@@ -129,8 +129,8 @@ def main():
     matplotlib.use("pdf")
     import matplotlib.pyplot as plt
     from matplotlib.backends.backend_pdf import PdfPages
-    from lenscluster.plot_style import PAPER_STYLE
-    plt.style.use(str(ROOT / "src/lenscluster/style.mplstyle")); plt.rcParams.update(PAPER_STYLE)
+    from kappaccino.plot_style import PAPER_STYLE
+    plt.style.use(str(ROOT / "src/kappaccino/style.mplstyle")); plt.rcParams.update(PAPER_STYLE)
     half = args.stamp / 2
     with PdfPages(folder / "new_candidates.pdf") as pdf:
         for _, r in new.iterrows():

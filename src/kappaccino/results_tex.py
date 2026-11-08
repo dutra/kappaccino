@@ -334,7 +334,7 @@ def write_mock_results(campaign, output: Path, *, rhat_cut: float, min_ess: floa
 
     Parameters
     ----------
-    campaign : lenscluster.mock_validation.aggregate_plots.Campaign
+    campaign : kappaccino.mock_validation.aggregate_plots.Campaign
         The loaded campaign. Uses ``summary`` (DataFrame with ``seed``,
         ``observed_image_count``, ``recovered_image_count``,
         ``missing_image_count``), ``seeds`` (the included seeds) and

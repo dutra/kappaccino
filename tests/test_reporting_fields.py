@@ -1,12 +1,12 @@
 """Analytic regression for combined reporting fields, independent of lens kernels."""
 from types import SimpleNamespace
 import numpy as np
-from lenscluster.reporting_fields import shared_grf_fields
-from lenscluster.truth_recovery import lens_quantities
+from kappaccino.reporting_fields import shared_grf_fields
+from kappaccino.truth_recovery import lens_quantities
 
 
 def evaluator(monkeypatch):
-    from lenscluster import jax_cosmology
+    from kappaccino import jax_cosmology
     monkeypatch.setattr(jax_cosmology, 'dpie_sigma0_factor_from_config', lambda zl,z,c: z)
     def correction(x,y,f):
         return 3*x*x, 3*y*y, 6*x, 0*x, 0*x, 6*y
@@ -59,7 +59,7 @@ def test_no_field_and_empty_points(monkeypatch):
 
 def test_observed_stretch_uses_corrected_jacobian():
     import pandas as pd
-    from lenscluster.mass_figure import arc_direction_table
+    from kappaccino.mass_figure import arc_direction_table
     # Parametric stretch is x, but the conditional mass field changes it to y.
     image=SimpleNamespace(image_labels=['a'],x_obs=np.array([0.]),y_obs=np.array([0.]),
                           family_index_per_image=np.array([0]))
@@ -75,8 +75,8 @@ def test_observed_stretch_uses_corrected_jacobian():
 
 def test_physical_median_reconstructs_gp_sources(monkeypatch):
     import jax.numpy as jnp
-    from lenscluster import model
-    from lenscluster.reporting_fields import posterior_median_theta
+    from kappaccino import model
+    from kappaccino.reporting_fields import posterior_median_theta
     monkeypatch.setattr(model, 'convert_theta_to_latent', lambda p,s:np.array(p,copy=True))
     e=SimpleNamespace(gp_knee=True,state=SimpleNamespace(parameter_specs=[],images=SimpleNamespace(
         source_x_param_index=np.array([1]),source_y_param_index=np.array([2]))),

@@ -46,8 +46,8 @@ ISOTHERMAL_KNEE_PER_RT = 6.38          # lambda_t / r_t of the gamma = 2 knee fi
 
 def variant_likelihood(likelihood, variant: str, tight_gp: bool, *, fixed_knee: float, fixed_ell: float):
     import numpyro.distributions as dist
-    from lenscluster.config import ERROR_SCALE_FLOOR_ARCSEC
-    from lenscluster.priors import truncated_lognormal
+    from kappaccino.config import ERROR_SCALE_FLOOR_ARCSEC
+    from kappaccino.priors import truncated_lognormal
 
     def LN(median, log_sigma, upper, lower=ERROR_SCALE_FLOOR_ARCSEC):
         return truncated_lognormal(median, log_sigma, low=lower, high=upper)
@@ -75,7 +75,7 @@ def optimize(objective, x0, *, round_iter: int, tolerance: float, restart_gain: 
     """L-BFGS in rounds, each from the best point of the last, while a round gains more than ``restart_gain``."""
     import numpy as np
     import jax.numpy as jnp
-    from lenscluster.search import run_optax_lbfgs
+    from kappaccino.search import run_optax_lbfgs
     x, value = np.asarray(x0, dtype=float), -float(objective.reduced(jnp.asarray(x0)))
     total, rounds, gain = 0, 0, math.inf
     while total < max_iter:
@@ -97,10 +97,10 @@ def fit_variant(run_dir: Path, variant: str, out: Path, *, args) -> dict:
     import jax
     import jax.numpy as jnp
     jax.config.update("jax_enable_x64", True)
-    from lenscluster import artifacts
-    from lenscluster.evaluator import Evaluator
-    from lenscluster.search import Objective
-    from lenscluster.state import build_state, with_member_classes
+    from kappaccino import artifacts
+    from kappaccino.evaluator import Evaluator
+    from kappaccino.search import Objective
+    from kappaccino.state import build_state, with_member_classes
 
     ns = {"__file__": str(ROOT / "run.xsh"), "__name__": "compare_grf_spectra"}
     exec(compile("\n".join(l for l in (ROOT / "run.xsh").read_text().splitlines() if not l.startswith("$")), "run.xsh", "exec"), ns)

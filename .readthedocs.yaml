@@ -9,13 +9,15 @@ build:
   os: ubuntu-24.04
   tools:
     python: "3.13"
+  apt_packages:
+    - pandoc                                     # nbsphinx converts the notebooks' Markdown cells with pandoc
 
 # Build documentation in the "docs/" directory with Sphinx
 sphinx:
   configuration: docs/conf.py
   fail_on_warning: false
 
-# The Python requirements of the documentation build only (Sphinx and the MyST Markdown parser); the package itself,
+# The Python requirements of the documentation build only (Sphinx, MyST and nbsphinx); the package itself,
 # with JAX and the lenstronomy forks, is not installed on Read the Docs.
 python:
   install:

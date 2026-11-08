@@ -1,4 +1,4 @@
-from lenscluster.pipeline import init_verdict, search_is_fragile
+from kappaccino.pipeline import init_verdict, search_is_fragile
 
 
 def _search(modes, n_starts=8):

@@ -12,8 +12,8 @@ import os
 from pathlib import Path
 import time
 
-os.environ.setdefault('NUMBA_CACHE_DIR', '/tmp/numba-lenscluster')
-os.environ.setdefault('MPLCONFIGDIR', '/tmp/matplotlib-lenscluster')
+os.environ.setdefault('NUMBA_CACHE_DIR', '/tmp/numba-kappaccino')
+os.environ.setdefault('MPLCONFIGDIR', '/tmp/matplotlib-kappaccino')
 from _covariance_plot_cli import load_run, ROOT
 import numpy as np
 import jax
@@ -327,7 +327,7 @@ def main():
         p.error('Use only one of --estimate-noise, --noise, --error')
     if args.noise is not None and (args.noise <= 0 or args.error is not None):
         p.error('--noise must be positive and cannot be combined with --error')
-    from lenscluster.image_catalog import load_image_catalog
+    from kappaccino.image_catalog import load_image_catalog
     config, state, evaluator, posterior, _ = load_run(args.run_directory)
     catalog = load_image_catalog(config.model.image_constraints.catalog_path,
         sigma_inst_arcsec=config.model.image_constraints.sigma_inst_arcsec,
@@ -424,8 +424,8 @@ def main():
         import matplotlib
         matplotlib.use('Agg')
         import matplotlib.pyplot as plt
-        from lenscluster.plot_style import PAPER_STYLE
-        with plt.rc_context(fname=ROOT/'src/lenscluster/style.mplstyle',rc=PAPER_STYLE):
+        from kappaccino.plot_style import PAPER_STYLE
+        with plt.rc_context(fname=ROOT/'src/kappaccino/style.mplstyle',rc=PAPER_STYLE):
             fig, axes=plt.subplots(1,3,figsize=(10,3.5),layout='constrained')
             lo,hi=np.nanpercentile(data[mask],[2,99])
             ys,xs=np.nonzero(mask);view=(slice(max(0,ys.min()-8),min(data.shape[0],ys.max()+9)),slice(max(0,xs.min()-8),min(data.shape[1],xs.max()+9)))
@@ -466,7 +466,7 @@ def main():
         key.update(str((args.parametric_only,args.gp_displacement,'gp-warp-v1')).encode())
         for path in [Path(args.run_directory)/'final/artifacts/config.pkl',
                      Path(args.run_directory)/'init/artifacts/state.json',
-                     ROOT/'src/lenscluster/evaluator.py',ROOT/'src/lenscluster/gp_knee.py']:
+                     ROOT/'src/kappaccino/evaluator.py',ROOT/'src/kappaccino/gp_knee.py']:
             if path.exists(): key.update(path.read_bytes())
         key.update(str((z,family_indices)).encode())
         for path in [Path(config.model.image_constraints.catalog_path),Path(args.run_directory)/'init/artifacts/classification.json']:
@@ -613,8 +613,8 @@ def main():
             if unit.lower() in ['njy','ujy','jy']: source_image=source_image/scale**2
             fits.writeto(out/'best_source.fits',source_image,sh,overwrite=True)
             import matplotlib.pyplot as plt
-            from lenscluster.plot_style import PAPER_STYLE
-            with plt.rc_context(fname=ROOT/'src/lenscluster/style.mplstyle',rc=PAPER_STYLE):
+            from kappaccino.plot_style import PAPER_STYLE
+            with plt.rc_context(fname=ROOT/'src/kappaccino/style.mplstyle',rc=PAPER_STYLE):
                 fig,ax=plt.subplots(figsize=(4,3.6),layout='constrained')
                 center=(cmin+cmax)/2
                 im=ax.imshow(source_image,origin='lower',extent=[cmin[0]-center[0],cmax[0]-center[0],cmin[1]-center[1],cmax[1]-center[1]],cmap='viridis')

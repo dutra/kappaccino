@@ -1,4 +1,4 @@
-"""Convert a Lenstool multiple-image catalog into the YAML image catalog that lenscluster reads.
+"""Convert a Lenstool multiple-image catalog into the YAML image catalog that kappaccino reads.
 
 Lenstool rows are ``label x y a b theta z mag [reliability [mag_err]]`` after a ``#REFERENCE`` line, with labels
 ``FAMILY.image``.  Each family becomes one system without knots (merging families into one system with knots is an
@@ -23,8 +23,8 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from lenscluster.image_catalog import write_image_catalog  # noqa: E402
-from lenscluster.sky import offsets_to_radec  # noqa: E402
+from kappaccino.image_catalog import write_image_catalog  # noqa: E402
+from kappaccino.sky import offsets_to_radec  # noqa: E402
 
 LABEL_RE = re.compile(r"^([A-Z0-9]+)\.([a-z]+)$")
 BASE = ["label", "x", "y", "a", "b", "theta", "z", "mag"]

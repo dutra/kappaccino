@@ -10,8 +10,8 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from lenscluster.evaluator import Evaluator
-from lenscluster.state import build_state
+from kappaccino.evaluator import Evaluator
+from kappaccino.state import build_state
 from test_member_catalog import _yaml_config
 
 MEASURED = {"g1": (120.0, 3.0), "g2": (95.0, 6.0)}
@@ -89,7 +89,7 @@ def test_sources_are_checked(synthetic_config, tmp_path):
 
 
 def test_the_kinematics_table_reports_each_member(synthetic_config, tmp_path):
-    from lenscluster.pipeline import kinematics_table
+    from kappaccino.pipeline import kinematics_table
     state = build_state(_with_kinematics(synthetic_config, tmp_path))
     evaluator = Evaluator(state, "smoothed")
     table = kinematics_table(state, evaluator, state.initial_theta)

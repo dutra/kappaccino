@@ -6,9 +6,9 @@ from dataclasses import replace
 import jax.numpy as jnp
 import numpy as np
 
-from lenscluster.evaluator import Evaluator
-from lenscluster.exact_images import ExactImageSolver
-from lenscluster.state import build_state
+from kappaccino.evaluator import Evaluator
+from kappaccino.exact_images import ExactImageSolver
+from kappaccino.state import build_state
 
 
 def test_global_search_matches_lenstronomy_and_recovers_observed_images(synthetic_config):

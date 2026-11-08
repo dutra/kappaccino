@@ -167,7 +167,7 @@ def buffalo_image_script_url(cluster: str, image_scale: str) -> str:
 
 
 def fetch_text(url: str, *, timeout: float = DEFAULT_TIMEOUT_SEC) -> str:
-    request = Request(url, headers={"User-Agent": "lenscluster-catalog-downloader"})
+    request = Request(url, headers={"User-Agent": "kappaccino-catalog-downloader"})
     with urlopen(request, timeout=timeout) as response:
         return response.read().decode("utf-8")
 
@@ -279,7 +279,7 @@ def build_hff_redshift_targets(
 def remote_content_length(url: str, timeout: float = DEFAULT_TIMEOUT_SEC) -> int | None:
     """Return the remote Content-Length when MAST reports it."""
 
-    request = Request(url, method="HEAD", headers={"User-Agent": "lenscluster-catalog-downloader"})
+    request = Request(url, method="HEAD", headers={"User-Agent": "kappaccino-catalog-downloader"})
     with urlopen(request, timeout=timeout) as response:
         length = response.headers.get("Content-Length")
     if length is None:
@@ -313,7 +313,7 @@ def make_progress(console: Console) -> Progress:
 def stream_download(target: DownloadTarget, *, progress: Progress, timeout: float) -> None:
     target.destination.parent.mkdir(parents=True, exist_ok=True)
     temporary_path = target.destination.with_suffix(f"{target.destination.suffix}.part")
-    request = Request(target.url, headers={"User-Agent": "lenscluster-catalog-downloader"})
+    request = Request(target.url, headers={"User-Agent": "kappaccino-catalog-downloader"})
 
     with urlopen(request, timeout=timeout) as response:
         total_header = response.headers.get("Content-Length")
@@ -399,7 +399,7 @@ WHERE rvz_redshift IS NOT NULL
     request = Request(
         SIMBAD_TAP_URL,
         data=body,
-        headers={"Content-Type": "application/x-www-form-urlencoded", "User-Agent": "lenscluster-catalog-downloader"},
+        headers={"Content-Type": "application/x-www-form-urlencoded", "User-Agent": "kappaccino-catalog-downloader"},
         method="POST",
     )
     with urlopen(request, timeout=timeout) as response:
@@ -655,7 +655,7 @@ def download_buffalo_images(
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Download external catalogs used by lenscluster.")
+    parser = argparse.ArgumentParser(description="Download external catalogs used by kappaccino.")
     parser.add_argument(
         "--catalog",
         choices=("pagul2024", "hff-redshifts", "buffalo-images"),

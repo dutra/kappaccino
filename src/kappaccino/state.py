@@ -1,7 +1,7 @@
 """Build the model state: parameter specs, lens components, families, images, member sites.
 
-:func:`build_state` turns a :class:`~lenscluster.config.LensClusterSolverConfig` into the
-:class:`~lenscluster.model.ModelState` that :class:`~lenscluster.evaluator.Evaluator` evaluates: it reads the declared
+:func:`build_state` turns a :class:`~kappaccino.config.LensClusterSolverConfig` into the
+:class:`~kappaccino.model.ModelState` that :class:`~kappaccino.evaluator.Evaluator` evaluates: it reads the declared
 lens model, member catalogs and image catalog, converts sky positions to arcsec offsets from the reference
 (:math:`x = (\\alpha_0 - \\alpha)\\cos\\delta_0 \\cdot 3600`, positive west; :math:`y = (\\delta - \\delta_0) \\cdot 3600`),
 and lays out the sampled parameters.  :func:`with_member_classes` changes which members are evaluated exactly and

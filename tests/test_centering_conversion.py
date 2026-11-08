@@ -8,11 +8,11 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from lenscluster import artifacts, pipeline, sampling
-from lenscluster.config import ImageDiagnosticsConfig, RuntimeConfig, SamplingConfig, SearchConfig
-from lenscluster.evaluator import Evaluator
-from lenscluster.search import chain_starts
-from lenscluster.state import build_state, convert_member_centering, with_member_classes
+from kappaccino import artifacts, pipeline, sampling
+from kappaccino.config import ImageDiagnosticsConfig, RuntimeConfig, SamplingConfig, SearchConfig
+from kappaccino.evaluator import Evaluator
+from kappaccino.search import chain_starts
+from kappaccino.state import build_state, convert_member_centering, with_member_classes
 
 
 def _offset_indices(state):
@@ -120,7 +120,7 @@ def test_chain_starts_and_hessian_use_the_converted_modes(synthetic_config, monk
 
 def test_a_misplaced_chain_start_is_reported(synthetic_config, monkeypatch, tmp_path):
     """With the conversion removed (the bug), the final stage warns that the chain starts are not the saved start."""
-    from lenscluster.sampling import hessian_seed_warning
+    from kappaccino.sampling import hessian_seed_warning
     config = replace(synthetic_config,
                      runtime=RuntimeConfig(seed=5, chains=2, nuts_chain_method="sequential", resume=True),
                      search=SearchConfig(nuts_start_max_iter=0, n_starts=4, member_starts=2, lbfgs_max_iter=30, polish_max_iter=20),

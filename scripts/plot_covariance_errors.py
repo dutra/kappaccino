@@ -11,7 +11,7 @@ def main():
     args = parser.parse_args()
     if args.draws < 0:
         parser.error('--draws must be nonnegative')
-    from lenscluster.covariance_plots import plot_covariance_errors
+    from kappaccino.covariance_plots import plot_covariance_errors
     print(plot_covariance_errors(*load_run(args.run_directory), draws=args.draws, plane=args.plane))
 
 

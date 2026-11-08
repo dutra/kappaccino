@@ -10,7 +10,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
-from lenscluster.plots import plot_scaling_relation
+from kappaccino.plots import plot_scaling_relation
 
 
 def main():

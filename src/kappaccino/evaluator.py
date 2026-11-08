@@ -21,7 +21,7 @@ BAD_LOG_LIKE = -1.0e30
 class Evaluator:
     """Evaluates deflections, Jacobians and the log-likelihood for a fixed member classification.
 
-    The evaluator wraps one :class:`~lenscluster.model.ModelState` and precomputes everything that does not depend on
+    The evaluator wraps one :class:`~kappaccino.model.ModelState` and precomputes everything that does not depend on
     the parameters (image positions, the far-field geometry of the members, catalog-member geometry at the images,
     and, for ``gp_image_plane``, the data part of the family covariance).  Its methods take either a latent
     parameter vector ``params`` (``theta``; one row of ``PosteriorResults.samples``) or the physical vector
@@ -35,10 +35,10 @@ class Evaluator:
     Parameters
     ----------
     state : ModelState
-        The model state (:func:`lenscluster.state.build_state`, or the ``state`` of a run result).
+        The model state (:func:`kappaccino.state.build_state`, or the ``state`` of a run result).
     likelihood : str, optional
         ``"smoothed"`` (local image-plane likelihood; default), ``"gp_image_plane"`` (correlated image-plane
-        displacements per family or block, see :mod:`lenscluster.gp_image_plane`), ``"source-isotropic"``
+        displacements per family or block, see :mod:`kappaccino.gp_image_plane`), ``"source-isotropic"``
         (source-plane Gaussian with variance :math:`\\sigma_\\mathrm{def}^2 + \\sigma_\\mathrm{meas}^2` per image
         and no Jacobian; cheap and biased, for searches only) or ``"source-anisotropic"`` (the source-plane Gaussian
         with the full per-image covariance, without the determinant factor).  Must match the likelihood the state
@@ -524,7 +524,7 @@ class Evaluator:
 
         Evaluated in jitted chunks so that large grids (figures, truth maps) never hold per-component arrays for every
         point.  Every component is evaluated exactly (no far-field series).  The lens Jacobian is
-        :math:`A = I - U`; :func:`lenscluster.truth_recovery.lens_quantities` derives convergence, shear and
+        :math:`A = I - U`; :func:`kappaccino.truth_recovery.lens_quantities` derives convergence, shear and
         magnification from it.
 
         Parameters

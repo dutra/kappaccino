@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from lenscluster.mock_validation.aggregate_plots import binned_magnification_summary, parameter_recovery_bins
+from kappaccino.mock_validation.aggregate_plots import binned_magnification_summary, parameter_recovery_bins
 
 
 def test_binned_means_weight_mocks_not_images():

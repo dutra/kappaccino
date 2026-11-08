@@ -1,10 +1,10 @@
 from types import SimpleNamespace
 import numpy as np
-from lenscluster.mass_figure import shared_grf_convergence
+from kappaccino.mass_figure import shared_grf_convergence
 
 
 def test_shared_grf_redshift_scaling_and_chunk_padding(monkeypatch):
-    from lenscluster import jax_cosmology
+    from kappaccino import jax_cosmology
     monkeypatch.setattr(jax_cosmology, 'dpie_sigma0_factor_from_config', lambda zl,z,c: z)
     def correction(x,y,f):
         # Family zero has weight 3: alpha_x=3*x^2, alpha_y=3*y^2.

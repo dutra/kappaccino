@@ -6,9 +6,9 @@ from dataclasses import replace
 
 import numpy as np
 
-from lenscluster import priors
-from lenscluster.config import MemberPopulationConfig, ScalingModelConfig
-from lenscluster.state import build_state
+from kappaccino import priors
+from kappaccino.config import MemberPopulationConfig, ScalingModelConfig
+from kappaccino.state import build_state
 
 
 def _population(synthetic_config, factory):

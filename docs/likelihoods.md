@@ -73,8 +73,8 @@ $\sigma_{\mathrm{shared}}$ and $\sigma_{\mathrm{white}}$; the slope $\gamma$ is 
 tables) frees it. The production fits use these settings:
 
 ```python
-from lenscluster.config import LikelihoodConfig
-from lenscluster.priors import truncated_lognormal
+from kappaccino.config import LikelihoodConfig
+from kappaccino.priors import truncated_lognormal
 
 grf_likelihood = LikelihoodConfig(
     likelihood_mode="gp_image_plane",

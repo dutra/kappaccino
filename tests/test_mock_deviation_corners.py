@@ -1,6 +1,6 @@
 import numpy as np
 from types import SimpleNamespace
-from lenscluster.mock_validation import deviation_corners as plots
+from kappaccino.mock_validation import deviation_corners as plots
 
 
 def test_standardized_draws_keep_bias_and_joint_correlation():

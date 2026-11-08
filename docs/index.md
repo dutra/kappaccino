@@ -29,7 +29,6 @@ configuration
 likelihoods
 pipeline
 outputs
-posterior
 mock-validation
 scripts
 ```
@@ -38,5 +37,6 @@ scripts
 :maxdepth: 2
 :caption: Reference
 
+posterior
 api/index
 ```

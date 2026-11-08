@@ -28,7 +28,7 @@ import jax.numpy as jnp
 import numpy as np
 from jax.scipy.linalg import solve_triangular
 from scipy.interpolate import CubicSpline
-from scipy.special import j0, j1
+from scipy.special import jv
 
 from .gp_image_plane import family_slots
 
@@ -109,11 +109,10 @@ def _knee_tables(*, r_max: float, r_step: float, lam_min: float, lam_max: float,
         weight = dlnk * np.broadcast_to(k[:, None, None] ** (-gam[None, :, None]), (k.size, gam.size, lam.size)).copy()
     weight /= weight.sum(axis=0, keepdims=True)
     weight = weight.reshape(k.size, gam.size * lam.size)
-    # J_2 from the recurrence J_2 = 2 J_1 / x - J_0 (J_2(0) = 0): scipy's j0 and j1 are about 15x faster than jv(n, x).
+    # jv rather than the faster j0/j1 recurrence (15x): the recurrence differs by ~1e-13, which is enough to move the
+    # init search to a different mode on some mocks; the cache in knee_tables already removes the repeated builds.
     kr = np.outer(r, k)
-    bessel_0 = j0(kr)
-    with np.errstate(invalid="ignore", divide="ignore"):
-        bessel_2 = np.where(kr > 0.0, 2.0 * j1(kr) / np.where(kr > 0.0, kr, 1.0) - bessel_0, 0.0)
+    bessel_0, bessel_2 = jv(0, kr), jv(2, kr)
     del kr
     c_l = ((bessel_0 - bessel_2) @ weight).reshape(r.size, gam.size, lam.size)
     c_t = ((bessel_0 + bessel_2) @ weight).reshape(r.size, gam.size, lam.size)

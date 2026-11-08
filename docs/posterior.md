@@ -65,20 +65,22 @@ chain by chain; `grouped_samples` keeps the chain axis.
 ## Large-scale components
 
 Names are `<id>.<field>`, with `<id>` the component's `id` (`DPIEHaloConfig.id` and the others); family `large`.
+"Sampled as" is the coordinate of `samples` under the default priors (`DPIEHaloConfig.cluster_scale`,
+`ShearHaloConfig.free`, the `.par` reader); a custom prior sets its own (see [Coordinates](#coordinates-and-units)).
 
-| field | unit | definition |
-|---|---|---|
-| `x_centre`, `y_centre` | arcsec | Centre of the component. |
-| `e1`, `e2` | — | Ellipticity $e(\cos 2\phi, \sin 2\phi)$ with $e = (1 - q)/(1 + q)$, $q$ the axis ratio of the convergence and $\phi$ the position angle (`angle_pos`). The Lenstool ellipticity is $(1 - q^2)/(1 + q^2)$. |
-| `core_radius_kpc` | kpc | dPIE core radius $r_\mathrm{core}$. |
-| `cut_excess_kpc` | kpc | dPIE cut radius above the effective core: $r_\mathrm{cut} = r_\mathrm{core,eff} + $ `cut_excess_kpc`, with $r_\mathrm{core,eff} = \sqrt{r_\mathrm{core}^2 + s^2}$ ($s$ the softening, zero by default). |
-| `v_disp` | km/s | dPIE velocity dispersion $\sigma$ (Lenstool's $\sigma_\mathrm{LT}$). The total mass is $M = \tfrac{3}{2}\pi \sigma^2 r_\mathrm{cut}/G$. |
-| `log10_m200` | log10($M_\odot$) | NFW mass within $r_{200}$ (200 times the critical density at the lens redshift). |
-| `scale_radius_kpc` | kpc | NFW scale radius. |
-| `gamma1`, `gamma2` | — | External shear $\gamma(\cos 2\phi, \sin 2\phi)$. |
-| `kappa` | — | Mass sheet: the convergence for a source at infinite redshift; a family at $z_s$ sees $\kappa\,D_{ls}/D_s$. |
+| field | unit (`physical`) | sampled as | definition |
+|---|---|---|---|
+| `x_centre`, `y_centre` | arcsec | arcsec | Centre of the component, in the offset frame above. |
+| `e1`, `e2` | dimensionless | dimensionless | Ellipticity $e(\cos 2\phi, \sin 2\phi)$ with $e = (1 - q)/(1 + q)$, $q$ the axis ratio of the convergence and $\phi$ the position angle (`angle_pos`, degrees). The Lenstool ellipticity is $(1 - q^2)/(1 + q^2)$. |
+| `core_radius_kpc` | kpc | ln(kpc) | dPIE core radius $r_\mathrm{core}$. |
+| `cut_excess_kpc` | kpc | ln(kpc) | dPIE cut radius above the effective core: $r_\mathrm{cut} = r_\mathrm{core,eff} + $ `cut_excess_kpc`, with $r_\mathrm{core,eff} = \sqrt{r_\mathrm{core}^2 + s^2}$ ($s$ the softening in kpc, zero by default). |
+| `v_disp` | km s$^{-1}$ | ln(km s$^{-1}$) | dPIE velocity dispersion $\sigma$ (Lenstool's $\sigma_\mathrm{LT}$). The total mass is $M = \tfrac{3}{2}\pi \sigma^2 r_\mathrm{cut}/G$ in $M_\odot$. |
+| `log10_m200` | log10($M_\odot$) | log10($M_\odot$) | NFW mass within $r_{200}$ (200 times the critical density at the lens redshift; no little $h$). |
+| `scale_radius_kpc` | kpc | as its prior | NFW scale radius. |
+| `gamma1`, `gamma2` | dimensionless | dimensionless | External shear $\gamma(\cos 2\phi, \sin 2\phi)$, $\phi$ in degrees. |
+| `kappa` | dimensionless | as its prior | Mass sheet: the convergence for a source at infinite redshift; a family at $z_s$ sees $\kappa\,D_{ls}/D_s$. |
 
-An independent member halo (`IndependentMemberHaloConfig`) has the dPIE fields under its `id`
+An independent member halo (`IndependentMemberHaloConfig`) has the dPIE fields, with the same units, under its `id`
 (default `independent_member_<population>_<catalog id>`).
 
 ## Member population
@@ -95,73 +97,80 @@ r_{\mathrm{cut},i} = r_\mathrm{cut}^\star \left(\frac{L_i}{L^\star}\right)^{\bet
 r_{\mathrm{core},i} = r_\mathrm{core}^\star \left(\frac{L_i}{L^\star}\right)^{\beta} e^{\delta\ln r_i},
 $$
 
-with $L_i / L^\star = 10^{-0.4\,(m_i - \mathrm{mag0})}$ in the population's band.
+with $L_i / L^\star = 10^{-0.4\,(m_i - \mathrm{mag0})}$ (magnitudes in the population's band, AB or as in the catalog).
 
-| field | unit | definition |
-|---|---|---|
-| `sigma` | km/s | $\sigma^\star$, the dispersion of a member at the pivot. |
-| `cutkpc` | kpc | $r_\mathrm{cut}^\star$. |
-| `corekpc` | kpc | $r_\mathrm{core}^\star$ (when `ScalingModelConfig.fit_corekpc`). |
-| `alpha_sigma` | — | $\alpha$. |
-| `beta_radius` | — | $\beta$. A constant mass-to-light ratio has $2\alpha + \beta = 1$; mock recovery reports $\gamma_{M/L} = 2\alpha + \beta - 1$ as `gamma_ml`. |
+| field | unit (`physical`) | sampled as | definition |
+|---|---|---|---|
+| `sigma` | km s$^{-1}$ | ln(km s$^{-1}$) | $\sigma^\star$, the dispersion of a member at the pivot. |
+| `cutkpc` | kpc | ln(kpc) | $r_\mathrm{cut}^\star$, the cut radius at the pivot. |
+| `corekpc` | kpc | ln(kpc) | $r_\mathrm{core}^\star$, the core radius at the pivot (when `ScalingModelConfig.fit_corekpc`). |
+| `alpha_sigma` | dimensionless | dimensionless | $\alpha$, the slope of $\ln\sigma$ in $\ln L$. |
+| `beta_radius` | dimensionless | dimensionless | $\beta$, the slope of $\ln r$ in $\ln L$. A constant mass-to-light ratio has $2\alpha + \beta = 1$; mock recovery reports $\gamma_{M/L} = 2\alpha + \beta - 1$ (dimensionless) as `gamma_ml`. |
 
 A field in `ScalingModelConfig.fixed_relation_fields` is held at its nominal value and has no column.
 
 ### Deviations from the relation
 
-| name | family | unit | definition |
+| name | unit (`physical`) | sampled as | definition |
 |---|---|---|---|
-| `<population>.velocity_log_scatter` | `member_velocity_scatter` | ln units | Scatter $s_\sigma$ of the dispersion deviations. |
-| `<population>.radius_log_scatter` | `member_velocity_scatter` | ln units | Scatter $s_r$ of the radius deviations (`member_deviation` `"sigma_rcut"` or `"mass_rcut"`). |
-| `<population>.<catalog id>.velocity_offset` | `member_scatter_offset` | — or ln units | The member's dispersion deviation, see below. |
-| `<population>.<catalog id>.radius_offset` | `member_scatter_offset` | — or ln units | The member's radius deviation, see below. |
-| `<population>.<catalog id>.shape_e1_offset`, `shape_e2_offset` | `member_shape_offset` | — | Unit offsets $u$ of the member's ellipticity from its light shape: $e = e_\mathrm{light} + s\,u$, $s$ = `member_shape_scatter`. |
+| `<population>.velocity_log_scatter` | dimensionless (standard deviation of $\ln\sigma$) | ln of the value | Scatter $s_\sigma$ of the dispersion deviations; a member typically sits within a factor $e^{\pm s_\sigma}$ of the relation. Family `member_velocity_scatter`. |
+| `<population>.radius_log_scatter` | dimensionless (standard deviation of $\ln r$) | ln of the value | Scatter $s_r$ of the radius deviations (`member_deviation` `"sigma_rcut"` or `"mass_rcut"`). Family `member_velocity_scatter`. |
+| `<population>.<catalog id>.velocity_offset` | dimensionless: unit offset $z$, or $\delta\ln\sigma$ if centered | same as `physical` | The member's dispersion deviation, see below. Family `member_scatter_offset`. |
+| `<population>.<catalog id>.radius_offset` | dimensionless: unit offset $z$, or $\delta\ln r$ if centered | same as `physical` | The member's radius deviation, see below. Family `member_scatter_offset`. |
+| `<population>.<catalog id>.shape_e1_offset`, `shape_e2_offset` | dimensionless (unit offset $u$) | same as `physical` | The member's ellipticity from its light shape: $e = e_\mathrm{light} + s\,u$, $s$ = `member_shape_scatter` (dimensionless). Family `member_shape_offset`. |
 
 An offset column holds a **unit offset** $z$ for most members, with deviation $\delta \ln \sigma = s_\sigma z$
-(likewise $\delta\ln r = s_r z$). For members sampled **centered** (chosen at init, listed in
-`init/artifacts/classification.json` as `centered_members` and in `member_scaling_relation.csv` as `centered`), it
-holds the deviation itself. The prior on $z$ is a Student-$t$ with `member_deviation_dof` degrees of freedom (default)
-or a normal. With `member_deviation="mass"` one deviation moves the dispersion and the radii together along the
-relation: $\delta\ln\sigma = \delta\,\alpha/(2\alpha+\beta)$ and $\delta\ln r = \delta\,\beta/(2\alpha+\beta)$.
-Far-field members' radius deviations do not act on the model when `radius_deviation_members="exact"` (the default),
-so their columns return the prior.
+(likewise $\delta\ln r = s_r z$), so the member's dispersion is $e^{s_\sigma z}$ times the relation's. For members
+sampled **centered** (chosen at init, listed in `init/artifacts/classification.json` as `centered_members` and in
+`member_scaling_relation.csv` as `centered`), it holds the deviation $\delta\ln\sigma$ (or $\delta\ln r$) itself. The
+prior on $z$ is a Student-$t$ with `member_deviation_dof` degrees of freedom (default) or a normal. With
+`member_deviation="mass"` one deviation $\delta$ moves the dispersion and the radii together along the relation:
+$\delta\ln\sigma = \delta\,\alpha/(2\alpha+\beta)$ and $\delta\ln r = \delta\,\beta/(2\alpha+\beta)$, so that
+$\delta\ln M = \delta$. Far-field members' radius deviations do not act on the model when
+`radius_deviation_members="exact"` (the default), so their columns return the prior.
 
-The physical properties of each member are in `member_scaling_relation.csv`: `v_disp_*` (km/s), `v_disp_scaling_*`
-(the relation's value without the deviation), `core_radius_kpc_*`, `cut_radius_kpc_*`, `log10_mass_msun_*` and the
-offsets, each as `_p16`, `_median`, `_p84` over the draws; `member_class` (`exact` or `far-field`) and `centered`.
-`member_diagnostics.csv` adds the deviations against their prior and population widths, the member's environment and
-its far-field error.
+The physical properties of each member are in `member_scaling_relation.csv`, each as `_p16`, `_median`, `_p84` over
+the draws: `v_disp_*` (km s$^{-1}$), `v_disp_scaling_*` (km s$^{-1}$, the relation's value without the deviation),
+`core_radius_kpc_*` and `cut_radius_kpc_*` (kpc), `log10_mass_msun_*` (log10 $M_\odot$, the dPIE total mass), the
+offsets (as above); `catalog_mag` (mag), `luminosity_ratio` ($L_i/L^\star$, dimensionless), `x_centre`, `y_centre`
+(arcsec), `member_class` (`exact` or `far-field`) and `centered`. `member_diagnostics.csv` adds the deviations against
+their prior and population widths, the member's environment and its far-field error (arcsec).
 
 ## Error model
 
-Names `images.<field>`, family `error_scale`. All lengths are arcsec in the image plane unless stated.
+Names `images.<field>`, family `error_scale`. Every scale is sampled as ln of its value (default priors).
 
-| field | likelihood | definition |
-|---|---|---|
-| `sigma_def` | `smoothed` | Isotropic deflection error per image, in the source plane. |
-| `sigma_extra` | `smoothed` | Measurement scatter added in quadrature to each image's catalog error $\sigma_\mathrm{inst}$. |
-| `sigma_sel` | `smoothed` | Feature-selection scatter in the source plane, weighted by the image's stretching. |
-| `lambda_sel` | `smoothed` | Dimensionless stretching scale of that weight. |
-| `sigma_shared` | `gp_image_plane` | Amplitude of the correlated image-plane displacement (the image-plane GP). |
-| `gp_ell` | `gp_image_plane` | Correlation length of that GP (absent when fixed). |
-| `sigma_white` | `gp_image_plane` | Independent image-plane scatter in quadrature with $\sigma_\mathrm{inst}$. |
-| `gp_sigma_alpha` | knee kernel | RMS deflection error per component of the unmodeled-mass field for a source at `gp_reference_redshift`. |
-| `gp_knee` | knee kernel | Knee wavelength $\lambda_t = 2\pi/k_t$ of the convergence spectrum (absent when fixed or for a power law). |
-| `gp_knee_gamma` | knee kernel | High-$k$ slope $\gamma$ of the spectrum (when sampled). |
-| `gp_sigma_alpha2`, `gp_knee2` | knee kernel, two-field spectra | The second field's amplitude and knee. |
-| `gp_knee_beta_low` | `broken_power_law` | Low-$k$ slope of the spectrum. |
+| field | likelihood | unit (`physical`) | sampled as | definition |
+|---|---|---|---|---|
+| `sigma_def` | `smoothed` | arcsec (source plane) | ln(arcsec) | Isotropic deflection error per image. |
+| `sigma_extra` | `smoothed` | arcsec (image plane) | ln(arcsec) | Measurement scatter added in quadrature to each image's catalog error $\sigma_\mathrm{inst}$. |
+| `sigma_sel` | `smoothed` | arcsec (source plane) | ln(arcsec) | Feature-selection scatter, weighted by the image's stretching. |
+| `lambda_sel` | `smoothed` | dimensionless (Jacobian eigenvalue) | ln of the value | Stretching scale of that weight: the selection variance is halved where an absolute eigenvalue of the lensing Jacobian equals it. |
+| `sigma_shared` | `gp_image_plane` | arcsec (image plane) | ln(arcsec) | Amplitude of the correlated image-plane displacement (the image-plane GP). |
+| `gp_ell` | `gp_image_plane` | arcsec | ln(arcsec) | Correlation length of that GP (absent when fixed). |
+| `sigma_white` | `gp_image_plane` | arcsec (image plane) | ln(arcsec) | Independent image-plane scatter in quadrature with $\sigma_\mathrm{inst}$. |
+| `gp_sigma_alpha` | knee kernel | arcsec (deflection) | ln(arcsec) | RMS deflection error per component of the unmodeled-mass field, for a source at `gp_reference_redshift`. |
+| `gp_knee` | knee kernel | arcsec | ln(arcsec) | Knee wavelength $\lambda_t = 2\pi/k_t$ of the convergence spectrum (absent when fixed or for a power law). |
+| `gp_knee_gamma` | knee kernel | dimensionless | dimensionless | High-$k$ slope $\gamma$ of the convergence spectrum (when sampled). |
+| `gp_sigma_alpha2` | knee kernel, two-field spectra | arcsec (deflection) | ln(arcsec) | The second field's RMS deflection error. |
+| `gp_knee2` | knee kernel, two-field spectra | arcsec | ln(arcsec) | The second field's knee wavelength. |
+| `gp_knee_beta_low` | `broken_power_law` | dimensionless | dimensionless | Low-$k$ slope of the convergence spectrum. |
 
 ## Sources
 
-`source.<family>.beta_x`, `source.<family>.beta_y` (family `source_position`): in `physical`, the **source position**
-of each family in arcsec, in the source plane and the same offset frame as the images. In `samples` they are the
-whitened offsets NUTS samples: the source given the lens is marginalized analytically, and these unit offsets map onto
-its conditional distribution (`smoothed_likelihood.transport_sources`). Use `physical` for source positions.
+| name | unit (`physical`) | sampled as | definition |
+|---|---|---|---|
+| `source.<family>.beta_x`, `source.<family>.beta_y` | arcsec (source plane, offset frame) | dimensionless whitened offset | The family's source position. Family `source_position`. |
+
+The source given the lens is marginalized analytically, and the sampled unit offsets map onto its conditional
+distribution (`smoothed_likelihood.transport_sources`); `physical` holds the resulting positions. Use `physical` for
+source positions; `samples` for these columns is not a position.
 
 ## Softening
 
-`softening_length.softening_length_kpc` (family `softening_length`, kpc): the resolution softening added in quadrature
-to every core, when `ScalingModelConfig.softening_length_prior` is set.
+| name | unit (`physical`) | sampled as | definition |
+|---|---|---|---|
+| `softening_length.softening_length_kpc` | kpc | ln(kpc) (a log-normal prior) | Resolution softening added in quadrature to every core, when `ScalingModelConfig.softening_length_prior` is set. Family `softening_length`. |
 
 ## Derived outputs
 
@@ -169,13 +178,13 @@ These are model evaluations at posterior draws, not new measurements.
 
 | file | content |
 |---|---|
-| `image_fit_quality.csv` | Per observed image: observed position, model position at the best fit and its 16th, 50th and 84th percentiles over draws, image-plane residual (arcsec), `image_recovery_status` (`recovered` or `not_recovered`), the family's produced, missing and extra image counts, magnification at the observed and at the model position. |
-| `posterior_image_residual_draws.csv` | Image-plane residual and magnification per draw and image. |
-| `model_magnification.csv` | Signed magnification per image, at the observed and the model position, best fit and percentiles. |
-| `image_count_recovery.csv` | Images produced, recovered, missing and extra per family. |
-| `fits/` | Convergence, shear, $\det A$ and magnification maps: posterior median and 16th and 84th percentiles. |
-| `conditional_field_maps.*` | Shared-field GRF runs: the conditional mean deflection field of the unmodeled mass at the best draw. |
-| `truth_recovery_m2d_aperture_profile.csv` | Simulated clusters: projected mass within apertures around the truth's peak, model against truth, over draws. |
+| `image_fit_quality.csv` | Per observed image: observed position and model position (arcsec) at the best fit and its 16th, 50th and 84th percentiles over draws, image-plane residual (arcsec), source redshift `z_source`, `image_recovery_status` (`recovered` or `not_recovered`), the family's produced, missing and extra image counts, signed magnification (dimensionless; negative for odd parity) at the observed and at the model position. |
+| `posterior_image_residual_draws.csv` | Image-plane residual (arcsec) and signed magnification (dimensionless) per draw and image. |
+| `model_magnification.csv` | Signed magnification (dimensionless) per image, at the observed and the model position (arcsec), best fit and percentiles. |
+| `image_count_recovery.csv` | Images produced, recovered, missing and extra per family (counts). |
+| `fits/` | Simulated clusters, on the truth map's grid: convergence $\kappa$, shear $\gamma$, $\det A$ and magnification $\mu$ maps (all dimensionless, for a source at `TruthRecoveryConfig.caustic_source_redshift`, default $z_s = 9$): posterior median and 16th and 84th percentiles. |
+| `conditional_field_maps.*` | Shared-field GRF runs, at the best draw and `reference_redshift`: convergence maps (dimensionless) of the parametric model (`parametric`), the field's conditional mean (`grf`) and their sum (`total`) on the `x`, `y` grid (arcsec); the mean deflection (`mean`, arcsec); and the field's spectrum (`P_kappa_arcsec2` in arcsec$^2$ at `k_arcsec_inverse` in arcsec$^{-1}$, `delta2_kappa` dimensionless). |
+| `truth_recovery_m2d_aperture_profile.csv` | Simulated clusters: projected mass within apertures (radius in arcsec) around the truth's peak, as summed convergence of model and truth and their ratio `m2d_ratio` (dimensionless) with its 16th–84th percentiles over draws. |
 
 The derived maps and magnifications of shared-field GRF runs include the conditional mean of the unmodeled-mass field
 at each draw; system- and family-block runs do not define one cluster-wide field. See {doc}`outputs` for every file and

@@ -23,7 +23,9 @@ priors, which stay as a weak regularizer. The deflection is the quantity the ima
 reported as well. L-BFGS on the same objective as the init search, two variants:
 
 - `relation`: the members on their scaling relation; tests the relation and the cluster-scale halos;
-- `free`: the member offsets free, as in the image fit; tests the model's full flexibility.
+- `free`: as the image fit, the offsets of the exact members free and the far-field members on the relation. The
+  members are classified at the `relation` fit by the pipeline's own rule (`pipeline.classify`), and the far-field
+  offsets pinned as `SamplingConfig(far_field_offsets="fixed")` pins them.
 
 A self-test (a truth made by the model itself, the fit started from shifted halos and shear) recovers the parameters
 and leaves a 0.02" rms residual, from interpolating the map at member cores.
@@ -37,7 +39,8 @@ and leaves a 0.02" rms residual, from interpolating the map at member cores.
   at $z_s = 9$, which shows what is missing: member halos, substructure, or the shape of the cluster halos.
 - **Image-plane floor.** The observed images are taken to the source plane through the fitted model; each image's
   offset from its family's mean source, mapped back by the model's inverse magnification (linearized), is the
-  image-plane error the best possible model would leave. The same through the true deflection is the catalog's own
+  image-plane error the best possible model would leave (median and 84th percentile: the linear mapping diverges
+  at critical curves). The same through the true deflection is the catalog's own
   scatter (`truth_catalog_floor`), the baseline no model can beat.
 - **The GRF check.** The residual deflection's longitudinal and transverse correlation functions against the knee
   prior's at its median scale, and its rms against the prior median of $\sigma_\alpha$: is the unmodeled mass as large,

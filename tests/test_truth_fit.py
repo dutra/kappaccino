@@ -57,7 +57,7 @@ def test_image_plane_floor_is_zero_for_a_consistent_lens():
     deflection = lambda xs, ys, z: np.array([[xi, yi] - lookup[(xi, yi)] for xi, yi in zip(xs, ys)])
     jacobian = lambda xs, ys, z: np.zeros((len(xs), 2, 2)) + 0.3 * np.eye(2)
     floor = image_plane_floor(state, deflection, jacobian)
-    assert floor["summary"]["image_plane_rms_arcsec"] < 1e-12
+    assert floor["summary"]["image_plane_p84_arcsec"] < 1e-12
     # move one image: its family's sources scatter, mapped back by A^-1 = I / 0.7
     shifted = lambda xs, ys, z: deflection(xs, ys, z) + np.where(np.isclose(xs, 10.0)[:, None], [0.7, 0.0], 0.0)
     floor = image_plane_floor(state, shifted, jacobian)

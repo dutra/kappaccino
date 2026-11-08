@@ -11,7 +11,10 @@ images cannot see: the sources absorb it) profiled out, and the model's priors k
 noise in the truth: sigma only sets the weight of the data against the priors.  Two variants:
 
 * ``relation``: the members on their scaling relation (their offsets held at 0); tests the relation;
-* ``free``: the member offsets free as in the image fit; tests the full flexibility.
+* ``free``: as the image fit, the offsets of the exact members free and the far-field members on the relation.  The
+  members are classified at the ``relation`` fit by the pipeline's own rule (``pipeline.classify``: exact when an image
+  lies within the far-field guard of the member or its ellipticity matters there), and the far-field offsets pinned
+  as ``SamplingConfig(far_field_offsets="fixed")`` pins them; it starts from the ``relation`` fit.
 
 What is reported for each (``truth_fit/<variant>/`` of the run directory):
 
@@ -159,8 +162,26 @@ def active_sites(state: ModelState, variant: str) -> set[str]:
     """The sample sites the variant fits: the lens (halos, shear, relation, softening), plus the member offsets for "free"."""
     if variant not in VARIANTS:
         raise ValueError(f"variant must be one of {VARIANTS}; got {variant!r}.")
+    from ..inference.sampling import FIXED_SITE_SUFFIX
     families = LENS_FAMILIES + (MEMBER_FAMILIES if variant == "free" else ())
-    return {spec.sample_site_name or spec.sample_name for spec in state.parameter_specs if spec.component_family in families}
+    sites = {spec.sample_site_name or spec.sample_name for spec in state.parameter_specs if spec.component_family in families}
+    return {site for site in sites if not site.endswith(FIXED_SITE_SUFFIX)}   # far-field offsets pinned at the relation
+
+
+def free_member_state(state: ModelState, evaluator, theta: np.ndarray, config, *, log=print) -> tuple[ModelState, dict[str, Any]]:
+    """The state classified at ``theta`` (pipeline.classify) with the far-field members' offsets moved to pinned sites,
+    as the "free" variant fits it, and the classification counts."""
+    from dataclasses import replace
+    from ..inference.sampling import split_offset_sites
+    from ..pipeline import _scaling_value, classify
+    physical = np.asarray(evaluator.physical(jnp.asarray(theta, dtype=jnp.float64)))
+    classified = classify(state, evaluator, theta, config, reference_cut_kpc=_scaling_value(state, physical, "cutkpc"),
+                          beta_radius=_scaling_value(state, physical, "beta_radius"), log=log)
+    specs, _ = split_offset_sites(list(classified.parameter_specs), np.asarray(theta, dtype=float)[None], classified,
+                                  dense_offset_members="all", far_field_offsets="fixed", log=log)
+    members = classified.members
+    counts = {"members": len(members.member_ids), "exact": len(members.exact_positions), "far_field": len(members.far_positions)}
+    return replace(classified, parameter_specs=specs), counts
 
 
 def fit_variant(state: ModelState, evaluator, truth: TruthDeflection, grid: dict, variant: str, *, start_theta: np.ndarray,
@@ -216,7 +237,8 @@ def deflection_metrics(evaluator, theta, truth: TruthDeflection, grid: dict) -> 
 
 def image_plane_floor(state: ModelState, deflection_at: callable, jacobian_at: callable) -> dict[str, Any]:
     """Image-plane scatter of each family's sources: beta_i = theta_i - alpha(theta_i) at the family's redshift, the
-    offset from the family's mean source mapped back by A_i^-1 (A = I - d alpha / d theta), linearized."""
+    offset from the family's mean source mapped back by A_i^-1 (A = I - d alpha / d theta), linearized.  The linear
+    mapping diverges at critical curves, so the summary gives the median and the 84th percentile, not an rms."""
     images = state.images
     x, y = np.asarray(images.x_obs, dtype=float), np.asarray(images.y_obs, dtype=float)
     z_of_image = np.asarray(state.z_source_values, dtype=float)[np.asarray(images.z_index_per_image)]
@@ -235,7 +257,7 @@ def image_plane_floor(state: ModelState, deflection_at: callable, jacobian_at: c
         offsets[sel] = np.einsum("nij,nj->ni", a_inverse[sel], delta)
     norm = np.hypot(offsets[:, 0], offsets[:, 1])
     return {"image_offsets_arcsec": norm, "labels": list(images.image_labels),
-            "summary": {"image_plane_rms_arcsec": float(np.sqrt(np.mean(norm ** 2))), "image_plane_median_arcsec": float(np.median(norm)),
+            "summary": {"image_plane_median_arcsec": float(np.median(norm)), "image_plane_p84_arcsec": float(np.percentile(norm, 84)),
                         "source_plane_rms_arcsec": float(np.sqrt(np.mean(source_scatter ** 2)))}}
 
 
@@ -336,10 +358,18 @@ def run_truth_fit(config, *, deflection_path: str | Path, kappa_path: str | Path
     families = [spec.component_family for spec in state.parameter_specs]
     reported = lambda theta: np.asarray(evaluator.reported_physical(jnp.asarray(theta, dtype=jnp.float64)))
     table = pd.DataFrame({"parameter": names, "family": families, "start": reported(state.initial_theta)})
-    thetas = {}
+    thetas, fits = {}, {}
+    if "relation" in variants or "free" in variants:
+        fits["relation"] = fit_variant(state, evaluator, truth, grid, "relation", start_theta=np.asarray(state.initial_theta),
+                                       sigma_arcsec=sigma_arcsec, max_iter=max_iter, extra_starts=extra_starts, log=log)
+    if "free" in variants:
+        free_state, counts = free_member_state(state, evaluator, fits["relation"]["theta"], config, log=log)
+        summary["member_classification"] = counts
+        fits["free"] = fit_variant(free_state, evaluator, truth, grid, "free", start_theta=fits["relation"]["theta"],
+                                   sigma_arcsec=sigma_arcsec, max_iter=max_iter, log=log)
+        log(f"[truth fit] free: offsets of the {counts['exact']} exact members free, the {counts['far_field']} far-field members on the relation")
     for variant in variants:
-        fit = fit_variant(state, evaluator, truth, grid, variant, start_theta=np.asarray(state.initial_theta), sigma_arcsec=sigma_arcsec,
-                          max_iter=max_iter, extra_starts=extra_starts, log=log)
+        fit = fits[variant]
         thetas[variant] = fit["theta"]
         metrics = deflection_metrics(evaluator, fit["theta"], truth, grid)
         floor = model_floor(evaluator, fit["theta"])
@@ -361,8 +391,9 @@ def run_truth_fit(config, *, deflection_path: str | Path, kappa_path: str | Path
                             kappa_residual=metrics["kappa_residual"], kappa_true=metrics["kappa_true"])
         plot_truth_fit(directory, grid, metrics, corr, prior, state, title=f"{config.paths.run_name or ''} {variant}")
         log(f"[truth fit] {variant}: deflection rms {metrics['summary']['rms_region_arcsec']:.3f}\" (region), "
-            f"{metrics['summary']['rms_at_images_arcsec']:.3f}\" (images); image-plane rms {floor['summary']['image_plane_rms_arcsec']:.3f}\" "
-            f"(catalog floor {baseline['summary']['image_plane_rms_arcsec']:.3f}\"); kappa rms {metrics['summary']['kappa_rms_residual_z9']:.3f}")
+            f"{metrics['summary']['rms_at_images_arcsec']:.3f}\" (images); image plane median {floor['summary']['image_plane_median_arcsec']:.3f}\", "
+            f"84% {floor['summary']['image_plane_p84_arcsec']:.3f}\" (catalog floor {baseline['summary']['image_plane_median_arcsec']:.3f}\", "
+            f"{baseline['summary']['image_plane_p84_arcsec']:.3f}\"); kappa rms {metrics['summary']['kappa_rms_residual_z9']:.3f}")
     if compare_theta is not None:
         compare_theta = np.asarray(compare_theta, dtype=float)
         metrics = deflection_metrics(evaluator, compare_theta, truth, grid)

@@ -7,10 +7,10 @@ import numpy as np
 import pandas as pd
 from astropy.wcs import WCS
 
-from lenscluster import covariance_cutouts as cc
-from lenscluster.evaluator import Evaluator
-from lenscluster.exact_images import ExactImageSolver
-from lenscluster.state import build_state
+from kappaccino import covariance_cutouts as cc
+from kappaccino.evaluator import Evaluator
+from kappaccino.exact_images import ExactImageSolver
+from kappaccino.state import build_state
 
 
 def test_quadratic_contour_linear_limit_and_curved_map():
@@ -70,7 +70,7 @@ def test_small_catalog_pdf_and_style(synthetic_config, tmp_path, monkeypatch):
 @pytest.mark.parametrize("cluster,missing_hst,expected", [("toy",False,1),("m0416",False,2),("as1063",True,1),("hera",False,1),("ares",False,1)])
 def test_output_reuses_loaded_imaging(monkeypatch, synthetic_config, tmp_path, cluster, missing_hst, expected):
     from dataclasses import replace
-    from lenscluster import outputs, cutouts, mass_figure, chain_traces
+    from kappaccino import outputs, cutouts, mass_figure, chain_traces
     config=replace(synthetic_config,paths=replace(synthetic_config.paths,run_name=cluster),image_catalog=replace(synthetic_config.image_catalog,image_dir='already-loaded'))
     state=SimpleNamespace(parameter_specs=[],reference=(3,0,0),z_lens=.3,z_source_values=[2.])
     posterior=SimpleNamespace(samples=np.zeros((1,1)),physical=np.zeros((1,1)),log_prob=np.zeros(1))
@@ -95,12 +95,12 @@ def test_output_reuses_loaded_imaging(monkeypatch, synthetic_config, tmp_path, c
     monkeypatch.setattr(cutouts,'load_cluster_imaging',load)
     monkeypatch.setattr(mass_figure,'render_cluster_mass_figure',lambda *a,**k:None)
     calls=[];monkeypatch.setattr(outputs,'write_covariance_cutouts',lambda *a,**k:calls.append(a[5]))
-    from lenscluster import image_position_contours
+    from kappaccino import image_position_contours
     monkeypatch.setattr(image_position_contours,"load_or_compute_contours",lambda *a,**k:None)
-    from lenscluster import small_lambda_jwst
+    from kappaccino import small_lambda_jwst
     lambda_calls=[]
     monkeypatch.setattr(small_lambda_jwst,'write_small_lambda_jwst',lambda *a,**k:lambda_calls.append(a))
-    from lenscluster import jwst_rgb_figure
+    from kappaccino import jwst_rgb_figure
     rgb_calls=[]
     monkeypatch.setattr(jwst_rgb_figure,'render_rgb_critical',lambda *a,**k:rgb_calls.append(a))
     fold_calls=[]; fold_renders=[]
@@ -118,9 +118,9 @@ def test_output_reuses_loaded_imaging(monkeypatch, synthetic_config, tmp_path, c
 
 def test_default_jwst_variants(synthetic_config):
     from dataclasses import replace
-    from lenscluster.cutouts import imaging_variants
-    from lenscluster.rgb import DEFAULT_JWST_RGB_BANDS
-    from lenscluster.config import RGBDisplayConfig
+    from kappaccino.cutouts import imaging_variants
+    from kappaccino.rgb import DEFAULT_JWST_RGB_BANDS
+    from kappaccino.config import RGBDisplayConfig
     for name in ['m0416_bergamini2023', 'as1063']:
         config = replace(synthetic_config, paths=replace(synthetic_config.paths, run_name=name))
         primary, jwst = imaging_variants(config)

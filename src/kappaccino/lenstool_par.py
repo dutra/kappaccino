@@ -131,7 +131,7 @@ def prior_from_limit(values: list, *, scale: float = 1.0, log: bool = False, flo
     ``dist.Uniform(low, high)``, flag 3 ``dist.Normal(mean, std)``, flag 9
     ``dist.TruncatedNormal(mean, std, low, high)``. With ``log=True`` (a positive
     quantity sampled in ln): flag 1 gives ``dist.LogUniform(max(low, floor),
-    high)``; flags 3 and 9 give :func:`~lenscluster.priors.lognormal_from_moments`
+    high)``; flags 3 and 9 give :func:`~kappaccino.priors.lognormal_from_moments`
     with that mean and standard deviation, truncated to ``[max(low, floor),
     high]`` for flag 9 and to ``normal_bounds`` (default ``(floor, None)``) for
     flag 3, whose entry has no bounds.
@@ -310,7 +310,7 @@ def config_from_lenstool_par(path: str | Path, *, image_catalog: str | Path | No
     """Build a solver configuration from the lens model of a Lenstool ``.par`` file.
 
     Reads the blocks listed in the module docstring and returns a
-    :class:`~lenscluster.config.LensClusterSolverConfig` with library defaults
+    :class:`~kappaccino.config.LensClusterSolverConfig` with library defaults
     elsewhere. Each ``potentiel`` block (``profil 81`` dPIE or ``profil 14``
     external shear) takes its priors from the ``limit`` block with the same id; a
     start value outside its limit is moved inside it. Radii given in arcsec are
@@ -323,11 +323,11 @@ def config_from_lenstool_par(path: str | Path, *, image_catalog: str | Path | No
     path : str or pathlib.Path
         The Lenstool ``.par`` file.
     image_catalog : str or pathlib.Path or None, optional
-        The YAML multiple-image catalog (see :mod:`lenscluster.image_catalog`).
+        The YAML multiple-image catalog (see :mod:`kappaccino.image_catalog`).
         None (default) uses the ``image`` block's ``multfile``, resolved relative
         to the ``.par`` file's directory, when it ends in ``.yaml`` or ``.yml``.
     member_catalog : str or pathlib.Path or None, optional
-        The cluster-member catalog (see :mod:`lenscluster.member_catalog`).
+        The cluster-member catalog (see :mod:`kappaccino.member_catalog`).
         None (default) uses the ``potfile`` block's ``filein``, resolved relative
         to the ``.par`` file's directory. Unused without a ``potfile`` block.
     output_dir : str or pathlib.Path, optional
@@ -393,7 +393,7 @@ def config_from_lenstool_par(path: str | Path, *, image_catalog: str | Path | No
             halos.append(_shear(potential_id, data, limit))
         else:
             raise ValueError(f"{path}: potentiel {potential_id} has profil {profile}; only dPIE (81) and shear (14) are read "
-                             "from .par files. Configure other profiles in Python (lenscluster.config).")
+                             "from .par files. Configure other profiles in Python (kappaccino.config).")
 
     image_block = first.get("image", {})
     if image_catalog is None:

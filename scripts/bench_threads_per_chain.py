@@ -45,9 +45,9 @@ def worker(args) -> None:
     import jax.numpy as jnp
     import numpy as np
     from dataclasses import replace
-    from lenscluster import artifacts
-    from lenscluster.evaluator import Evaluator
-    from lenscluster.state import build_state, with_member_classes
+    from kappaccino import artifacts
+    from kappaccino.evaluator import Evaluator
+    from kappaccino.state import build_state, with_member_classes
 
     init = Path(args.run) / "init" / "artifacts"
     config = artifacts.load_config(init)
@@ -83,7 +83,7 @@ def core_groups(n_chains: int, threads: int) -> list[list[int]]:
     if not hasattr(os, "sched_getaffinity"):
         return [[] for _ in range(n_chains)]           # no pinning on this platform (macOS): the OS schedules
     sys.path.insert(0, str(ROOT / "src"))
-    from lenscluster.cpu_runtime import _physical_core_order
+    from kappaccino.cpu_runtime import _physical_core_order
     order = list(_physical_core_order(sorted(os.sched_getaffinity(0))))
     return [order[k * threads:(k + 1) * threads] for k in range(n_chains)]
 

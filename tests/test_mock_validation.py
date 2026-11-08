@@ -8,13 +8,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from lenscluster.config import ImageDiagnosticsConfig, LensClusterSolverConfig, RuntimeConfig, SamplingConfig, ScalingModelConfig, SearchConfig, TruthRecoveryConfig
-from lenscluster.mock_validation import (MockConfig, MockValidationConfig, MockValidationPathsConfig, MockValidationRuntimeConfig, draw_truth,
+from kappaccino.config import ImageDiagnosticsConfig, LensClusterSolverConfig, RuntimeConfig, SamplingConfig, ScalingModelConfig, SearchConfig, TruthRecoveryConfig
+from kappaccino.mock_validation import (MockConfig, MockValidationConfig, MockValidationPathsConfig, MockValidationRuntimeConfig, draw_truth,
                                          generate_images, generate_mock, parameter_truth, run_mock_validation, solver_config_for_mock, write_aggregate_plots)
-from lenscluster.mock_validation.aperture import APERTURE_RADII_KPC, aperture_profiles, truth_groups
-from lenscluster.mock_validation.images import jacobian, lens_state
-from lenscluster import priors
-from lenscluster.state import build_state
+from kappaccino.mock_validation.aperture import APERTURE_RADII_KPC, aperture_profiles, truth_groups
+from kappaccino.mock_validation.images import jacobian, lens_state
+from kappaccino import priors
+from kappaccino.state import build_state
 
 SMALL = MockConfig(seed=7, n_members=12, n_primary_families=4, n_member_families=1, unmodelled_members=2, sigma_def_arcsec=0.03)
 
@@ -110,7 +110,7 @@ def test_campaign_end_to_end_scores_only_parameters_with_a_truth(tmp_path):
         assert column in magnification, column
     recovered = magnification[magnification["image_recovery_status"] == "recovered"]
     assert np.isfinite(recovered["magnification_true_at_model_position"]).all() and np.isfinite(recovered["magnification_model_at_model_position"]).all()
-    from lenscluster.mock_validation.aggregate_plots import load_campaign
+    from kappaccino.mock_validation.aggregate_plots import load_campaign
     everything = load_campaign(recovery_dirs[0].parent.parent, converged_only=False)       # a short test chain rarely converges
     assert len(everything.seeds) == 1 and "converged" in everything.summary
     outputs = write_aggregate_plots(recovery_dirs[0].parent.parent)
@@ -169,8 +169,8 @@ def test_injected_noise_is_drawn_per_realization_and_is_the_white_scatter_truth(
 def test_fisher_precheck_matches_the_white_noise_closed_form(tmp_path):
     """With white noise alone, the restricted Fisher information on ln sigma_white is about 2 per degree of freedom left
     after the source positions (I = 2 (n - p), up to the 1 mas and 1.5 mas floors)."""
-    from lenscluster.config import LikelihoodConfig
-    from lenscluster.mock_validation.fisher import hyperparameter_fisher
+    from kappaccino.config import LikelihoodConfig
+    from kappaccino.mock_validation.fisher import hyperparameter_fisher
     config = replace(SMALL, sigma_def_arcsec=0.0, n_knotted_families=1, sigma_inst_arcsec=0.1)
     paths = generate_mock(tmp_path / "mock", config, 7)
     truth = json.loads(paths.truth.read_text())

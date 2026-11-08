@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 import numpy as np
-from lenscluster.block_corner import posterior_corner_data, write_posterior_block_corner, BLOCK_COLORS
+from kappaccino.block_corner import posterior_corner_data, write_posterior_block_corner, BLOCK_COLORS
 
 
 def spec(name, family='large', field='v_disp', log=False):

@@ -8,9 +8,9 @@ import numpy as np
 
 import numpyro.distributions as dist
 
-from lenscluster import priors
-from lenscluster.evaluator import Evaluator
-from lenscluster.state import build_state
+from kappaccino import priors
+from kappaccino.evaluator import Evaluator
+from kappaccino.state import build_state
 
 
 def test_sigma_extra_adds_in_quadrature_to_sigma_inst(synthetic_config):

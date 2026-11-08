@@ -9,10 +9,10 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from lenscluster import artifacts, pipeline
-from lenscluster.config import ImageDiagnosticsConfig, RuntimeConfig, SamplingConfig, SearchConfig
-from lenscluster.evaluator import Evaluator
-from lenscluster.state import build_state
+from kappaccino import artifacts, pipeline
+from kappaccino.config import ImageDiagnosticsConfig, RuntimeConfig, SamplingConfig, SearchConfig
+from kappaccino.evaluator import Evaluator
+from kappaccino.state import build_state
 
 
 def _fast(config):
@@ -68,7 +68,7 @@ def test_single_stage_end_to_end(synthetic_config):
 
 
 def test_far_field_barrier_is_finite_smooth_and_pushes_back(synthetic_config):
-    from lenscluster.state import with_member_classes
+    from kappaccino.state import with_member_classes
     state = build_state(synthetic_config)
     state = with_member_classes(state, np.asarray([0, 1], dtype=np.int32), {"exact_count": 2, "mandatory_count": 2})   # two far-field members
     evaluator = Evaluator(state)
@@ -99,7 +99,7 @@ def test_far_field_barrier_is_finite_smooth_and_pushes_back(synthetic_config):
 def test_gp_image_plane_end_to_end(synthetic_config):
     """The gp likelihood runs through both stages: sigma_img is the only error scale, the shallow-pair check is written,
     the sources are the family conditional, and the outputs exist."""
-    from lenscluster.config import LikelihoodConfig
+    from kappaccino.config import LikelihoodConfig
     config = _fast(replace(synthetic_config, likelihood=LikelihoodConfig(likelihood_mode="gp_image_plane")))
     result = pipeline.run(config)
     state, evaluator, posterior = result.state, result.evaluator, result.posterior

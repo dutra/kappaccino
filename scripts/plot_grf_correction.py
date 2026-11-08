@@ -15,11 +15,11 @@ def main():
     matplotlib.use('Agg')
     import numpy as np
     import pandas as pd
-    from lenscluster.field_plots import render_grf_correction
-    from lenscluster.member_catalog import load_member_catalog
-    from lenscluster.sky import radec_to_offsets_arcsec
-    from lenscluster.jwst_rgb_figure import marker_photometry
-    from lenscluster.utils import log10_dpie_mass_msun
+    from kappaccino.field_plots import render_grf_correction
+    from kappaccino.member_catalog import load_member_catalog
+    from kappaccino.sky import radec_to_offsets_arcsec
+    from kappaccino.jwst_rgb_figure import marker_photometry
+    from kappaccino.utils import log10_dpie_mass_msun
     final = args.run_directory.resolve() / 'final'
     source = final / 'tables/conditional_field_maps.npz'
     config = json.loads((final / 'artifacts/config.json').read_text())
@@ -47,7 +47,7 @@ def main():
     images = pd.read_csv(final / 'tables/image_fit_quality.csv')
     np.testing.assert_allclose(images[['x_obs_arcsec','y_obs_arcsec']].to_numpy(),data['xy'],atol=1e-9)
     photometry = marker_photometry(images,reference,
-        Path(__file__).resolve().parents[1]/'src/lenscluster/data/m0416_image_f200w_photometry.csv')
+        Path(__file__).resolve().parents[1]/'src/kappaccino/data/m0416_image_f200w_photometry.csv')
     data['image_sizes'] = photometry.marker_area_pt2.to_numpy()
     with np.load(final / 'tables/member_diagnostic_draws.npz') as archive:
         deviations = archive['deviations'][int(data['draw_index'])]

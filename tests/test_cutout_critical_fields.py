@@ -1,6 +1,6 @@
 from types import SimpleNamespace as NS
 import numpy as np
-from lenscluster.cutout_critical_fields import median_cutout_determinants
+from kappaccino.cutout_critical_fields import median_cutout_determinants
 
 
 def test_redshifts_median_and_cache(tmp_path):

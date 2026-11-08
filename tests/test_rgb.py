@@ -8,11 +8,11 @@ from typing import Any
 import numpy as np
 import pytest
 
-from lenscluster import rgb
+from kappaccino import rgb
 
 
 def _load_literature_cutout_plotter() -> Any:
-    from lenscluster import cutouts
+    from kappaccino import cutouts
     return cutouts
 
 

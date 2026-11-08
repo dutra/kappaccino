@@ -88,7 +88,7 @@ def averaging():
     return fig,checks
 
 def main():
-    OUT.mkdir(parents=True,exist_ok=True);plt.style.use(ROOT/'src/lenscluster/style.mplstyle');plt.rcParams.update(PAPER_STYLE)
+    OUT.mkdir(parents=True,exist_ok=True);plt.style.use(ROOT/'src/kappaccino/style.mplstyle');plt.rcParams.update(PAPER_STYLE)
     f1,c1=pair();f2=field();f3,c3=averaging()
     assert np.allclose(corr(0),[1,1])
     with PdfPages(OUT/'covariance_intuition_all.pdf') as pdf:

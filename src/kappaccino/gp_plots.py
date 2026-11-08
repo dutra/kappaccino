@@ -169,7 +169,7 @@ KNEE_SCALE_SITES = (('images.gp_sigma_alpha', 'Mass-field deflection error', r'$
 def plot_scale_posteriors(state, posterior, output, sites=DEFAULT_SCALE_SITES):
     """Posterior against prior for each sampled image-error site present in the state; ``sites`` lists (name, description,
     symbol, display factor, unit)."""
-    from lenscluster.corner_plots import DisplayPrior
+    from kappaccino.corner_plots import DisplayPrior
     names=[p.name for p in state.parameter_specs]
     sites=[site for site in sites if site[0] in names]
     fig,axes=plt.subplots(1,len(sites),figsize=(6.5*len(sites),6.8))
@@ -201,7 +201,7 @@ def plot_scale_posteriors(state, posterior, output, sites=DEFAULT_SCALE_SITES):
 def plot_knee_kernel(state, evaluator, posterior, output):
     """Longitudinal and transverse correlations of the fitted mass field (median knee wavelength) and the image-plane GP
     kernel, against separation, with the same-image-pair separations of the catalog marked."""
-    from lenscluster.gp_knee import knee_curves
+    from kappaccino.gp_knee import knee_curves
     names=[p.name for p in state.parameter_specs]
     med=lambda n: float(np.median(posterior.physical[:,names.index(n)])) if n in names else None
     lam, ell, slope = med('images.gp_knee'), med('images.gp_ell'), med('images.gp_knee_gamma')

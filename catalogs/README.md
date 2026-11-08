@@ -4,8 +4,8 @@ The image and member catalogs the pipeline reads, one folder per cluster and per
 
 ```
 catalogs/<cluster>/<source>/
-    images.yaml          multiple images (format lenscluster-images/1, src/lenscluster/image_catalog.py)
-    members.yaml|.cat    cluster members (src/lenscluster/member_catalog.py)
+    images.yaml          multiple images (format lenscluster-images/1, src/kappaccino/image_catalog.py)
+    members.yaml|.cat    cluster members (src/kappaccino/member_catalog.py)
     README.*             the source's own notes
     source/              the published files the YAML was converted from (Lenstool catalogs, par files, MAST tables)
     history/             earlier versions of the YAML kept for the record (before the parity edit, before the light shapes)

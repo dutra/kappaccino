@@ -11,8 +11,8 @@ import jax
 jax.config.update('jax_enable_x64', True)
 import jax.numpy as jnp
 from scipy.linalg import cho_solve, block_diag
-from lenscluster import artifacts, gp_knee
-from lenscluster.mock_validation.field import field_arrays, field_alpha_hessian_tiled
+from kappaccino import artifacts, gp_knee
+from kappaccino.mock_validation.field import field_arrays, field_alpha_hessian_tiled
 from make_shared_grf_map import _evaluator
 
 
@@ -73,7 +73,7 @@ def run(seed,output,draw_count,step):
     rng=np.random.default_rng(20261106)
     radii=np.asarray(e.gp_tables['r_grid'])
     median_physical=np.median(posterior.physical,axis=0)
-    from lenscluster.model import convert_theta_to_latent
+    from kappaccino.model import convert_theta_to_latent
     median_theta=convert_theta_to_latent(median_physical,state.parameter_specs)
     ix=np.asarray(state.images.source_x_param_index);iy=np.asarray(state.images.source_y_param_index)
     median_theta[ix]=0.;median_theta[iy]=0.
@@ -140,8 +140,8 @@ if __name__=='__main__':
     out=a.campaign/'aggregate_plots';out.mkdir(exist_ok=True)
     for path in sorted(a.campaign.glob('seed_*/recovery/recovery.json')):run(path.parents[1],out,a.draws,a.step)
 
-    from lenscluster.mock_validation.aggregate_plots import load_campaign
-    from lenscluster.mock_validation.field_recovery_plots import plot_field_recovery
+    from kappaccino.mock_validation.aggregate_plots import load_campaign
+    from kappaccino.mock_validation.field_recovery_plots import plot_field_recovery
     try: campaign=load_campaign(a.campaign)
     except ValueError: campaign=load_campaign(a.campaign,converged_only=False)
     print(plot_field_recovery(campaign,out))

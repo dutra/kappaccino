@@ -4,7 +4,7 @@ jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 import numpy as np
 
-from lenscluster import jax_lensing
+from kappaccino import jax_lensing
 
 
 def _reference(x, y, sigma0, a, b, e1, e2, cx, cy):

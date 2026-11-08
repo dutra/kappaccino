@@ -13,7 +13,7 @@ members.cat   = the published member catalogue (clugal, 212 members) in the repo
                 8971 as its own halo (potential 6); its position here is that halo's centre, (13.33912", 2.62495") from the CANUCS
                 reference. Its F160W magnitude, 19.6191, is from the Bergamini et al. photometry that every clugal magnitude copies.
 
-members.yaml  = members.cat as a YAML member catalog (src/lenscluster/member_catalog.py; scripts/convert_member_catalog.py), the
+members.yaml  = members.cat as a YAML member catalog (src/kappaccino/member_catalog.py; scripts/convert_member_catalog.py), the
                 one run.xsh M0416_CANUCS2025 reads: band F160W, the two BCGs (2526 NE, 3158 SW) with role bcg, and the
                 MUSE stellar velocity dispersions of 52 members (sigma_ap in a 0.8" aperture) from granata2026_m0416_kinematics.txt,
                 matched by position within 0.6" (median 0.24"). Members with kinematics are protected from the impact cut.

@@ -21,8 +21,8 @@ import numpy as np
 import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from lenscluster.image_catalog import load_image_catalog, write_image_catalog  # noqa: E402
-from lenscluster.sky import radec_to_offsets_arcsec  # noqa: E402
+from kappaccino.image_catalog import load_image_catalog, write_image_catalog  # noqa: E402
+from kappaccino.sky import radec_to_offsets_arcsec  # noqa: E402
 
 
 def separations(a: dict, b: dict, dec0: float) -> list[float]:

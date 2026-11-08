@@ -5,8 +5,8 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from lenscluster.evaluator import Evaluator
-from lenscluster.state import build_state, with_member_classes
+from kappaccino.evaluator import Evaluator
+from kappaccino.state import build_state, with_member_classes
 
 SCATTER = 0.1
 

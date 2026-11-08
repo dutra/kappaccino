@@ -46,7 +46,7 @@ for import_path in (REPO_ROOT / "src",):
     if str(import_path) not in sys.path:
         sys.path.insert(0, str(import_path))
 
-from lenscluster.rgb import (  # noqa: E402
+from kappaccino.rgb import (  # noqa: E402
     CALIBRATED_RGB_MINIMUM_SKY_SIGMA,
     DEFAULT_HFF_RGB_BANDS,
     DEFAULT_HFF_RGB_CHANNEL_GAINS,

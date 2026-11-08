@@ -28,10 +28,10 @@ from matplotlib.backends.backend_pdf import PdfPages  # noqa: E402
 from matplotlib.patches import Circle  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from lenscluster.cutouts import (build_rgb_display, cutout_window, find_rgb_band_paths, load_band_images,  # noqa: E402
+from kappaccino.cutouts import (build_rgb_display, cutout_window, find_rgb_band_paths, load_band_images,  # noqa: E402
                                  rgb_cutout, rgb_reference_band)
-from lenscluster.image_catalog import load_image_catalog  # noqa: E402
-from lenscluster.sky import radec_to_offsets_arcsec  # noqa: E402
+from kappaccino.image_catalog import load_image_catalog  # noqa: E402
+from kappaccino.sky import radec_to_offsets_arcsec  # noqa: E402
 
 # Categorical slots 1-6 of the dataviz reference palette, dark-surface steps (the stamps are dark sky); fixed order.
 KNOT_COLORS = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#f0efec"]

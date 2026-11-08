@@ -1,4 +1,4 @@
-"""Image-domain utilities for lenscluster."""
+"""Image-domain utilities for kappaccino."""
 
 from .photometry import (
     BandPhotometryConfig,

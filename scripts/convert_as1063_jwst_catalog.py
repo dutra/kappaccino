@@ -1,6 +1,6 @@
 """Build AS1063 YAML catalogs from the archived Diego table and Beauchesne FITS.
 
-Run with the project's lenscluster/lenstronomy interpreter. No network or sampling.
+Run with the project's kappaccino/lenstronomy interpreter. No network or sampling.
 The input table retains all ranks, flags and model-derived quantities; only measured
 positions with spectroscopic redshifts enter images.yaml. See the catalog README.
 """
@@ -14,8 +14,8 @@ from astropy.io import fits
 from astropy.wcs import WCS
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
-from lenscluster.image_catalog import write_image_catalog, load_image_catalog
-from lenscluster.member_catalog import write_member_catalog, load_member_catalog
+from kappaccino.image_catalog import write_image_catalog, load_image_catalog
+from kappaccino.member_catalog import write_member_catalog, load_member_catalog
 
 ROOT = Path(__file__).resolve().parents[1]
 DEST = ROOT / 'catalogs/as1063/diego2026'

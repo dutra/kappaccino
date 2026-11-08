@@ -1,4 +1,4 @@
-"""Angle and coordinate-frame conversions matching the lenscluster solver.
+"""Angle and coordinate-frame conversions matching the kappaccino solver.
 
 The solver's curved-arc-basis (CAB) likelihood evaluates observed tangent
 angles in a tangent-plane offsets frame anchored at a reference point
@@ -7,8 +7,8 @@ angles in a tangent-plane offsets frame anchored at a reference point
     x_arcsec = (ra0 - ra) * cos(dec0) * 3600        (x increases WESTWARD)
     y_arcsec = (dec - dec0) * 3600                  (y increases northward)
 
-(the convention of ``lenscluster.sky.radec_to_offsets_arcsec``, re-derived here
-so arctrace does not depend on lenscluster). The predicted
+(the convention of ``kappaccino.sky.radec_to_offsets_arcsec``, re-derived here
+so arctrace does not depend on kappaccino). The predicted
 tangent angle is ``atan2(t_y, t_x)`` in this frame and is compared axially
 (mod pi).
 

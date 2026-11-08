@@ -1,6 +1,6 @@
 # Quickstart
 
-A fit is described by one {class}`~lenscluster.config.LensClusterSolverConfig` and run in two stages: **init** (a
+A fit is described by one {class}`~kappaccino.config.LensClusterSolverConfig` and run in two stages: **init** (a
 multi-start MAP search for the posterior mode) and **final** (NUTS from that mode, then tables and figures). There are
 two ways to build the configuration: from a Lenstool parameter file, or directly in Python.
 
@@ -10,7 +10,7 @@ NUTS runs one chain per JAX CPU device. Set the devices at the top of your scrip
 (reading a `.par` file does, to convert arcseconds to kpc):
 
 ```python
-from lenscluster.cpu_runtime import configure_cpu_runtime
+from kappaccino.cpu_runtime import configure_cpu_runtime
 
 configure_cpu_runtime(4, "parallel")    # 4 chains, matching RuntimeConfig.chains (default 4)
 ```
@@ -18,10 +18,10 @@ configure_cpu_runtime(4, "parallel")    # 4 chains, matching RuntimeConfig.chain
 ## Option 1: from a Lenstool `.par` file
 
 If you already have a Lenstool model, read its halos, priors, member population and cosmology with
-{func}`~lenscluster.lenstool_par.config_from_lenstool_par`:
+{func}`~kappaccino.lenstool_par.config_from_lenstool_par`:
 
 ```python
-from lenscluster.lenstool_par import config_from_lenstool_par
+from kappaccino.lenstool_par import config_from_lenstool_par
 
 config = config_from_lenstool_par(
     "catalogs/as1063/bergamini2019/source/Bergamini_RXCJ2248_lenstool_Normal.par",
@@ -39,7 +39,7 @@ The solver reads multiple images from a YAML catalog, so convert a Lenstool `mul
 Build the lens model from the configuration classes:
 
 ```python
-from lenscluster.config import (
+from kappaccino.config import (
     CosmologyConfig, DPIEHaloConfig, ImageConstraintsConfig, LensClusterSolverConfig, LensModelConfig,
     MemberPopulationConfig, ReferenceFrameConfig, RunPathsConfig, ShearHaloConfig,
 )
@@ -69,7 +69,7 @@ option.
 ## Run the fit
 
 ```python
-from lenscluster.pipeline import dry_run, run
+from kappaccino.pipeline import dry_run, run
 
 print(dry_run(config))                  # model size, member classification, search and sampling sizes
 result = run(config)                    # init + final
@@ -83,7 +83,7 @@ compute. For a quick look, shorten the search and the chains first:
 
 ```python
 from dataclasses import replace
-from lenscluster.config import SamplingConfig, SearchConfig
+from kappaccino.config import SamplingConfig, SearchConfig
 
 quick = replace(config, search=SearchConfig(n_starts=32), sampling=SamplingConfig(warmup=150, samples=100))
 ```

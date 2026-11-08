@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from lenscluster.results_tex import command_prefix, duration, write_run_results, write_mock_results
+from kappaccino.results_tex import command_prefix, duration, write_run_results, write_mock_results
 
 
 @pytest.mark.parametrize('name,expected', [('ares','Ares'), ('hera','Hera'), ('MJ0416','MJZeroFourOneSix'), ('as1063','ASOneZeroSixThree'), ('cluster-2','ClusterTwo')])
@@ -93,7 +93,7 @@ def test_mock_export(tmp_path):
 
 
 def test_member_table_uses_joint_deviation_draws(tmp_path):
-    from lenscluster.results_tex import m0416_table_metrics, interval
+    from kappaccino.results_tex import m0416_table_metrics, interval
     final = tmp_path / 'final'
     (final / 'tables').mkdir(parents=True)
     (final / 'artifacts').mkdir()

@@ -1,4 +1,4 @@
-"""Typed configuration of a lenscluster run.
+"""Typed configuration of a kappaccino run.
 
 A run is described by one :class:`LensClusterSolverConfig`, which groups the lens model
 (:class:`LensModelConfig`: reference frame, cosmology, cluster-scale halos, member populations and image
@@ -16,7 +16,7 @@ Image-plane coordinates are offsets in arcsec from the reference point of :class
 the +x axis toward +y.
 
 Priors are ``numpyro.distributions`` objects of the physical value of each sampled quantity (see
-:mod:`lenscluster.priors`).  A prior transformed by ``exp`` (``dist.LogNormal``, ``dist.LogUniform``,
+:mod:`kappaccino.priors`).  A prior transformed by ``exp`` (``dist.LogNormal``, ``dist.LogUniform``,
 ``priors.truncated_lognormal``, ``priors.lognormal_from_moments``) is sampled as the natural log of the value; any
 other supported prior (``dist.Uniform``, ``dist.Normal``, ``dist.TruncatedNormal``, ``dist.StudentT``) is sampled as
 the value itself.  Creating one of the exp-transformed priors starts JAX, so call
@@ -408,7 +408,7 @@ class MemberPopulationConfig:
     id : str
         Name of the population; must be unique.
     catalog_path : str or pathlib.Path
-        Member catalog: a YAML catalog (``.yaml``/``.yml``, see ``lenscluster.member_catalog``) or a Lenstool potfile
+        Member catalog: a YAML catalog (``.yaml``/``.yml``, see ``kappaccino.member_catalog``) or a Lenstool potfile
         (``.cat``).  Must exist.  Members with catalog ``treatment`` ``exclude`` are left out of the model.
     mag0 : float or str
         Pivot magnitude :math:`m_0` (mag, in the relation's band) at which ``sigma``, ``cutkpc``, ``corekpc`` and their
@@ -556,7 +556,7 @@ class ImageConstraintsConfig:
     Parameters
     ----------
     catalog_path : str or pathlib.Path
-        YAML image catalog (see ``lenscluster.image_catalog``); convert Lenstool files with
+        YAML image catalog (see ``kappaccino.image_catalog``); convert Lenstool files with
         ``scripts/convert_lenstool_catalog.py``.  Must exist.
     sigma_inst_arcsec : float, optional
         Astrometric error :math:`\\sigma_{inst}`, in arcsec, of images whose catalog entry (and the catalog's
@@ -891,6 +891,23 @@ class MemberConfig:
     min_deflection_arcsec : float or None, optional
         Drop members whose deflection at every image, at the initial model, is below this, in arcsec.  Members with the
         catalog ``keep`` flag or with kinematics are kept.  None (or 0) drops none.  Default None.
+    membership : str, optional
+        ``"fixed"`` (every catalog member is a member; the catalog ``p_member`` is ignored) or ``"marginalize"``: each
+        member :math:`i` has a membership indicator :math:`z_i \\sim \\mathrm{Bernoulli}(p_i)` that the likelihood sums
+        over.  Uncertain exact members (at most ``membership_max_enumerated``, highest classification score first) are enumerated
+        exactly, so the images update their membership; every other uncertain member enters with its expected mass
+        :math:`p_i` and the deflection covariance :math:`p_i(1-p_i)\\,\\alpha_i\\alpha_i^T` (docs: Likelihoods,
+        Uncertain membership).  Default ``"fixed"``.
+    membership_default_probability : float, optional
+        Prior :math:`p_i` of a member without a catalog ``p_member`` that is not spectroscopically confirmed (a
+        ``z`` of kind ``spec``, kinematics, or role ``bcg`` all give :math:`p_i = 1`).  In (0, 1].  Default ``1.0``.
+    membership_max_enumerated : int, optional
+        Most uncertain exact members whose indicators are summed exactly; the likelihood costs :math:`2^K` evaluations
+        for :math:`K` of them.  Nonnegative.  Default ``4``.
+    membership_calibration_prior : numpyro distribution or None, optional
+        Prior of a global shift :math:`\\delta` of the classifier's log-odds, :math:`\\mathrm{logit}\\,p_i' =
+        \\mathrm{logit}\\,p_i + \\delta` for every uncertain member (for example ``dist.Normal(0.0, 1.0)``), which
+        corrects an over- or under-confident classifier.  None (default) keeps the catalog probabilities.
     """
     classification_prior_quantile: float | None = 0.975
     centering: str = "none"                 # "none" since 2026-11-03
@@ -903,6 +920,10 @@ class MemberConfig:
     far_field_barrier_width: float = 0.05
     far_field_barrier_strength: float = 25.0
     min_deflection_arcsec: float | None = None
+    membership: str = "fixed"
+    membership_default_probability: float = 1.0
+    membership_max_enumerated: int = 4
+    membership_calibration_prior: Any = None
 
 
 @dataclass(frozen=True)
@@ -1556,7 +1577,7 @@ class PartitionConfig:
 
 @dataclass(frozen=True)
 class LensClusterSolverConfig:
-    """Complete configuration of a lenscluster run.
+    """Complete configuration of a kappaccino run.
 
     Parameters
     ----------
@@ -1770,6 +1791,15 @@ def validate_config(config: LensClusterSolverConfig) -> None:
         raise ValueError("members.top_exact must be a nonnegative integer or None.")
     if members.min_deflection_arcsec is not None:
         _positive("members.min_deflection_arcsec", members.min_deflection_arcsec)
+    if members.membership not in {"fixed", "marginalize"}:
+        raise ValueError("members.membership must be 'fixed' or 'marginalize'.")
+    if not 0.0 < float(members.membership_default_probability) <= 1.0:
+        raise ValueError("members.membership_default_probability must lie in (0, 1].")
+    if (isinstance(members.membership_max_enumerated, bool) or not isinstance(members.membership_max_enumerated, Integral)
+            or members.membership_max_enumerated < 0):
+        raise ValueError("members.membership_max_enumerated must be a nonnegative integer.")
+    if members.membership_calibration_prior is not None and not is_distribution(members.membership_calibration_prior):
+        raise ValueError("members.membership_calibration_prior must be a numpyro distribution or None.")
     scaling = config.scaling
     if config.members.centering not in {"auto", "exact", "none"}:
         raise ValueError("members.centering must be 'auto', 'exact' or 'none'.")
@@ -1976,7 +2006,7 @@ def _positive_prior(label: str, prior: Any) -> None:
         return
     _supported_prior(label, prior)
     if not physical_bounds(prior)[0] >= 0.0:
-        raise ValueError(f"{label} must be a prior of a positive quantity (e.g. dist.LogNormal or lenscluster.priors.truncated_lognormal).")
+        raise ValueError(f"{label} must be a prior of a positive quantity (e.g. dist.LogNormal or kappaccino.priors.truncated_lognormal).")
 
 
 def _bounded_prior(label: str, prior: Any) -> tuple[float, float]:

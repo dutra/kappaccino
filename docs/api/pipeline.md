@@ -1,16 +1,16 @@
 # Pipeline
 
 ```{eval-rst}
-.. automodule:: lenscluster.pipeline
+.. automodule:: kappaccino.pipeline
    :no-members:
 
-.. autofunction:: lenscluster.pipeline.run
-.. autofunction:: lenscluster.pipeline.run_init
-.. autofunction:: lenscluster.pipeline.run_final
-.. autofunction:: lenscluster.pipeline.dry_run
-.. autoclass:: lenscluster.pipeline.InitResult
+.. autofunction:: kappaccino.pipeline.run
+.. autofunction:: kappaccino.pipeline.run_init
+.. autofunction:: kappaccino.pipeline.run_final
+.. autofunction:: kappaccino.pipeline.dry_run
+.. autoclass:: kappaccino.pipeline.InitResult
    :no-members:
-.. autoclass:: lenscluster.pipeline.RunResult
+.. autoclass:: kappaccino.pipeline.RunResult
    :no-members:
-.. autofunction:: lenscluster.pipeline.init_verdict
+.. autofunction:: kappaccino.pipeline.init_verdict
 ```

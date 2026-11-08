@@ -1,4 +1,4 @@
-"""Sphinx configuration of the lenscluster documentation (Markdown through MyST).  The API pages use autodoc with the
+"""Sphinx configuration of the kappaccino documentation (Markdown through MyST).  The API pages use autodoc with the
 heavy dependencies mocked: the package itself, with JAX and the lenstronomy forks, is not installed on Read the Docs."""
 
 import os
@@ -9,7 +9,7 @@ SRC = os.path.join(ROOT, "src")
 if SRC not in sys.path:
     sys.path.insert(0, SRC)
 
-project = "lenscluster"
+project = "kappaccino"
 author = "Isaque Dutra"
 copyright = "2026, Isaque Dutra"
 
@@ -20,11 +20,13 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
+    "nbsphinx",
+    "nbsphinx_link",
 ]
 
 source_suffix = {".md": "markdown", ".rst": "restructuredtext"}
 master_doc = "index"
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "**.ipynb_checkpoints"]
 
 # MyST: $...$ and $$...$$ math, ::: fenced directives, heading anchors for cross-references.
 myst_enable_extensions = ["dollarmath", "amsmath", "colon_fence", "deflist", "tasklist"]
@@ -57,13 +59,18 @@ autodoc_mock_imports = [
     "yaml",
 ]
 
+# Tutorial notebooks (notebooks/, linked from docs/notebooks/*.nblink) are stored with their outputs and rendered as
+# they are: a fit takes far longer than a documentation build. NBSPHINX_EXECUTE=always re-runs them locally.
+nbsphinx_execute = os.environ.get("NBSPHINX_EXECUTE", "never")
+nbsphinx_allow_errors = False
+
 html_theme = "sphinx_book_theme"
-html_title = "lenscluster Documentation"
+html_title = "kappaccino Documentation"
 html_static_path = []
 html_show_sourcelink = False
 html_theme_options = {
     "path_to_docs": "docs",
-    "repository_url": "https://github.com/dutra/lenscluster",
+    "repository_url": "https://github.com/dutra/kappaccino",
     "repository_branch": "main",
     "use_edit_page_button": True,
     "use_issues_button": True,

@@ -11,13 +11,13 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize, LinearSegmentedColormap
 from matplotlib.lines import Line2D
 from _covariance_plot_cli import load_run
-from lenscluster.truth_recovery import load_truth_fits, grid_arcsec
-from lenscluster.jax_cosmology import dpie_sigma0_factor_from_config
-from lenscluster.plot_style import PAPER_STYLE
+from kappaccino.truth_recovery import load_truth_fits, grid_arcsec
+from kappaccino.jax_cosmology import dpie_sigma0_factor_from_config
+from kappaccino.plot_style import PAPER_STYLE
 
 
 def render(data, images, path):
-    plt.style.use(Path(__file__).resolve().parents[1]/'src/lenscluster/style.mplstyle')
+    plt.style.use(Path(__file__).resolve().parents[1]/'src/kappaccino/style.mplstyle')
     plt.rcParams.update(PAPER_STYLE)
     cmap=LinearSegmentedColormap.from_list('cropped_RdBu',plt.get_cmap('RdBu_r')(np.linspace(.25,1,768)),N=768)
     cmap.set_bad('#e8e8e8');norm=Normalize(-1,2,clip=True)

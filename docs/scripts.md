@@ -45,7 +45,7 @@ These scripts read a run directory and redraw one product without rerunning infe
 | `regenerate_truth_recovery.py RUN` | the truth maps and dependent figures, with the conditional GRF |
 | `regenerate_member_diagnostics.py RUN` | the member and likelihood diagnostic suite |
 | `regenerate_scaling_relation.py RUN` | `scaling_relation.pdf` |
-| `python -m lenscluster.results_tex RUN/final` | `<prefix>_results.tex` |
+| `python -m kappaccino.results_tex RUN/final` | `<prefix>_results.tex` |
 
 Truth maps cached before the conditional GRF was added must be recomputed with `regenerate_truth_recovery.py` before
 regenerating the magnification figures that depend on them.
@@ -67,6 +67,13 @@ regenerating the magnification figures that depend on them.
 `fit_arc_source.py`, `fit_fold_source_light.py`
 : Fit the light of a lensed arc, or a shared source behind a fold, to JWST cutouts with the lens fixed at posterior
   draws, so the lens uncertainty shows as a spread in the source. Each has a matching `.md` note.
+
+`validate_membership_injection.py RUN [--prior 0.5] [--draws 100]`
+: The membership injection test of {doc}`likelihoods` (Uncertain membership, Validation). At a finished run's
+  posterior draws it gives one galaxy at a time a prior membership probability: fake interlopers on a grid of
+  distance to the nearest image and magnitude, and true members across magnitude and distance. It writes each one's
+  posterior membership to `membership_injection.csv` and `membership_injection.pdf`. Run it from the repository
+  whose relative catalog paths the run used.
 
 `compare_samplers.py`, `bench_threads_per_chain.py`
 : Sampler and CPU-thread benchmarks.

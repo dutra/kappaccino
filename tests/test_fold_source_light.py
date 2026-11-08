@@ -102,7 +102,7 @@ def test_matching_rms_and_psf_for_original_and_bgsub(tmp_path):
 
 def test_gp_inverse_and_conditional_mean_agreement():
     from scipy.linalg import cho_solve
-    from lenscluster.gp_position_plots import conditional_displacement
+    from kappaccino.gp_position_plots import conditional_displacement
     from fit_fold_source_light import inverse_gp_coordinates
     rng=np.random.default_rng(12)
     observed=rng.normal(0,.3,(5,2));jac=rng.normal(0,.2,(5,2,2))+np.eye(2)

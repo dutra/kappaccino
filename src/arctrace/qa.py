@@ -1,6 +1,6 @@
 """QA overlay rendering: cutout + mask contour + ridge + fitted circle + tangent.
 
-Uses the lenscluster calibrated Lupton RGB recipe when at least three display
+Uses the kappaccino calibrated Lupton RGB recipe when at least three display
 bands are available; falls back to a grayscale asinh stretch of the reference
 band otherwise. All overlays are drawn through the WCS, so they are correct
 for rotated or unflipped mosaics.
@@ -16,7 +16,7 @@ import numpy as np
 from astropy.visualization import simple_norm
 from skimage import measure as sk_measure
 
-from lenscluster.rgb import (
+from kappaccino.rgb import (
     CALIBRATED_RGB_MINIMUM_SKY_SIGMA,
     CalibratedRGBDisplayConfig,
     compute_fnu_band_fluxscales,

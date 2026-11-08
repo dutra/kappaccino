@@ -134,7 +134,7 @@ across with both systems marked. Expect two distinct galaxies in each panel.
 ## After the check
 
 Fill in the decisions below. The merged-catalog YAML for G1-G4 is drafted in the conversation of 2026-11-05.
-Relabelling changes image labels, so `src/lenscluster/data/m0416_image_f200w_photometry.csv` needs the same relabelling.
+Relabelling changes image labels, so `src/kappaccino/data/m0416_image_f200w_photometry.csv` needs the same relabelling.
 
 | group | decision | note |
 |---|---|---|

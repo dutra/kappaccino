@@ -34,10 +34,10 @@ from astropy.io import fits
 from astropy.stats import sigma_clipped_stats
 from scipy.optimize import minimize
 
-from lenscluster import artifacts, cutouts
-from lenscluster.evaluator import Evaluator
-from lenscluster.sky import radec_to_offsets_arcsec
-from lenscluster.state import build_state, with_member_classes
+from kappaccino import artifacts, cutouts
+from kappaccino.evaluator import Evaluator
+from kappaccino.sky import radec_to_offsets_arcsec
+from kappaccino.state import build_state, with_member_classes
 
 NIRCAM_FWHM_ARCSEC = {"F115W": 0.040, "F150W": 0.050, "F200W": 0.066, "F277W": 0.092, "F356W": 0.116, "F444W": 0.145}
 GAIN_E_PER_DN = 2.0        # NIRCam, approximate; only the Poisson part of the noise map depends on it
@@ -705,8 +705,8 @@ def figure(out, args, cut, model, params, betas, det, tags, source_extent):
     import matplotlib
     matplotlib.use("pdf")
     import matplotlib.pyplot as plt
-    from lenscluster.plot_style import PAPER_STYLE
-    plt.style.use(str(ROOT / "src/lenscluster/style.mplstyle")); plt.rcParams.update(PAPER_STYLE)
+    from kappaccino.plot_style import PAPER_STYLE
+    plt.style.use(str(ROOT / "src/kappaccino/style.mplstyle")); plt.rcParams.update(PAPER_STYLE)
     rows = min(len(params), 4)
     fig, axes = plt.subplots(rows, 4, figsize=(7.2, 1.85 * rows), constrained_layout=True, squeeze=False)
     xc, yc = cut["xc"], cut["yc"]
@@ -749,8 +749,8 @@ def figure_pixels(out, cut, model, sources, members_pm, betas, origins, det, tag
     import matplotlib
     matplotlib.use("pdf")
     import matplotlib.pyplot as plt
-    from lenscluster.plot_style import PAPER_STYLE
-    plt.style.use(str(ROOT / "src/lenscluster/style.mplstyle")); plt.rcParams.update(PAPER_STYLE)
+    from kappaccino.plot_style import PAPER_STYLE
+    plt.style.use(str(ROOT / "src/kappaccino/style.mplstyle")); plt.rcParams.update(PAPER_STYLE)
     rows = min(len(sources), 4)
     fig, axes = plt.subplots(rows, 4, figsize=(7.2, 1.85 * rows), constrained_layout=True, squeeze=False)
     xc, yc = cut["xc"], cut["yc"]; ext = [xc[0, 0], xc[0, -1], yc[0, 0], yc[-1, 0]]
@@ -794,8 +794,8 @@ def figure_zoom(out, cut, model_image, knots_xy, knot_labels, width):
     matplotlib.use("pdf")
     import matplotlib.pyplot as plt
     from scipy.ndimage import map_coordinates
-    from lenscluster.plot_style import PAPER_STYLE
-    plt.style.use(str(ROOT / "src/lenscluster/style.mplstyle")); plt.rcParams.update(PAPER_STYLE)
+    from kappaccino.plot_style import PAPER_STYLE
+    plt.style.use(str(ROOT / "src/kappaccino/style.mplstyle")); plt.rcParams.update(PAPER_STYLE)
     data, noise, mask = (np.asarray(cut[k]) for k in ("data", "noise", "mask"))
     xc, yc, scale = cut["xc"], cut["yc"], cut["scale"]
     bright = mask & (data > 5 * noise)

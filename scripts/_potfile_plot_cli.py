@@ -10,7 +10,7 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
-from lenscluster import potfile_plots
+from kappaccino import potfile_plots
 
 
 def main(kind):

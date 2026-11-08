@@ -8,7 +8,7 @@ from scipy.integrate import quad
 from scipy.special import ndtr
 from scipy.stats import multivariate_normal, norm
 
-from lenscluster.smoothed_likelihood import (
+from kappaccino.smoothed_likelihood import (
     expected_absolute_normal, inverse_source_transport, log_expected_absolute_normal, source_covariance,
     source_whitening, statistics, transport_sources,
 )

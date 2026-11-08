@@ -4,8 +4,8 @@ import jax.numpy as jnp
 
 jax.config.update("jax_enable_x64", True)
 
-from lenscluster.model import ParameterSpec
-from lenscluster.sampling import bound_pressure, lanczos_extremes, slow_modes
+from kappaccino.model import ParameterSpec
+from kappaccino.sampling import bound_pressure, lanczos_extremes, slow_modes
 
 
 def _spec(name, prior=None):

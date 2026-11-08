@@ -5,9 +5,9 @@ from __future__ import annotations
 import jax.numpy as jnp
 import numpy as np
 
-from lenscluster.evaluator import Evaluator
-from lenscluster.report import _prior_status, _prior_text, start_parameter_report
-from lenscluster.state import build_state
+from kappaccino.evaluator import Evaluator
+from kappaccino.report import _prior_status, _prior_text, start_parameter_report
+from kappaccino.state import build_state
 from test_gp_knee import knee_config, two_knot_config
 
 
@@ -19,7 +19,7 @@ def test_report_groups_the_parameters_shows_priors_and_flags_a_bound(tmp_path):
     theta = np.array(state.initial_theta, dtype=float)
     i = names.index("images.gp_sigma_alpha")
     spec = state.parameter_specs[i]
-    from lenscluster import priors
+    from kappaccino import priors
     lower, upper = priors.bounds(spec.latent_prior)
     theta[i] = upper - 0.001 * (upper - lower)                                 # inside the 2% margin of the upper bound
     text = start_parameter_report(state, theta, np.asarray(evaluator.physical(jnp.asarray(theta))))
@@ -38,7 +38,7 @@ def test_report_groups_the_parameters_shows_priors_and_flags_a_bound(tmp_path):
 
 
 def test_mcmc_summary_lists_the_global_sites_only(synthetic_config, capsys):
-    from lenscluster.sampling import LATENT_FAMILIES, print_global_summary, sample_sites
+    from kappaccino.sampling import LATENT_FAMILIES, print_global_summary, sample_sites
     state = build_state(synthetic_config)
     specs = state.parameter_specs
     rng = np.random.default_rng(0)

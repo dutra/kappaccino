@@ -9,14 +9,14 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from lenscluster import pipeline
-from lenscluster.config import ImageDiagnosticsConfig, PartitionConfig, RuntimeConfig, SamplingConfig, SearchConfig
-from lenscluster.evaluator import Evaluator
-from lenscluster.exact_images import ExactImageSolver, packed_to_kwargs_lens
-from lenscluster.partition import add_slots, extend_theta
-from lenscluster.partition import catalog_evidence as ce, lens_evidence as le
-from lenscluster import smoothed_likelihood as sl
-from lenscluster.state import build_state
+from kappaccino import pipeline
+from kappaccino.config import ImageDiagnosticsConfig, PartitionConfig, RuntimeConfig, SamplingConfig, SearchConfig
+from kappaccino.evaluator import Evaluator
+from kappaccino.exact_images import ExactImageSolver, packed_to_kwargs_lens
+from kappaccino.partition import add_slots, extend_theta
+from kappaccino.partition import catalog_evidence as ce, lens_evidence as le
+from kappaccino import smoothed_likelihood as sl
+from kappaccino.state import build_state
 
 SOURCES = [(2.0, (0.5, 0.3)), (3.0, (-1.0, 0.8)), (2.5, (2.0, -1.5))]       # (z, source position) of the new sources
 COLORS = {0: (24.0, 23.5, 23.3), 1: (25.0, 24.2, 23.6), 2: (23.8, 23.7, 23.65), "trusted": (24.5, 24.0, 23.0)}
@@ -147,7 +147,7 @@ def test_slot_prior_correction_turns_unit_offsets_into_the_physical_priors(synth
     extended, _ = add_slots(config, state, Evaluator(state), state.initial_theta, log=lambda _: None)
     model = extended.slots
     from scipy.stats import multivariate_normal
-    from lenscluster.partition.slots import COLOR_SCALE, LOG_DZ_SCALE
+    from kappaccino.partition.slots import COLOR_SCALE, LOG_DZ_SCALE
     population = model.population
     rng = np.random.default_rng(3)
     for _ in range(3):
@@ -244,3 +244,35 @@ def test_slots_under_the_gp_likelihoods(synthetic_config, tmp_path, mode):
         family = np.asarray(state.images.family_index_per_image)
         for k in range(len(model.trusted_ids)):
             np.testing.assert_allclose(np.asarray(scales["sigma_def"])[k], trusted[family == k][0], rtol=1e-10)
+
+
+def test_slots_sit_inside_the_membership_sum(synthetic_config, tmp_path):
+    """With enumerated uncertain members, every member configuration evaluates the uncertain images with its own lens."""
+    from scipy.special import logsumexp
+    from kappaccino.state import with_member_classes
+    path, _ = _mock(synthetic_config, tmp_path)
+    p = 0.6
+    config = _with_partition(replace(synthetic_config, members=replace(synthetic_config.members, membership="marginalize",
+                                                                        membership_default_probability=p)), path)
+    state = with_member_classes(build_state(config), np.asarray([0, 1]))
+    extended, evaluator = add_slots(config, state, Evaluator(state), state.initial_theta, log=lambda _: None)
+    assert len(evaluator.membership_enumerated_positions) > 0
+    theta = jnp.asarray(extend_theta(extended, state.initial_theta))
+    physical = evaluator.physical(theta)
+    terms = []
+    for z in np.asarray(evaluator.membership_configurations):
+        stats = evaluator.statistics(theta, membership=jnp.asarray(z))
+        slots = extended.slots.log_likelihood(evaluator, theta, stats, membership=jnp.asarray(z))
+        terms.append(float(jnp.sum(stats["loglike"]) + stats["source_correction"] + slots) + float(np.sum(np.where(z, np.log(p), np.log1p(-p)))))
+    rest = (evaluator.far_field_log_barrier(evaluator.fields(physical)["far_cut_radii"])
+            + evaluator.ellipticity_log_prior(evaluator.packed_state(physical)[0]) + evaluator.kinematics_log_likelihood(physical))
+    np.testing.assert_allclose(float(evaluator.loglike(theta)), logsumexp(terms) + float(rest), rtol=1e-10)
+    # The assignment probabilities average each configuration's, weighted by the configuration's posterior.
+    weight = np.exp(np.asarray(terms) - logsumexp(terms))
+    expected = 0.0
+    for w, z in zip(weight, np.asarray(evaluator.membership_configurations)):
+        log_terms = np.asarray(extended.slots.log_terms(evaluator, theta, evaluator.statistics(theta, membership=jnp.asarray(z)), jnp.asarray(z)))
+        expected = expected + w * np.exp(log_terms - logsumexp(log_terms, axis=1, keepdims=True))
+    result = extended.slots.posterior(evaluator, np.asarray(theta)[None], np.random.default_rng(0))
+    np.testing.assert_allclose(result["probability"], expected, atol=1e-10)
+    np.testing.assert_allclose(result["probability"].sum(axis=1), 1.0, atol=1e-9)

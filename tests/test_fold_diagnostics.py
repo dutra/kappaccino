@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import pytest
 from astropy.wcs import WCS
 
-from lenscluster import fold_diagnostics as fd
+from kappaccino import fold_diagnostics as fd
 
 
 def test_pair_identity_parity_family_and_separation():
@@ -49,7 +49,7 @@ def test_empty_artifact(tmp_path):
 
 
 def test_fold_render_style_and_all_draw_accounting(synthetic_config,tmp_path,monkeypatch):
-    from lenscluster import cutouts
+    from kappaccino import cutouts
     rng=np.random.default_rng(11);n=40
     rel=rng.normal(size=(n,2))*[.04,.01];rel[:,1]+=.005
     curve=np.stack([np.linspace(-2,2,97),np.zeros(97)],axis=1)
@@ -114,9 +114,9 @@ def test_separation_validation(synthetic_config,bad):
 
 
 def test_standard_finder_once_per_draw_and_label_mapping(synthetic_config, monkeypatch):
-    from lenscluster.state import build_state
-    from lenscluster.evaluator import Evaluator
-    from lenscluster.exact_images import ExactImageSolver
+    from kappaccino.state import build_state
+    from kappaccino.evaluator import Evaluator
+    from kappaccino.exact_images import ExactImageSolver
     state=build_state(synthetic_config); evaluator=Evaluator(state)
     state.family_data=list(reversed(state.family_data))
     calls=[]
@@ -390,7 +390,7 @@ def test_prepare_fold_plot_upgrades_old_cache_and_records_gravitational_display(
 
 
 def test_standard_system_render_retains_latest_style_and_ignores_cached_gp(synthetic_config,tmp_path,monkeypatch):
-    from lenscluster import cutouts
+    from kappaccino import cutouts
     from matplotlib.backends.backend_pdf import PdfPages
     from matplotlib.contour import QuadContourSet
     rng=np.random.default_rng(38);n=40

@@ -98,10 +98,13 @@ def lens_images(state, xy, sigma_inst, parity, z_grid, *, prior_mean=None, prior
                       prior_sigma=float(members.source_prior_sigma if prior_sigma is None else prior_sigma), gp_reference_factor=float(gp_reference))
 
 
-def reference_fields(evaluator, physical: jnp.ndarray, images: LensImages) -> dict[str, jnp.ndarray]:
+def reference_fields(evaluator, physical: jnp.ndarray, images: LensImages, membership: jnp.ndarray | None = None) -> dict[str, jnp.ndarray]:
     """Deflection, Jacobian U = d alpha / d x and its spatial derivative at the images: the part proportional to the
-    lensing efficiency (at ``factor_reference``) and the fixed shear part."""
-    packed = evaluator.packed_state(physical, factor_per_image=jnp.asarray(images.factor_reference, dtype=jnp.float64))[0]
+    lensing efficiency (at ``factor_reference``) and the fixed shear part.  ``membership`` holds the indicators of the
+    enumerated uncertain members for one term of the membership sum (``Evaluator.statistics``); by default uncertain
+    members enter with their expected mass."""
+    weight = None if membership is None else evaluator.mass_weight(physical, membership)
+    packed = evaluator.packed_state(physical, factor_per_image=jnp.asarray(images.factor_reference, dtype=jnp.float64), mass_weight=weight)[0]
     components = np.arange(evaluator.n_components, dtype=np.int32)
     alpha, u, du = evaluator.component_rows(images.xy, packed, components, derivative=True)
     shear = np.asarray(evaluator.state.packed_lens_spec.profile_type)[components] == SHEAR_PROFILE

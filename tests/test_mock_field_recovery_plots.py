@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 import numpy as np
 import pandas as pd
-from lenscluster.mock_validation.field_recovery_plots import plot_field_recovery
+from kappaccino.mock_validation.field_recovery_plots import plot_field_recovery
 
 
 def test_aggregate_field_recovery_uses_median_model_and_mock_bins(tmp_path):

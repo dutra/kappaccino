@@ -3,7 +3,7 @@
 This page lists the files a run writes; {doc}`posterior` defines each posterior parameter and derived quantity.
 
 A run writes everything under its run root, `<output_dir>/<run_name>/` from
-{class}`~lenscluster.config.RunPathsConfig`. Figure names start with `RunPathsConfig.figure_prefix`, for example
+{class}`~kappaccino.config.RunPathsConfig`. Figure names start with `RunPathsConfig.figure_prefix`, for example
 `m0416_critical_curves.pdf`.
 
 ## Directory layout
@@ -23,8 +23,11 @@ A run writes everything under its run root, `<output_dir>/<run_name>/` from
 : `posterior_summary.csv`, `member_classification.csv`, `member_scaling_relation.csv`, `image_fit_quality.csv`,
   `image_count_recovery.csv`, `model_magnification.csv`, `posterior_image_residual_draws.csv`,
   `chain_convergence.csv`, `run_summary.json` and `run_summary.txt`, and for simulated
-  clusters `truth_recovery_m2d_aperture_profile.csv`; with uncertain images `uncertain_images.csv` and
-  `uncertain_pairs.csv`.
+  clusters `truth_recovery_m2d_aperture_profile.csv`. With uncertain membership (`MemberConfig.membership`),
+  `member_membership.csv`: one row per member with `treatment` (`certain`, `enumerated` or `marginalized`),
+  `p_catalog`, `p_prior` (after any calibration shift, averaged over the draws), and `p_posterior` with
+  `p_posterior_std` over the draws. A marginalized member's posterior equals its prior. This table is written even with
+  `runtime.skip_plots`. With uncertain images, `uncertain_images.csv` and `uncertain_pairs.csv`.
 
 `final/figures/`
 : The figures listed below and `<prefix>_results.tex`.
@@ -125,7 +128,7 @@ in the text. Names contain letters only: M0416 uses `MJZeroFourOneSix`, AS1063 u
 Regenerate from saved artifacts, without inference or plotting:
 
 ```bash
-PYTHONPATH=src python -m lenscluster.results_tex path/to/run/final
+PYTHONPATH=src python -m kappaccino.results_tex path/to/run/final
 ```
 
 To regenerate individual figures without rerunning inference, see {doc}`scripts`.

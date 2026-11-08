@@ -1,6 +1,6 @@
 """Likelihood and gradient timings on the FF-SIMS Hera model, for the PR benchmark comment.
 
-``run`` times one installed lenscluster and writes ``benchmark.json`` and a markdown ``output``; ``compare`` renders the
+``run`` times one installed kappaccino and writes ``benchmark.json`` and a markdown ``output``; ``compare`` renders the
 base-versus-PR table that .github/workflows/publish-pr-benchmarks.yml posts on the pull request.  The workflow runs this
 script from the PR checkout against both installs, with ``--catalog-root`` on the PR checkout so the inputs are the same.
 """
@@ -26,11 +26,11 @@ import jax.numpy as jnp
 import numpy as np
 from scipy.optimize import minimize
 
-from lenscluster.config import (CosmologyConfig, DPIEHaloConfig, ImageConstraintsConfig, LensClusterSolverConfig, LensModelConfig,
+from kappaccino.config import (CosmologyConfig, DPIEHaloConfig, ImageConstraintsConfig, LensClusterSolverConfig, LensModelConfig,
                                 LikelihoodConfig, MemberPopulationConfig, ReferenceFrameConfig, RunPathsConfig, ShearHaloConfig)
-from lenscluster.evaluator import Evaluator
-from lenscluster.search import Objective
-from lenscluster.state import build_state
+from kappaccino.evaluator import Evaluator
+from kappaccino.search import Objective
+from kappaccino.state import build_state
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MARKER = "<!-- lenscluster benchmark -->"
@@ -154,7 +154,7 @@ def _fmt_delta(candidate: float, baseline: float, candidate_stderr: float = 0.0,
 
 def _header(result: dict[str, Any]) -> list[str]:
     case = result["cases"][0]
-    return [MARKER, "### lenscluster PR benchmark", "",
+    return [MARKER, "### kappaccino PR benchmark", "",
             f"Model: FF-SIMS Hera ({case['n_images']} images in {case['n_systems']} systems, {case['n_members']} members, {case['n_unconstrained']} free parameters), "
             f"`ubuntu-latest` CPU, {result['trials']} trials x {result['repeats']} evaluations, L-BFGS for {result['lbfgs_iters']} iterations.", ""]
 

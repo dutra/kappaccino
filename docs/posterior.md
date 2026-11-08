@@ -1,6 +1,6 @@
 # Posterior output reference
 
-This page defines every posterior parameter and derived quantity of a lenscluster fit: its name, unit or coordinate,
+This page defines every posterior parameter and derived quantity of a kappaccino fit: its name, unit or coordinate,
 and meaning. Which parameters exist depends on the configuration. A field without a prior is fixed and has no column,
 and the error-model parameters depend on the likelihood. A parameter that is present but unconstrained by the data
 returns its prior; it is not a measurement.

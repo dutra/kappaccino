@@ -2,7 +2,7 @@
 import pytest
 import numpy as np
 import pandas as pd
-from lenscluster.jwst_rgb_figure import marker_photometry
+from kappaccino.jwst_rgb_figure import marker_photometry
 
 
 def test_marker_matches_survive_reordering_but_reject_moved_images(tmp_path):
@@ -31,7 +31,7 @@ def test_missing_photometry_keeps_all_image_markers(tmp_path):
 
 def test_critical_band_uses_only_best_chain():
     from types import SimpleNamespace
-    from lenscluster.jwst_rgb_figure import best_chain_draw_indices
+    from kappaccino.jwst_rgb_figure import best_chain_draw_indices
     grouped=np.arange(4*100*2).reshape(4,100,2)
     p=SimpleNamespace(grouped_samples=grouped,samples=grouped.reshape(-1,2))
     indices,chain=best_chain_draw_indices(p,326,count=32)
@@ -40,7 +40,7 @@ def test_critical_band_uses_only_best_chain():
 
 
 def test_critical_band_for_translating_line_and_identical_draws():
-    from lenscluster.jwst_rgb_figure import critical_quantile_band
+    from kappaccino.jwst_rgb_figure import critical_quantile_band
     x=np.linspace(-2,2,401)
     shifts=np.linspace(-1,1,101)
     lo,hi,band=critical_quantile_band(x[None,:]-shifts[:,None])
@@ -51,7 +51,7 @@ def test_critical_band_for_translating_line_and_identical_draws():
 
 
 def test_median_determinant_contour_and_band_are_matched():
-    from lenscluster.jwst_rgb_figure import critical_quantile_summary
+    from kappaccino.jwst_rgb_figure import critical_quantile_summary
     import contourpy
     x=np.linspace(-2,2,501);y=np.linspace(-1,1,11)
     xx,yy=np.meshgrid(x,y)
@@ -68,7 +68,7 @@ def test_median_determinant_contour_and_band_are_matched():
 
 def test_critical_band_shading_preserves_subpixel_interval():
     import matplotlib.pyplot as plt
-    from lenscluster.jwst_rgb_figure import draw_critical_interval
+    from kappaccino.jwst_rgb_figure import draw_critical_interval
     # Old min(-lower,upper) is negative at every node, losing the entire band.
     x=np.array([[-1.,1.],[-1.,1.]])
     low,high=x-.02,x+.02
@@ -90,7 +90,7 @@ def test_critical_band_shading_preserves_subpixel_interval():
 def test_simulated_hst_overview_has_no_m0416_overlays(tmp_path, monkeypatch, cluster):
     from types import SimpleNamespace as NS
     from astropy.wcs import WCS
-    from lenscluster import jwst_rgb_figure as rgb, mass_figure, cutouts
+    from kappaccino import jwst_rgb_figure as rgb, mass_figure, cutouts
     wcs=WCS(naxis=2)
     wcs.wcs.ctype=['RA---TAN','DEC--TAN'];wcs.wcs.crval=[64.,-24.]
     wcs.wcs.crpix=[16.,16.];wcs.wcs.cdelt=[-.1/3600,.1/3600]

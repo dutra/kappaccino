@@ -154,11 +154,12 @@ class SlotModel:
         return jnp.sum(log_beta + log_pop + log_jacobian - base)
 
     # ------------------------------------------------------------------ likelihood
-    def log_terms(self, evaluator, params: jnp.ndarray, stats: dict[str, Any]) -> jnp.ndarray:
+    def log_terms(self, evaluator, params: jnp.ndarray, stats: dict[str, Any], membership: jnp.ndarray | None = None) -> jnp.ndarray:
         """log pi_k + log p(D_i | option k) per uncertain image and option (unrelated, trusted slots, new slots), shape
-        (image, 1 + family + slot)."""
+        (image, 1 + family + slot).  ``stats`` are the trusted images' statistics for the same ``membership`` (indicators
+        of the enumerated uncertain members, or None for their expected mass)."""
         physical = evaluator.physical(params)
-        reference = reference_fields(evaluator, physical, self.images)
+        reference = reference_fields(evaluator, physical, self.images, membership)
         values = self.slot_values(params)
         # Unrelated source: the image's evidence on the redshift grid.
         grid = image_terms(grid_fields(reference, self.images), error_scales(evaluator, physical, self.images, self.images.ratio), self.images)
@@ -189,9 +190,10 @@ class SlotModel:
         color = (jnp.logaddexp(np.log1p(-f) + log_normal[0], np.log(f) + log_normal[1]) if f > 0.0 else log_normal[0])
         return photo_z + color
 
-    def log_likelihood(self, evaluator, params: jnp.ndarray, stats: dict[str, Any]) -> jnp.ndarray:
-        """sum_i log sum_k pi_k p(D_i | k) plus the slot prior correction: the term ``Evaluator.log_likelihood`` adds."""
-        terms = self.log_terms(evaluator, params, stats)
+    def log_likelihood(self, evaluator, params: jnp.ndarray, stats: dict[str, Any], membership: jnp.ndarray | None = None) -> jnp.ndarray:
+        """sum_i log sum_k pi_k p(D_i | k) plus the slot prior correction: the term ``Evaluator.log_likelihood`` adds (per
+        configuration of the enumerated uncertain members, inside the membership sum)."""
+        terms = self.log_terms(evaluator, params, stats, membership)
         return jnp.sum(jax.scipy.special.logsumexp(terms, axis=1)) + self.log_prior_correction(self.slot_values(params))
 
     # ------------------------------------------------------------------ posterior
@@ -204,12 +206,21 @@ class SlotModel:
 
         Returns ``responsibilities`` (draw, image, option), sampled ``labels`` (draw, image; option index),
         ``probability`` (image, option; averaged over draws), ``pair_probability`` (image, image; same slot, the
-        unrelated option never pairing), ``slot_z`` and ``slot_beta`` (draw, slot[, 2]) of the new slots.
+        unrelated option never pairing), ``slot_z`` and ``slot_beta`` (draw, slot[, 2]) of the new slots.  With enumerated
+        uncertain members the responsibilities average those of every member configuration, weighted by its posterior.
         """
+        def normalized(params, membership=None):
+            terms = self.log_terms(evaluator, params, evaluator.statistics(params, membership=membership), membership)
+            return terms - jax.scipy.special.logsumexp(terms, axis=1, keepdims=True)
+
         def one(params):
-            terms = self.log_terms(evaluator, params, evaluator.statistics(params))
             values = self.slot_values(params)
-            return terms - jax.scipy.special.logsumexp(terms, axis=1, keepdims=True), values["z"], values["beta"]
+            if len(evaluator.membership_enumerated_positions):
+                log_weight, _ = evaluator._membership_configuration_terms(params, source_jacobian=True)
+                log_weight = log_weight - jax.scipy.special.logsumexp(log_weight)
+                per = jax.vmap(lambda m: normalized(params, m))(evaluator.membership_configurations)
+                return jax.scipy.special.logsumexp(log_weight[:, None, None] + per, axis=0), values["z"], values["beta"]
+            return normalized(params), values["z"], values["beta"]
         one = jax.jit(one)
         outputs = [one(jnp.asarray(s, dtype=jnp.float64)) for s in np.atleast_2d(samples)]
         log_r = np.stack([np.asarray(o[0]) for o in outputs])

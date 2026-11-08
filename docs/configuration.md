@@ -1,8 +1,8 @@
 # Configuration
 
-Every fit is described by one frozen dataclass, {class}`~lenscluster.config.LensClusterSolverConfig`. It groups the
+Every fit is described by one frozen dataclass, {class}`~kappaccino.config.LensClusterSolverConfig`. It groups the
 lens model, the likelihood, the search and the sampler, the run paths and the figure options. Build it, call
-`validate()`, and pass it to {func}`lenscluster.pipeline.run`. Build it in Python, as on this page, or read the lens
+`validate()`, and pass it to {func}`kappaccino.pipeline.run`. Build it in Python, as on this page, or read the lens
 model from a Lenstool parameter file (see {ref}`lenstool-par`). Change a field of a frozen config with
 `dataclasses.replace`:
 
@@ -16,7 +16,7 @@ config = replace(config, sampling=replace(config.sampling, warmup=500, samples=2
 |---|---|---|
 | `model` | `LensModelConfig` | reference frame, cosmology, halos, member populations, image catalog |
 | `likelihood` | `LikelihoodConfig` | likelihood mode and its error-scale priors (see {doc}`likelihoods`) |
-| `members` | `MemberConfig` | exact versus far-field member classification |
+| `members` | `MemberConfig` | exact versus far-field member classification, uncertain membership |
 | `scaling` | `ScalingModelConfig` | the member scaling relation and per-member deviations |
 | `search` | `SearchConfig` | the init stage's multi-start MAP search |
 | `sampling` | `SamplingConfig` | NUTS |
@@ -66,7 +66,7 @@ convention.
 : A uniform convergence `kappa` (for a source at infinite redshift; each family sees $\kappa\, D_{ls}/D_s$). Several
   source redshifts constrain it; one cannot, because of the mass-sheet degeneracy.
 
-The profiles the solver knows are registered in `lenscluster/profiles.py`.
+The profiles the solver knows are registered in `kappaccino/profiles.py`.
 
 ### Priors
 
@@ -76,7 +76,7 @@ its configured value.
 
 ```python
 import numpyro.distributions as dist
-from lenscluster.priors import ellipticity_box, lognormal_from_moments, truncated_lognormal
+from kappaccino.priors import ellipticity_box, lognormal_from_moments, truncated_lognormal
 
 priors = {
     "x_centre": dist.Uniform(-2.0, 4.0),                      # arcsec
@@ -181,6 +181,39 @@ the circular far-field series of the dPIE ("far-field"), which is much cheaper. 
 
 The posterior audit checks the far-field approximation after sampling (see {doc}`pipeline`).
 
+### Uncertain membership
+
+By default every catalog member counts fully. `membership="marginalize"` gives each member a prior membership
+probability and sums the likelihood over membership (see {doc}`likelihoods`, Uncertain membership):
+
+```python
+import numpyro.distributions as dist
+
+config = replace(config, members=replace(
+    config.members,
+    membership="marginalize",
+    membership_default_probability=0.9,       # members without p_member or spectroscopic confirmation
+    membership_max_enumerated=4,              # exact members summed exactly: 2^4 likelihood evaluations
+    membership_calibration_prior=dist.Normal(0.0, 1.0),   # optional log-odds shift of every p_i
+))
+```
+
+`membership`
+: `"fixed"` (default; the catalog `p_member` is ignored) or `"marginalize"`.
+
+`membership_default_probability`
+: The prior of a member without `p_member` in the catalog and without spectroscopic confirmation (a `z` of kind
+  `spec`, kinematics, or role `bcg`). Default 1, so only members with a catalog `p_member` below 1 are uncertain.
+
+`membership_max_enumerated`
+: The most uncertain exact members whose indicators are summed exactly, taken in the order of the member
+  classification's score (the ranking `top_exact` uses). The rest enter with their expected mass and a deflection
+  covariance. Default 4.
+
+`membership_calibration_prior`
+: Prior of a shared shift $\delta$ of the log-odds, $\mathrm{logit}\,p_i' = \mathrm{logit}\,p_i + \delta$, sampled as
+  `membership.logit_shift`. `None` (default) keeps the catalog probabilities.
+
 ## Search and sampling
 
 `SearchConfig` controls the init stage. The main fields are `n_starts` (prior draws for the large-scale search; 256 in
@@ -210,7 +243,7 @@ The library defaults are conservative. The production fits of the supported clus
 
 ```python
 from dataclasses import replace
-from lenscluster.config import MemberConfig, SamplingConfig, SearchConfig
+from kappaccino.config import MemberConfig, SamplingConfig, SearchConfig
 
 config = replace(
     config,
@@ -245,11 +278,11 @@ Common changes on an existing configuration:
 (lenstool-par)=
 ## From a Lenstool `.par` file
 
-{func}`~lenscluster.lenstool_par.config_from_lenstool_par` reads a Lenstool parameter file and returns a
+{func}`~kappaccino.lenstool_par.config_from_lenstool_par` reads a Lenstool parameter file and returns a
 `LensClusterSolverConfig` with library defaults outside the lens model:
 
 ```python
-from lenscluster.lenstool_par import config_from_lenstool_par
+from kappaccino.lenstool_par import config_from_lenstool_par
 
 config = config_from_lenstool_par(
     "model.par",
@@ -300,4 +333,4 @@ config = replace(config, scaling=replace(config.scaling, fixed_relation_fields=(
 
 - The `.par` file does not set the likelihood, search or sampler. Apply the recommended settings above.
 - Reading the file starts JAX (for the distance calculation), so call
-  {func}`~lenscluster.cpu_runtime.configure_cpu_runtime` before it.
+  {func}`~kappaccino.cpu_runtime.configure_cpu_runtime` before it.

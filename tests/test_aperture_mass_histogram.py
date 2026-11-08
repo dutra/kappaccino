@@ -7,7 +7,7 @@ import pytest
 from astropy.io import fits
 from astropy.wcs import WCS
 
-from lenscluster import aperture_mass_histogram as am
+from kappaccino import aperture_mass_histogram as am
 
 
 @pytest.mark.parametrize('prefix',['hera','ares'])

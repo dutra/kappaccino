@@ -1,7 +1,7 @@
 """arctrace: seeded measurement of gravitational-arc geometry from HST mosaics.
 
 Produces curved-arc-basis (tangent angle + curvature) constraints in the
-arcfile format consumed by the lenscluster solver. See Birrer (2021),
+arcfile format consumed by the kappaccino solver. See Birrer (2021),
 arXiv:2104.09522, for the formalism: the ridge of a thin tangential arc in the
 minimal curved-arc model is a circle of radius 1/s_tan, so a circle fit to the
 ridge estimates exactly the observables the solver's CAB likelihood consumes.

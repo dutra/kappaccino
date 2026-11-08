@@ -17,7 +17,7 @@ SCALE=5.340068651570361
 def maps(run, system, step, out):
     from _covariance_plot_cli import load_run
     config,state,evaluator,posterior,paths=load_run(run)
-    from lenscluster.fold_diagnostics import load_fold_data
+    from kappaccino.fold_diagnostics import load_fold_data
     data=load_fold_data(paths.tables)
     s=next(s for s in data['systems'] if s['system_id']==system)
     knots=np.asarray(s['observed'])

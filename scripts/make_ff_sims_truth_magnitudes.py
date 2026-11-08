@@ -10,7 +10,7 @@ SRC_ROOT = REPO_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from lenscluster.image_tools import TruthMagnitudeConfig, build_truth_magnitude_catalog
+from kappaccino.image_tools import TruthMagnitudeConfig, build_truth_magnitude_catalog
 
 
 SUPPORTED_CLUSTERS = ("ares", "hera")

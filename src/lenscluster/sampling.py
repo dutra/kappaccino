@@ -326,13 +326,20 @@ def stiffest_direction(potential, x0, whiten, *, iterations: int = 30, seed: int
     return value, direction / max(np.linalg.norm(direction), 1e-300)
 
 
-def lanczos_extremes(potential, x0, whiten, *, steps: int = 40, seed: int = 0) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def hessian_vector_product(potential):
+    """The jitted Hessian-vector product (x, v) -> H(x) v of ``potential``, with the point as an argument so that one
+    compilation serves every point (every chain)."""
+    gradient = jax.grad(potential)
+    return jax.jit(lambda x, v: jax.jvp(gradient, (x,), (v,))[1])
+
+
+def lanczos_extremes(potential, x0, whiten, *, steps: int = 40, seed: int = 0, hvp=None) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Ritz values of W^T H W (whitened Hessian of ``potential`` at ``x0``) from ``steps`` Lanczos iterations with full
     reorthogonalisation, and the flat-coordinate directions (unit norm) of the largest and the smallest one.  The ends of
-    the spectrum converge first, so a few tens of Hessian-vector products give the stiffest and the softest direction."""
-    gradient = jax.grad(potential)
-    hvp = jax.jit(lambda v: jax.jvp(gradient, (x0,), (v,))[1])
-    operator = lambda v: np.asarray(whiten(hvp(whiten(jnp.asarray(v))), transpose=True), dtype=float)
+    the spectrum converge first, so a few tens of Hessian-vector products give the stiffest and the softest direction.
+    ``hvp``: a ``hessian_vector_product`` of ``potential`` to reuse across calls (built here when None)."""
+    hvp = hessian_vector_product(potential) if hvp is None else hvp
+    operator = lambda v: np.asarray(whiten(hvp(x0, whiten(jnp.asarray(v))), transpose=True), dtype=float)
     n = int(np.size(x0)); m = min(int(steps), n)
     q = np.array(jax.random.normal(jax.random.PRNGKey(int(seed)), (n,), dtype=jnp.float64)); q = q / np.linalg.norm(q)
     basis, alpha, beta = [q], [], []
@@ -368,17 +375,23 @@ def stiffness_diagnostic(model, specs: list[ParameterSpec], mcmc, step_size: np.
     z_all, inverse_all = state.z, state.adapt_state.inverse_mass_matrix
     sites = {site.name: site for site in sample_sites(specs)}
     batched = int(chains) > 1
+    # The site order and shapes are the same for every chain, so one potential and one compiled Hessian-vector product
+    # serve all of them.
+    order = [name for key in inverse_all for name in key]                  # NumPyro flattens each block in its key's order
+    shapes = {name: jnp.shape(v[0] if batched else v) for name, v in z_all.items()}
+    sizes = [int(np.prod(shapes[name], dtype=int)) for name in order]
+    offsets = np.concatenate([[0], np.cumsum(sizes)])
+
+    def unflatten(vector):
+        return {name: jnp.reshape(vector[offsets[i]:offsets[i + 1]], shapes[name]) for i, name in enumerate(order)}
+
+    potential = lambda vector: potential_energy(model, (), {}, unflatten(vector))
+    hvp = hessian_vector_product(potential)
     out = []
     for c in range(int(chains)):
         z = {k: jnp.asarray(v[c] if batched else v) for k, v in z_all.items()}
         inverse = {k: jnp.asarray(v[c] if batched else v) for k, v in inverse_all.items()}
-        order = [name for key in inverse for name in key]                  # NumPyro flattens each block in its key's order
-        sizes = [int(jnp.size(z[name])) for name in order]
-        offsets = np.concatenate([[0], np.cumsum(sizes)])
         x0 = jnp.concatenate([jnp.ravel(z[name]) for name in order])
-
-        def unflatten(vector):
-            return {name: jnp.reshape(vector[offsets[i]:offsets[i + 1]], jnp.shape(z[name])) for i, name in enumerate(order)}
 
         factors = []                                                       # per block: (slice, cholesky or sqrt-diagonal)
         start = 0
@@ -394,8 +407,7 @@ def stiffness_diagnostic(model, specs: list[ParameterSpec], mcmc, step_size: np.
                 parts.append((factor.T @ piece if transpose else factor @ piece) if factor.ndim == 2 else factor * piece)
             return jnp.concatenate(parts)
 
-        potential = lambda vector: potential_energy(model, (), {}, unflatten(vector))
-        values, direction, soft = lanczos_extremes(potential, x0, whiten, steps=iterations, seed=c)
+        values, direction, soft = lanczos_extremes(potential, x0, whiten, steps=iterations, seed=c, hvp=hvp)
         value, softest = float(values.max()), float(values.min())
         labels = [specs[i].name for name in order for i in sites[name].indices]
         heavy = np.argsort(-np.abs(direction))[:int(top)]

@@ -334,7 +334,7 @@ def converge_chain_starts(state: ModelState, evaluator: Evaluator, search: dict[
     candidates = list(kept_modes)
     thetas = [np.asarray(m["theta"], dtype=float) for m in candidates]
     x0 = np.stack([objective.flatten(t)[index] for t in thetas])
-    before = np.array([-float(objective.reduced(jnp.asarray(x))) for x in x0])
+    before = np.array([-float(objective.reduced_value_and_grad(jnp.asarray(x))[0]) for x in x0])   # compiled for the L-BFGS below
     tolerance = float(config.search.nuts_start_tolerance)
     # scipy L-BFGS-B: 25 ms per iteration on CANUCS against 216 ms for the optax update, same gain per iteration; the
     # far-field guard that stopped scipy here once is a smooth barrier now (2026-11-03).

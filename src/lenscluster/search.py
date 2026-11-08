@@ -179,7 +179,9 @@ def run_lbfgs(objective: Objective, starts_g: np.ndarray, config: SearchConfig) 
         x, value, nit, nfev = _scipy_lbfgs(objective.reduced_value_and_grad, g, max_iter, trace)
         return x, value, nit, nfev
 
-    traces = [[float(objective.reduced(jnp.asarray(g)))] for g in starts_g]
+    # The value from the value-and-gradient the L-BFGS runs compile anyway: a separate ``reduced`` would compile the whole
+    # likelihood again for one number per start.
+    traces = [[float(objective.reduced_value_and_grad(jnp.asarray(g))[0])] for g in starts_g]
     results = [one(g, first, t) for g, t in zip(progress(starts_g, desc="L-BFGS starts" if screen is None else "L-BFGS screen"), traces)]
     final, potentials, iterations, evaluations = (list(v) for v in zip(*results))
     if screen is not None and first < total:
@@ -416,7 +418,9 @@ def multistart_map(state: ModelState, evaluator: Evaluator, starts: np.ndarray, 
             u = polish_objective.expand(active)
             mode.update(polished=True, polish_iterations=nit, potential_polished=float(value))
         else:
-            mode.update(polished=False, potential_polished=float(objective.potential(jnp.asarray(u))))
+            # potential(expand(g)) is reduced(g); the value-and-gradient is already compiled by the scipy search.
+            value = objective.reduced_value_and_grad(jnp.asarray(final_g[mode["representative"]]))[0]
+            mode.update(polished=False, potential_polished=float(value))
         mode["unconstrained"] = u
         mode["theta"] = objective.theta(u).tolist()
         mode["log_posterior"] = -mode["potential_polished"]

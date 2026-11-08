@@ -152,8 +152,8 @@ cluster, and the images update it.
 ### The likelihood
 
 Each member has an indicator $z_i \in \{0, 1\}$ with prior $\mathrm{Bernoulli}(p_i)$: with $z_i = 1$ it is on the
-scaling relation, with $z_i = 0$ it has no mass. The likelihood of the image positions $\theta$ at lens parameters
-$\Theta$ sums over the indicators,
+scaling relation, with $z_i = 0$ it has no mass. The indicators are latent variables, so the likelihood of the image
+positions $\theta$ at lens parameters $\Theta$ marginalizes them by the sum rule,
 
 $$
 \mathcal{L}(\Theta) = \sum_{z \in \{0,1\}^N} \prod_i p_i^{z_i}(1-p_i)^{1-z_i}\; p(\theta \mid \Theta, z),
@@ -176,8 +176,10 @@ Enumerated members
 
 Marginalized members
 : Every other uncertain member. A member's deflection is linear in its mass, so the total deflection is
-  $\alpha = \alpha_{\mathrm{rest}} + \sum_g z_g \alpha_g$. Averaging over the $z_g$ gives the mean deflection
-  $\alpha_{\mathrm{rest}} + \sum_g p_g \alpha_g$, used as the model, and the covariance
+  $\alpha = \alpha_{\mathrm{rest}} + \sum_g z_g \alpha_g$. Split it into its mean and a fluctuation,
+  $\alpha = \big(\alpha_{\mathrm{rest}} + \sum_g p_g \alpha_g\big) + \sum_g (z_g - p_g)\, \alpha_g$. The mean is the
+  model deflection. The fluctuation has zero mean, and approximated as Gaussian it is one more deflection error, like
+  the unmodeled mass of the error models above, with covariance
 
   $$
   C_{\mathrm{mem}}^{(jk)} = \sum_g p_g (1 - p_g)\, \alpha_g(\theta_j)\, \alpha_g(\theta_k)^T,

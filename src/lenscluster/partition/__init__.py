@@ -1,12 +1,10 @@
-"""Probabilistic assignment of lensed images to families.
+"""Uncertain lensed images assigned to sources jointly with the lens.
 
-``candidates`` and ``source_plane_proposals`` build the candidate set of partitions that the partition likelihood sums
-over; see ``docs/probabilistic_family_assignment.md``.
+``slots`` adds the uncertain images to the position likelihood as a mixture over source slots (trusted families, new
+sampled sources, or an unrelated source), with each image's assignment summed out; ``lens_evidence`` and
+``catalog_evidence`` give the per-image terms and the evidence of an image as its own source.  See
+``docs/uncertain-images.md``.
 """
-from .candidates import (canonicalize_partition, dedupe_partitions, generate_candidate_partitions, local_partition_perturbations,
-                         repair_candidate_partitions, same_family_matrix, weighted_pair_probability)
-from .source_plane_proposals import SourcePlaneCache, precompute_source_plane_cache, propose_partitions
+from .slots import SlotModel, add_slots, extend_theta
 
-__all__ = ["SourcePlaneCache", "canonicalize_partition", "dedupe_partitions", "generate_candidate_partitions",
-           "local_partition_perturbations", "precompute_source_plane_cache", "propose_partitions", "repair_candidate_partitions",
-           "same_family_matrix", "weighted_pair_probability"]
+__all__ = ["SlotModel", "add_slots", "extend_theta"]

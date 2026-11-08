@@ -992,7 +992,8 @@ class Evaluator:
         """Log-likelihood plus the source transport correction, or BAD_LOG_LIKE / -inf when rejected.
 
         The value is the sum of the per-image (or per-family) likelihood terms, the source-transport correction, the
-        member-kinematics term, the far-field guard barrier and the smooth ellipticity caps.  It is the target the
+        member-kinematics term, the far-field guard barrier, the smooth ellipticity caps and, when the state carries
+        source slots (``partition.slots``), the slot-mixture likelihood of the uncertain images.  It is the target the
         sampler adds to the priors of the latent parameters.  ``loglike`` and ``value_and_grad`` are jitted versions.
 
         Rejected proposals are evaluated at the known-valid initial model so that every
@@ -1030,6 +1031,8 @@ class Evaluator:
         if not source_jacobian:
             value = value - stats["source_jacobian"]
         value = value + self.far_field_log_barrier(stats["fields"]["far_cut_radii"]) + self.ellipticity_log_prior(packed)
+        if self.state.slots is not None:
+            value = value + self.state.slots.log_likelihood(self, safe_params, stats)
         valid = jnp.all(stats["valid"]) & jnp.all(stats["transport_valid"]) & ~jnp.isnan(value)
         value = jnp.where(valid, value, -jnp.inf)
         return jnp.where(ok_model, jnp.where(ok_scales, value, -jnp.inf), jnp.asarray(BAD_LOG_LIKE, dtype=jnp.float64))

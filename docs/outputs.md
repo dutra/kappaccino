@@ -16,13 +16,15 @@ A run writes everything under its run root, `<output_dir>/<run_name>/` from
 : `classification_report.txt`, `shallow_fold_pairs.json`.
 
 `final/artifacts/`
-: `config.json` and `config.pkl`, `posterior.npz`, `audit.json`, `summary.json`.
+: `config.json` and `config.pkl`, `posterior.npz`, `audit.json`, `summary.json`, and with uncertain images
+  `slots.npz` (see {doc}`uncertain-images`).
 
 `final/tables/`
 : `posterior_summary.csv`, `member_classification.csv`, `member_scaling_relation.csv`, `image_fit_quality.csv`,
   `image_count_recovery.csv`, `model_magnification.csv`, `posterior_image_residual_draws.csv`,
   `chain_convergence.csv`, `run_summary.json` and `run_summary.txt`, and for simulated
-  clusters `truth_recovery_m2d_aperture_profile.csv`.
+  clusters `truth_recovery_m2d_aperture_profile.csv`; with uncertain images `uncertain_images.csv` and
+  `uncertain_pairs.csv`.
 
 `final/figures/`
 : The figures listed below and `<prefix>_results.tex`.

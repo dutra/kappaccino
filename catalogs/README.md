@@ -102,14 +102,16 @@ fit: `ImageConstraintsConfig(trusted_prior_min=0.8)` trusts the diamond and gold
   The system's `reliability` is its tier's; an image's `prior` is the reliability, times its own quality when that is
   below 0.8. Images another paper gives a system that its source paper does not list are added to it as candidates at
   half that prior. The values are priors we chose, set in `reliability:` of `sources.yaml` (defaults in the script).
+  `docs/catalogs.md` (Master catalogs: tiers and priors) defines them in full, with each paper's quality flags.
 - **Redshifts.** A non-spectroscopic z is replaced by a linked spectroscopic one; two spectroscopic redshifts more than
   `dz_max` apart in |dz|/(1+z) are listed under `conflicts` until a `set_z` decision settles them. A system whose z is
   free everywhere (Lenstool's z = 0) keeps z = 0: a fit leaves it out of the trusted families and the slot mixture
   samples its redshift. `z_err`: 0.01 spectroscopic, 0.05 (1+z) photometric, 0.1 (1+z) model.
 - **Members.** `p_member` is 1 with a spectroscopic z within `member_dz` (0.03) (1+z) of `z_cluster` from any paper, a
-  bcg role or kinematics; 0.02 for a spectroscopic interloper (kept, not removed); 0.9 when two independent papers list
-  the galaxy; else 0.7. Members only another paper lists are added when that paper gives the base band (`member_band`
-  names it for a Lenstool .cat file). Use with `MemberConfig(membership="marginalize")`.
+  bcg role, kinematics, or a p_member of 1 stated in a paper's own list; 0.02 for a spectroscopic interloper (kept,
+  not removed); 0.9 when two independent papers list the galaxy; else 0.7. Members only another paper lists are added
+  when that paper gives the base band (`member_band` names it for a Lenstool .cat file). Use with
+  `MemberConfig(membership="marginalize")`.
 - **Matching.** Each paper is shifted onto the base paper's frame by the median offset of its positions from the base's,
   measured by the script and recorded in `crossmatch.yaml` (Bergamini 2023 to CANUCS: 0.23"), then every pair of
   papers is matched mutual-nearest within `match_radius_arcsec`, per (system, knot, image). Systems linked through

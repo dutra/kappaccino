@@ -167,11 +167,87 @@ reference point.
 Large inputs are not tracked: the Lenstool `bayes.dat` files, the FF-SIMS truth maps and images, and the CANUCS DR1
 photometry catalog. See {doc}`scripts` for downloading imaging.
 
-## Trusted and uncertain images
+## Master catalogs: tiers and priors
 
-`ImageConstraintsConfig.trusted_prior_min` splits one catalog into the images that constrain the lens directly and the
-uncertain ones: an image whose `prior` is below it leaves its family (as do families without a positive redshift or
-left with one image). With a `PartitionConfig` whose `catalog_path` is None, those images are the uncertain images of
-the slot mixture, each weighted toward its own system by its prior: a trusted family's slot, or a new slot seeded on
-the uncertain images of the same system. The master catalogs (`catalogs/<cluster>/master/images.yaml`) are written for
-this, with `trusted_prior_min=0.8` selecting their diamond and gold images; see `catalogs/README.md`.
+A cluster with several published catalogs has a master catalog, `catalogs/<cluster>/master/`, built by
+`scripts/build_master_catalog.py` (layout and matching in `catalogs/README.md`). Nothing a paper lists is dropped:
+every system enters `images.yaml` with a **tier** and a `reliability`, every image (or knot) with a `prior`, and every
+member enters `members.yaml` with a `p_member`. The values below are priors we chose, not measured rates; they are set
+in `sources.yaml` (`reliability:`, `member_prior:`, `member_dz`) with these defaults.
+
+### Image quality
+
+Each image has a quality $q$ between 0 and 1 from its paper's own flag. `quality` in the paper's entry of
+`sources.yaml` maps text in the image notes to a score, the first match winning; an image without a matching flag has
+$q = 1$. An image several papers list takes the best of their scores. A system's quality $Q$ is the median of its
+images' $q$.
+
+| cluster | paper | flag (image notes) | q |
+|---|---|---|---|
+| M0416 | Diego et al. 2024 | rank B / C / D | 0.7 / 0.4 / 0.2 |
+| AS1063 | Diego et al. 2026 | rank B | 0.7 |
+| A2744 | Bergamini et al. 2023a, b | QF 1 (tentative z) / QP 3 (MUSE only, diffuse) / QF 9 (single line) / QF 2 (likely z) | 0.5 / 0.6 / 0.7 / 0.85 |
+| A2744 | Mahler et al. 2018 | in the copper run only / bronze and copper / silver and below | 0.3 / 0.5 / 0.7 |
+| A370 | Lagattuta et al. 2019 | not used in their model (Note 1), copper class, no class / bronze / silver | 0.3 / 0.5 / 0.7 |
+| M1149 | Treu et al. 2016 | Rejected / "all" sample only / Silver | 0.1 / 0.4 / 0.7 |
+
+The other papers give no per-image flag ($q = 1$).
+
+### Tiers
+
+With $n$ the number of independent papers that list the system (a paper with `derived_from` reused another's images
+and counts with it) and the kind of its redshift (spectroscopic, photometric, model, or free), the first rule that
+holds sets the tier:
+
+| tier | rule | reliability $R$ |
+|---|---|---|
+| diamond | spectroscopic z, $n \ge 2$, $Q \ge 0.8$ | 1.0 |
+| gold | spectroscopic z, $Q \ge 0.8$ | 0.9 |
+| silver | (spectroscopic z or $n \ge 2$) and $Q \ge 0.5$ | 0.7 |
+| bronze | $Q \ge 0.5$ | 0.4 |
+| copper | otherwise | 0.15 |
+
+A `set_tier` decision overrides the rule for one system.
+
+### Image priors
+
+The `prior` of an image is the probability that it belongs to its system:
+
+$$p_i = R \times \begin{cases} 1 & q_i \ge 0.8 \\ q_i & q_i < 0.8 \end{cases}$$
+
+so a well-flagged image of a diamond system has $p = 1$, a rank-B image of a spectroscopic system $0.7 \times 0.7$.
+An image another paper gives a system that the system's own paper does not list is added to it as a **candidate**,
+with $p = 0.5\,R\,q$. A system whose redshift is free in every paper (Lenstool's z = 0) keeps z = 0; its images keep
+their priors.
+
+Each system with a redshift also gets `z_err`: 0.01 for a spectroscopic z, $0.05\,(1+z)$ photometric, $0.1\,(1+z)$ for
+a model (geometric) z.
+
+### Member probabilities
+
+The first rule that holds sets `p_member`:
+
+| evidence | p_member |
+|---|---|
+| a spectroscopic z within $0.03\,(1 + z_{cl})$ of the cluster redshift (`z_cluster`), from any paper | 1 |
+| a spectroscopic z outside that window (an interloper, kept) | 0.02 |
+| role bcg, measured kinematics, or $p_{member} = 1$ stated in a paper's own list (Grillo et al. 2016: spectra) | 1 |
+| listed by two or more independent papers (photometric or color selection) | 0.9 |
+| listed by one paper | 0.7 |
+
+The master keeps the members of the base paper (or `members_base`) and adds the members only another paper lists
+when that paper gives the same band. A `set_member` decision sets one member's role, treatment or `p_member`
+(a role bcg then gives 1).
+
+### Using them in a fit
+
+- `ImageConstraintsConfig(trusted_prior_min=0.8)` trusts the images with $p \ge 0.8$: the diamond and gold systems
+  without their poorly flagged images. An image below it leaves its family, as do families without a positive
+  redshift or left with a single image.
+- With a `PartitionConfig` whose `catalog_path` is None, the untrusted images are the uncertain images of the slot
+  mixture. An image whose system is trusted puts its prior on that family's slot; the images of an untrusted system
+  (two or more of them) share a new slot seeded on them, and each puts its prior on it; the remaining $1 - p$ is
+  shared among unrelated and the other slots as for an image without a claim. Free redshifts are sampled.
+- `MemberConfig(membership="marginalize")` sums each member's membership over its `p_member`
+  (`membership_max_enumerated` members exactly, the rest by their expected mass and its variance).
+- The default `trusted_prior_min=0.0` trusts every image with a positive redshift, as for a catalog without priors.

@@ -8,6 +8,16 @@ import numpy as np
 from . import jax_cosmology
 
 
+def _sigma0_factor(state, z_source):
+    """The dPIE sigma0 factor at ``z_source``, from the state's table; computed (a cosmology quadrature) and stored the
+    first time a redshift is asked for, as ``Evaluator.packed_state_for_z`` does."""
+    factor = state.dpie_sigma0_factor_by_z.get(float(z_source))
+    if factor is None:
+        factor = float(jax_cosmology.dpie_sigma0_factor_from_config(state.z_lens, float(z_source), state.cosmo_config))
+        state.dpie_sigma0_factor_by_z[float(z_source)] = factor
+    return float(factor)
+
+
 def shared_grf_fields(evaluator, theta, z_source, xy, *, chunk=1024):
     """Return deflection and its Jacobian, scaled to the requested redshift.
 
@@ -23,10 +33,8 @@ def shared_grf_fields(evaluator, theta, z_source, xy, *, chunk=1024):
     correction = evaluator.gp_deflection_correction(theta)
     if correction is None:
         return alpha, jacobian
-    state = evaluator.state
-    reference = float(jax_cosmology.dpie_sigma0_factor_from_config(
-        state.z_lens, state.gp_reference_redshift, state.cosmo_config))
-    target = float(jax_cosmology.dpie_sigma0_factor_from_config(state.z_lens, z_source, state.cosmo_config))
+    reference = _sigma0_factor(evaluator.state, evaluator.state.gp_reference_redshift)
+    target = _sigma0_factor(evaluator.state, z_source)
     weight = target / reference / float(evaluator.gp_weights_per_family[0])
     for start in range(0, len(xy), chunk):
         points = xy[start:start + chunk]

@@ -323,16 +323,19 @@ def plot_critical_curves(state: ModelState, evaluator: Evaluator, theta: np.ndar
     pixel = np.arange(n, dtype=float)
     physical = evaluator.physical(jnp.asarray(theta))
     packed = evaluator.packed_state_for_z(physical, z_source)
+    from .reporting_fields import shared_grf_fields
+    curves = []
     for field, linestyle in ((1.0 - kappa - shear, "-"), (1.0 - kappa + shear, "--")):
-        color = CRITICAL_COLOR
         for vertices in find_contours(field, 0.0):
             cx, cy = np.interp(vertices[:, 1], pixel, axis), np.interp(vertices[:, 0], pixel, axis)
-            image_ax.plot(cx, cy, color=color, linestyle=linestyle, linewidth=1.0)
-            xy = np.stack((cx, cy), -1)
-            from .reporting_fields import shared_grf_fields
-            correction, _ = shared_grf_fields(evaluator, theta, z_source, xy)
-            beta = xy - evaluator.total_fields_at(xy, packed)[0] - correction
-            source_ax.scatter(beta[:, 0], beta[:, 1], color=color, s=2, alpha=0.75, linewidths=0.0)
+            image_ax.plot(cx, cy, color=CRITICAL_COLOR, linestyle=linestyle, linewidth=1.0)
+            curves.append(np.stack((cx, cy), -1))
+    if curves:
+        # Every segment's caustic in one field evaluation (one GRF correction, one pass of the lens fields).
+        xy = np.concatenate(curves)
+        correction, _ = shared_grf_fields(evaluator, theta, z_source, xy)
+        beta = xy - evaluator.total_fields_at(xy, packed)[0] - correction
+        source_ax.scatter(beta[:, 0], beta[:, 1], color=CRITICAL_COLOR, s=2, alpha=0.75, linewidths=0.0)
     cmap = plt.get_cmap("tab20", max(1, len(state.family_data)))
     for idx, family in enumerate(state.family_data):
         image_ax.scatter(family.x_obs, family.y_obs, color=cmap(idx), s=14, label=family.family_id)

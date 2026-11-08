@@ -21,12 +21,14 @@ padded knots an identity source precision, so neither contributes.
 """
 from __future__ import annotations
 
+import functools
+
 import jax
 import jax.numpy as jnp
 import numpy as np
 from jax.scipy.linalg import solve_triangular
 from scipy.interpolate import CubicSpline
-from scipy.special import jv
+from scipy.special import j0, j1
 
 from .gp_image_plane import family_slots
 
@@ -58,6 +60,18 @@ def _natural_second_derivative_operator(x) -> np.ndarray:
 def knee_tables(*, r_max: float, r_step: float, lam_min: float, lam_max: float, n_lam: int, scale_min: float, scale_max: float,
                 gamma: float | None = None, gamma_grid: tuple[float, float, int] | None = None, n_nodes: int = 3000,
                 shape: str = "knee", beta_low_grid: tuple[float, float, int] | None = None) -> dict:
+    """The tables of ``_knee_tables`` (documented there), cached on their arguments: every Evaluator of a run builds the same
+    ones.  Returns a fresh dict each call, so callers may replace entries; the arrays themselves are immutable."""
+    as_key = lambda grid: None if grid is None else tuple(float(v) for v in grid)
+    return dict(_knee_tables(r_max=float(r_max), r_step=float(r_step), lam_min=float(lam_min), lam_max=float(lam_max), n_lam=int(n_lam),
+                             scale_min=float(scale_min), scale_max=float(scale_max), gamma=None if gamma is None else float(gamma),
+                             gamma_grid=as_key(gamma_grid), n_nodes=int(n_nodes), shape=str(shape), beta_low_grid=as_key(beta_low_grid)))
+
+
+@functools.lru_cache(maxsize=8)
+def _knee_tables(*, r_max: float, r_step: float, lam_min: float, lam_max: float, n_lam: int, scale_min: float, scale_max: float,
+                 gamma: float | None, gamma_grid: tuple[float, float, float] | None, n_nodes: int, shape: str,
+                 beta_low_grid: tuple[float, float, float] | None) -> dict:
     """c_L(r; lambda_t, gamma) and c_T(r; lambda_t, gamma) on a grid of separations r (step ``r_step`` to ``r_max``), G =
     ``n_lam`` knee wavelengths log-spaced on [lam_min, lam_max] and H slopes: the single fixed ``gamma`` (H = 1) or
     ``gamma_grid`` = (min, max, count) evenly spaced when the slope is sampled.  Stored as (R, H, G) with the second
@@ -95,10 +109,15 @@ def knee_tables(*, r_max: float, r_step: float, lam_min: float, lam_max: float, 
         weight = dlnk * np.broadcast_to(k[:, None, None] ** (-gam[None, :, None]), (k.size, gam.size, lam.size)).copy()
     weight /= weight.sum(axis=0, keepdims=True)
     weight = weight.reshape(k.size, gam.size * lam.size)
-    j0, j2 = jv(0, np.outer(r, k)), jv(2, np.outer(r, k))
-    c_l = ((j0 - j2) @ weight).reshape(r.size, gam.size, lam.size)
-    c_t = ((j0 + j2) @ weight).reshape(r.size, gam.size, lam.size)
-    del j0, j2
+    # J_2 from the recurrence J_2 = 2 J_1 / x - J_0 (J_2(0) = 0): scipy's j0 and j1 are about 15x faster than jv(n, x).
+    kr = np.outer(r, k)
+    bessel_0 = j0(kr)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        bessel_2 = np.where(kr > 0.0, 2.0 * j1(kr) / np.where(kr > 0.0, kr, 1.0) - bessel_0, 0.0)
+    del kr
+    c_l = ((bessel_0 - bessel_2) @ weight).reshape(r.size, gam.size, lam.size)
+    c_t = ((bessel_0 + bessel_2) @ weight).reshape(r.size, gam.size, lam.size)
+    del bessel_0, bessel_2
     x = np.log(lam)
     d2_l = CubicSpline(x, c_l, axis=2, bc_type="natural").derivative(2)(x)
     d2_t = CubicSpline(x, c_t, axis=2, bc_type="natural").derivative(2)(x)
@@ -452,6 +471,49 @@ def block_residual(backprojected_slots, source, layout):
 
 
 # ----------------------------------------------------------------------------- the GP mean deflection for the image solver
+def _field_rows(points, block_xy, r_grid, c_l, c_t, sigma_alpha2):
+    """Unweighted field covariance between points (P, 2) and the images of one block (M, 2): (P, M, 2, 2)."""
+    d = points[:, None, :] - block_xy[None]
+    r = jnp.sqrt(jnp.sum(d * d, axis=-1) + 1e-30)
+    n = d / r[..., None]
+    cl, ct = jnp.interp(r, r_grid, c_l), jnp.interp(r, r_grid, c_t)
+    return sigma_alpha2 * (ct[..., None, None] * jnp.eye(2) + (cl - ct)[..., None, None] * n[..., :, None] * n[..., None, :])
+
+
+@functools.partial(jax.jit, static_argnames=("modes",))
+def _mean_deflection_coefficients(coef, xy, mask, weights, r_grid, c_l, c_t, sigma_alpha2, modes):
+    """u = W v per block (the field-space coefficients) (S, M, 2), and with the low-order modes removed the block centres
+    (S, 2) and g (S, n).  With the modes removed (project_low_order), the field is r = alpha - Phi c, c the least-squares fit
+    at the images: E[r(theta) | F] = k(theta)^T u' - Phi(theta) g, with u' = (I - P) u and g = R^-1 Q^T K u' (Phi = Q R at
+    the images), so that at the images it equals (I - P) K (I - P) u."""
+    n_blocks, size = mask.shape
+    u = (coef * (mask * weights)[..., None]).reshape(n_blocks, 2 * size)
+    centre, g = jnp.zeros((n_blocks, 2)), jnp.zeros((n_blocks, 0))
+    if modes:
+        q, r_factor, centre = low_order_projector(xy, mask, modes)
+        u = u - jnp.einsum("sin,sn->si", q, jnp.einsum("sin,si->sn", q, u))
+        k_images = jax.vmap(lambda block_xy: _field_rows(block_xy, block_xy, r_grid, c_l, c_t, sigma_alpha2))(xy)   # (S, M, M, 2, 2)
+        k_images = k_images * (mask[:, :, None] & mask[:, None, :])[..., None, None]
+        ku = jnp.einsum("simab,smb->sia", k_images, u.reshape(n_blocks, size, 2)).reshape(n_blocks, 2 * size)
+        g = jnp.linalg.solve(r_factor, jnp.einsum("sin,si->sn", q, ku)[..., None])[..., 0]          # (S, n)
+    return u.reshape(n_blocks, size, 2), centre, g
+
+
+@functools.partial(jax.jit, static_argnames=("modes",))
+def _mean_deflection_fields(points, families, xy, mask, block_of_family, r_grid, c_l, c_t, sigma_alpha2, w_family, u, centre, g, modes):
+    """The conditional-mean deflection (P, 2) at points of the given families and its Jacobian (P, 2, 2).  Module level, with
+    the draw's arrays as arguments, so it compiles once per point count instead of once per draw."""
+    def single(point, family):
+        s = block_of_family[family]
+        block = _field_rows(point[None], xy[s], r_grid, c_l, c_t, sigma_alpha2)[0] * mask[s][:, None, None]
+        value = jnp.einsum("mab,mb->a", block, u[s])
+        if modes:
+            value = value - low_order_patterns(point[None], centre[s], modes)[0] @ g[s]
+        return w_family[family] * value
+
+    return jax.vmap(single)(points, families), jax.vmap(jax.jacfwd(single, argnums=0))(points, families)
+
+
 class MeanDeflectionKnee:
     """E[delta_alpha(theta) | F] at arbitrary points for one draw: w_point sum_j w_j K_alpha(theta - theta_j) v_j over the
     images of the point's block, v = C^-1 (b - J beta).  Called with (x, y, family indices), returns the deflection and
@@ -460,49 +522,22 @@ class MeanDeflectionKnee:
 
     def __init__(self, layout: dict, tables: dict, coefficients, lam: float, sigma_alpha2: float, weights_per_family, gamma=None,
                  modes: tuple[str, ...] = ()) -> None:
-        c_l, c_t = (np.asarray(v) for v in knee_curves(tables, jnp.asarray(float(lam)), None if gamma is None else jnp.asarray(float(gamma))))
-        r_grid, xy, mask, weights = tables["r_grid"], layout["xy"], layout["mask"], layout["weights"]
-        block_of_family = layout["block_of_family"]
-        coef = jnp.asarray(coefficients)
-        w_family = jnp.asarray(weights_per_family, dtype=jnp.float64)
-        c_l, c_t = jnp.asarray(c_l), jnp.asarray(c_t)
-
-        def field_rows(points, s):
-            """Unweighted field covariance between points (P, 2) and the images of block s: (P, M, 2, 2)."""
-            d = points[:, None, :] - xy[s][None]
-            r = jnp.sqrt(jnp.sum(d * d, axis=-1) + 1e-30)
-            n = d / r[..., None]
-            cl, ct = jnp.interp(r, r_grid, c_l), jnp.interp(r, r_grid, c_t)
-            return sigma_alpha2 * (ct[..., None, None] * jnp.eye(2) + (cl - ct)[..., None, None] * n[..., :, None] * n[..., None, :])
-
-        # u = W v per block (the field-space coefficients).  With the low-order modes removed (project_low_order), the field
-        # is r = alpha - Phi c, c the least-squares fit at the images: E[r(theta) | F] = k(theta)^T u' - Phi(theta) g, with
-        # u' = (I - P) u and g = R^-1 Q^T K u' (Phi = Q R at the images), so that at the images it equals (I - P) K (I - P) u.
-        n_blocks, size = mask.shape
-        u = (coef * (mask * weights)[..., None]).reshape(n_blocks, 2 * size)
-        if modes:
-            q, r_factor, centre = low_order_projector(xy, mask, modes)
-            u = u - jnp.einsum("sin,sn->si", q, jnp.einsum("sin,si->sn", q, u))
-            k_images = jax.vmap(lambda s: field_rows(xy[s], s))(jnp.arange(n_blocks))                  # (S, M, M, 2, 2)
-            k_images = k_images * (mask[:, :, None] & mask[:, None, :])[..., None, None]
-            ku = jnp.einsum("simab,smb->sia", k_images, u.reshape(n_blocks, size, 2)).reshape(n_blocks, 2 * size)
-            g = jnp.linalg.solve(r_factor, jnp.einsum("sin,si->sn", q, ku)[..., None])[..., 0]          # (S, n)
-        u = u.reshape(n_blocks, size, 2)
-
-        def single(point, family):
-            s = block_of_family[family]
-            block = field_rows(point[None], s)[0] * mask[s][:, None, None]
-            value = jnp.einsum("mab,mb->a", block, u[s])
-            if modes:
-                value = value - low_order_patterns(point[None], centre[s], modes)[0] @ g[s]
-            return w_family[family] * value
-
-        value = jax.vmap(single)
-        jac = jax.vmap(jax.jacfwd(single, argnums=0))
-        self._fields = jax.jit(lambda points, families: (value(points, families), jac(points, families)))
+        c_l, c_t = knee_curves(tables, jnp.asarray(float(lam)), None if gamma is None else jnp.asarray(float(gamma)))
+        sigma_alpha2 = jnp.asarray(float(sigma_alpha2), dtype=jnp.float64)
+        xy, mask = jnp.asarray(layout["xy"]), jnp.asarray(layout["mask"])
+        u, centre, g = _mean_deflection_coefficients(jnp.asarray(coefficients), xy, mask, jnp.asarray(layout["weights"]), tables["r_grid"],
+                                                     c_l, c_t, sigma_alpha2, tuple(modes))
+        self._arguments = dict(xy=xy, mask=mask, block_of_family=jnp.asarray(layout["block_of_family"]), r_grid=tables["r_grid"], c_l=c_l,
+                               c_t=c_t, sigma_alpha2=sigma_alpha2, w_family=jnp.asarray(weights_per_family, dtype=jnp.float64),
+                               u=u, centre=centre, g=g, modes=tuple(modes))
 
     def __call__(self, x, y, families):
-        points = jnp.stack((jnp.asarray(x, dtype=jnp.float64), jnp.asarray(y, dtype=jnp.float64)), -1)
-        delta, jac = self._fields(points, jnp.asarray(families, dtype=jnp.int32))
-        delta, jac = np.asarray(delta), np.asarray(jac)
+        points = np.stack((np.asarray(x, dtype=float).ravel(), np.asarray(y, dtype=float).ravel()), -1)
+        families = np.asarray(families, dtype=np.int32).ravel()
+        n = points.shape[0]
+        # Padded to a power of two so that only a few point counts are ever compiled; padded points reuse family 0.
+        size = max(64, 1 << max(0, n - 1).bit_length())
+        delta, jac = _mean_deflection_fields(jnp.asarray(np.pad(points, ((0, size - n), (0, 0)))),
+                                             jnp.asarray(np.pad(families, (0, size - n))), **self._arguments)
+        delta, jac = np.asarray(delta)[:n], np.asarray(jac)[:n]
         return delta[:, 0], delta[:, 1], jac[:, 0, 0], jac[:, 0, 1], jac[:, 1, 0], jac[:, 1, 1]

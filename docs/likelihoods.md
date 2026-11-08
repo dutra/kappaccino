@@ -200,6 +200,9 @@ gets its own prior factor $p(\delta)$.
 
 With every $p_i = 1$, $\mathcal E$ and $\mathcal M$ are empty, the sum has one term and $C_{\mathrm{mem}} = 0$.
 
+**In the full likelihood**, the uncertain members do not add a factor. They change the lens, so the sum over
+$z_{\mathcal E}$ wraps every image term, trusted and uncertain (step 3 of [The full posterior](#the-full-posterior)).
+
 ### Uncertain images
 
 So far every image had a known family. Some candidate images do not: they may be a new image of a trusted family, an
@@ -286,42 +289,93 @@ unit-normal prior into $p(\psi_k)$.
 
 With no uncertain images, $U = 0$ and the product is 1.
 
+**In the full likelihood**, the uncertain images add one factor, the boxed product, next to the trusted families.
+It shares the lens and the trusted sources $\beta_F$ with them (step 2 of [The full posterior](#the-full-posterior)).
+
 ## The full posterior
 
-The parameters are the lens $\Theta$ (halos, shear, sheet, scaling relation, member deviations), the error scales
-$\phi$ (of $e$ and $\eta$), the trusted sources $\beta_F$, the new slots $\psi_k$ and the membership calibration
-$\delta$. The latent quantities are all summed or integrated out inside the likelihood: the true image positions and
-$\eta$ ([One image](#one-image)), the marginalized indicators $z_{\mathcal M}$ (in $C_{\mathrm{mem}}$), the
-enumerated indicators $z_{\mathcal E}$ (a sum of $2^K$ terms) and the uncertain-image labels $\ell$ (a sum per image).
-The sampled density is
+The sampled parameters are the lens $\Theta$ (halos, shear, sheet, scaling relation, member deviations), the error
+scales $\phi$ (of $e$ and $\eta$), the trusted sources $\beta = \{\beta_F\}$, the new slots $\psi = \{\psi_k\}$ and
+the membership calibration $\delta$. The data are the trusted images $\hat\theta_F$, the uncertain images $D_j$ and
+the member dispersions $\hat\sigma_m$. The likelihood is assembled in four steps, each adding one piece to the one
+before.
+
+**Step 1: trusted images.** For a fixed lens, the trusted images give
+
+$$
+L_1(\Theta, \phi, \beta) = \prod_F p(\hat\theta_F \mid \beta_F, \Theta, \phi) ,
+$$
+
+the family likelihood of [A family of images](#a-family-of-images). The product is over families, or over covariance
+blocks when the error model correlates families (a shared GRF makes all trusted images one block). $L_1$ is the whole
+likelihood of a fit with no uncertain images or members.
+
+**Step 2: add the uncertain images, as a factor.** Given the lens and the sources, the uncertain images are
+independent of the trusted ones, so their likelihood multiplies $L_1$:
+
+$$
+L_2(\Theta, \phi, \beta, \psi) = L_1(\Theta, \phi, \beta) \times
+\underbrace{\prod_j \sum_\ell \pi_\ell\, p(D_j \mid \ell, \Theta, \phi, \beta, \psi)}_{\text{uncertain images}} ,
+$$
+
+the boxed result of [Uncertain images](#uncertain-images).
+
+The two factors are not independent of each other in the posterior: they share the lens, and an uncertain image that
+joins trusted family $F$ is evaluated at that family's source $\beta_F$. So a new counter-image constrains $\beta_F$
+and the lens, exactly as a trusted image would, weighted by its assignment probability.
+
+**Step 3: add the uncertain members, as a sum around everything.** Each member configuration is a different lens, and
+every image, trusted or uncertain, sees the same lens. So the members do not add a factor: they change the lens inside
+$L_2$, and the configurations are summed around it. With $L_2(\,\cdot\,;\, z_{\mathcal E})$ meaning $L_2$ evaluated
+with the deflection $\bar\alpha(z_{\mathcal E})$ and the covariance $C + C_{\mathrm{mem}}$,
+
+$$
+L_3(\Theta, \phi, \beta, \psi, \delta) =
+\underbrace{\sum_{z_{\mathcal E}} p(z_{\mathcal E} \mid \delta)}_{\text{enumerated members}}\;
+L_2(\Theta, \phi, \beta, \psi;\, z_{\mathcal E}) .
+$$
+
+The marginalized members are already inside $L_2$: their expected mass is in $\bar\alpha$ and their fluctuation is
+$C_{\mathrm{mem}}$ ([Uncertain members](#uncertain-members)). The sum cannot be split into one sum for the trusted
+images and another for the uncertain ones, since that would let the two sets of images see different lenses.
+
+**Step 4: add the data and terms that do not depend on the images.** The member dispersions depend only on the lens,
+and the soft constraints are prior-like factors, so both multiply $L_3$ outside the membership sum. With the priors,
+the sampled density is
 
 $$
 \begin{aligned}
 p(\Theta, \phi, \beta, \psi, \delta \mid \mathcal{D}) \;\propto\;
 & \underbrace{p(\Theta)\, p(\phi)\, p(\delta) \prod_F p(\beta_F) \prod_k p(\psi_k)}_{\text{priors}} \\
-& \times \sum_{z_{\mathcal E}} p(z_{\mathcal E} \mid \delta)
-\Big[\underbrace{\prod_F p(\hat\theta_F \mid \beta_F, \Theta, \phi, z_{\mathcal E})}_{\text{trusted images}}
-\;\underbrace{\prod_j \sum_{\ell} \pi_\ell\, p(D_j \mid \ell, \Theta, \phi, \beta, \psi, z_{\mathcal E})}_{\text{uncertain images}}\Big] \\
-& \times \underbrace{\prod_m p(\hat\sigma_m \mid \Theta)}_{\text{kinematics}}
-\;\underbrace{B(\Theta)}_{\text{soft constraints}} .
+& \times \underbrace{\sum_{z_{\mathcal E}} p(z_{\mathcal E} \mid \delta)}_{\text{step 3}}
+\Big[\underbrace{\prod_F p(\hat\theta_F \mid \beta_F, \Theta, \phi, z_{\mathcal E})}_{\text{step 1: trusted images}}
+\;\underbrace{\prod_j \sum_{\ell} \pi_\ell\, p(D_j \mid \ell, \Theta, \phi, \beta, \psi, z_{\mathcal E})}_{\text{step 2: uncertain images}}\Big] \\
+& \times \underbrace{\prod_m p(\hat\sigma_m \mid \Theta)\; B(\Theta)}_{\text{step 4: kinematics, soft constraints}} .
 \end{aligned}
 $$
 
-The membership sum is outermost because a missing member changes the lens that every image sees, trusted or
-uncertain: for each configuration $z_{\mathcal E}$, the trusted families and the uncertain-image mixture are evaluated
-with that configuration's lens, and the configurations are then summed. The kinematics and the soft constraints do
-not depend on the indicators, so they stay outside. In logs, the target that NUTS adds to the latent priors is
+Every latent quantity has been removed inside the likelihood, so NUTS samples only continuous parameters:
+
+| latent quantity | removed by | where it is in the likelihood |
+|---|---|---|
+| true image positions, deflection error $\eta$ | Gaussian integral ([One image](#one-image)) | $N(F;\, 0,\, C)\, h$ of every image |
+| marginalized member indicators $z_{\mathcal M}$ | Gaussian approximation ([Uncertain members](#uncertain-members)) | mean in $\bar\alpha$, fluctuation in $C_{\mathrm{mem}}$ |
+| enumerated member indicators $z_{\mathcal E}$ | exact sum, $2^K$ terms | outer sum (step 3) |
+| uncertain-image labels $\ell_j$ | exact sum, per image ([Uncertain images](#uncertain-images)) | inner sum of each uncertain image (step 2) |
+
+In logs, the target that NUTS adds to the latent priors is
 
 $$
 \ln L = \operatorname*{logsumexp}_{z_{\mathcal E}}\Big[\ln p(z_{\mathcal E} \mid \delta)
-+ \sum_{\text{blocks}} \ln N(F;\, 0,\, C) + \sum_i \ln h_i
-+ \sum_j \operatorname*{logsumexp}_{\ell}\big(\ln \pi_\ell + \ln p(D_j \mid \ell)\big)\Big]
++ \underbrace{\sum_{\text{blocks}} \ln N(F;\, 0,\, C) + \sum_i \ln h_i}_{\text{trusted images}}
++ \underbrace{\sum_j \operatorname*{logsumexp}_{\ell}\big(\ln \pi_\ell + \ln p(D_j \mid \ell)\big)}_{\text{uncertain images}}\Big]
 + \sum_m \ln p(\hat\sigma_m \mid \Theta) + \ln B(\Theta),
 $$
 
-plus the change-of-variables corrections of the sampled source and slot offsets. Each extension reduces to the
-simpler model when it is not used: with every $p_i = 1$ the outer sum has one term, and with no uncertain images the
-inner product is 1, which leaves the trusted-family likelihood of [A family of images](#a-family-of-images).
+plus the change-of-variables corrections of the sampled source and slot offsets. This is `Evaluator.log_likelihood`:
+it evaluates the bracket once per configuration (vectorized over the $2^K$ configurations) and takes the
+`logsumexp`. Each step drops out when it is not used: with every $p_i = 1$ the outer sum has one term, and with no
+uncertain images the inner product is 1, which leaves step 1.
 
 Each factor:
 

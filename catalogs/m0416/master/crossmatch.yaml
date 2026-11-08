@@ -16,7 +16,7 @@ frames:
     applied_arcsec: [-0.032, -0.0293]
     n_matches: 218
     median_residual_arcsec: 0.0257
-counts: {master_systems: 91, gold_systems: 86, images: 252, left_out_groups: 32, candidate_images: 20, conflicts: 1}
+counts: {master_systems: 91, gold_systems: 86, images: 252, left_out_groups: 32, candidate_images: 20, conflicts: 0}
 systems:
   C1:
     from: canucs2025
@@ -882,10 +882,7 @@ systems:
       bergamini2023:211: [6.629, spec]
       diego2024:75: [6.629, spec]
 excluded: {}
-conflicts:
-- system: K8
-  kind: z
-  values: {'diego2024:8': 1.953, master: 2.0439}
+conflicts: []
 candidate_images:
 - paper_image: bergamini2023:0141.c
   base_systems: [K33, K77]

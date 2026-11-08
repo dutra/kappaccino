@@ -106,9 +106,9 @@ systems:
       b: {ra: 64.04354426575533, dec: -24.06354386379617}
       c: {ra: 64.04743426536665, dec: -24.068693864114735}
   K8:
-    z: 2.0439
+    z: 1.953
     knots: [A, B, C]
-    notes: 'spectroscopic z: MUSE 1.953, NIRISS 2.035'
+    notes: 'spectroscopic z: MUSE 1.953, NIRISS 2.035; z set by decision: MUSE over NIRISS, provisional; REVISIT (master/decisions.yaml)'
     images:
       a:
         knots:

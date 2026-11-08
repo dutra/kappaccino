@@ -88,3 +88,10 @@ Related: `as1063/diego2026/image_mapping.json` (Diego labels to our systems and 
 `scripts/match_published_images.py` (published M0416 images compared with the images a fit predicts).
 `scripts/build_hff_master_catalog.py` is different: it finds candidate families in the BUFFALO photometry and writes
 to `results/`, not here.
+
+## Open issues
+
+- **M0416 K8 redshift (revisit).** MUSE gives z = 1.953, CANUCS NIRISS 2.035 to 2.043 (CANUCS adopts 2.044). The ratio
+  of the two, 1.031, matches [OIII] 5007 / Hbeta, which points to a line confusion in the grism, so `m0416/master` uses
+  the MUSE value by a `set_z` decision. That choice is provisional: check the MUSE quality flag, the NIRISS spectrum
+  (Halpha) or a fit with K8's z free, then update `m0416/master/decisions.yaml`. The evidence is in the comment there.

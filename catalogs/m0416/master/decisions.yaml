@@ -1,2 +1,12 @@
 # Hand-made choices for the MACS J0416 master catalog; each needs a reason.  See scripts/build_master_catalog.py.
-[]
+
+# K8: REVISIT.  MUSE gives 1.953 (the musez column of the CANUCS allmultim table, also Diego et al. 2024); CANUCS NIRISS
+# gives 2.035 (image 1) and 2.043 (images 2, 3), and CANUCS adopts 2.044.  No NIRSpec z.  (1 + 2.044) / (1 + 1.953) =
+# 1.031, the [OIII] 5007 / Hbeta ratio (1.030): an Hbeta / [OIII] confusion in the R ~ 150 grism blend would give this
+# offset, so we take MUSE (CIII] 1909 near 5640 A).  Diego's free-z model gives 1.979 +- 0.036 (0.7 sigma from MUSE,
+# 1.8 sigma from NIRISS).  Bergamini et al. 2023 (MUSE-confirmed families only) does not list K8.  Settle it with the
+# MUSE quality flag (Richard et al. 2021 / Bergamini MUSE redshift catalogs), the NIRISS spectrum (Halpha at 1.94 um
+# for z = 1.953, 2.00 um for z = 2.044), or a fit with K8's z free.
+- set_z: K8
+  z: 1.953
+  reason: MUSE over NIRISS, provisional; REVISIT (master/decisions.yaml)

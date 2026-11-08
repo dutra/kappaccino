@@ -1435,6 +1435,10 @@ class TruthRecoveryConfig:
         this redshift; the magnification comparison reads the maps' ``ZSOURCE`` (or ``REDSHIFT``) header and falls back
         to it.  When it is not behind the lens, the critical-curve figure uses the highest family redshift and the
         truth comparison is skipped.  Default ``9.0``.
+    alpha_true_fits : str or pathlib.Path or None, optional
+        FITS file of the true deflection (FF-SIMS ``deflAngles<Cluster>.fits``: extensions 0 and 1 the deflection in
+        arcsec toward east and north for a source at the header's ``ZS``, on the pixel grid of ``kappa_true_fits``),
+        for the direct fit of the model to the truth (``kappaccino.diagnostics.truth_fit``).  Default None.
     """
     kappa_true_fits: str | Path | None = None
     gammax_true_fits: str | Path | None = None
@@ -1442,6 +1446,7 @@ class TruthRecoveryConfig:
     posterior_truth_recovery_draws: int = 16
     truth_grid_size: int = 256
     caustic_source_redshift: float = 9.0
+    alpha_true_fits: str | Path | None = None
 
 
 @dataclass(frozen=True)

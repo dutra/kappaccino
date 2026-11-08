@@ -31,6 +31,7 @@ likelihoods
 pipeline
 outputs
 mock-validation
+truth-fit
 scripts
 ```
 

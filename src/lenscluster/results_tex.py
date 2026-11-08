@@ -134,9 +134,72 @@ def m0416_table_metrics(final):
 
 
 def write_run_results(final_dir: str | Path, *, name: str | None = None) -> Path:
-    """Read final/{tables,artifacts} and export beside plots in final/figures.
+    r"""Write LaTeX macros of a finished run's recorded results.
 
-    Missing quantities remain explicitly unavailable.
+    Reads only saved outputs under ``final_dir`` (no inference, no plots) and
+    writes one ``\newcommand`` per metric to
+    ``final/figures/<name>_results.tex``. Each command is the prefix of
+    :func:`command_prefix` (``name`` with known clusters aliased, e.g. ``m0416``
+    to ``MJZeroFourOneSix``, digits spelled out) followed by a suffix. A quantity
+    that is missing from the saved files is written as ``\textnormal{not
+    available}``; nothing is inferred.
+
+    Files read (relative to the run root; all except the first are optional):
+    ``final/artifacts/summary.json``, ``final/artifacts/config.json``,
+    ``final/artifacts/posterior_diagnostics.json``,
+    ``final/tables/run_summary.json``, ``final/tables/runtime.json``,
+    ``final/tables/posterior_summary.csv``,
+    ``final/tables/posterior_image_rms.csv``,
+    ``final/tables/image_fit_quality.csv``,
+    ``final/tables/image_recovery_extra_images.csv`` and
+    ``final/tables/aperture_mass_histogram.json``. For an M0416 run (``name``
+    containing ``m0416`` or ``mj0416``) it also reads
+    ``final/artifacts/posterior.npz``, ``final/tables/member_diagnostics.csv``,
+    ``final/tables/member_diagnostic_draws.npz`` and
+    ``init/artifacts/state.json`` to add halo and scaling-relation macros
+    comparable with Rihtarsic et al. (2025).
+
+    Main suffixes: counts (``NImages``, ``NRecovered``, ``NMissed``,
+    ``NFamilies``, ``NFamiliesRecovered``, ``NParameters``, ``NMembers``,
+    ``NExactMembers``, ``NFarFieldMembers``, ``NDivergences``, ``NChains``,
+    ``NWarmupPerChain``, ``NSamplesPerChain``, ``NExtraImages``); best-fit
+    image residuals in arcsec (``RMS``, ``MedianResidual``) and
+    ``RecoveredPercent``; ``PosteriorMedianRMS`` (arcsec, median of per-draw
+    RMS); position coverage (``PositionCoverageXPercent``,
+    ``PositionCoverageYPercent`` and their counts); likelihood-noise posterior
+    medians and intervals (``GPSigmaShared``, ``GPSigmaWhite``,
+    ``GPCorrelationLength``, ``GRFDeflectionAmplitude``, ``GRFTurnoverScale``;
+    angular scales in arcsec); convergence (``MaxRhat``, ``MinESS``); run time
+    (``Runtime``, ``SamplingRuntime`` as h/min/s, plus ``...Seconds`` and
+    ``...Hours``); and ``ApertureMassRatio...`` macros when the aperture
+    histogram exists.
+
+    Parameters
+    ----------
+    final_dir : str or pathlib.Path
+        The run's ``final`` directory (``<run root>/final``).
+    name : str or None, optional
+        Name used for the file name (non-alphanumeric characters other than
+        ``_`` and ``-`` replaced by ``_``) and the macro prefix. None (default)
+        uses ``paths.figure_prefix`` from ``final/artifacts/config.json``, or
+        else the name of the run root directory.
+
+    Returns
+    -------
+    pathlib.Path
+        The written file, ``final/figures/<name>_results.tex``.
+
+    Raises
+    ------
+    FileNotFoundError
+        If ``final/artifacts/summary.json`` does not exist.
+    ValueError
+        If ``name`` yields no valid TeX command name (letters only), or, for an
+        M0416 run, the saved member deviation draws do not align with the saved
+        posterior.
+    AssertionError
+        For an M0416 run, if the saved posterior draws disagree with
+        ``posterior_summary.csv`` or ``member_diagnostics.csv``.
     """
     final = Path(final_dir)
     if not (final / 'artifacts/summary.json').is_file():
@@ -252,7 +315,46 @@ def write_run_results(final_dir: str | Path, *, name: str | None = None) -> Path
 
 
 def write_mock_results(campaign, output: Path, *, rhat_cut: float, min_ess: float) -> Path:
-    """Aggregate definitions match the residual figure, not a pooled image RMS."""
+    r"""Write LaTeX macros summarizing a mock-validation campaign.
+
+    Writes ``output/mock_results.tex`` with ``\newcommand`` macros prefixed
+    ``Mock``. Aggregates follow the residual figure rather than pooling all
+    images: for each (seed, posterior draw) group of
+    ``campaign.residual_draws``, the RMS and median of the finite, nonnegative
+    residuals of recovered images are computed, and the macros report the
+    median of each across groups.
+
+    Macros: ``MockNCompleted`` (realizations in ``campaign.summary``),
+    ``MockNIncluded`` (``campaign.seeds``), ``MockNExcluded``, ``MockRhatCut``,
+    ``MockMinESSCut``, ``MockRMS`` and ``MockMedianResidual`` (arcsec),
+    ``MockNImages``, ``MockNRecovered``, ``MockNMissed`` (sums over included
+    seeds; not available if any value is missing), and ``MockRuntime``,
+    ``MockRuntimeSeconds``, ``MockRuntimeHours`` (always not available: a
+    campaign's run time is not inferred).
+
+    Parameters
+    ----------
+    campaign : lenscluster.mock_validation.aggregate_plots.Campaign
+        The loaded campaign. Uses ``summary`` (DataFrame with ``seed``,
+        ``observed_image_count``, ``recovered_image_count``,
+        ``missing_image_count``), ``seeds`` (the included seeds) and
+        ``residual_draws`` (DataFrame with ``seed``, ``draw_index``,
+        ``image_residual_arcsec``, ``recovered``).
+    output : pathlib.Path
+        Directory to write into, normally ``<campaign root>/aggregate_plots``
+        (created if needed).
+    rhat_cut : float
+        Convergence cut recorded as ``MockRhatCut`` (dimensionless; a seed
+        converges with max R-hat strictly below it). Only reported here.
+    min_ess : float
+        Minimum effective sample size recorded as ``MockMinESSCut``. Only
+        reported here.
+
+    Returns
+    -------
+    pathlib.Path
+        The written file, ``output / "mock_results.tex"``.
+    """
     import numpy as np
     import pandas as pd
     selected = campaign.summary[campaign.summary.seed.isin(campaign.seeds)]

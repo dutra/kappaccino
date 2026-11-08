@@ -1,5 +1,7 @@
 # Outputs
 
+This page lists the files a run writes; {doc}`posterior` defines each posterior parameter and derived quantity.
+
 A run writes everything under its run root, `<output_dir>/<run_name>/` from
 {class}`~lenscluster.config.RunPathsConfig`. Figure names start with `RunPathsConfig.figure_prefix`, for example
 `m0416_critical_curves.pdf`.
@@ -19,11 +21,11 @@ A run writes everything under its run root, `<output_dir>/<run_name>/` from
 `final/tables/`
 : `posterior_summary.csv`, `member_classification.csv`, `member_scaling_relation.csv`, `image_fit_quality.csv`,
   `image_count_recovery.csv`, `model_magnification.csv`, `posterior_image_residual_draws.csv`,
-  `chain_convergence.csv`, `run_summary.json` and `run_summary.txt`, `<prefix>_results.tex`, and for simulated
+  `chain_convergence.csv`, `run_summary.json` and `run_summary.txt`, and for simulated
   clusters `truth_recovery_m2d_aperture_profile.csv`.
 
 `final/figures/`
-: The figures listed below.
+: The figures listed below and `<prefix>_results.tex`.
 
 `final/fits/`
 : Convergence, shear, $\det A$ and magnification grids of the posterior median and its 16th and 84th percentiles on
@@ -113,7 +115,7 @@ fit = json.load(open(f"{run}/final/tables/run_summary.json"))
 
 ## Manuscript macros
 
-Every final run writes `final/tables/<prefix>_results.tex`, and mock aggregates write
+Every final run writes `final/figures/<prefix>_results.tex`, and mock aggregates write
 `aggregate_plots/mock_results.tex`. Include one with `\input{...}` and use commands such as `\HeraNImages`,
 `\HeraNRecovered`, `\HeraRMS`, `\HeraMedianResidual` and `\HeraRuntime`. Residuals are in arcseconds; add the units
 in the text. Names contain letters only: M0416 uses `MJZeroFourOneSix`, AS1063 uses `ASOneZeroSixThree`.

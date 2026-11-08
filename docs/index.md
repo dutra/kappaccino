@@ -37,5 +37,6 @@ scripts
 :maxdepth: 2
 :caption: Reference
 
+posterior
 api/index
 ```

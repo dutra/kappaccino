@@ -1,4 +1,14 @@
-"""Two stages: init (classify, multi-start MAP, reclassify) finds the start; final (NUTS, audit, outputs) samples from it."""
+"""Run a lens model in two stages: init finds the start, final samples from it.
+
+The init stage (:func:`run_init`) builds the model, optionally drops members
+below ``members.min_deflection_arcsec``, classifies members provisionally,
+runs the multi-start MAP search, reclassifies members at the best mode,
+chooses the member centering and saves the start under ``init/``. The final
+stage (:func:`run_final`) runs NUTS from that start, audits the posterior and
+writes tables and figures under ``final/``. :func:`run` runs either stage or
+both; :func:`dry_run` describes a run without fitting. Paths are relative to
+the run root ``<output_dir>/<run_name>`` (see ``docs/outputs.md``).
+"""
 from __future__ import annotations
 
 import json
@@ -71,6 +81,35 @@ class RunPaths:
 
 @dataclass
 class InitResult:
+    """Result of the init stage, as returned by :func:`run_init`.
+
+    Parameters
+    ----------
+    paths : StagePaths
+        Directories of the init stage (``<run root>/init`` and its
+        ``artifacts``, ``figures``, ``tables``, ``logs`` subdirectories).
+    state : ModelState
+        The model with the final member classes and centering; its
+        ``initial_theta`` is the saved start.
+    evaluator : Evaluator
+        Likelihood and lens evaluator of ``state``.
+    search : dict
+        The MAP search result in the coordinates NUTS samples: ``theta`` (best
+        latent vector), ``modes`` (list of dicts with ``theta``,
+        ``log_posterior``, ``within_margin``, ``count``, ...), ``method``,
+        ``starts``, ``n_finite``, ``search_seconds``, ``polish_seconds`` and
+        stage diagnostics. Saved as ``init/artifacts/search.npz`` and
+        ``init/artifacts/modes.json``.
+    theta : numpy.ndarray
+        The chain start, shape ``(n_parameters,)``, in latent coordinates (ln of
+        log-sampled quantities; see :mod:`lenscluster.priors`). Saved as
+        ``init/artifacts/start.json``.
+    resumed : bool
+        True if the saved init stage was loaded instead of recomputed.
+    elapsed_seconds : float, optional
+        Wall time of :func:`run_init` in seconds. Default 0.0 (set by
+        :func:`run_init`).
+    """
     paths: StagePaths
     state: ModelState
     evaluator: Evaluator
@@ -82,6 +121,39 @@ class InitResult:
 
 @dataclass
 class RunResult:
+    """Result of the final stage, as returned by :func:`run_final` and :func:`run`.
+
+    Parameters
+    ----------
+    paths : RunPaths
+        The run root and its ``init`` and ``final`` stage directories.
+    init : InitResult
+        The init stage the chains started from.
+    state : ModelState
+        The sampled model (the same object as ``init.state``).
+    evaluator : Evaluator
+        Likelihood and lens evaluator of ``state``.
+    posterior : PosteriorResults
+        NUTS draws (latent ``samples`` and ``physical`` values, ``log_prob``,
+        sampler statistics) and convergence ``diagnostics``. Saved as
+        ``final/artifacts/posterior.npz`` and
+        ``final/artifacts/posterior_diagnostics.json``.
+    audit : dict
+        Posterior audit of the member approximation, including
+        ``approximation_validation`` and ``reclassification_at_median``. Saved
+        as ``final/artifacts/audit.json``.
+    resumed : bool
+        True if a saved posterior was loaded instead of sampled.
+    summary : dict, optional
+        What the outputs step returned and wrote to
+        ``final/tables/run_summary.json``; fit numbers (image counts, rms and
+        median residuals in arcsec) are under ``"fit"``. Empty when
+        ``runtime.skip_plots`` is set. Default empty.
+    timing : dict of str to float, optional
+        Wall times in seconds: ``"sampling"`` (0.0 when resumed) and
+        ``"outputs"`` from :func:`run_final`; :func:`run` adds ``"init"`` and
+        ``"total"``. Default empty.
+    """
     paths: RunPaths
     init: InitResult
     state: ModelState
@@ -450,7 +522,33 @@ def chain_start_conditioning(state: ModelState, evaluator: Evaluator, search: di
 
 
 def init_verdict(search: dict[str, Any], *, fit: dict[str, Any] | None) -> str:
-    """One line: did independent starts reach the best basin, or only the configured model?"""
+    """Summarize in one line whether independent starts reached the best basin.
+
+    The verdict is ``fragile`` when at most one start reaches the best basin (the
+    result rests on a single optimization; a warm start inherits the verdict of
+    the run it started from), ``robust`` otherwise.
+
+    Parameters
+    ----------
+    search : dict
+        The MAP search result (see :class:`InitResult`). Uses ``modes`` (each
+        with ``within_margin`` and optionally ``count``), ``method``, and when
+        present ``starts``, ``starts_in_basin``, ``n_finite`` and the
+        ``warm_start`` / ``warm_start_fragile`` keys.
+    fit : dict or None
+        Fit summary at the start; if given, its ``whitened_residual_rms``
+        (dimensionless) is appended. None omits it.
+
+    Returns
+    -------
+    str
+        ``"verdict: robust [<method>] (k of n starts reach the best basin
+        within the margin)"`` or ``"verdict: fragile [<method>] (k of n starts
+        reach the best basin)"``, where ``<method>`` is ``search["method"]``
+        (e.g. ``"<halo_method>+<member_method>"`` or ``"warm-start"``),
+        followed by ``"; m of n starts invalid"`` when some starts were not
+        finite and the start's whitened rms when ``fit`` is given.
+    """
     modes = search["modes"]
     n_starts = len(search.get("starts", []))
     in_basin = int(search.get("starts_in_basin", sum(int(m.get("count", 1)) for m in modes if m["within_margin"])))
@@ -464,7 +562,49 @@ def init_verdict(search: dict[str, Any], *, fit: dict[str, Any] | None) -> str:
 
 
 def run_init(config: LensClusterSolverConfig) -> InitResult:
-    """Init stage: provisional classification, multi-start MAP, final classification at the MAP, saved start."""
+    """Run (or resume) the init stage and save the chain start.
+
+    Steps: validate the config; build the model; drop members whose deflection
+    at every image is below ``members.min_deflection_arcsec`` (if set); classify
+    members provisionally at the initial model; run the multi-start MAP search;
+    reclassify at the best mode and choose the member centering; optionally
+    optimize the chain starts on the NUTS target
+    (``search.nuts_start_max_iter`` > 0), otherwise check the start's
+    conditioning; save everything. With ``runtime.resume`` (the default) and a
+    complete init under ``init/artifacts/``, the saved start is loaded instead
+    (init figures are redrawn only if missing).
+
+    Files written (relative to the run root): ``init/artifacts/``
+    ``init_signature.json``, ``config.json``, ``config.pkl``, ``state.json``,
+    ``classification.json``, ``search.npz``, ``modes.json``, ``start.json``,
+    ``summary.json``; ``init/tables/classification_report.txt``,
+    ``init/tables/start_parameters.txt``,
+    ``init/tables/member_kinematics.csv`` (members with kinematics only),
+    ``init/tables/shallow_fold_pairs.json`` (GP likelihoods only); init figures
+    under ``init/figures/`` unless ``runtime.skip_plots``; and the log
+    ``init/logs/init.log``.
+
+    Parameters
+    ----------
+    config : LensClusterSolverConfig
+        The run configuration. The run root is
+        ``config.paths.output_dir / config.paths.run_name``.
+
+    Returns
+    -------
+    InitResult
+        The model, evaluator, search result and start, with
+        ``elapsed_seconds`` set to the stage wall time in seconds.
+
+    Raises
+    ------
+    ValueError
+        If the config is invalid, or a saved init is being resumed but was made
+        with a different model, likelihood, member, search configuration or
+        seed (use a new run name).
+    RuntimeError
+        If the likelihood rejects the best mode after reclassification.
+    """
     started = time.perf_counter()
     result = _run_init(config)
     result.elapsed_seconds = time.perf_counter() - started
@@ -608,7 +748,44 @@ def _run_init(config: LensClusterSolverConfig) -> InitResult:
 
 
 def run_final(config: LensClusterSolverConfig, init: InitResult) -> RunResult:
-    """Final stage: NUTS from the init start, posterior audit, tables and figures."""
+    """Run (or resume) the final stage: NUTS, posterior audit, tables and figures.
+
+    Chains start from the modes saved by the init stage (up to
+    ``search.max_chain_modes`` distinct starts for ``runtime.chains`` chains); the
+    first start must reproduce the saved init start, and starts far below it in
+    log-likelihood are logged as warnings. After sampling, the member
+    approximation is audited and member reclassification at the posterior median
+    is checked. With ``runtime.resume`` (the default) and a complete final stage
+    saved with the same configuration, the saved posterior and audit are loaded
+    and only the outputs are rewritten.
+
+    Files written (relative to the run root): ``final/artifacts/config.json``,
+    ``config.pkl``, ``posterior.npz``, ``posterior_diagnostics.json``,
+    ``audit.json``, ``summary.json``; ``final/tables/audit_report.txt``; unless
+    ``runtime.skip_plots``, the tables, figures and FITS maps of
+    ``final/tables/``, ``final/figures/`` and ``final/fits/`` (including
+    ``final/tables/run_summary.json``); and the log ``final/logs/final.log``.
+
+    Parameters
+    ----------
+    config : LensClusterSolverConfig
+        The run configuration; sampling settings come from ``config.sampling``
+        and ``config.runtime``.
+    init : InitResult
+        The completed init stage of the same run (from :func:`run_init`).
+
+    Returns
+    -------
+    RunResult
+        The posterior, audit and output summary, with ``timing`` holding
+        ``"sampling"`` and ``"outputs"`` in seconds.
+
+    Raises
+    ------
+    ValueError
+        If the config is invalid, or a saved final stage is being resumed but
+        was made with a different configuration (use a new run name).
+    """
     config = config.validate()
     paths = run_paths(config)
     stage = paths.final
@@ -680,7 +857,41 @@ def run_final(config: LensClusterSolverConfig, init: InitResult) -> RunResult:
 
 
 def run(config: LensClusterSolverConfig, stage: str = "both") -> RunResult | InitResult:
-    """Run the init stage, the final stage (which needs a completed init), or both."""
+    """Run the init stage, the final stage, or both.
+
+    The init stage always runs first through :func:`run_init` (which loads a
+    saved init when ``runtime.resume`` is set). After the final stage this also
+    writes ``final/tables/runtime.json`` (only when neither stage was resumed,
+    so a reload keeps the original timing), the LaTeX macros
+    ``final/figures/<figure_prefix>_results.tex`` (see
+    :func:`lenscluster.results_tex.write_run_results`) and
+    ``final/tables/run_summary.txt``, which is also printed unless
+    ``runtime.quiet``.
+
+    Parameters
+    ----------
+    config : LensClusterSolverConfig
+        The run configuration.
+    stage : str, optional
+        ``"init"``: run only the init stage. ``"final"``: require a completed
+        init under ``init/artifacts/``, then run the final stage from it.
+        ``"both"`` (default): run init, then final.
+
+    Returns
+    -------
+    InitResult or RunResult
+        :class:`InitResult` for ``stage="init"``; otherwise
+        :class:`RunResult` with ``timing`` holding ``"init"``, ``"sampling"``,
+        ``"outputs"`` and ``"total"`` in seconds.
+
+    Raises
+    ------
+    ValueError
+        If ``stage`` is not one of the three allowed values, or a stage raises
+        it (see :func:`run_init` and :func:`run_final`).
+    FileNotFoundError
+        If ``stage="final"`` and the init stage is not complete.
+    """
     if stage not in STAGES:
         raise ValueError(f"stage must be one of {STAGES}; got {stage!r}")
     if stage == "final":
@@ -706,7 +917,37 @@ def run(config: LensClusterSolverConfig, stage: str = "both") -> RunResult | Ini
 
 
 def dry_run(config: LensClusterSolverConfig) -> dict[str, Any]:
-    """Describe both stages without running them: model size, provisional classification, search and sampling sizes."""
+    """Describe a run without fitting.
+
+    Builds the model, applies the impact cut (``members.min_deflection_arcsec``)
+    and the provisional member classification, prints the classification report
+    and the far-field threshold table to standard output, and returns the sizes
+    of both stages. No run files are written.
+
+    Parameters
+    ----------
+    config : LensClusterSolverConfig
+        The run configuration (validated here).
+
+    Returns
+    -------
+    dict
+        ``stages`` (text outline of init and final), ``output`` (the ``init``
+        and ``final`` directory paths), ``likelihood`` (a description of
+        ``likelihood.likelihood_mode``), ``parameters``, ``images``,
+        ``families``, ``members``, ``components`` (counts),
+        ``provisional_classification`` (``exact``, ``mandatory``, ``far_field``
+        member counts and ``inflated_cut_kpc``, the classification cut radius in
+        kpc), ``search`` (method names, number of starts, iteration limits,
+        polish scatters, ``max_chain_modes``), ``sampling`` (``chains``,
+        ``warmup``, ``samples``, ``max_tree_depth``) and ``config`` (the full
+        config as a JSON-ready dict).
+
+    Raises
+    ------
+    ValueError
+        If the config is invalid.
+    """
     config = config.validate()
     state = build_state(config)
     evaluator = Evaluator(state, config.likelihood.likelihood_mode)

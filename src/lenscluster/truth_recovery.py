@@ -1,4 +1,21 @@
-"""Truth recovery for simulated clusters: posterior convergence and magnification grids on the truth WCS."""
+"""Truth recovery for simulated clusters: posterior convergence and magnification grids on the truth WCS.
+
+Lens maps of a fitted model at arbitrary sky points (:func:`lens_quantities`), the WCS helpers that place a model grid
+on a truth map (:func:`load_truth_fits`, :func:`diagnostic_grid`, :func:`sample_on_grid`, :func:`grid_arcsec`), and
+the run-level comparison against the truth convergence and shear maps of a simulated cluster
+(:func:`compute_truth_recovery`, configured by ``TruthRecoveryConfig``).  Model positions are arcsec offsets from the
+state's reference, :math:`x = (\\alpha_0 - \\alpha)\\cos\\delta_0 \\cdot 3600` (positive west) and
+:math:`y = (\\delta - \\delta_0) \\cdot 3600`.
+
+Example: the convergence of the posterior-median model on a truth map's grid::
+
+    kappa_true, wcs = load_truth_fits(path)
+    grid_wcs, shape = diagnostic_grid(wcs, kappa_true.shape, 512)
+    x, y = grid_arcsec(state, grid_wcs, shape)
+    theta = np.median(posterior.samples, axis=0)
+    maps = lens_quantities(evaluator, theta, 9.0, x.ravel(), y.ravel())
+    kappa = maps["kappa"].reshape(shape)
+"""
 from __future__ import annotations
 
 import math
@@ -25,6 +42,25 @@ APERTURE_CENTER_SMOOTHING_SIGMA_PIX = 2.0
 
 
 def load_truth_fits(path: str | Path) -> tuple[np.ndarray, WCS]:
+    """Read the first two-dimensional image with a celestial WCS from a FITS file.
+
+    Parameters
+    ----------
+    path : str or pathlib.Path
+        FITS file (for example a truth convergence or shear map).
+
+    Returns
+    -------
+    image : numpy.ndarray
+        The image as float, shape (row, column) = (y, x) pixels; length-one axes are squeezed.
+    wcs : astropy.wcs.WCS
+        Its celestial WCS.
+
+    Raises
+    ------
+    ValueError
+        If no HDU holds a two-dimensional image with a celestial WCS.
+    """
     with fits.open(Path(path), memmap=True) as hdul:
         for hdu in hdul:
             data = getattr(hdu, "data", None)
@@ -42,7 +78,27 @@ def load_truth_fits(path: str | Path) -> tuple[np.ndarray, WCS]:
 
 
 def diagnostic_grid(truth_wcs: WCS, native_shape: tuple[int, int], grid_size: int) -> tuple[WCS, tuple[int, int]]:
-    """A reduced WCS grid of at most grid_size pixels per side, sharing the native footprint."""
+    """A reduced WCS grid of at most grid_size pixels per side, sharing the native footprint.
+
+    The pixel scale grows by ``width / grid_size`` along x and ``height / grid_size`` along y, so the reduced grid is
+    ``grid_size`` x ``grid_size`` pixels over the same sky area (pixels need not stay square).
+
+    Parameters
+    ----------
+    truth_wcs : astropy.wcs.WCS
+        Celestial WCS of the native image.
+    native_shape : tuple of int
+        Native image shape ``(height, width)`` in pixels.
+    grid_size : int
+        Maximum pixels per side; 0 or None, or a native image no larger than this, keeps the native grid.
+
+    Returns
+    -------
+    wcs : astropy.wcs.WCS
+        WCS of the reduced grid (a copy of ``truth_wcs`` when unchanged).
+    shape : tuple of int
+        Its shape ``(height, width)`` in pixels.
+    """
     height, width = int(native_shape[0]), int(native_shape[1])
     size = int(grid_size or 0)
     if size <= 0 or (height <= size and width <= size):
@@ -62,6 +118,25 @@ def diagnostic_grid(truth_wcs: WCS, native_shape: tuple[int, int], grid_size: in
 
 
 def sample_on_grid(values: np.ndarray, source_wcs: WCS, target_wcs: WCS, shape: tuple[int, int]) -> np.ndarray:
+    """Resample an image onto another WCS grid by bilinear interpolation in sky coordinates.
+
+    Parameters
+    ----------
+    values : array_like
+        Image on the ``source_wcs`` grid, shape (row, column).
+    source_wcs : astropy.wcs.WCS
+        WCS of ``values``.
+    target_wcs : astropy.wcs.WCS
+        WCS of the output grid.
+    shape : tuple of int
+        Output shape ``(height, width)`` in pixels.
+
+    Returns
+    -------
+    numpy.ndarray
+        Resampled image, shape ``shape``, in the units of ``values``; NaN where the target pixel falls outside the
+        source image.
+    """
     y, x = np.indices(shape, dtype=float)
     ra, dec = target_wcs.pixel_to_world_values(x, y)
     px, py = source_wcs.world_to_pixel_values(ra, dec)
@@ -69,6 +144,25 @@ def sample_on_grid(values: np.ndarray, source_wcs: WCS, target_wcs: WCS, shape: 
 
 
 def grid_arcsec(state: ModelState, wcs: WCS, shape: tuple[int, int]) -> tuple[np.ndarray, np.ndarray]:
+    """Model-frame coordinates of every pixel center of a WCS grid.
+
+    Parameters
+    ----------
+    state : ModelState
+        The model state; its ``reference`` gives the origin ``(ra0, dec0)``.
+    wcs : astropy.wcs.WCS
+        Celestial WCS of the grid.
+    shape : tuple of int
+        Grid shape ``(height, width)`` in pixels.
+
+    Returns
+    -------
+    x : numpy.ndarray
+        :math:`(\\alpha_0 - \\alpha)\\cos\\delta_0 \\cdot 3600` in arcsec (positive west; RA differences wrapped
+        to [-180, 180) degrees), shape ``shape``.
+    y : numpy.ndarray
+        :math:`(\\delta - \\delta_0) \\cdot 3600` in arcsec, shape ``shape``.
+    """
     y, x = np.indices(shape, dtype=float)
     ra, dec = wcs.pixel_to_world_values(x, y)
     _, ra0, dec0 = state.reference
@@ -79,7 +173,35 @@ def grid_arcsec(state: ModelState, wcs: WCS, shape: tuple[int, int]) -> tuple[np
 
 def lens_quantities(evaluator: Evaluator, theta: np.ndarray, z_source: float, x: np.ndarray, y: np.ndarray,
                     *, include_grf: bool = True) -> dict[str, np.ndarray]:
-    """kappa, gamma, det A and magnification of the full lens model at the given points."""
+    """kappa, gamma, det A and magnification of the full lens model at the given points.
+
+    Every lens component is evaluated exactly (no far-field series) for a source at ``z_source``.  With the knee GP
+    likelihood on all-image blocks, ``include_grf`` adds the draw's conditional-mean deflection field
+    (:meth:`Evaluator.gp_deflection_correction <lenscluster.evaluator.Evaluator.gp_deflection_correction>`); other
+    likelihoods are unaffected.  From :math:`A = I - \\partial\\alpha/\\partial\\theta`:
+    :math:`\\kappa = 1 - (A_{11} + A_{22})/2`, :math:`\\gamma_1 = (A_{22} - A_{11})/2`,
+    :math:`\\gamma_2 = -(A_{12} + A_{21})/2`, :math:`\\mu = 1/\\det A`.
+
+    Parameters
+    ----------
+    evaluator : Evaluator
+        Evaluator of the fitted model.
+    theta : array_like
+        Latent parameter vector, shape (parameter,) (for example a row of ``PosteriorResults.samples`` or their
+        median; not the physical vector).
+    z_source : float
+        Source redshift the quantities refer to.
+    x, y : array_like
+        Points in image-plane arcsec offsets from the reference, shape (point,) (see :func:`grid_arcsec`).
+    include_grf : bool, optional
+        Add the GP conditional-mean deflection field where it exists.  Default True.
+
+    Returns
+    -------
+    dict of numpy.ndarray
+        Each of shape (point,), dimensionless: ``"kappa"`` (convergence), ``"gamma1"``, ``"gamma2"`` (shear),
+        ``"detA"`` (:math:`\\det A`), ``"mu"`` (signed magnification) and ``"abs_mu"`` (:math:`|\\mu|`).
+    """
     physical = evaluator.physical(jnp.asarray(theta, dtype=jnp.float64))
     packed = evaluator.packed_state_for_z(physical, z_source)
     _, u = evaluator.total_fields_at(np.stack((np.asarray(x, dtype=float), np.asarray(y, dtype=float)), -1), packed)
@@ -162,7 +284,46 @@ def mass_per_kappa_pixel_msun(state: ModelState, wcs: WCS, z_source: float) -> f
 
 def compute_truth_recovery(state: ModelState, evaluator: Evaluator, samples: np.ndarray, config: TruthRecoveryConfig,
                            fits_dir: Path, tables_dir: Path, *, seed: int, log=print) -> dict[str, Any] | None:
-    """Write median and 16/84 percentile grids of the lens quantities and the aperture profile. Returns grid data."""
+    """Write median and 16/84 percentile grids of the lens quantities and the aperture profile. Returns grid data.
+
+    The truth convergence (and, when both are configured, shear) maps are resampled onto a grid of at most
+    ``config.truth_grid_size`` pixels per side.  The model is evaluated at the latent median of ``samples`` and at up
+    to ``config.posterior_truth_recovery_draws`` random draws, for a source at ``config.caustic_source_redshift``.
+    Writes to ``fits_dir`` ``truth_recovery_<q>_model_median.fits``, ``truth_recovery_<q>_model_q16.fits`` and
+    ``truth_recovery_<q>_model_q84.fits`` (percentiles over the draws, when there are at least two) and
+    ``truth_recovery_<q>_true.fits`` for each quantity ``q`` in ``kappa``, ``gamma1``, ``gamma2``, ``detA``, ``mu``,
+    ``abs_mu`` that the truth provides; and ``truth_recovery_m2d_aperture_profile.csv`` (enclosed convergence of
+    truth and model in circular apertures about the smoothed truth-convergence peak) to ``tables_dir``.
+
+    Parameters
+    ----------
+    state : ModelState
+        The model state.
+    evaluator : Evaluator
+        Evaluator of the fitted model.
+    samples : numpy.ndarray
+        Latent posterior draws, shape (draw, parameter) (``PosteriorResults.samples``).
+    config : TruthRecoveryConfig
+        Truth map paths, source redshift, grid size and number of draws.
+    fits_dir : pathlib.Path
+        Output directory of the FITS grids (created if missing).
+    tables_dir : pathlib.Path
+        Output directory of the aperture-profile table.
+    seed : int
+        Seed of the random choice of draws.
+    log : callable, optional
+        Logging function.  Default ``print``.
+
+    Returns
+    -------
+    dict or None
+        None when no truth convergence map is configured or the source redshift is not behind the lens.
+        Otherwise: ``"wcs"`` and ``"shape"`` of the grid; ``"x"``, ``"y"`` (arcsec, shape (height, width));
+        ``"truth"`` (dict of truth maps by quantity); ``"model"`` (dict by quantity of ``{"median", "q16", "q84"}``
+        maps); ``"profile"`` (the aperture-profile DataFrame or None) and ``"center"`` (its center, arcsec);
+        ``"grf_conditional_mean"`` (bool); ``"z_source"``; ``"mass_per_kappa_pixel_msun"`` (Msun per unit
+        convergence per grid pixel).
+    """
     if not config.kappa_true_fits:
         return None
     z_source = float(config.caustic_source_redshift)

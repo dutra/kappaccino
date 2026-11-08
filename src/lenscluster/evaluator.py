@@ -19,12 +19,64 @@ BAD_LOG_LIKE = -1.0e30
 
 
 class Evaluator:
-    """Evaluates deflections, Jacobians and the log-likelihood for a fixed member classification."""
+    """Evaluates deflections, Jacobians and the log-likelihood for a fixed member classification.
+
+    The evaluator wraps one :class:`~lenscluster.model.ModelState` and precomputes everything that does not depend on
+    the parameters (image positions, the far-field geometry of the members, catalog-member geometry at the images,
+    and, for ``gp_image_plane``, the data part of the family covariance).  Its methods take either a latent
+    parameter vector ``params`` (``theta``; one row of ``PosteriorResults.samples``) or the physical vector
+    ``physical = evaluator.physical(params)``.  All positions are arcsec offsets from the state's reference
+    (:math:`x` positive west, :math:`y` positive north); deflections are in arcsec, Jacobians dimensionless.
+
+    Most methods are JAX-traceable and can be wrapped in ``jax.jit`` / ``jax.vmap`` (for example
+    ``jax.vmap(jax.jit(evaluator.reported_physical))`` over draws); ``total_fields_at``, ``packed_state_for_z``,
+    ``latent_from_reported_physical`` and ``gp_deflection_correction`` work on concrete NumPy values.
+
+    Parameters
+    ----------
+    state : ModelState
+        The model state (:func:`lenscluster.state.build_state`, or the ``state`` of a run result).
+    likelihood : str, optional
+        ``"smoothed"`` (local image-plane likelihood; default), ``"gp_image_plane"`` (correlated image-plane
+        displacements per family or block, see :mod:`lenscluster.gp_image_plane`), ``"source-isotropic"``
+        (source-plane Gaussian with variance :math:`\\sigma_\\mathrm{def}^2 + \\sigma_\\mathrm{meas}^2` per image
+        and no Jacobian; cheap and biased, for searches only) or ``"source-anisotropic"`` (the source-plane Gaussian
+        with the full per-image covariance, without the determinant factor).  Must match the likelihood the state
+        was built for.
+
+    Attributes
+    ----------
+    state : ModelState
+        The wrapped state.
+    likelihood_mode : str
+        The ``likelihood`` argument.
+    gp_mode : bool
+        True under ``gp_image_plane``.
+    gp_knee : bool
+        True under ``gp_image_plane`` with the knee kernel.
+    n_components : int
+        Number of lens components.
+    xy : jax.numpy.ndarray
+        Observed image positions in arcsec, shape (image, 2), in ``ImageData`` order.
+    log_positive_mask : jax.numpy.ndarray
+        True for log-sampled parameters, bool of shape (parameter,).
+    loglike : callable
+        ``jax.jit(log_likelihood)``: ``loglike(params) -> float`` for a latent vector of shape (parameter,).
+    value_and_grad : callable
+        ``jax.jit(jax.value_and_grad(log_likelihood))``: ``value_and_grad(params) -> (value, gradient)`` with the
+        gradient with respect to the latent vector, shape (parameter,).
+    median_abs_determinant : callable
+        Jitted median over the images of :math:`|\\det A|` at a latent vector.
+
+    Raises
+    ------
+    ValueError
+        If ``likelihood`` is not one of the modes above, or if ``gp_image_plane`` is requested for a state built
+        without its parameters (or another mode for a state built with them).
+    """
 
     def __init__(self, state: ModelState, likelihood: str = "smoothed") -> None:
-        """``likelihood``: "smoothed" (local image-plane, default), "gp_image_plane" (correlated image-plane displacements
-        per family, see ``gp_image_plane``) or "source-isotropic" (source-plane Gaussian with variance sigma_def^2 +
-        sigma_meas^2 per image and no Jacobian; cheap, biased, for searches only)."""
+        """Set up the evaluator for ``state`` under the likelihood ``likelihood`` (see the class docstring)."""
         if likelihood not in {"smoothed", "gp_image_plane", "source-isotropic", "source-anisotropic"}:
             raise ValueError("likelihood must be 'smoothed', 'gp_image_plane', 'source-isotropic' or 'source-anisotropic'")
         self.likelihood_mode = likelihood
@@ -178,11 +230,37 @@ class Evaluator:
         self.median_abs_determinant = jax.jit(lambda params: jnp.median(jnp.abs(self.statistics(params)["determinant"])))
 
     def search_log_likelihood(self, params: jnp.ndarray) -> jnp.ndarray:
-        """The init-search target: ``log_likelihood`` without the source-transport volume factor."""
+        """The init-search target: ``log_likelihood`` without the source-transport volume factor.
+
+        Parameters
+        ----------
+        params : jax.numpy.ndarray
+            Latent parameter vector, shape (parameter,).
+
+        Returns
+        -------
+        jax.numpy.ndarray
+            Scalar, ``log_likelihood(params, source_jacobian=False)``.
+        """
         return self.log_likelihood(params, source_jacobian=False)
 
     # ------------------------------------------------------------------ parameters
     def physical(self, params: jnp.ndarray) -> jnp.ndarray:
+        """Physical parameter vector of a latent vector.
+
+        Applies :math:`\\exp` to the log-sampled parameters.  Source coordinates stay whitened unit offsets (see
+        ``reported_physical`` for source positions).
+
+        Parameters
+        ----------
+        params : jax.numpy.ndarray
+            Latent vector, shape (parameter,).
+
+        Returns
+        -------
+        jax.numpy.ndarray
+            Physical vector, shape (parameter,), float64, in the units of each parameter.
+        """
         return apply_parameter_transforms_jax(params, self.log_positive_mask)
 
     def _apply(self, base: jnp.ndarray, index: jnp.ndarray, physical: jnp.ndarray) -> jnp.ndarray:
@@ -191,10 +269,37 @@ class Evaluator:
 
     # ------------------------------------------------------------------ packed lens state
     def packed_state(self, physical: jnp.ndarray, factor_per_image: jnp.ndarray | None = None) -> tuple[PackedLensState, PackedLensValidity]:
-        """Current dPIE and shear parameters.  The normalizations carry the lensing efficiency: by default one per
-        constrained image (shape (component, image), from each image's source redshift); a scalar ``factor_per_image``
-        gives one normalization for all points (shape (component,)); a one-dimensional array gives one per arbitrary
-        point (shape (component, point)), which the global image search uses for its seeds."""
+        """Kernel parameters of every lens component at a physical parameter vector.
+
+        Fills each component's fixed values with the sampled ones, applies the member scaling relations and sampled
+        deviations, converts radii from kpc to arcsec, and folds the lensing efficiency of the source into the
+        normalizations.  The normalizations carry the lensing efficiency: by default one per constrained image (shape
+        (component, image), from each image's source redshift); a scalar ``factor_per_image`` gives one normalization
+        for all points (shape (component,)); a one-dimensional array gives one per arbitrary point (shape
+        (component, point)), which the global image search uses for its seeds.
+
+        Parameters
+        ----------
+        physical : jax.numpy.ndarray
+            Physical vector, shape (parameter,) (``physical(params)``; source entries are not read).
+        factor_per_image : float or jax.numpy.ndarray or None, optional
+            The dPIE lensing-efficiency factor (``ModelState.dpie_sigma0_factor_by_z`` values): None (default) for
+            the constrained images, a scalar for one source redshift, or an array of shape (point,).
+
+        Returns
+        -------
+        packed : PackedLensState
+            Per-component arrays: ``profile_type``; dPIE ``sigma0`` (the kernel normalization, :math:`\\sigma^2` times the lensing-efficiency factor over the core radius in arcsec; shape (component,)
+            or (component, point)), ``Ra`` and ``Rs`` (core and cut radii, arcsec); ``e1``, ``e2`` (dimensionless,
+            dPIE and NFW); ``center_x``, ``center_y`` (arcsec); shear ``gamma1``, ``gamma2``; NFW ``nfw_rs``
+            (scale radius, arcsec) and ``alpha_rs`` (deflection at the scale radius, arcsec); mass-sheet ``kappa``
+            (convergence for this source).  Entries that do not apply to a component's profile are zero.
+        validity : PackedLensValidity
+            ``is_valid`` (scalar bool) and ``reason_flags`` (bool, shape (11,)): non-finite normalization, dPIE core
+            radius not positive, cut radius not above the core, non-finite cut radius, non-finite dispersion,
+            non-finite scaling slopes, non-finite centers, non-finite shear, invalid ellipticity
+            (:math:`e_1^2 + e_2^2 \\ge 1`), invalid NFW parameters, non-finite sheet convergence.
+        """
         spec = self.spec
         x_center = self._apply(spec["x_center_base"], spec["x_center_param_index"], physical)
         y_center = self._apply(spec["y_center_base"], spec["y_center_param_index"], physical)
@@ -287,8 +392,23 @@ class Evaluator:
         return packed, PackedLensValidity(is_valid=~jnp.any(flags), reason_flags=flags)
 
     def component_dispersions(self, physical: jnp.ndarray) -> jnp.ndarray:
-        """Velocity dispersion of every component in km/s (Lenstool's sigma_LT): the sampled or fixed value, or for a
-        member its scaling-relation value times its sampled deviation."""
+        """Velocity dispersion of every component in km s^-1 (Lenstool's sigma_LT).
+
+        The sampled or fixed value, or for a member its scaling-relation value
+        :math:`\\sigma_\\mathrm{ref} (L/L_*)^{\\alpha_\\sigma}` times :math:`\\exp` of its sampled deviation in
+        :math:`\\ln\\sigma`.
+
+        Parameters
+        ----------
+        physical : jax.numpy.ndarray
+            Physical vector, shape (parameter,).
+
+        Returns
+        -------
+        jax.numpy.ndarray
+            Dispersions in km s^-1, shape (component,), in the order of ``ModelState.base_components`` (zero or
+            unused for components without one).
+        """
         spec = self.spec
         v_disp = self._apply(spec["v_disp_base"], spec["v_disp_param_index"], physical)
         sigma_ref = self._apply(spec["sigma_ref_base"], spec["sigma_ref_param_index"], physical)
@@ -309,6 +429,23 @@ class Evaluator:
         return -0.5 * jnp.sum(z * z) - jnp.sum(jnp.log(log_err)) - 0.5 * z.size * jnp.log(2.0 * jnp.pi)
 
     def packed_state_for_z(self, physical: jnp.ndarray, z_source: float) -> PackedLensState:
+        """Kernel parameters of every lens component for a single source redshift.
+
+        Use the result with ``total_fields_at`` to evaluate the lens at arbitrary points (maps, grids).  A redshift
+        not yet in ``ModelState.dpie_sigma0_factor_by_z`` is computed and cached there.
+
+        Parameters
+        ----------
+        physical : jax.numpy.ndarray
+            Physical vector, shape (parameter,).
+        z_source : float
+            Source redshift.
+
+        Returns
+        -------
+        PackedLensState
+            As in ``packed_state``, with normalizations of shape (component,).
+        """
         factor = self.state.dpie_sigma0_factor_by_z.get(float(z_source))
         if factor is None:
             from .jax_cosmology import dpie_sigma0_factor_from_config
@@ -383,8 +520,31 @@ class Evaluator:
         return (alpha, u, du) if derivative else (alpha, u)
 
     def total_fields_at(self, xy, packed: PackedLensState, components: np.ndarray | None = None, *, chunk: int = 16384):
-        """Summed deflection (N, 2) and Jacobian U (N, 2, 2) of the given components at arbitrary points, evaluated in
-        jitted chunks so that large grids (figures, truth maps) never hold per-component arrays for every point."""
+        """Summed deflection and deflection Jacobian of the given components at arbitrary points.
+
+        Evaluated in jitted chunks so that large grids (figures, truth maps) never hold per-component arrays for every
+        point.  Every component is evaluated exactly (no far-field series).  The lens Jacobian is
+        :math:`A = I - U`; :func:`lenscluster.truth_recovery.lens_quantities` derives convergence, shear and
+        magnification from it.
+
+        Parameters
+        ----------
+        xy : array_like
+            Points in image-plane arcsec, shape (point, 2) (any shape reshaped to (-1, 2)).
+        packed : PackedLensState
+            Kernel parameters with one normalization per component, from ``packed_state_for_z``.
+        components : array_like or None, optional
+            Component indices to sum; None (default) for all.
+        chunk : int, optional
+            Maximum points per jitted evaluation.  Default 16384.
+
+        Returns
+        -------
+        alpha : numpy.ndarray
+            Deflection in arcsec, shape (point, 2).
+        u : numpy.ndarray
+            Deflection Jacobian :math:`U = \\partial\\alpha / \\partial\\theta` (dimensionless), shape (point, 2, 2).
+        """
         components = np.arange(self.n_components, dtype=np.int32) if components is None else np.asarray(components, dtype=np.int32)
         xy = np.asarray(xy, dtype=float).reshape(-1, 2)
         n = xy.shape[0]
@@ -409,7 +569,34 @@ class Evaluator:
 
     def fields(self, physical: jnp.ndarray, packed: PackedLensState | None = None, *, force_exact: bool = False,
                derivative: bool = True) -> dict[str, Any]:
-        """Backprojected images, total Jacobian A, grad det A (unless ``derivative`` is False), and per-member deflections."""
+        """Backprojected images, total Jacobian A, grad det A (unless ``derivative`` is False), and per-member deflections.
+
+        Evaluated at the observed image positions (``xy``) with each image's own source redshift.
+
+        Parameters
+        ----------
+        physical : jax.numpy.ndarray
+            Physical vector, shape (parameter,).
+        packed : PackedLensState or None, optional
+            Precomputed ``packed_state(physical)[0]``; computed when None (default).
+        force_exact : bool, optional
+            Evaluate far-field members with the exact kernel too.  Default False.
+        derivative : bool, optional
+            Compute the spatial derivatives of the Jacobian.  Default True; when False,
+            ``determinant_gradient`` and ``jacobian_spatial_derivative`` are zero.
+
+        Returns
+        -------
+        dict
+            ``backprojected``: source-plane positions :math:`\\beta = \\theta - \\alpha` in arcsec, shape (image, 2);
+            ``jacobian``: :math:`A = I - \\partial\\alpha/\\partial\\theta`, shape (image, 2, 2);
+            ``determinant_gradient``: :math:`\\nabla_\\theta \\det A` in arcsec^-1, shape (image, 2);
+            ``jacobian_spatial_derivative``: :math:`\\partial A_{ij}/\\partial\\theta_k` in arcsec^-1, shape
+            (image, 2, 2, 2); ``member_alpha``: each member's deflection in arcsec, shape (member, image, 2);
+            ``member_jacobian``: each member's :math:`\\partial\\alpha/\\partial\\theta`, shape (member, image, 2, 2);
+            ``far_cut_radii``: cut radii of the far-field members in arcsec, shape (far member,), or None;
+            ``packed``: the ``PackedLensState`` used.
+        """
         if packed is None:
             packed = self.packed_state(physical)[0]
         xy = self.xy
@@ -452,9 +639,9 @@ class Evaluator:
         return jnp.all(self.far_min_separation >= self.guard_cut_radii * far_cut_radii)
 
     def ellipticity_log_prior(self, packed) -> jnp.ndarray:
-        """The smooth ellipticity caps (DPIEHaloConfig.ellipticity_soft_cap): -sum softplus((|e| - cap) / width) over the
-        components that have one; zero when none does.  About -exp((|e| - cap) / width) below the cap, -(|e| - cap) / width
-        above it."""
+        """The smooth ellipticity caps (DPIEHaloConfig.ellipticity_soft_cap): ``-sum softplus((|e| - cap) / width)`` over
+        the components that have one; zero when none does.  About ``-exp((|e| - cap) / width)`` below the cap,
+        ``-(|e| - cap) / width`` above it."""
         cap = np.asarray(self.state.packed_lens_spec.ellipticity_soft_cap, dtype=float)
         if cap.size == 0 or not np.isfinite(cap).any():
             return jnp.asarray(0.0, dtype=jnp.float64)
@@ -475,10 +662,32 @@ class Evaluator:
 
     # ------------------------------------------------------------------ likelihood
     def error_scales(self, physical: jnp.ndarray) -> dict[str, Any]:
-        """The scales of the per-image source-plane covariance C_i = sigma_meas^2 A A^T + sigma_def^2 I + sigma_sel^2 R at
-        this model.  Under gp_image_plane C_i is the diagonal block of the family covariance: sigma_meas^2 = sigma_inst^2 +
-        sigma_white^2 + sigma_shared^2, sigma_def = sigma_fl and no selection term; sigma_img = sqrt(sigma_shared^2 + sigma_white^2)
-        is the total image-plane scale."""
+        """The scales of the per-image source-plane covariance at this model.
+
+        :math:`C_i = \\sigma_\\mathrm{meas}^2 A A^T + \\sigma_\\mathrm{def}^2 I + \\sigma_\\mathrm{sel}^2 R`.  Under
+        ``gp_image_plane`` :math:`C_i` is the diagonal block of the family covariance:
+        :math:`\\sigma_\\mathrm{meas}^2 = \\sigma_\\mathrm{inst}^2 + \\sigma_\\mathrm{white}^2 + \\sigma_\\mathrm{shared}^2`,
+        :math:`\\sigma_\\mathrm{def} = \\sigma_\\mathrm{fl}` (knee kernel: with the redshift-weighted mass-field
+        amplitudes added in quadrature) and no selection term;
+        :math:`\\sigma_\\mathrm{img} = \\sqrt{\\sigma_\\mathrm{shared}^2 + \\sigma_\\mathrm{white}^2}` is the total
+        image-plane scale.
+
+        Parameters
+        ----------
+        physical : jax.numpy.ndarray
+            Physical vector, shape (parameter,).
+
+        Returns
+        -------
+        dict
+            Always ``sigma_def`` (source-plane arcsec; scalar, or shape (image,) under the knee kernel),
+            ``sigma_extra`` (arcsec; :math:`\\sigma_\\mathrm{img}` under ``gp_image_plane``), ``sigma_sel`` (arcsec),
+            ``lambda_sel`` (dimensionless) and ``sigma_meas`` (image-plane arcsec, shape (image,)).  Under
+            ``gp_image_plane`` also ``sigma_img``, ``sigma_shared``, ``sigma_white`` and ``gp_ell`` (arcsec); with
+            the knee kernel also ``gp_sigma_alpha``, ``gp_knee``, ``gp_sigma_alpha2``, ``gp_knee2`` (arcsec),
+            ``gp_knee_gamma`` and ``gp_knee_beta_low`` (dimensionless; NaN when not part of the model).  Absent
+            scales are 0 (``lambda_sel`` 1).
+        """
         images = self.state.images
         zero, one = jnp.asarray(0.0, dtype=jnp.float64), jnp.asarray(1.0, dtype=jnp.float64)
         if self.gp_knee:
@@ -523,6 +732,33 @@ class Evaluator:
         return sl.source_covariance(jacobian, scales["sigma_meas"], scales["sigma_def"], scales["sigma_sel"], scales["lambda_sel"])
 
     def statistics(self, params: jnp.ndarray, *, force_exact: bool = False) -> dict[str, Any]:
+        """Per-image likelihood terms and their diagnostics at a latent vector.
+
+        Parameters
+        ----------
+        params : jax.numpy.ndarray
+            Latent vector, shape (parameter,).
+        force_exact : bool, optional
+            Evaluate far-field members with the exact kernel.  Default False.
+
+        Returns
+        -------
+        dict
+            Per image (shape (image, ...), ``ImageData`` order): ``residual`` (backprojected position minus the
+            family source, source-plane arcsec, (image, 2)), ``covariance`` and ``cholesky`` (source-plane covariance
+            :math:`C_i` in arcsec^2 and its Cholesky factor, (image, 2, 2)), ``logdet``, ``quadratic``
+            (:math:`r^T C^{-1} r`), ``determinant`` (:math:`\\det A`), ``determinant_mean`` and
+            ``determinant_variance``, ``log_h`` (log of the smoothed determinant factor), ``gaussian_loglike`` and
+            ``loglike`` (per-image log-likelihood), ``valid`` (bool), ``sigma_meas`` (arcsec), plus intermediate
+            terms (``jacobian``, ``measurement``, ``cross_covariance``, ``degenerate``, ...).  Per family:
+            ``source_by_family`` (physical source positions, source-plane arcsec, (family, 2)), ``transport_valid``
+            (bool, (family,)), ``whitening`` (centroid, covariance and Cholesky factor of each family's source).
+            Scalars: ``source_correction`` (log-density correction of the source transport), ``source_jacobian``
+            (its volume term).  Also the error scales (as in ``error_scales``), ``fields`` (as in ``fields``) and
+            ``physical`` (the physical vector).  Under ``gp_image_plane`` the Gaussian term is per family (or block):
+            ``family_gaussian_loglike``, ``family_quadratic``, ``family_logdet``, ``family_covariance``,
+            ``family_cholesky``, with ``gaussian_loglike`` its equal share per image.
+        """
         physical = self.physical(params)
         images, members = self.state.images, self.state.members
         isotropic = self.likelihood_mode == "source-isotropic"
@@ -685,7 +921,21 @@ class Evaluator:
         """Knee kernel: the GP conditional mean of the mass field's deflection error at this draw, which the image solver adds
         to the lens so that the draw's source and lens belong together; None under the other likelihoods.  The sampled
         source scatters by the deflection error around the centroid, and solving with the lens alone puts the effective
-        source off the caustic for fold pairs."""
+        source off the caustic for fold pairs.
+
+        Parameters
+        ----------
+        params : array_like
+            Latent vector, shape (parameter,).
+
+        Returns
+        -------
+        gp_knee.MeanDeflectionKnee or None
+            The conditional mean deflection field of this draw, or None when the likelihood is not the knee kernel,
+            the mass field is absent or the spectrum is not ``"knee"``.  Calling it with ``(x, y, families)`` (points
+            in arcsec and the family index of each point) returns the deflection components in arcsec and the four
+            Jacobian components, each of shape (point,).
+        """
         if not self.gp_knee:
             return None
         if self.gp_sigma_alpha_index < 0 or self.gp_knee_spectrum != "knee":
@@ -741,6 +991,10 @@ class Evaluator:
     def log_likelihood(self, params: jnp.ndarray, *, source_jacobian: bool = True) -> jnp.ndarray:
         """Log-likelihood plus the source transport correction, or BAD_LOG_LIKE / -inf when rejected.
 
+        The value is the sum of the per-image (or per-family) likelihood terms, the source-transport correction, the
+        member-kinematics term, the far-field guard barrier and the smooth ellipticity caps.  It is the target the
+        sampler adds to the priors of the latent parameters.  ``loglike`` and ``value_and_grad`` are jitted versions.
+
         Rejected proposals are evaluated at the known-valid initial model so that every
         branch stays finite; the selected value is then the rejection constant with zero gradient.
 
@@ -749,6 +1003,19 @@ class Evaluator:
         the two densities have the same marginal over the lens parameters but not the same maximum, and the volume
         factor grows without bound with the magnification, which gives the joint density a spurious mode at a lens so
         massive that every image is demagnified (M0416, 256 starts: +393 against -1213 at the physical mode).
+
+        Parameters
+        ----------
+        params : jax.numpy.ndarray
+            Latent vector, shape (parameter,).
+        source_jacobian : bool, optional
+            Include the source-transport volume factor.  Default True.
+
+        Returns
+        -------
+        jax.numpy.ndarray
+            Scalar float64 log-likelihood; ``BAD_LOG_LIKE`` (-1e30) for an invalid lens model or non-finite
+            ``params``, -inf for invalid error scales or an invalid likelihood evaluation.
         """
         reference = jnp.asarray(self.state.initial_theta, dtype=jnp.float64)
         physical = self.physical(params)
@@ -769,14 +1036,41 @@ class Evaluator:
 
     # ------------------------------------------------------------------ reporting
     def reported_physical(self, params: jnp.ndarray) -> jnp.ndarray:
-        """Physical parameters with the sampled source offsets replaced by physical source positions."""
+        """Physical parameters with the sampled source offsets replaced by physical source positions.
+
+        This is the "reported physical" vector stored in ``PosteriorResults.physical``.
+
+        Parameters
+        ----------
+        params : jax.numpy.ndarray
+            Latent vector, shape (parameter,).
+
+        Returns
+        -------
+        jax.numpy.ndarray
+            Physical vector, shape (parameter,), with the ``beta_x``, ``beta_y`` entries of each family set to its
+            source position in source-plane arcsec.
+        """
         physical = self.physical(params)
         source = self.statistics(params)["source_by_family"]
         images = self.state.images
         return physical.at[images.source_x_param_index].set(source[:, 0]).at[images.source_y_param_index].set(source[:, 1])
 
     def latent_from_reported_physical(self, physical: np.ndarray) -> np.ndarray:
-        """Invert reported_physical: whitened source offsets from physical source positions."""
+        """Invert reported_physical: whitened source offsets from physical source positions.
+
+        Parameters
+        ----------
+        physical : array_like
+            Reported physical vector, shape (parameter,), for example a row of ``PosteriorResults.physical`` or
+            ``median_fit``.
+
+        Returns
+        -------
+        numpy.ndarray
+            Latent vector, shape (parameter,), with the source entries set to the unit offsets that reproduce the
+            given source positions under this lens model.
+        """
         from .model import convert_theta_to_latent
         physical = np.asarray(physical, dtype=float)
         latent = convert_theta_to_latent(physical, self.state.parameter_specs)
@@ -790,5 +1084,16 @@ class Evaluator:
         return latent
 
     def source_positions(self, params: jnp.ndarray) -> jnp.ndarray:
-        """Physical source positions per family, (F, 2); traceable under jit and vmap."""
+        """Physical source positions per family; traceable under jit and vmap.
+
+        Parameters
+        ----------
+        params : jax.numpy.ndarray
+            Latent vector, shape (parameter,).
+
+        Returns
+        -------
+        jax.numpy.ndarray
+            Source positions in source-plane arcsec, shape (family, 2), in ``ImageData.family_ids`` order.
+        """
         return self.statistics(params)["source_by_family"]

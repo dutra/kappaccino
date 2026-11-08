@@ -7,9 +7,10 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from .config import IndependentMemberHaloConfig, LensModelConfig, MemberPopulationConfig, PriorConfig
+from .config import IndependentMemberHaloConfig, LensModelConfig, MemberPopulationConfig
 from .image_catalog import load_image_catalog
 from .member_catalog import load_member_catalog
+from .priors import cut_excess_from_moments, ellipticity_box, lognormal_from_moments, physical_center, scaled
 from .profiles import profile as lens_profile
 from .sky import radec_to_offsets_arcsec
 
@@ -54,31 +55,6 @@ def catalog_shape_to_ellipticity(a_value: float, b_value: float, theta_value: fl
     return axis_ratio_to_lenstool_ellipticite(q), float(theta_value)
 
 
-def prior_config_to_limit_entry(prior: PriorConfig | None, *, default_fixed_value: float | None = None) -> list[float]:
-    """Lenstool-style limit entry: [0(,value)] fixed, [1,lo,hi,step], [3,mean,std], [9,mean,std,lo,hi]."""
-    if prior is None or str(prior.kind) == "fixed":
-        return [0] if default_fixed_value is None else [0, float(default_fixed_value)]
-    kind = str(prior.kind).replace("-", "_")
-    if kind == "uniform":
-        if prior.lower is None or prior.upper is None:
-            raise ValueError("Uniform priors require lower and upper.")
-        step = float(prior.step) if prior.step is not None else 0.1 * (float(prior.upper) - float(prior.lower))
-        return [1, float(prior.lower), float(prior.upper), step]
-    if kind == "normal":
-        if prior.mean is None or prior.std is None:
-            raise ValueError("Normal priors require mean and std.")
-        if prior.lower is not None or prior.upper is not None:
-            if prior.lower is None or prior.upper is None:
-                raise ValueError("Bounded normal priors require both lower and upper.")
-            return [9, float(prior.mean), float(prior.std), float(prior.lower), float(prior.upper)]
-        return [3, float(prior.mean), float(prior.std)]
-    if kind == "truncated_normal":
-        if prior.mean is None or prior.std is None or prior.lower is None or prior.upper is None:
-            raise ValueError("Truncated normal priors require mean, std, lower, and upper.")
-        return [9, float(prior.mean), float(prior.std), float(prior.lower), float(prior.upper)]
-    raise ValueError(f"Unsupported prior kind {prior.kind!r}.")
-
-
 def cosmology_config_from_model_config(model_config: LensModelConfig) -> dict[str, Any]:
     cosmo = model_config.cosmology
     om0 = float(cosmo.Om0)
@@ -92,22 +68,21 @@ def _independent_member_default_positive_std(mean: float, *, dex_sigma: float = 
     return float(safe_mean * np.sqrt(np.expm1(log_sigma * log_sigma)))
 
 
-def _independent_member_default_priors(*, x_centre: float, y_centre: float, population: MemberPopulationConfig) -> dict[str, PriorConfig]:
+def _independent_member_default_priors(*, x_centre: float, y_centre: float, population: MemberPopulationConfig) -> dict[str, Any]:
+    import numpyro.distributions as dist
     core_mean = float(population.corekpc)
     cut_mean = float(population.cutkpc)
     sigma_mean = float(population.sigma)
     return {
         # The light fixes a galaxy's centroid to a fraction of an arcsecond; a loose position prior makes the posterior
         # multi-well as the halo hops across nearby images.
-        "x_centre": PriorConfig("truncated_normal", mean=x_centre, std=0.3, lower=x_centre - 2.0, upper=x_centre + 2.0),
-        "y_centre": PriorConfig("truncated_normal", mean=y_centre, std=0.3, lower=y_centre - 2.0, upper=y_centre + 2.0),
-        "ellipticite": PriorConfig("uniform", lower=0.0, upper=0.8),
-        "angle_pos": PriorConfig("uniform", lower=-180.0, upper=180.0),
-        "core_radius_kpc": PriorConfig("truncated_normal", mean=core_mean,
-                                       std=_independent_member_default_positive_std(core_mean), lower=0.01, upper=50.0),
-        "cut_radius_kpc": PriorConfig("truncated_normal", mean=cut_mean,
-                                      std=_independent_member_default_positive_std(cut_mean), lower=1.0, upper=1000.0),
-        "v_disp": PriorConfig("truncated_normal", mean=sigma_mean, std=max(0.5 * sigma_mean, 1.0e-6), lower=30.0, upper=1000.0),
+        "x_centre": dist.TruncatedNormal(x_centre, 0.3, low=x_centre - 2.0, high=x_centre + 2.0),
+        "y_centre": dist.TruncatedNormal(y_centre, 0.3, low=y_centre - 2.0, high=y_centre + 2.0),
+        **ellipticity_box(0.8),
+        "core_radius_kpc": lognormal_from_moments(core_mean, _independent_member_default_positive_std(core_mean), low=0.01, high=50.0),
+        "cut_excess_kpc": cut_excess_from_moments(cut_mean, _independent_member_default_positive_std(cut_mean), low=1.0, high=1000.0,
+                                                  core=core_mean),
+        "v_disp": lognormal_from_moments(sigma_mean, max(0.5 * sigma_mean, 1.0e-6), low=30.0, high=1000.0),
     }
 
 
@@ -131,12 +106,9 @@ def _independent_member_halo_potential(independent: IndependentMemberHaloConfig,
         "core_radius_kpc": float(population.corekpc), "cut_radius_kpc": float(population.cutkpc),
         "v_disp": float(population.sigma), "z_lens": float(population.z_lens),
     }
-    merged_priors = {**_independent_member_default_priors(x_centre=x_centre, y_centre=y_centre, population=population),
-                     **(independent.priors or {})}
-    prior_entries = {name: prior_config_to_limit_entry(prior, default_fixed_value=float(potential.get(name, 0.0)))
-                     for name, prior in merged_priors.items()}
     normalized = check_potential_fields(dict(potential))
-    normalized["priors"] = prior_entries
+    merged = {**_independent_member_default_priors(x_centre=x_centre, y_centre=y_centre, population=population), **(independent.priors or {})}
+    normalized["priors"] = {name: prior for name, prior in merged.items() if prior is not None}      # None fixes a default
     normalized["independent_member_population_id"] = str(population.id)
     normalized["independent_member_catalog_id"] = catalog_id
     return normalized
@@ -155,11 +127,6 @@ def _apply_catalog_exclusions(catalog_df: pd.DataFrame, population: MemberPopula
     if filtered.empty:
         raise ValueError(f"member population {population.id!r} has no catalog rows after applying exclude_catalog_ids.")
     return filtered
-
-
-def _scale_limit_entry(entry: list[float], factor: float) -> list[float]:
-    """Scale the numeric values of a Lenstool-style limit entry (kind code untouched)."""
-    return [entry[0]] + [float(v) * factor for v in entry[1:]]
 
 
 def automatic_pivot(catalog_df: pd.DataFrame, images_df: pd.DataFrame, reference: tuple[int, float, float], *,
@@ -197,10 +164,8 @@ def declared_model_inputs(model_config: LensModelConfig, scaling: Any = None) ->
         info = lens_profile(int(halo.profile_type))
         potential = {"id": str(halo.id), "profil": int(halo.profile_type), "z_lens": float(halo.z_lens),
                      **{name: float(getattr(halo, name)) for name in info.required_fields}}
-        priors = {name: prior_config_to_limit_entry(prior, default_fixed_value=float(potential.get(name, 0.0)))
-                  for name, prior in (halo.priors or {}).items()}
         normalized = check_potential_fields(potential)
-        normalized["priors"] = priors
+        normalized["priors"] = {name: prior for name, prior in (halo.priors or {}).items() if prior is not None}
         if getattr(halo, "ellipticity_soft_cap", None) is not None:
             normalized["ellipticity_soft_cap"] = float(halo.ellipticity_soft_cap)
             normalized["ellipticity_soft_width"] = float(halo.ellipticity_soft_width)
@@ -231,8 +196,7 @@ def declared_model_inputs(model_config: LensModelConfig, scaling: Any = None) ->
                 potentials.append(_independent_member_halo_potential(independent, population, match.iloc[0], reference, cosmo_config))
             catalog_df = catalog_df.loc[~catalog_ids.isin({str(item.catalog_id) for item in independent_items})].copy().reset_index(drop=True)
         catalog_df = _apply_catalog_exclusions(catalog_df, population)
-        sigma_entry = prior_config_to_limit_entry(population.sigma_prior, default_fixed_value=float(population.sigma))
-        cutkpc_entry = prior_config_to_limit_entry(population.cutkpc_prior, default_fixed_value=float(population.cutkpc))
+        sigma_prior, cutkpc_prior = population.sigma_prior, population.cutkpc_prior
         sigma_nominal, cutkpc_nominal, corekpc_nominal, pivot = float(population.sigma), float(population.cutkpc), float(population.corekpc), None
         if isinstance(population.mag0, str):
             if scaling is None:
@@ -240,9 +204,9 @@ def declared_model_inputs(model_config: LensModelConfig, scaling: Any = None) ->
             pivot = automatic_pivot(catalog_df, images_df, reference)
             pivot["prior_mag0"] = float(population.prior_mag0)
             ratio = 10.0 ** (-0.4 * (pivot["mag0"] - float(population.prior_mag0)))     # L0_new / L0_old
-            f_sigma, f_cut = ratio ** float(scaling.alpha_sigma_prior_mean), ratio ** float(scaling.beta_radius_prior_mean)
+            f_sigma, f_cut = ratio ** physical_center(scaling.alpha_sigma_prior), ratio ** physical_center(scaling.beta_radius_prior)
             pivot.update(luminosity_ratio=ratio, sigma_factor=f_sigma, cutkpc_factor=f_cut)
-            sigma_entry, cutkpc_entry = _scale_limit_entry(sigma_entry, f_sigma), _scale_limit_entry(cutkpc_entry, f_cut)
+            sigma_prior, cutkpc_prior = scaled(sigma_prior, f_sigma), scaled(cutkpc_prior, f_cut)
             sigma_nominal, cutkpc_nominal, corekpc_nominal = sigma_nominal * f_sigma, cutkpc_nominal * f_cut, corekpc_nominal * f_cut
             mag0 = pivot["mag0"]
         else:
@@ -251,7 +215,7 @@ def declared_model_inputs(model_config: LensModelConfig, scaling: Any = None) ->
             "id": str(population.id), "type": int(population.profile_type),
             "catalog_path": str(population.catalog_path), "catalog_df": catalog_df,
             "mag0": mag0, "pivot": pivot, "corekpc": float(population.corekpc), "corekpc_nominal": corekpc_nominal, "zlens": float(population.z_lens),
-            "sigma": sigma_entry, "sigma_nominal": sigma_nominal, "cutkpc": cutkpc_entry, "cutkpc_nominal": cutkpc_nominal,
+            "sigma_prior": sigma_prior, "sigma_nominal": sigma_nominal, "cutkpc_prior": cutkpc_prior, "cutkpc_nominal": cutkpc_nominal,
         })
     return potentials, potfiles, images_df, cosmo_config, reference
 

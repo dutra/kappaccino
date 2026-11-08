@@ -9,7 +9,10 @@ import numpy as np
 from jaxtronomy.LensModel.Profiles.nfw_ellipse_cse import NFW_ELLIPSE_CSE
 
 from lenscluster import jax_lensing
-from lenscluster.config import NFWHaloConfig, PriorConfig
+import numpyro.distributions as dist
+
+from lenscluster import priors
+from lenscluster.config import NFWHaloConfig
 from lenscluster.evaluator import Evaluator
 from lenscluster.exact_images import packed_to_kwargs_lens
 from lenscluster.jax_cosmology import flat_wcdm_config, kpc_per_arcsec_from_config
@@ -64,9 +67,9 @@ def test_nfw_physical_normalization_matches_lenstronomy():
 
 def test_nfw_cluster_halo_end_to_end(synthetic_config):
     halo = NFWHaloConfig(id="halo", x_centre=0.0, y_centre=0.0, ellipticite=0.2, angle_pos=0.0, log10_m200=14.6, scale_radius_kpc=300.0, z_lens=0.3,
-                         priors={"log10_m200": PriorConfig("uniform", lower=14.0, upper=15.2),
-                                 "scale_radius_kpc": PriorConfig("truncated_normal", mean=300.0, std=100.0, lower=100.0, upper=600.0),
-                                 "ellipticite": PriorConfig("uniform", lower=0.0, upper=0.6), "angle_pos": PriorConfig("uniform", lower=-180.0, upper=180.0)})
+                         priors={"log10_m200": dist.Uniform(14.0, 15.2),
+                                 "scale_radius_kpc": priors.lognormal_from_moments(300.0, 100.0, low=100.0, high=600.0),
+                                 **priors.ellipticity_box(0.6)})
     config = replace(synthetic_config, model=replace(synthetic_config.model, large_halos=(halo,))).validate()
     state = build_state(config)
     names = [s.name for s in state.parameter_specs]

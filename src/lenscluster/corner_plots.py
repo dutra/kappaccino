@@ -10,23 +10,18 @@ STYLE = Path(__file__).with_name('style.mplstyle')
 
 
 class DisplayPrior:
-    """Affine change from a sample-site prior to the displayed coordinate."""
+    """The sample-site prior in the displayed coordinate: log10 of a log-sampled parameter, the value otherwise."""
     def __init__(self, spec):
         self.base = saved_prior(spec)
-        self.scale = 1 / np.log(10) if spec.transform_kind.startswith('log_') else (getattr(spec, 'transform_scale', 1.) if spec.transform_kind == 'affine' else 1.)
-        self.offset = getattr(spec, 'transform_offset', 0.) if spec.transform_kind == 'affine' else 0.
+        self.scale = 1 / np.log(10) if spec.log else 1.
     def pdf(self, x):
-        return self.base.pdf((x-self.offset)/self.scale)/abs(self.scale)
+        return self.base.pdf(x/self.scale)/abs(self.scale)
     def ppf(self, q):
-        return self.offset + self.scale*self.base.ppf(q)
+        return self.scale*self.base.ppf(q)
 
 
 def display_values(values, spec):
-    if spec.transform_kind == 'log_positive':
-        return np.log10(values)
-    if spec.transform_kind == 'log_offset_positive':
-        return np.log10(values-getattr(spec, 'transform_offset', 0.))
-    return values
+    return np.log10(values) if spec.log else values
 
 
 def plot_parameter_corner(samples, selection, path, *, grouped_physical=None, best_index=None):
@@ -53,10 +48,8 @@ def plot_parameter_corner(samples, selection, path, *, grouped_physical=None, be
         prior_low, prior_high = prior.ppf(np.array([.001, .999]))
         low, high = min(values[:,j].min(), prior_low), max(values[:,j].max(), prior_high)
         ranges.append((low-.04*(high-low), high+.04*(high-low)))
-        if spec.transform_kind.startswith('log_'):
+        if spec.log:
             symbol = label.split('$')[1] if '$' in label else label.replace('_', r'\_')
-            if spec.transform_kind == 'log_offset_positive':
-                symbol += f'-{getattr(spec, "transform_offset", 0.):g}'
             units = label.split('$', 2)[2] if '$' in label else ''
             label = r'$\log_{10}(' + symbol + ')$' + units
         labels.append(label)

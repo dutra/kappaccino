@@ -6,7 +6,9 @@ from dataclasses import replace
 import jax.numpy as jnp
 import numpy as np
 
-from lenscluster.config import MassSheetConfig, PriorConfig
+import numpyro.distributions as dist
+
+from lenscluster.config import MassSheetConfig
 from lenscluster.evaluator import Evaluator
 from lenscluster.exact_images import packed_to_kwargs_lens
 from lenscluster.jax_cosmology import flat_wcdm_lensing_efficiency
@@ -14,7 +16,7 @@ from lenscluster.state import build_state
 
 
 def test_mass_sheet_scales_with_efficiency_and_matches_lenstronomy(synthetic_config):
-    sheet = MassSheetConfig(id="K", kappa=0.04, z_lens=0.3, priors={"kappa": PriorConfig("truncated_normal", mean=0.0, std=0.05, lower=-0.2, upper=0.5)})
+    sheet = MassSheetConfig(id="K", kappa=0.04, z_lens=0.3, priors={"kappa": dist.TruncatedNormal(0.0, 0.05, low=-0.2, high=0.5)})
     config = replace(synthetic_config, model=replace(synthetic_config.model, large_halos=synthetic_config.model.large_halos + (sheet,))).validate()
     state = build_state(config)
     names = [s.name for s in state.parameter_specs]

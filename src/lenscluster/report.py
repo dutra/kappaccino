@@ -5,6 +5,7 @@ from typing import Any
 
 import numpy as np
 
+from . import priors
 from .model import ModelState
 
 
@@ -240,31 +241,35 @@ def _num(value: float) -> str:
 
 def _prior_text(spec) -> str:
     """The prior in physical units, as the sampler applies it."""
-    log = spec.transform_kind == "log_positive"
-    lo, hi = float(spec.lower), float(spec.upper)
-    bounds = ""
-    if np.isfinite(lo) or np.isfinite(hi):
-        plo = spec.physical_lower if spec.physical_lower is not None else (np.exp(lo) if log and np.isfinite(lo) else lo)
-        phi = spec.physical_upper if spec.physical_upper is not None else (np.exp(hi) if log and np.isfinite(hi) else hi)
-        bounds = f" on [{_num(plo) or '-inf'}, {_num(phi) or 'inf'}]"
-    if spec.prior_kind == "uniform":
+    latent, log = spec.latent_prior, spec.log
+    kind, values = priors.family(latent), priors.parameters(latent)
+    lo, hi = priors.physical_bounds(spec.prior)
+    bounds = f" on [{_num(lo) or ('0' if log else '-inf')}, {_num(hi) or 'inf'}]" if kind in ("Uniform", "TruncatedNormal") else ""
+    if kind == "Uniform":
         return f"{'log-uniform' if log else 'uniform'}{bounds}"
-    if spec.prior_kind == "student_t":
-        return f"student-t(dof {_num(spec.dof)}, {_num(spec.mean)}, {_num(spec.std)})"
-    if spec.prior_kind in ("normal", "truncated_normal"):
-        mean, std = float(spec.mean), float(spec.std)
-        core = f"log-normal(median {_num(np.exp(mean))}, ln-width {_num(std)})" if log else f"normal({_num(mean)}, {_num(std)})"
-        return core + (bounds if spec.prior_kind == "truncated_normal" else "")
-    return spec.prior_kind
+    if kind == "StudentT":
+        return f"student-t(dof {_num(values['df'])}, {_num(values['loc'])}, {_num(values['scale'])})"
+    core = (f"log-normal(median {_num(np.exp(values['loc']))}, ln-width {_num(values['scale'])})" if log
+            else f"normal({_num(values['loc'])}, {_num(values['scale'])})")
+    return core + bounds
+
+
+def _normal_z(spec, latent: float) -> float | None:
+    """(latent - loc) / scale for a normal-family prior, None otherwise."""
+    if priors.family(spec.latent_prior) not in ("Normal", "TruncatedNormal"):
+        return None
+    values = priors.parameters(spec.latent_prior)
+    return (latent - values["loc"]) / values["scale"]
 
 
 def _prior_position(spec, latent: float) -> str:
     """Where the value sits in its prior: z for normal priors, the fraction of the range for uniform ones, and a flag
     within 2% of a bound."""
-    lo, hi = float(spec.lower), float(spec.upper)
+    lo, hi = priors.bounds(spec.latent_prior)
     parts = []
-    if spec.prior_kind in ("normal", "truncated_normal") and spec.std:
-        parts.append(f"z {((latent - float(spec.mean)) / float(spec.std)):+.1f}")
+    z = _normal_z(spec, latent)
+    if z is not None:
+        parts.append(f"z {z:+.1f}")
     elif np.isfinite(lo) and np.isfinite(hi) and hi > lo:
         parts.append(f"{100.0 * (latent - lo) / (hi - lo):.0f}% of range")
     if np.isfinite(lo) and np.isfinite(hi) and hi > lo:
@@ -278,11 +283,11 @@ def _prior_position(spec, latent: float) -> str:
 def _prior_status(spec, latent: float) -> str:
     """green, yellow or red: how close the value sits to a prior bound (fraction of the range in sampling coordinates)
     or how far from a normal prior's centre (z)."""
-    lo, hi = float(spec.lower), float(spec.upper)
+    lo, hi = priors.bounds(spec.latent_prior)
     edge = np.inf
     if np.isfinite(lo) and np.isfinite(hi) and hi > lo:               # a one-sided bound (a half-normal) is judged by z alone
         edge = min(latent - lo, hi - latent) / (hi - lo)
-    z = abs((latent - float(spec.mean)) / float(spec.std)) if spec.prior_kind in ("normal", "truncated_normal") and spec.std else 0.0
+    z = abs(_normal_z(spec, latent) or 0.0)
     if edge <= _RED_EDGE or z >= _RED_Z:
         return "red"
     if edge <= _YELLOW_EDGE or z >= _YELLOW_Z:

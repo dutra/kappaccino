@@ -12,7 +12,7 @@ from . import gp_image_plane as gp, gp_knee, jax_lensing, smoothed_likelihood as
 from .farfield import evaluate_farfield, member_farfield_geometry, slice_geometry
 from .jax_cosmology import dpie_sigma0_factor_from_config, dpie_sigma0_factor_from_lensing_efficiency
 from .model import (member_log_deviations, COMPONENT_FAMILY_SCALING, DP_IE_PROFILE, MASS_SHEET_PROFILE, NFW_PROFILE, SAFE_RADIUS_MARGIN_ARCSEC,
-                    SAFE_RADIUS_MARGIN_KPC, SHEAR_PROFILE, ModelState, PackedLensState, PackedLensValidity, apply_parameter_transforms_jax)
+                    SAFE_RADIUS_MARGIN_KPC, SHEAR_PROFILE, ModelState, PackedLensState, PackedLensValidity, apply_parameter_transforms_jax, log_mask)
 from .profiles import critical_density_msun_kpc3, nfw_alpha_rs_arcsec, nfw_scale_density
 
 BAD_LOG_LIKE = -1.0e30
@@ -36,13 +36,7 @@ class Evaluator:
         if self.gp_mode != has_gp_sites:
             raise ValueError("gp_image_plane needs a state built with likelihood_mode='gp_image_plane', and the other modes one without")
         self.state = state
-        specs = state.parameter_specs
-        kinds = np.asarray([spec.transform_kind for spec in specs], dtype=object)
-        self.log_positive_mask = jnp.asarray(kinds == "log_positive")
-        self.log_offset_positive_mask = jnp.asarray(kinds == "log_offset_positive")
-        self.affine_mask = jnp.asarray(kinds == "affine")
-        self.transform_offset = jnp.asarray([float(spec.transform_offset) for spec in specs], dtype=jnp.float64)
-        self.transform_scale = jnp.asarray([float(spec.transform_scale) for spec in specs], dtype=jnp.float64)
+        self.log_positive_mask = jnp.asarray(log_mask(state.parameter_specs))
         packed = state.packed_lens_spec
         self.spec = {name: jnp.asarray(value) for name, value in vars(packed).items() if not isinstance(value, str)}
         self.member_shapes = bool(np.any(np.asarray(packed.shape_e1_offset_param_index) >= 0))
@@ -189,8 +183,7 @@ class Evaluator:
 
     # ------------------------------------------------------------------ parameters
     def physical(self, params: jnp.ndarray) -> jnp.ndarray:
-        return apply_parameter_transforms_jax(params, self.log_positive_mask, self.log_offset_positive_mask,
-                                              self.transform_offset, self.affine_mask, self.transform_scale)
+        return apply_parameter_transforms_jax(params, self.log_positive_mask)
 
     def _apply(self, base: jnp.ndarray, index: jnp.ndarray, physical: jnp.ndarray) -> jnp.ndarray:
         safe = jnp.where(index >= 0, index, 0)
@@ -239,9 +232,9 @@ class Evaluator:
         core_radius_kpc = jnp.where(is_scaling, core_ref * size_scale, core_radius_kpc)
         cut_radius_kpc = jnp.where(is_scaling, cut_ref * size_scale, cut_radius_kpc)
         kpc_per_arcsec = jnp.asarray(self.state.kpc_per_arcsec, dtype=jnp.float64)
-        softening_index = int(self.state.log_softening_length_param_index)
+        softening_index = int(self.state.softening_length_param_index)
         if softening_index >= 0:
-            softening_kpc = jnp.exp(physical[softening_index])
+            softening_kpc = physical[softening_index]
             core_effective_kpc = jnp.sqrt(jnp.square(core_radius_kpc) + jnp.square(softening_kpc))
             # A member whose cut radius is below the softening cannot be resolved by the simulation either: cap the
             # softened core smoothly just below r_cut (plain quadrature when r_cut >> softening).  The dPIE total mass

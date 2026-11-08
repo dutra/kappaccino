@@ -36,7 +36,7 @@ def main():
   assert chains.ndim==3 and chains.shape[0]*chains.shape[1]==len(physical)
   np.testing.assert_allclose(chains.reshape(latent.shape),latent)
  indices=np.array([[names.index(f'{r.potfile_id}.{r.catalog_id}.shape_e{k}_offset')for k in (1,2)]for r in members.itertuples()])
- for i in indices.ravel():assert specs[i]['prior_kind']=='normal'and specs[i]['mean']==0 and specs[i]['std']==1 and specs[i]['transform_kind']=='identity'
+ for i in indices.ravel():assert specs[i]['prior']=={'family':'Normal','log':False,'loc':0.0,'scale':1.0}
  offset=physical[:,indices];np.testing.assert_allclose(offset,latent[:,indices])
  catalog_pa=members.angle_pos.fillna(0).to_numpy()
  pa_defined=members.angle_pos.notna().to_numpy() & (members.ellipticite.to_numpy()>1e-10)

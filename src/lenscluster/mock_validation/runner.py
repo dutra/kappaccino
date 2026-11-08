@@ -13,7 +13,7 @@ import jax.numpy as jnp
 import numpy as np
 import pandas as pd
 
-from .. import pipeline
+from .. import pipeline, priors
 from ..config import DPIEHaloConfig
 from ..model import ModelState, PosteriorResults, member_log_deviations
 from ..utils import DPIE_MASS_GRAVITATIONAL_CONSTANT_KPC_KMS2_PER_MSUN as G_KPC, log10_dpie_mass_msun, progress
@@ -67,6 +67,13 @@ def posterior_columns(state: ModelState, evaluator, posterior: PosteriorResults)
     """Posterior draws per parameter name in physical units, with derived masses, gamma_ml and source positions."""
     physical = np.asarray(posterior.physical, dtype=float)
     columns = {spec.name: physical[:, i] for i, spec in enumerate(state.parameter_specs) if spec.component_family != "source_position"}
+    # A sampled dPIE cut radius is its excess above the effective core; the cut radius itself is excess + core.
+    softening = columns.get("softening_length.softening_length_kpc", 0.0)
+    base = {str(c.get("id")): c for c in state.base_components}
+    for name in [n for n in columns if n.endswith(".cut_excess_kpc")]:
+        prefix = name.rsplit(".", 1)[0]
+        core = columns.get(f"{prefix}.core_radius_kpc", float(base.get(prefix, {}).get("core_radius_kpc", 0.0)))
+        columns[f"{prefix}.cut_radius_kpc"] = columns[name] + np.sqrt(np.square(core) + np.square(softening))
     for prefix in {name.rsplit(".", 1)[0] for name in columns}:
         v, cut = columns.get(f"{prefix}.v_disp"), columns.get(f"{prefix}.cut_radius_kpc")
         if v is not None and cut is not None:
@@ -142,10 +149,9 @@ def relation_recovery(state: ModelState, posterior: PosteriorResults, truth_valu
     pivot = state.potfiles[0].get("pivot") or {}
     prior_sigma = {}
     for field, (_, spec) in specs.items():
-        if spec.transform_kind == "log_positive":            # fractional width about the prior median
-            prior_sigma[field] = float(spec.physical_std / spec.physical_mean) if spec.physical_std and spec.physical_mean else None
-        else:
-            prior_sigma[field] = float(spec.std) if spec.std is not None else None
+        scale = priors.parameters(spec.latent_prior).get("scale")
+        # A log-normal's fractional width (its standard deviation over its mean), or the width of a normal prior.
+        prior_sigma[field] = None if scale is None else float(np.sqrt(np.expm1(scale * scale)) if spec.log else scale)
     return {"pivot_luminosity_ratio": float(pivot.get("luminosity_ratio", 1.0)),
             "truth": {field: float(truth_values.get(f"potfile.{field}", np.nan)) for field in RELATION_FIELDS},
             "prior_sigma": prior_sigma,
@@ -240,7 +246,7 @@ def write_recovery(recovery_dir: Path, result: pipeline.RunResult, solver_config
     columns = posterior_columns(state, evaluator, posterior)
     pivot = float(state.potfiles[0]["mag0"]) if state.potfiles else None
     truth_values = parameter_truth(truth, solver_pivot_magnitude=pivot)
-    positive = {spec.name for spec in state.parameter_specs if spec.transform_kind in {"log_positive", "log_offset_positive"}}
+    positive = {spec.name for spec in state.parameter_specs if spec.log}
     parameters = parameter_recovery(columns, truth_values, best_index, positive=positive)
     magnification = magnification_recovery(truth, pd.read_csv(tables / "model_magnification.csv"))
     relation = relation_recovery(state, posterior, truth_values)

@@ -8,11 +8,10 @@ from lenscluster.model import ParameterSpec
 from lenscluster.sampling import bound_pressure, lanczos_extremes, slow_modes
 
 
-def _spec(name, **kw):
-    base = dict(name=name, sample_name=name, potential_id="p", profile_type=0, field=name, prior_kind="normal",
-                lower=-np.inf, upper=np.inf, step=0.1, mean=0.0, std=1.0, component_family="halo", transform_kind="identity")
-    base.update(kw)
-    return ParameterSpec(**base)
+def _spec(name, prior=None):
+    import numpyro.distributions as dist
+    return ParameterSpec(name=name, sample_name=name, potential_id="p", profile_type=0, field=name,
+                         prior=dist.Normal(0.0, 1.0) if prior is None else prior, component_family="halo")
 
 
 def test_lanczos_finds_both_ends_of_a_quadratic():
@@ -37,6 +36,7 @@ def test_bound_pressure_flags_draws_against_a_bound():
     rng = np.random.default_rng(2)
     piled = np.concatenate([np.full(300, 0.995), rng.uniform(0, 1, 700)])
     draws = np.stack([piled, rng.uniform(0.2, 0.8, 1000)], -1).reshape(4, 250, 2)
-    specs = [_spec("x", prior_kind="uniform", lower=0.0, upper=1.0), _spec("y", prior_kind="uniform", lower=0.0, upper=1.0)]
+    import numpyro.distributions as dist
+    specs = [_spec("x", dist.Uniform(0.0, 1.0)), _spec("y", dist.Uniform(0.0, 1.0))]
     rows = bound_pressure(draws, specs)
     assert [r["parameter"] for r in rows] == ["x"] and rows[0]["upper_fraction"] > 0.25

@@ -14,6 +14,7 @@ from jax.flatten_util import ravel_pytree
 from numpyro.infer import MCMC, NUTS
 from numpyro.infer.util import potential_energy, unconstrain_fn
 
+from . import priors
 from .evaluator import Evaluator
 from .model import ModelState, ParameterSpec, PosteriorResults
 
@@ -48,7 +49,7 @@ def split_offset_sites(specs: list[ParameterSpec], starts: np.ndarray, state, *,
                 if specs[idx].centered:
                     skipped += 1
                     continue
-                specs[idx] = replace(specs[idx], prior_kind="normal", std=FIXED_OFFSET_STD, dof=None)
+                specs[idx] = replace(specs[idx], prior=dist.Normal(0.0, FIXED_OFFSET_STD))
                 starts[:, idx] = 0.0
                 suffix[idx] = FIXED_SITE_SUFFIX
                 fixed += 1
@@ -108,45 +109,27 @@ class _LowerInclusiveTruncatedNormal(dist.LeftTruncatedDistribution):
 
 
 def distribution_for_site(site: SampleSite, specs: list[ParameterSpec], sampled: dict[str, Any] | None = None):
-    """Prior of one site. Centered deviation specs get N(0, exp(scatter site value)) using the already sampled scatter."""
+    """Prior of one site in the latent coordinate: the base distribution of each spec's prior (batched over a vector
+    site).  Centered deviations take the scale exp(scatter site value) from the already sampled scatter.  Truncated
+    normals validate their samples, so a latent value outside the support has zero density."""
     members = [specs[i] for i in site.indices]
-    kinds = {spec.prior_kind for spec in members}
+    kinds = {priors.family(spec.latent_prior) for spec in members}
     if len(kinds) != 1:
-        raise ValueError(f"Sample site {site.name!r} mixes prior kinds {sorted(kinds)}.")
+        raise ValueError(f"Sample site {site.name!r} mixes prior families {sorted(kinds)}.")
     kind = kinds.pop()
+    values = [priors.parameters(spec.latent_prior) for spec in members]
     if any(spec.centered for spec in members):
         if sampled is None:
             raise ValueError(f"Site {site.name!r} has centered deviations and needs the sampled scatter values.")
-        scale = jnp.stack([jnp.exp(sampled[spec.scale_site_name]) if spec.centered else jnp.asarray(float(spec.std), dtype=jnp.float64)
-                           for spec in members])
-        loc = jnp.asarray([float(spec.mean) for spec in members], dtype=jnp.float64)
-        if kind == "student_t":
-            df = jnp.asarray([float(spec.dof) for spec in members], dtype=jnp.float64)
-            return dist.Independent(dist.StudentT(df, loc, scale), 1) if site.vector else dist.StudentT(df[0], loc[0], scale[0])
-        return dist.Independent(dist.Normal(loc, scale), 1) if site.vector else dist.Normal(loc[0], scale[0])
+        values = [dict(v, scale=jnp.exp(sampled[spec.scale_site_name])) if spec.centered else v for v, spec in zip(values, members)]
+    validate = True if kind == "TruncatedNormal" else None
     if not site.vector:
-        spec = members[0]
-        if kind == "normal":
-            return dist.Normal(float(spec.mean), float(spec.std))
-        if kind == "student_t":
-            return dist.StudentT(float(spec.dof), float(spec.mean), float(spec.std))
-        if kind == "truncated_normal":
-            high = None if not np.isfinite(float(spec.upper)) else float(spec.upper)
-            if spec.field == "beta_radius" and high is None:
-                return _LowerInclusiveTruncatedNormal(dist.Normal(float(spec.mean), float(spec.std)), low=float(spec.lower), validate_args=True)
-            return dist.TruncatedNormal(float(spec.mean), float(spec.std), low=float(spec.lower), high=high, validate_args=True)
-        return dist.Uniform(float(spec.lower), float(spec.upper))
-    as_array = lambda attr: jnp.asarray([float(getattr(spec, attr)) for spec in members], dtype=jnp.float64)
-    if kind == "normal":
-        return dist.Independent(dist.Normal(as_array("mean"), as_array("std")), 1)
-    if kind == "student_t":
-        return dist.Independent(dist.StudentT(as_array("dof"), as_array("mean"), as_array("std")), 1)
-    if kind == "truncated_normal":
-        high = jnp.asarray([np.inf if not np.isfinite(float(spec.upper)) else float(spec.upper) for spec in members], dtype=jnp.float64)
-        return dist.Independent(dist.TruncatedNormal(as_array("mean"), as_array("std"), low=as_array("lower"), high=high, validate_args=True), 1)
-    if kind == "uniform":
-        return dist.Independent(dist.Uniform(as_array("lower"), as_array("upper")), 1)
-    raise ValueError(f"Unsupported prior kind {kind!r} for site {site.name!r}.")
+        (value,), (spec,) = values, members
+        if kind == "TruncatedNormal" and spec.field == "beta_radius" and not np.isfinite(value["high"]):
+            return _LowerInclusiveTruncatedNormal(dist.Normal(value["loc"], value["scale"]), low=value["low"], validate_args=True)
+        return priors.make(kind, validate_args=validate, **value)
+    stacked = {key: jnp.stack([jnp.asarray(v[key], dtype=jnp.float64) for v in values]) for key in values[0]}
+    return dist.Independent(priors.make(kind, validate_args=validate, **stacked), 1)
 
 
 def site_values_from_theta(theta: jnp.ndarray, sites: list[SampleSite]) -> dict[str, jnp.ndarray]:
@@ -251,7 +234,7 @@ def block_mass_seed(model, specs: list[ParameterSpec], reference_theta: np.ndarr
             for idx in site_by_name[name].indices:
                 spec = specs[idx]
                 scales.append(float(np.exp(theta[[s_.sample_name for s_ in specs].index(spec.scale_site_name)])) ** 2 if spec.centered
-                              else float(spec.std) ** 2 if spec.std else 1.0)
+                              else priors.parameters(spec.latent_prior).get("scale", 1.0) ** 2)
         inverse_mass[latent_names] = jnp.asarray(scales, dtype=jnp.float64)
     diagnostics: dict[str, Any] = dict(global_dim=int(global_vector.size), latent_dim=latent_dim,
                                        global_sites=list(global_names), latent_sites=list(latent_names))
@@ -465,12 +448,11 @@ def bound_pressure(grouped_theta: np.ndarray, specs: list[ParameterSpec], *, edg
     flat = grouped_theta.reshape(-1, grouped_theta.shape[-1])
     out = []
     for i, spec in enumerate(specs):
-        if spec.prior_kind not in ("uniform", "truncated_normal") or not (np.isfinite(spec.lower) and np.isfinite(spec.upper)):
+        lower, upper = priors.bounds(spec.latent_prior)
+        if not (np.isfinite(lower) and np.isfinite(upper)) or upper <= lower:
             continue
-        width = float(spec.upper - spec.lower)
-        if width <= 0:
-            continue
-        low = float(np.mean(flat[:, i] < spec.lower + edge * width)); high = float(np.mean(flat[:, i] > spec.upper - edge * width))
+        width = float(upper - lower)
+        low = float(np.mean(flat[:, i] < lower + edge * width)); high = float(np.mean(flat[:, i] > upper - edge * width))
         if max(low, high) > 0.05:
             out.append(dict(parameter=spec.name, lower_fraction=low, upper_fraction=high))
     return out

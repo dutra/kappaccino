@@ -180,7 +180,7 @@ def plot_scale_posteriors(state, posterior, output, sites=DEFAULT_SCALE_SITES):
         prior=DisplayPrior(spec)
         maximum=max(np.percentile(values,99.9)*1.4,q84*1.8)
         x=np.linspace(max(values.min()/20,1e-6),maximum,600)
-        pdf=prior.pdf(np.log10(x))/(x*np.log(10)) if spec.transform_kind=='log_positive' else prior.pdf(x)
+        pdf=prior.pdf(np.log10(x))/(x*np.log(10)) if spec.log else prior.pdf(x)
         ax.hist(values*factor,bins=30,density=True,color=GP_COLOR,alpha=.35,histtype='stepfilled',label='Posterior')
         ax.hist(values*factor,bins=30,density=True,color=GP_COLOR,histtype='step',lw=1.6)
         ax.plot(x*factor,pdf/factor,color=WHITE_COLOR,ls='--',lw=2,label='Prior')

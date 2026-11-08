@@ -45,7 +45,12 @@ ISOTHERMAL_KNEE_PER_RT = 6.38          # lambda_t / r_t of the gamma = 2 knee fi
 
 
 def variant_likelihood(likelihood, variant: str, tight_gp: bool, *, fixed_knee: float, fixed_ell: float):
-    from lenscluster.config import LogNormalPriorConfig as LN
+    import numpyro.distributions as dist
+    from lenscluster.config import ERROR_SCALE_FLOOR_ARCSEC
+    from lenscluster.priors import truncated_lognormal
+
+    def LN(median, log_sigma, upper, lower=ERROR_SCALE_FLOOR_ARCSEC):
+        return truncated_lognormal(median, log_sigma, low=lower, high=upper)
     tight = dict(gp_knee_sigma_shared_prior=LN(median=0.03, log_sigma=0.7, upper=0.1), gp_knee_sigma_shared_start_arcsec=0.03,
                  gp_knee_ell_prior=LN(median=1.0, log_sigma=0.5, upper=2.0), gp_knee_ell_start_arcsec=1.0)
     common = dict(gp_blocks="all", gp_knee_scales_arcsec=(0.2, 100.0), gp_knee_spectrum=variant, gp_knee_gamma=4.0,
@@ -56,8 +61,8 @@ def variant_likelihood(likelihood, variant: str, tight_gp: bool, *, fixed_knee: 
         "two_knee": dict(gp_knee_prior=LN(median=30.0, log_sigma=0.7, upper=80.0, lower=10.0), gp_knee_start_arcsec=30.0,
                          gp_knee2_prior=LN(median=3.0, log_sigma=0.5, upper=10.0), gp_knee2_start_arcsec=3.0,
                          gp_knee2_sigma_alpha_prior=LN(median=0.05, log_sigma=0.7, upper=0.3), gp_knee2_sigma_alpha_start_arcsec=0.05),
-        "broken_power_law": dict(gp_knee_beta_low_prior=(-1.0, 3.5), gp_knee_beta_low_start=0.0),
-        "power_law": dict(gp_knee_gamma_prior=(0.5, 6.0), gp_knee_gamma=3.0),
+        "broken_power_law": dict(gp_knee_beta_low_prior=dist.Uniform(-1.0, 3.5), gp_knee_beta_low_start=0.0),
+        "power_law": dict(gp_knee_gamma_prior=dist.Uniform(0.5, 6.0), gp_knee_gamma=3.0),
         "knee_foreground": dict(gp_knee2_prior=LN(median=20.0, log_sigma=1.0, upper=80.0), gp_knee2_start_arcsec=20.0,
                                 gp_knee2_sigma_alpha_prior=LN(median=0.05, log_sigma=0.7, upper=0.3), gp_knee2_sigma_alpha_start_arcsec=0.05),
         "fixed": dict(gp_knee_spectrum="knee", gp_knee_gamma=2.0, gp_knee_fixed_arcsec=float(fixed_knee), gp_knee_ell_fixed_arcsec=float(fixed_ell),

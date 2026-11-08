@@ -118,9 +118,8 @@ def posterior_corner_data(samples, specs):
     labels = []
     for _, spec, _ in selected:
         label = spec.name.replace('_', r'\_')
-        if spec.transform_kind.startswith('log_'):
-            offset = f'-{spec.transform_offset:g}' if spec.transform_kind == 'log_offset_positive' else ''
-            label = r'\log(\mathrm{' + label + '}' + offset + ')'
+        if spec.log:
+            label = r'\log(\mathrm{' + label + '})'
         else:
             label = r'\mathrm{' + label + '}'
         labels.append('$' + label + '$')

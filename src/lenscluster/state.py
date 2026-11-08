@@ -16,24 +16,18 @@ from .inputs import (catalog_shape_to_ellipticity, declared_model_inputs, filter
                      shear_polar_to_gamma1gamma2)
 from .jax_cosmology import dpie_sigma0_factor_from_config, kpc_per_arcsec_from_config
 from .model import (COMPONENT_FAMILY_LARGE, COMPONENT_FAMILY_SCALING, DP_IE_PROFILE, DPIE_PROFILE_NAME,
-                    SAFE_RADIUS_MARGIN_KPC, SHEAR_PROFILE, SHEAR_PROFILE_NAME, FamilyData, ImageData,
-                    MemberModel, ModelState, PackedLensSpec, ParameterSpec, default_theta,
-                    positive_lognormal_parameters)
+                    SHEAR_PROFILE, SHEAR_PROFILE_NAME, FamilyData, ImageData,
+                    MemberModel, ModelState, PackedLensSpec, ParameterSpec, default_theta, physical_to_latent)
+from .priors import bounds, physical_center, split
 
-from .profiles import ELLIPTICAL_PROFILES, SUPPORTED_PROFILES, profile as lens_profile
-VDISP_TRUNCATION_FLOOR_KM_S = 1.0e-4
-LOG_SOFTENING_LENGTH_SAMPLE_NAME = "log_softening_length_kpc"
+from .profiles import SUPPORTED_PROFILES, profile as lens_profile
+SOFTENING_LENGTH_SAMPLE_NAME = "softening_length_kpc"
 SOURCE_POSITION_SITE_NAME = "source_position_beta"
 MEMBER_OFFSET_SITE_NAME = "member_velocity_offsets"
 MEMBER_RADIUS_OFFSET_SITE_NAME = "member_radius_offsets"
-SOLVER_POTFILE_DEFAULTS = {
-    "sigma": dict(lower=20.0, upper=500.0, mean=100.0, std=40.0, step=5.0, floor=VDISP_TRUNCATION_FLOOR_KM_S),
-    "cutkpc": dict(lower=20.0, upper=1000.0, mean=300.0, std=120.0, step=10.0, floor=SAFE_RADIUS_MARGIN_KPC),
-    "corekpc": dict(lower=0.01, upper=10.0, median=0.15, latent_std=0.7, step=0.05, floor=SAFE_RADIUS_MARGIN_KPC),
-}
 
 
-# ----------------------------------------------------------------------------- prior decoding
+# ----------------------------------------------------------------------------- parsing
 def _safe_float(value: Any) -> float | None:
     if value is None:
         return None
@@ -59,207 +53,33 @@ def sample_name(potential_id: str, field: str) -> str:
     return re.sub(r"[^0-9A-Za-z_]+", "_", f"{potential_id}_{field}")
 
 
-def decode_parameter_prior(value: Any, context: str) -> dict[str, Any] | None:
-    if not isinstance(value, list):
-        return None
-    if not value:
-        raise ValueError(f"Empty prior specification for {context}.")
-    mode = int(value[0])
-    if mode == 0:
-        return None
-    if mode == 1:
-        lower = _coerce_numeric(value[1], f"{context}.lower")
-        upper = _coerce_numeric(value[2], f"{context}.upper")
-        step = _coerce_numeric(value[3], f"{context}.step") if len(value) >= 4 else 0.1 * (upper - lower)
-        return {"prior_kind": "uniform", "lower": lower, "upper": upper, "step": step, "mean": None, "std": None}
-    if mode == 3:
-        mean = _coerce_numeric(value[1], f"{context}.mean")
-        std = _coerce_numeric(value[2], f"{context}.std")
-        if std <= 0.0:
-            raise ValueError(f"Normal prior std must be positive for {context}.")
-        return {"prior_kind": "normal", "lower": -math.inf, "upper": math.inf, "step": std, "mean": mean, "std": std}
-    if mode == 9:
-        mean = _coerce_numeric(value[1], f"{context}.mean")
-        std = _coerce_numeric(value[2], f"{context}.std")
-        lower = _coerce_numeric(value[3], f"{context}.lower")
-        upper = _coerce_numeric(value[4], f"{context}.upper") if len(value) >= 5 else math.inf
-        if std <= 0.0:
-            raise ValueError(f"Truncated normal prior std must be positive for {context}.")
-        if np.isfinite(upper) and lower >= upper:
-            raise ValueError(f"Truncated normal prior lower bound must be less than upper bound for {context}.")
-        return {"prior_kind": "truncated_normal", "lower": lower, "upper": upper, "step": std, "mean": mean, "std": std}
-    raise ValueError(f"Unsupported prior mode {mode} for {context}; expected 0, 1, 3, or 9.")
+def _prior_spec(name: str, sample_name_: str, potential_id: str, field: str, prior, component_family: str, *,
+                profile_type: int = 0, **site) -> ParameterSpec:
+    return ParameterSpec(name=name, sample_name=sample_name_, potential_id=potential_id, profile_type=profile_type, field=field,
+                         prior=prior, component_family=component_family, **site)
 
 
-def _log_positive_bound(value: float, floor: float) -> float:
-    if not np.isfinite(value):
-        return float(value)
-    return float(np.log(max(float(value), float(floor))))
+def _error_scale_spec(field: str, prior) -> ParameterSpec:
+    """A sampled scale of the error model (images.<field>)."""
+    return _prior_spec(f"images.{field}", f"images_{field}", "images", field, prior, "error_scale")
 
 
-def transform_positive_prior_to_log_space(prior_kind, lower, upper, mean, std, *, floor, context):
-    if prior_kind in {"normal", "truncated_normal"}:
-        if mean is None or std is None:
-            raise ValueError(f"Positive prior for {context} requires mean/std.")
-        safe_mean_floor = max(float(lower), float(floor)) if np.isfinite(lower) else float(floor)
-        latent_mean, latent_std = positive_lognormal_parameters(max(float(mean), safe_mean_floor), float(std), floor=floor)
-        if prior_kind == "normal":
-            return -math.inf, math.inf, latent_mean, latent_std
-        return _log_positive_bound(lower, floor), _log_positive_bound(upper, floor), latent_mean, latent_std
-    safe_lower = max(float(lower), float(floor))
-    safe_upper = max(float(upper), safe_lower * (1.0 + 1.0e-9)) if np.isfinite(upper) else math.inf
-    return _log_positive_bound(safe_lower, floor), _log_positive_bound(safe_upper, floor), mean, std
-
-
-def _transform_offset_positive_prior_to_log_space(prior_kind, lower, upper, mean, std, *, offset, floor, context):
-    offset = float(offset)
-    gap_lower = max(float(lower) - offset, float(floor)) if np.isfinite(lower) else float(floor)
-    gap_upper = max(float(upper) - offset, gap_lower * (1.0 + 1.0e-9)) if np.isfinite(upper) else math.inf
-    if prior_kind in {"normal", "truncated_normal"}:
-        if mean is None or std is None:
-            raise ValueError(f"Offset-positive prior for {context} requires mean/std.")
-        gap_mean = max(float(mean) - offset, gap_lower)
-        latent_mean, latent_std = positive_lognormal_parameters(gap_mean, float(std), floor=gap_lower)
-        if prior_kind == "normal":
-            return -math.inf, math.inf, latent_mean, latent_std
-        return _log_positive_bound(gap_lower, floor), _log_positive_bound(gap_upper, floor), latent_mean, latent_std
-    return _log_positive_bound(gap_lower, floor), _log_positive_bound(gap_upper, floor), mean, std
-
-
-def _identity_prior_spec(decoded: dict[str, Any]) -> dict[str, Any]:
-    return {"prior_kind": str(decoded["prior_kind"]), "lower": float(decoded["lower"]), "upper": float(decoded["upper"]),
-            "step": float(decoded["step"]), "mean": decoded["mean"], "std": decoded["std"],
-            "transform_kind": "identity", "transform_offset": 0.0,
-            "physical_lower": None, "physical_upper": None, "physical_mean": None, "physical_std": None}
-
-
-def _radius_prior_spec(potential, field_name, decoded, *, softening_length_kpc, dynamic_cut_above_effective_core):
-    prior_kind = str(decoded["prior_kind"])
-    lower, upper = float(decoded["lower"]), float(decoded["upper"])
-    mean = None if decoded["mean"] is None else float(decoded["mean"])
-    std = None if decoded["std"] is None else float(decoded["std"])
-    step = float(decoded["step"])
-    physical = dict(physical_lower=lower, physical_upper=upper, physical_mean=mean, physical_std=std)
-    context = f"{potential.get('id', 'potential')}.{field_name}"
-    if field_name == "core_radius_kpc":
-        transform_kind, transform_offset = "log_positive", 0.0
-        lower, upper, mean, std = transform_positive_prior_to_log_space(
-            prior_kind, lower, upper, mean, std, floor=SAFE_RADIUS_MARGIN_KPC, context=context)
-    else:
-        core_radius = max(_coerce_numeric(potential.get("core_radius_kpc", SAFE_RADIUS_MARGIN_KPC), "core_radius_kpc"), 0.0)
-        if dynamic_cut_above_effective_core:
-            softening = max(float(softening_length_kpc), 0.0)
-            transform_kind = "log_positive"
-            transform_offset = float(math.sqrt(core_radius * core_radius + softening * softening))
-            if np.isfinite(upper) and upper <= transform_offset:
-                raise ValueError(f"{context} upper bound {upper:g} kpc must exceed the reference effective core {transform_offset:g} kpc.")
-        else:
-            transform_kind, transform_offset = "log_offset_positive", core_radius
-        lower, upper, mean, std = _transform_offset_positive_prior_to_log_space(
-            prior_kind, lower, upper, mean, std, offset=transform_offset, floor=SAFE_RADIUS_MARGIN_KPC, context=context)
-    if prior_kind == "uniform":
-        step = float(max(step, SAFE_RADIUS_MARGIN_KPC))
-    return {"prior_kind": prior_kind, "lower": lower, "upper": upper, "step": step, "mean": mean, "std": std,
-            "transform_kind": transform_kind, "transform_offset": transform_offset, **physical}
-
-
-ERROR_SCALE_FLOOR_ARCSEC = 1.0e-4
-
-
-def _error_scale_spec(name: str, sample_name: str, potential_id: str, field: str, prior) -> ParameterSpec:
-    """A sampled error scale (sigma_def, sigma_extra, sigma_sel, lambda_sel): log-normal in the log coordinate, truncated
-    above at ``prior.upper`` when given so the sampler cannot inflate the errors until the likelihood goes flat."""
-    lower = ERROR_SCALE_FLOOR_ARCSEC if getattr(prior, "lower", None) is None else float(prior.lower)
-    if prior.upper is None:
-        return ParameterSpec(name=name, sample_name=sample_name, potential_id=potential_id, profile_type=0, field=field,
-                             prior_kind="normal", lower=-math.inf, upper=math.inf, step=0.1,
-                             mean=float(np.log(prior.median)), std=float(prior.log_sigma),
-                             component_family="error_scale", transform_kind="log_positive", physical_lower=0.0, physical_mean=float(prior.median))
-    return ParameterSpec(name=name, sample_name=sample_name, potential_id=potential_id, profile_type=0, field=field,
-                         prior_kind="truncated_normal", lower=float(np.log(lower)), upper=float(np.log(prior.upper)), step=0.1,
-                         mean=float(np.log(prior.median)), std=float(prior.log_sigma),
-                         component_family="error_scale", transform_kind="log_positive",
-                         physical_lower=lower, physical_upper=float(prior.upper), physical_mean=float(prior.median))
-
-
-def _half_normal_scale_spec(name: str, sample_name: str, potential_id: str, field: str, scale: float) -> ParameterSpec:
-    """A sampled scale with a half-normal prior: a normal truncated at zero in the physical coordinate itself."""
-    return ParameterSpec(name=name, sample_name=sample_name, potential_id=potential_id, profile_type=0, field=field,
-                         prior_kind="truncated_normal", lower=0.0, upper=math.inf, step=0.1 * scale, mean=0.0, std=float(scale),
-                         component_family="error_scale", transform_kind="identity", physical_lower=0.0, physical_mean=0.0, physical_std=float(scale))
-
-
-def _log_positive_prior_spec(decoded: dict[str, Any], context: str, *, floor: float) -> dict[str, Any]:
-    """A positive quantity sampled as its log; a plain normal prior becomes a truncated normal above ``floor``."""
-    decoded_kind = str(decoded["prior_kind"])
-    prior_kind = "truncated_normal" if decoded_kind == "normal" else decoded_kind
-    physical_lower = float(floor) if decoded_kind == "normal" else float(decoded["lower"])
-    physical_upper = math.inf if decoded_kind == "normal" else float(decoded["upper"])
-    physical_mean = None if decoded["mean"] is None else float(decoded["mean"])
-    physical_std = None if decoded["std"] is None else float(decoded["std"])
-    lower, upper, mean, std = transform_positive_prior_to_log_space(
-        prior_kind, physical_lower, physical_upper, physical_mean, physical_std, floor=floor, context=context)
-    return {"prior_kind": prior_kind, "lower": lower, "upper": upper, "step": float(decoded["step"]), "mean": mean, "std": std,
-            "transform_kind": "log_positive", "transform_offset": 0.0, "physical_lower": physical_lower,
-            "physical_upper": None if not np.isfinite(physical_upper) else physical_upper,
-            "physical_mean": physical_mean, "physical_std": physical_std}
-
-
-def _vdisp_prior_spec(decoded: dict[str, Any], context: str) -> dict[str, Any]:
-    decoded_kind = str(decoded["prior_kind"])
-    prior_kind = "truncated_normal" if decoded_kind == "normal" else decoded_kind
-    physical_lower = VDISP_TRUNCATION_FLOOR_KM_S if decoded_kind == "normal" else float(decoded["lower"])
-    physical_upper = math.inf if decoded_kind == "normal" else float(decoded["upper"])
-    physical_mean = None if decoded["mean"] is None else float(decoded["mean"])
-    physical_std = None if decoded["std"] is None else float(decoded["std"])
-    lower, upper, mean, std = transform_positive_prior_to_log_space(
-        prior_kind, physical_lower, physical_upper, physical_mean, physical_std,
-        floor=VDISP_TRUNCATION_FLOOR_KM_S, context=context)
-    return {"prior_kind": prior_kind, "lower": lower, "upper": upper, "step": float(decoded["step"]), "mean": mean, "std": std,
-            "transform_kind": "log_positive", "transform_offset": 0.0, "physical_lower": physical_lower,
-            "physical_upper": None if not np.isfinite(physical_upper) else physical_upper,
-            "physical_mean": physical_mean, "physical_std": physical_std}
-
-
-def _append_spec(specs, assignments, *, potential_id, profile_type, field_name, prior_spec, component_family="large"):
+def _append_spec(specs, assignments, *, potential_id, profile_type, field_name, prior, component_family="large"):
     assignments.append((field_name, len(specs)))
-    specs.append(ParameterSpec(
-        name=f"{potential_id}.{field_name}", sample_name=sample_name(potential_id, field_name),
-        potential_id=potential_id, profile_type=profile_type, field=field_name,
-        prior_kind=str(prior_spec["prior_kind"]), lower=float(prior_spec["lower"]), upper=float(prior_spec["upper"]),
-        step=float(prior_spec["step"]), mean=prior_spec["mean"], std=prior_spec["std"], component_family=component_family,
-        transform_kind=str(prior_spec["transform_kind"]), physical_lower=prior_spec["physical_lower"],
-        physical_upper=prior_spec["physical_upper"], physical_mean=prior_spec["physical_mean"],
-        physical_std=prior_spec["physical_std"], transform_offset=float(prior_spec["transform_offset"])))
+    specs.append(_prior_spec(f"{potential_id}.{field_name}", sample_name(potential_id, field_name), potential_id, field_name, prior,
+                             component_family, profile_type=profile_type))
 
 
-def _angle_grid(lower_rad: float, upper_rad: float) -> np.ndarray:
-    if not np.isfinite(lower_rad) or not np.isfinite(upper_rad) or lower_rad >= upper_rad:
-        raise ValueError("Angle prior bounds must be finite and ordered for direct Cartesian sampling.")
-    step = 0.5 * math.pi
-    values = [float(lower_rad), float(upper_rad)]
-    for index in range(int(math.floor(lower_rad / step)) - 1, int(math.ceil(upper_rad / step)) + 2):
-        value = float(index * step)
-        if lower_rad <= value <= upper_rad:
-            values.append(value)
-    return np.asarray(sorted(set(values)), dtype=float)
+def _sampled_fields(info) -> set[str]:
+    """The fields of a profile that take a prior: the required ones with the shape as its Cartesian pair and, for the
+    dPIE, the cut radius as its excess above the effective core."""
+    fields = set(info.required_fields) - set(info.polar_shape or ()) | set(info.cartesian_shape or ())
+    if "cut_radius_kpc" in fields:
+        fields = fields - {"cut_radius_kpc"} | {"cut_excess_kpc"}
+    return fields
 
 
-def _polar_box_bounds(radius_values: np.ndarray, angle_lower_deg: float, angle_upper_deg: float):
-    theta = _angle_grid(np.deg2rad(2.0 * angle_lower_deg), np.deg2rad(2.0 * angle_upper_deg))
-    c1 = np.asarray([r * math.cos(t) for r in radius_values for t in theta])
-    c2 = np.asarray([r * math.sin(t) for r in radius_values for t in theta])
-    return (float(c1.min()), float(c1.max())), (float(c2.min()), float(c2.max()))
-
-
-def _uniform_component_spec(lower: float, upper: float) -> dict[str, Any]:
-    step = float(max(0.01 * max(upper - lower, 0.0), 1.0e-4))
-    return {"prior_kind": "uniform", "lower": lower, "upper": upper, "step": step, "mean": None, "std": None,
-            "transform_kind": "identity", "transform_offset": 0.0,
-            "physical_lower": None, "physical_upper": None, "physical_mean": None, "physical_std": None}
-
-
-def build_halo_parameter_specs(potentials: list[dict[str, Any]], *, softening_length_kpc: float):
+def build_halo_parameter_specs(potentials: list[dict[str, Any]]):
     """Specs, per-component (field, index) assignments, and lens model names for the large halos."""
     specs: list[ParameterSpec] = []
     assignments_by_component: list[list[tuple[str, int]]] = []
@@ -270,81 +90,22 @@ def build_halo_parameter_specs(potentials: list[dict[str, Any]], *, softening_le
         info = lens_profile(profile_type)
         lens_model_list.append(info.name)
         assignments: list[tuple[str, int]] = []
-        priors = {("ellipticite" if name == "ellipticity" else str(name)): prior
-                  for name, prior in (potential.get("priors", {}) or {}).items()}
-        polar_fields = info.polar_shape or ()
-        polar = {name: decode_parameter_prior(priors[name], f"{potential_id}.{name}") for name in polar_fields if name in priors}
-        polar = {name: value for name, value in polar.items() if value is not None}
-        if polar and set(polar) != set(polar_fields):
-            raise ValueError(f"Potential {potential_id} samples only part of {polar_fields}; both are required.")
-        polar_inserted = False
+        priors = dict(potential.get("priors", {}) or {})
+        unknown = set(priors) - _sampled_fields(info)
+        if unknown:
+            raise ValueError(f"Potential {potential_id}: no sampled field {sorted(unknown)}; priors take {sorted(_sampled_fields(info))} "
+                             "(shapes as their Cartesian pair, see priors.ellipticity_box and priors.shear_box; the dPIE cut radius as "
+                             "cut_excess_kpc, above the effective core)")
+        shape = info.cartesian_shape or ()
+        if shape and len(set(shape) & set(priors)) == 1:
+            raise ValueError(f"Potential {potential_id} samples only part of {shape}; both are required.")
         for field_name, prior in priors.items():
-            if field_name in polar_fields and polar:
-                if polar_inserted:
-                    continue
-                polar_inserted = True
-                amplitude, angle = polar[polar_fields[0]], polar["angle_pos"]
-                if amplitude["prior_kind"] != "uniform" or angle["prior_kind"] != "uniform":
-                    raise ValueError(f"Direct Cartesian shape sampling for {potential_id} requires uniform priors.")
-                if profile_type in ELLIPTICAL_PROFILES:
-                    e_bounds = np.clip(np.asarray([amplitude["lower"], amplitude["upper"]], dtype=float), 0.0, 1.0 - 1.0e-9)
-                    q_bounds = lenstool_ellipticite_to_axis_ratio(e_bounds)
-                    modulus = (1.0 - q_bounds) / (1.0 + q_bounds)
-                    radii = np.asarray([modulus.min(), modulus.max()])
-                else:
-                    radii = np.asarray([max(amplitude["lower"], 0.0), max(amplitude["upper"], 0.0)])
-                names = info.cartesian_shape
-                bounds = _polar_box_bounds(radii, angle["lower"], angle["upper"])
-                for name, (lower, upper) in zip(names, bounds):
-                    _append_spec(specs, assignments, potential_id=potential_id, profile_type=profile_type,
-                                 field_name=name, prior_spec=_uniform_component_spec(lower, upper))
-                continue
-            decoded = decode_parameter_prior(prior, f"{potential_id}.{field_name}")
-            if decoded is None:
-                continue
-            if profile_type == DP_IE_PROFILE and field_name in {"core_radius_kpc", "cut_radius_kpc"}:
-                prior_spec = _radius_prior_spec(potential, field_name, decoded, softening_length_kpc=softening_length_kpc,
-                                                dynamic_cut_above_effective_core=field_name == "cut_radius_kpc")
-            elif profile_type == DP_IE_PROFILE and field_name == "v_disp":
-                prior_spec = _vdisp_prior_spec(decoded, f"{potential_id}.{field_name}")
-            elif field_name in info.log_positive_fields:
-                prior_spec = _log_positive_prior_spec(decoded, f"{potential_id}.{field_name}", floor=SAFE_RADIUS_MARGIN_KPC)
-            else:
-                prior_spec = _identity_prior_spec(decoded)
-            _append_spec(specs, assignments, potential_id=potential_id, profile_type=profile_type,
-                         field_name=field_name, prior_spec=prior_spec)
+            _append_spec(specs, assignments, potential_id=potential_id, profile_type=profile_type, field_name=field_name, prior=prior)
         assignments_by_component.append(assignments)
     return specs, assignments_by_component, lens_model_list
 
 
 # ----------------------------------------------------------------------------- member scaling
-def _potfile_prior_override(entry: Any, *, context: str, default_lower: float, default_upper: float) -> dict[str, Any] | None:
-    if entry is None or not isinstance(entry, (list, tuple)):
-        return None
-    if len(entry) == 0:
-        raise ValueError(f"Empty prior limit entry for {context}.")
-    kind = int(entry[0])
-    values = [float(item) for item in entry[1:]]
-    if kind == 0:
-        return None
-    if kind == 1:
-        if len(values) < 2 or not np.isfinite(values[0]) or not np.isfinite(values[1]) or values[1] <= values[0]:
-            raise ValueError(f"Uniform prior for {context} requires finite upper > lower: {entry!r}.")
-        return {"prior_kind": "uniform", "lower": values[0], "upper": values[1], "mean": None, "std": None,
-                "step": values[2] if len(values) > 2 and values[2] > 0.0 else None}
-    if kind == 3:
-        if len(values) < 2 or values[0] <= 0.0 or values[1] <= 0.0:
-            raise ValueError(f"Normal prior for {context} requires positive finite mean and std: {entry!r}.")
-        return {"prior_kind": "truncated_normal", "lower": float(default_lower), "upper": float(default_upper),
-                "mean": values[0], "std": values[1], "step": None}
-    if kind == 9:
-        if len(values) < 4 or values[0] <= 0.0 or values[1] <= 0.0 or values[3] <= values[2]:
-            raise ValueError(f"Truncated-normal prior for {context} requires positive mean/std and upper > lower: {entry!r}.")
-        return {"prior_kind": "truncated_normal", "lower": values[2], "upper": values[3], "mean": values[0],
-                "std": values[1], "step": None}
-    raise ValueError(f"Unsupported prior limit kind {kind} for {context}: {entry!r}.")
-
-
 def build_scaling_parameter_specs(potfiles: list[dict[str, Any]], scaling: Any, *, start_index: int = 0):
     """Reference scaling parameters per population: sigma, cutkpc, corekpc, alpha_sigma, beta_radius."""
     specs: list[ParameterSpec] = []
@@ -355,53 +116,15 @@ def build_scaling_parameter_specs(potfiles: list[dict[str, Any]], scaling: Any, 
         if int(potfile["type"]) != DP_IE_PROFILE:
             raise ValueError(f"Unsupported potfile type {potfile['type']} for {potfile_id}.")
         lens_model_list.extend([DPIE_PROFILE_NAME] * len(potfile["catalog_df"]))
-        priors: dict[str, dict[str, Any]] = {
-            "sigma": {"prior_kind": "truncated_normal", "transform_kind": "log_positive", **SOLVER_POTFILE_DEFAULTS["sigma"]},
-            "cutkpc": {"prior_kind": "truncated_normal", "transform_kind": "log_positive", **SOLVER_POTFILE_DEFAULTS["cutkpc"]},
-            "corekpc": {"prior_kind": "truncated_normal", "transform_kind": "log_positive", "mean": None, "std": None,
-                        **{k: v for k, v in SOLVER_POTFILE_DEFAULTS["corekpc"].items() if k != "median"}},
-            "alpha_sigma": {"prior_kind": "truncated_normal", "transform_kind": "identity", "step": 0.02,
-                            "lower": float(scaling.alpha_sigma_prior_lower), "upper": float(scaling.alpha_sigma_prior_upper),
-                            "mean": float(scaling.alpha_sigma_prior_mean), "std": float(scaling.alpha_sigma_prior_std)},
-            "beta_radius": {"prior_kind": "truncated_normal", "transform_kind": "identity", "step": 0.05,
-                            "lower": float(scaling.beta_radius_prior_lower), "upper": float(scaling.beta_radius_prior_upper),
-                            "mean": float(scaling.beta_radius_prior_mean), "std": float(scaling.beta_radius_prior_std)},
-        }
-        for field_name in ("sigma", "cutkpc"):
-            override = _potfile_prior_override(potfile.get(field_name), context=f"{potfile_id}.{field_name}",
-                                               default_lower=priors[field_name]["lower"], default_upper=priors[field_name]["upper"])
-            if override is None:
-                continue
-            step = override.pop("step")
-            if step is not None:
-                priors[field_name]["step"] = step
-            priors[field_name].update(override)
+        priors = {"sigma": potfile["sigma_prior"], "cutkpc": potfile["cutkpc_prior"], "corekpc": scaling.corekpc_prior,
+                  "alpha_sigma": scaling.alpha_sigma_prior, "beta_radius": scaling.beta_radius_prior}
         field_index: dict[str, int] = {}
         fields = ("sigma", "cutkpc", "corekpc", "alpha_sigma", "beta_radius") if getattr(scaling, "fit_corekpc", True) else ("sigma", "cutkpc", "alpha_sigma", "beta_radius")
-        fields = tuple(f for f in fields if f not in set(getattr(scaling, "fixed_relation_fields", ())))   # held at the nominal / prior mean
+        fields = tuple(f for f in fields if f not in set(getattr(scaling, "fixed_relation_fields", ())))   # held at the nominal / prior centre
         for field_name in fields:
-            prior = priors[field_name]
-            physical_lower, physical_upper = float(prior["lower"]), float(prior["upper"])
-            physical_mean = None if prior.get("mean") is None else float(prior["mean"])
-            physical_std = None if prior.get("std") is None else float(prior["std"])
-            lower, upper, mean, std = physical_lower, physical_upper, physical_mean, physical_std
-            if prior["transform_kind"] == "log_positive":
-                if field_name == "corekpc":
-                    lower, upper = float(np.log(physical_lower)), float(np.log(physical_upper))
-                    physical_mean = float(getattr(scaling, "corekpc_prior_median", SOLVER_POTFILE_DEFAULTS["corekpc"]["median"]))
-                    mean, std = float(np.log(physical_mean)), float(getattr(scaling, "corekpc_prior_log_sigma", prior["latent_std"]))
-                else:
-                    lower, upper, mean, std = transform_positive_prior_to_log_space(
-                        prior["prior_kind"], physical_lower, physical_upper, physical_mean, physical_std,
-                        floor=float(prior["floor"]), context=f"{potfile_id}.{field_name}")
             field_index[field_name] = start_index + len(specs)
-            specs.append(ParameterSpec(
-                name=f"{potfile_id}.{field_name}", sample_name=sample_name(potfile_id, field_name),
-                potential_id=potfile_id, profile_type=DP_IE_PROFILE, field=field_name,
-                prior_kind=str(prior["prior_kind"]), lower=float(lower), upper=float(upper), step=float(prior["step"]),
-                mean=mean, std=std, component_family="scaling", transform_kind=str(prior["transform_kind"]),
-                physical_lower=physical_lower, physical_upper=physical_upper, physical_mean=physical_mean,
-                physical_std=physical_std, transform_offset=0.0))
+            specs.append(_prior_spec(f"{potfile_id}.{field_name}", sample_name(potfile_id, field_name), potfile_id, field_name,
+                                     priors[field_name], "scaling", profile_type=DP_IE_PROFILE))
         indices_by_potfile.append(field_index)
     return specs, indices_by_potfile, lens_model_list
 
@@ -435,7 +158,7 @@ def build_member_components(potfiles, reference, scaling_param_indices, *, start
             scaling_assignments.append({
                 "component_index": component_index, "luminosity_ratio": float(luminosity_ratio[row_index]),
                 "sigma_ref_base": float(potfile["sigma_nominal"]), "cut_ref_base": cut_radius_kpc, "core_ref_base": core_radius_kpc,
-                "alpha_sigma_base": float(scaling.alpha_sigma_prior_mean), "beta_radius_base": float(scaling.beta_radius_prior_mean),
+                "alpha_sigma_base": physical_center(scaling.alpha_sigma_prior), "beta_radius_base": physical_center(scaling.beta_radius_prior),
                 "sigma_ref_param_index": int(param_index.get("sigma", -1)), "cut_ref_param_index": int(param_index.get("cutkpc", -1)),
                 "core_ref_param_index": int(param_index.get("corekpc", -1)),
                 "alpha_sigma_param_index": int(param_index.get("alpha_sigma", -1)),
@@ -473,7 +196,7 @@ def build_packed_lens_spec(base_components, component_assignments, scaling_assig
         core_radius_param_index=ints(), cut_radius_param_index=ints(), v_disp_param_index=ints(),
         gamma1_param_index=ints(), gamma2_param_index=ints(),
         luminosity_ratio=np.ones(n, dtype=float), sigma_ref_base=floats(), cut_ref_base=floats(), core_ref_base=floats(),
-        alpha_sigma_base=floats(scaling.alpha_sigma_prior_mean), beta_radius_base=floats(scaling.beta_radius_prior_mean),
+        alpha_sigma_base=floats(physical_center(scaling.alpha_sigma_prior)), beta_radius_base=floats(physical_center(scaling.beta_radius_prior)),
         sigma_ref_param_index=ints(), cut_ref_param_index=ints(), core_ref_param_index=ints(),
         alpha_sigma_param_index=ints(), beta_radius_param_index=ints(),
         cut_radius_excess_above_effective_core=np.zeros(n, dtype=bool),
@@ -501,7 +224,7 @@ def build_packed_lens_spec(base_components, component_assignments, scaling_assig
         spec.kappa_base[idx] = float(component.get("kappa", 0.0))
         for field_name, array in (("x_centre", spec.x_center_param_index), ("y_centre", spec.y_center_param_index),
                                   ("e1", spec.e1_param_index), ("e2", spec.e2_param_index),
-                                  ("core_radius_kpc", spec.core_radius_param_index), ("cut_radius_kpc", spec.cut_radius_param_index),
+                                  ("core_radius_kpc", spec.core_radius_param_index), ("cut_excess_kpc", spec.cut_radius_param_index),
                                   ("v_disp", spec.v_disp_param_index), ("gamma1", spec.gamma1_param_index), ("gamma2", spec.gamma2_param_index),
                                   ("scale_radius_kpc", spec.scale_radius_param_index), ("log10_m200", spec.log10_m200_param_index),
                                   ("kappa", spec.kappa_param_index)):
@@ -640,8 +363,7 @@ def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.n
         # The likelihood override replaces every image's astrometric error, the catalog's included (floor still applies).
         images_df["sigma_inst_arcsec"] = max(sigma_inst_arcsec, float(model_config.image_constraints.sigma_floor_arcsec))
 
-    specs, component_assignments, lens_model_list = build_halo_parameter_specs(
-        potentials, softening_length_kpc=float(scaling.softening_length_kpc))
+    specs, component_assignments, lens_model_list = build_halo_parameter_specs(potentials)
     base_components = [{k: v for k, v in potential.items() if k != "priors"} for potential in potentials]
     scaling_specs, scaling_param_indices, scaling_models = build_scaling_parameter_specs(potfiles, scaling, start_index=len(specs))
     for spec_item in scaling_specs:
@@ -668,32 +390,23 @@ def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.n
             population = str(record["potfile_id"])
             if population not in scatter_by_population:
                 scatter_by_population[population] = len(specs)
-                specs.append(ParameterSpec(
-                    name=f"{population}.{field_name}", sample_name=f"{population}_{field_name}",
-                    potential_id=population, profile_type=DP_IE_PROFILE, field=field_name,
-                    prior_kind="normal", lower=-math.inf, upper=math.inf, step=0.1,
-                    mean=float(np.log(member_prior.median)), std=float(member_prior.log_sigma),
-                    component_family="member_velocity_scatter", transform_kind="log_positive",
-                    physical_lower=0.0, physical_mean=float(member_prior.median)))
+                specs.append(_prior_spec(f"{population}.{field_name}", f"{population}_{field_name}", population, field_name,
+                                         member_prior, "member_velocity_scatter", profile_type=DP_IE_PROFILE))
             index_array[int(record["component_index"])] = scatter_by_population[population]
     offset_specs = [("velocity_offset", MEMBER_OFFSET_SITE_NAME, offset_index, scatter_index)]
     if deviation_mode in ("sigma_rcut", "mass_rcut"):
         offset_specs.append(("radius_offset", MEMBER_RADIUS_OFFSET_SITE_NAME, radius_offset_index, radius_scatter_index))
     heavy_tail = str(getattr(scaling, "member_deviation_tail", "student_t")) == "student_t"
-    dof = float(getattr(scaling, "member_deviation_dof", 4.0))
+    import numpyro.distributions as dist
+    unit_prior = dist.StudentT(float(getattr(scaling, "member_deviation_dof", 4.0)), 0.0, 1.0) if heavy_tail else dist.Normal(0.0, 1.0)
     for field_name, site_name, index_array, scale_index in offset_specs:
         for site_index, record in enumerate(records):
             component = int(record["component_index"])
             index_array[component] = len(specs)
-            specs.append(ParameterSpec(
-                name=f"{record['potfile_id']}.{record['catalog_id']}.{field_name}",
-                sample_name=f"{record['potfile_id']}_{record['catalog_id']}_{field_name}",
-                potential_id=str(record["potfile_id"]), profile_type=DP_IE_PROFILE, field=field_name,
-                prior_kind="student_t" if heavy_tail else "normal", lower=-math.inf, upper=math.inf, step=0.1, mean=0.0, std=1.0,
-                component_family="member_scatter_offset", transform_kind="identity",
-                physical_mean=0.0, physical_std=1.0, sample_site_name=site_name, sample_site_index=site_index,
-                centered=False, scale_site_name=specs[int(scale_index[component])].sample_name,
-                dof=dof if heavy_tail else None))
+            specs.append(_prior_spec(f"{record['potfile_id']}.{record['catalog_id']}.{field_name}",
+                                     f"{record['potfile_id']}_{record['catalog_id']}_{field_name}", str(record["potfile_id"]), field_name,
+                                     unit_prior, "member_scatter_offset", profile_type=DP_IE_PROFILE, sample_site_name=site_name,
+                                     sample_site_index=site_index, centered=False, scale_site_name=specs[int(scale_index[component])].sample_name))
     # Member shapes: one unit offset per member and component of the ellipticity (ScalingModelConfig.member_shape_scatter).
     shape_e1_index = np.full(n_components, -1, dtype=np.int32)
     shape_e2_index = np.full(n_components, -1, dtype=np.int32)
@@ -703,13 +416,10 @@ def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.n
             for site_index, record in enumerate(records):
                 component = int(record["component_index"])
                 index_array[component] = len(specs)
-                specs.append(ParameterSpec(
-                    name=f"{record['potfile_id']}.{record['catalog_id']}.{field_name}",
-                    sample_name=f"{record['potfile_id']}_{record['catalog_id']}_{field_name}",
-                    potential_id=str(record["potfile_id"]), profile_type=DP_IE_PROFILE, field=field_name,
-                    prior_kind="normal", lower=-math.inf, upper=math.inf, step=0.1, mean=0.0, std=1.0,
-                    component_family="member_shape_offset", transform_kind="identity",
-                    physical_mean=0.0, physical_std=1.0, sample_site_name=f"member_{field_name}", sample_site_index=site_index))
+                specs.append(_prior_spec(f"{record['potfile_id']}.{record['catalog_id']}.{field_name}",
+                                         f"{record['potfile_id']}_{record['catalog_id']}_{field_name}", str(record["potfile_id"]),
+                                         field_name, dist.Normal(0.0, 1.0), "member_shape_offset", profile_type=DP_IE_PROFILE,
+                                         sample_site_name=f"member_{field_name}", sample_site_index=site_index))
     sigma_def_index = sigma_extra_index = sigma_sel_index = lambda_sel_index = sigma_shared_index = sigma_white_index = gp_ell_index = -1
     gp_sigma_alpha_index = gp_knee_index = gp_knee_gamma_index = -1
     gp_sigma_alpha2_index = gp_knee2_index = gp_knee_beta_low_index = -1
@@ -719,64 +429,48 @@ def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.n
         # Knee kernel: the mass field (sigma_alpha, lambda_t; optional) and the image-plane GP (sigma_shared, ell, sigma_white).
         if likelihood.gp_sigma_alpha_prior is not None:
             gp_sigma_alpha_index = len(specs)
-            specs.append(_error_scale_spec("images.gp_sigma_alpha", "images_gp_sigma_alpha", "images", "gp_sigma_alpha", likelihood.gp_sigma_alpha_prior))
+            specs.append(_error_scale_spec("gp_sigma_alpha", likelihood.gp_sigma_alpha_prior))
             if spectrum != "power_law" and likelihood.gp_knee_fixed_arcsec is None:   # a power law has no knee; or it is fixed
                 gp_knee_index = len(specs)
-                specs.append(_error_scale_spec("images.gp_knee", "images_gp_knee", "images", "gp_knee", likelihood.gp_knee_prior))
+                specs.append(_error_scale_spec("gp_knee", likelihood.gp_knee_prior))
             if spectrum in ("two_knee", "knee_foreground", "knee_background"):
                 gp_sigma_alpha2_index = len(specs)
-                specs.append(_error_scale_spec("images.gp_sigma_alpha2", "images_gp_sigma_alpha2", "images", "gp_sigma_alpha2",
-                                               likelihood.gp_knee2_sigma_alpha_prior))
+                specs.append(_error_scale_spec("gp_sigma_alpha2", likelihood.gp_knee2_sigma_alpha_prior))
                 gp_knee2_index = len(specs)
-                specs.append(_error_scale_spec("images.gp_knee2", "images_gp_knee2", "images", "gp_knee2", likelihood.gp_knee2_prior))
+                specs.append(_error_scale_spec("gp_knee2", likelihood.gp_knee2_prior))
             if spectrum == "broken_power_law":
-                b_lo, b_hi = (float(v) for v in likelihood.gp_knee_beta_low_prior)
                 gp_knee_beta_low_index = len(specs)
-                specs.append(ParameterSpec(name="images.gp_knee_beta_low", sample_name="images_gp_knee_beta_low", potential_id="images",
-                                           profile_type=0, field="gp_knee_beta_low", prior_kind="uniform", lower=b_lo, upper=b_hi,
-                                           step=0.01 * (b_hi - b_lo), component_family="error_scale", transform_kind="identity"))
+                specs.append(_error_scale_spec("gp_knee_beta_low", likelihood.gp_knee_beta_low_prior))
             if likelihood.gp_knee_gamma_prior is not None:
-                g_lo, g_hi = (float(v) for v in likelihood.gp_knee_gamma_prior)
                 gp_knee_gamma_index = len(specs)
-                g_sigma = likelihood.gp_knee_gamma_sigma
-                prior = (dict(prior_kind="uniform") if g_sigma is None
-                         else dict(prior_kind="truncated_normal", mean=float(likelihood.gp_knee_gamma), std=float(g_sigma)))
-                specs.append(ParameterSpec(name="images.gp_knee_gamma", sample_name="images_gp_knee_gamma", potential_id="images",
-                                           profile_type=0, field="gp_knee_gamma", lower=g_lo, upper=g_hi, **prior,
-                                           step=0.01 * (g_hi - g_lo), component_family="error_scale", transform_kind="identity"))
+                specs.append(_error_scale_spec("gp_knee_gamma", likelihood.gp_knee_gamma_prior))
         sigma_shared_index = len(specs)
-        specs.append(_error_scale_spec("images.sigma_shared", "images_sigma_shared", "images", "sigma_shared", likelihood.gp_knee_sigma_shared_prior))
+        specs.append(_error_scale_spec("sigma_shared", likelihood.gp_knee_sigma_shared_prior))
         if likelihood.gp_knee_ell_fixed_arcsec is None:
             gp_ell_index = len(specs)
-            specs.append(_error_scale_spec("images.gp_ell", "images_gp_ell", "images", "gp_ell", likelihood.gp_knee_ell_prior))
+            specs.append(_error_scale_spec("gp_ell", likelihood.gp_knee_ell_prior))
         sigma_white_index = len(specs)
-        white_prior = likelihood.gp_knee_sigma_white_prior
-        specs.append(_error_scale_spec("images.sigma_white", "images_sigma_white", "images", "sigma_white", white_prior) if white_prior is not None
-                     else _half_normal_scale_spec("images.sigma_white", "images_sigma_white", "images", "sigma_white",
-                                                  float(likelihood.gp_knee_sigma_white_prior_scale_arcsec)))
+        specs.append(_error_scale_spec("sigma_white", likelihood.gp_knee_sigma_white_prior))
     elif likelihood.likelihood_mode == "gp_image_plane":
         # Two sampled image-plane scales; the source-plane floors and the selection term do not exist in this model.
         sigma_shared_index = len(specs)
-        specs.append(_error_scale_spec("images.sigma_shared", "images_sigma_shared", "images", "sigma_shared", config.likelihood.sigma_shared_prior))
+        specs.append(_error_scale_spec("sigma_shared", config.likelihood.sigma_shared_prior))
         sigma_white_index = len(specs)
-        white_prior = likelihood.sigma_white_prior
-        specs.append(_error_scale_spec("images.sigma_white", "images_sigma_white", "images", "sigma_white", white_prior) if white_prior is not None
-                     else _half_normal_scale_spec("images.sigma_white", "images_sigma_white", "images", "sigma_white",
-                                                  float(config.likelihood.sigma_white_prior_scale_arcsec)))
+        specs.append(_error_scale_spec("sigma_white", likelihood.sigma_white_prior))
         if config.likelihood.gp_correlation_length_prior is not None:
             gp_ell_index = len(specs)
-            specs.append(_error_scale_spec("images.gp_ell", "images_gp_ell", "images", "gp_ell", config.likelihood.gp_correlation_length_prior))
+            specs.append(_error_scale_spec("gp_ell", config.likelihood.gp_correlation_length_prior))
     else:
         sigma_def_index = len(specs)
-        specs.append(_error_scale_spec("images.sigma_def", "images_sigma_def", "images", "sigma_def", config.likelihood.sigma_def_prior))
+        specs.append(_error_scale_spec("sigma_def", config.likelihood.sigma_def_prior))
         if config.likelihood.sigma_extra_prior is not None:
             sigma_extra_index = len(specs)
-            specs.append(_error_scale_spec("images.sigma_extra", "images_sigma_extra", "images", "sigma_extra", config.likelihood.sigma_extra_prior))
+            specs.append(_error_scale_spec("sigma_extra", config.likelihood.sigma_extra_prior))
         if config.likelihood.sigma_sel_prior is not None:
             sigma_sel_index = len(specs)
-            specs.append(_error_scale_spec("images.sigma_sel", "images_sigma_sel", "images", "sigma_sel", config.likelihood.sigma_sel_prior))
+            specs.append(_error_scale_spec("sigma_sel", config.likelihood.sigma_sel_prior))
             lambda_sel_index = len(specs)
-            specs.append(_error_scale_spec("images.lambda_sel", "images_lambda_sel", "images", "lambda_sel", config.likelihood.lambda_sel_prior))
+            specs.append(_error_scale_spec("lambda_sel", config.likelihood.lambda_sel_prior))
 
     families = build_family_data(images_df, sigma_inst_arcsec, reference)
     source_param_indices: dict[str, tuple[int, int]] = {}
@@ -787,25 +481,18 @@ def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.n
         pair = []
         for axis, center in zip(("x", "y"), prior_mean):
             pair.append(len(specs))
-            specs.append(ParameterSpec(
-                name=f"source.{family.family_id}.beta_{axis}", sample_name=source_sample_name(family.family_id, axis),
-                potential_id=str(family.family_id), profile_type=0, field=f"beta_{axis}", prior_kind="normal",
-                lower=-math.inf, upper=math.inf, step=0.1, mean=0.0, std=1.0, component_family="source_position",
-                transform_kind="identity", physical_mean=center, physical_std=prior_sigma,
-                sample_site_name=SOURCE_POSITION_SITE_NAME, sample_site_index=site_index))
+            # The whitened offset of the source from its conditional mean (smoothed_likelihood.transport_sources).
+            specs.append(_prior_spec(f"source.{family.family_id}.beta_{axis}", source_sample_name(family.family_id, axis),
+                                     str(family.family_id), f"beta_{axis}", dist.Normal(0.0, 1.0), "source_position",
+                                     sample_site_name=SOURCE_POSITION_SITE_NAME, sample_site_index=site_index))
             site_index += 1
         source_param_indices[family.family_id] = (pair[0], pair[1])
 
-    log_softening_index = -1
-    if float(scaling.softening_length_kpc) > 0.0:
-        log_softening_index = len(specs)
-        specs.append(ParameterSpec(
-            name="softening_length.log_softening_length_kpc", sample_name=LOG_SOFTENING_LENGTH_SAMPLE_NAME,
-            potential_id="softening_length", profile_type=0, field=LOG_SOFTENING_LENGTH_SAMPLE_NAME,
-            prior_kind="normal", lower=-math.inf, upper=math.inf, step=0.05,
-            mean=float(np.log(scaling.softening_length_kpc)), std=float(scaling.softening_length_prior_log_sigma),
-            component_family="softening_length", transform_kind="identity",
-            physical_mean=float(np.log(scaling.softening_length_kpc)), physical_std=float(scaling.softening_length_prior_log_sigma)))
+    softening_index = -1
+    if scaling.softening_length_prior is not None:
+        softening_index = len(specs)
+        specs.append(_prior_spec(f"softening_length.{SOFTENING_LENGTH_SAMPLE_NAME}", SOFTENING_LENGTH_SAMPLE_NAME, "softening_length",
+                                 SOFTENING_LENGTH_SAMPLE_NAME, scaling.softening_length_prior, "softening_length"))
 
     packed = build_packed_lens_spec(base_components, component_assignments, scaling_assignments, scaling)
     packed.velocity_offset_param_index = offset_index
@@ -849,7 +536,7 @@ def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.n
         base_components=base_components, packed_lens_spec=packed, lens_model_list=lens_model_list,
         family_data=families, images=images, potfiles=potfiles, scaling_component_records=records,
         members=members, z_source_values=z_values, dpie_sigma0_factor_by_z=factor_by_z,
-        log_softening_length_param_index=int(log_softening_index), sigma_def_param_index=int(sigma_def_index),
+        softening_length_param_index=int(softening_index), sigma_def_param_index=int(sigma_def_index),
         sigma_extra_param_index=int(sigma_extra_index), sigma_sel_param_index=int(sigma_sel_index),
         lambda_sel_param_index=int(lambda_sel_index), sigma_shared_param_index=int(sigma_shared_index), sigma_white_param_index=int(sigma_white_index),
         gp_ell_param_index=int(gp_ell_index), gp_correlation_length_arcsec=float(config.likelihood.gp_correlation_length_arcsec),
@@ -858,13 +545,9 @@ def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.n
         gp_blocks=str(config.likelihood.gp_blocks),
         gp_knee=dict(gamma=float(config.likelihood.gp_knee_gamma), project=tuple(str(m) for m in config.likelihood.gp_knee_project_modes),
                      spectrum=spectrum, plane_redshift=float(getattr(config.likelihood, "gp_knee2_plane_redshift", 0.7)), knee_fixed=config.likelihood.gp_knee_fixed_arcsec, ell_fixed=config.likelihood.gp_knee_ell_fixed_arcsec,
-                     beta_low_grid=(float(config.likelihood.gp_knee_beta_low_prior[0]), float(config.likelihood.gp_knee_beta_low_prior[1]),
-                                    int(round((float(config.likelihood.gp_knee_beta_low_prior[1]) - float(config.likelihood.gp_knee_beta_low_prior[0]))
-                                              / float(config.likelihood.gp_knee_beta_low_step))) + 1),
-                     gamma_grid=(None if config.likelihood.gp_knee_gamma_prior is None else
-                                 (float(config.likelihood.gp_knee_gamma_prior[0]), float(config.likelihood.gp_knee_gamma_prior[1]),
-                                  int(round((float(config.likelihood.gp_knee_gamma_prior[1]) - float(config.likelihood.gp_knee_gamma_prior[0]))
-                                            / float(config.likelihood.gp_knee_gamma_step))) + 1)),
+                     beta_low_grid=_table_grid(config.likelihood.gp_knee_beta_low_prior, config.likelihood.gp_knee_beta_low_step),
+                     gamma_grid=(None if config.likelihood.gp_knee_gamma_prior is None
+                                 else _table_grid(config.likelihood.gp_knee_gamma_prior, config.likelihood.gp_knee_gamma_step)),
                      scales=tuple(float(v) for v in config.likelihood.gp_knee_scales_arcsec),
                      lambda_grid=(float(config.likelihood.gp_knee_lambda_grid[0]), float(config.likelihood.gp_knee_lambda_grid[1]),
                                   int(config.likelihood.gp_knee_lambda_grid[2])), r_step=float(config.likelihood.gp_knee_r_step_arcsec)),
@@ -873,34 +556,28 @@ def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.n
         gp_knee2_param_index=int(gp_knee2_index), gp_knee_beta_low_param_index=int(gp_knee_beta_low_index),
         freeze_determinant_gradient=bool(config.likelihood.freeze_determinant_gradient),
         dropped_member_ids=dropped,
-        member_kinematics=build_member_kinematics(records, model_config.member_populations),
-        scaling_priors={k: float(getattr(scaling, k)) for k in ("alpha_sigma_prior_mean", "alpha_sigma_prior_std",
-                                                                 "beta_radius_prior_mean", "beta_radius_prior_std")})
+        member_kinematics=build_member_kinematics(records, model_config.member_populations))
+    # Starts: the prior centres, and the configured starts of the error model (physical values).
+    likelihood = config.likelihood
+    starts = {sigma_shared_index: likelihood.sigma_shared_start_arcsec, sigma_white_index: likelihood.sigma_white_start_arcsec,
+              gp_ell_index: likelihood.gp_correlation_length_arcsec}
+    if likelihood.likelihood_mode == "gp_image_plane" and likelihood.gp_kernel == "knee":
+        starts = {gp_sigma_alpha_index: likelihood.gp_sigma_alpha_start_arcsec, gp_knee_index: likelihood.gp_knee_start_arcsec,
+                  gp_sigma_alpha2_index: likelihood.gp_knee2_sigma_alpha_start_arcsec, gp_knee2_index: likelihood.gp_knee2_start_arcsec,
+                  gp_knee_beta_low_index: likelihood.gp_knee_beta_low_start, gp_knee_gamma_index: likelihood.gp_knee_gamma,
+                  sigma_shared_index: likelihood.gp_knee_sigma_shared_start_arcsec, gp_ell_index: likelihood.gp_knee_ell_start_arcsec,
+                  sigma_white_index: likelihood.gp_knee_sigma_white_start_arcsec}
     state.initial_theta = default_theta(specs)
-    if sigma_shared_index >= 0:
-        state.initial_theta[sigma_shared_index] = float(np.log(config.likelihood.sigma_shared_start_arcsec))
-        white = float(config.likelihood.sigma_white_start_arcsec)
-        state.initial_theta[sigma_white_index] = float(np.log(white)) if config.likelihood.sigma_white_prior is not None else white
-    if gp_ell_index >= 0:
-        state.initial_theta[gp_ell_index] = float(np.log(config.likelihood.gp_correlation_length_arcsec))
-    if config.likelihood.likelihood_mode == "gp_image_plane" and config.likelihood.gp_kernel == "knee":
-        if gp_sigma_alpha_index >= 0:
-            state.initial_theta[gp_sigma_alpha_index] = float(np.log(config.likelihood.gp_sigma_alpha_start_arcsec))
-            if gp_knee_index >= 0:
-                state.initial_theta[gp_knee_index] = float(np.log(config.likelihood.gp_knee_start_arcsec))
-            if gp_sigma_alpha2_index >= 0:
-                state.initial_theta[gp_sigma_alpha2_index] = float(np.log(config.likelihood.gp_knee2_sigma_alpha_start_arcsec))
-                state.initial_theta[gp_knee2_index] = float(np.log(config.likelihood.gp_knee2_start_arcsec))
-            if gp_knee_beta_low_index >= 0:
-                state.initial_theta[gp_knee_beta_low_index] = float(config.likelihood.gp_knee_beta_low_start)
-            if gp_knee_gamma_index >= 0:
-                state.initial_theta[gp_knee_gamma_index] = float(config.likelihood.gp_knee_gamma)
-        state.initial_theta[sigma_shared_index] = float(np.log(config.likelihood.gp_knee_sigma_shared_start_arcsec))
-        if gp_ell_index >= 0:
-            state.initial_theta[gp_ell_index] = float(np.log(config.likelihood.gp_knee_ell_start_arcsec))
-        white = float(config.likelihood.gp_knee_sigma_white_start_arcsec)
-        state.initial_theta[sigma_white_index] = float(np.log(white)) if config.likelihood.gp_knee_sigma_white_prior is not None else white
+    for index, value in starts.items():
+        if index >= 0:
+            state.initial_theta[index] = physical_to_latent(float(value), specs[index])
     return with_member_classes(state, exact, classification, centered=np.zeros(n_members, dtype=bool))
+
+
+def _table_grid(prior, step: float) -> tuple[float, float, int]:
+    """(low, high, count): a tabulation grid over the bounds of a prior at spacing ``step``."""
+    low, high = bounds(split(prior)[0])
+    return float(low), float(high), int(round((float(high) - float(low)) / float(step))) + 1
 
 
 def _current_centering(state: ModelState) -> np.ndarray:

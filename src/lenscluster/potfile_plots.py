@@ -78,9 +78,7 @@ def plot_potfile_prior_posterior(samples, specs, population, path):
         draws = samples[:, index]
         if not np.isfinite(draws).all():
             raise ValueError(f"Nonfinite posterior for {spec.name}")
-        is_log = spec.transform_kind == "log_positive"
-        if spec.transform_kind not in {"log_positive", "identity"}:
-            raise ValueError("Unexpected potfile transform")
+        is_log = spec.log
         values = np.log(draws) if is_log else draws
         prior = saved_prior(spec)
         prior_q = prior.ppf([.16, .5, .84])

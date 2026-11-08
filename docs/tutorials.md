@@ -7,4 +7,5 @@ on a laptop. To run one yourself, open it from the repository root.
 :maxdepth: 1
 
 notebooks/fit_hera
+notebooks/fit_ares
 ```

@@ -223,7 +223,9 @@ use them.
 
 `SamplingConfig` controls NUTS: `warmup`, `samples`, `max_tree_depth`, `target_accept`, and the mass matrix.
 `mass_matrix="hessian"` (default) seeds a dense block for the global parameters from the Hessian at the start;
-`dense_offset_members` chooses which member offsets join that block (`"centered"` by default).
+`dense_offset_members` chooses which member offsets join that block (`"centered"` by default). `wbic=True` adds a
+second NUTS run on the tempered posterior that gives WBIC for model comparison. `wbic_warmup` and `wbic_samples` set
+the length of that run (see {doc}`model-comparison`).
 
 `RuntimeConfig` sets `seed`, `chains`, `nuts_chain_method` (`"parallel"`, `"sequential"` or `"vectorized"`),
 `cpu_threads_per_chain`, `resume` and `skip_plots`.

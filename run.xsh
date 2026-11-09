@@ -119,7 +119,7 @@ FF_RGB_DISPLAY = RGBDisplayConfig(q=6.8, stretch=0.0158, minimum=0.00105, red_ga
 
 def _usage() -> str:
     return (
-        "Usage: xonsh run.xsh <cluster> [--campaign NAME] [--run-label NAME] [--halo-search lbfgs|optax-lbfgs|adam|svi] [--member-search lbfgs|optax-lbfgs|adam|svi] [--stage init|final|both] [--imaging hst|jwst] [--warm-start RUN_DIR] [--fast] [--dry-run]\n"
+        "Usage: xonsh run.xsh <cluster> [--campaign NAME] [--run-label NAME] [--halo-search lbfgs|optax-lbfgs|adam|svi] [--member-search lbfgs|optax-lbfgs|adam|svi] [--stage init|final|both] [--imaging hst|jwst] [--warm-start RUN_DIR] [--fast] [--wbic] [--dry-run]\n"
         "  --imaging jwst: draw the cluster mass figure on the NIRCam mosaics (file suffix _jwst) instead of the HST ones\n"
         "  --halo-search, --member-search: optimizer of the large-scale stage and of the member stage of the init (default lbfgs)\n"
         "  --likelihood: grf_gp (default; a Gaussian random field of unmodelled mass on the lens potential with a knee convergence\n"
@@ -153,6 +153,9 @@ def _usage() -> str:
         "  --offset-tail student_t|normal: member deviation tails (default student_t, dof 4)\n"
         "  --bcg-cut-prior lognormal|uniform: BCG cut-radius prior (default lognormal, unbounded)\n"
         "  --skip-plots: no figures or tables after sampling (quick tests; the sampler diagnostics are in the log)\n"
+        "  --wbic: after NUTS, a second NUTS run on the tempered posterior gives WBIC for model comparison\n"
+        "          (final/artifacts/model_comparison.json, about twice the sampling time).  On a finished run --wbic adds only\n"
+        "          the WBIC run.  BIC at the init best fit is always written (init/artifacts/model_comparison.json)\n"
         "  --fast: exploratory settings: members deflecting every image by < 0.03\" are dropped, far-field members allowed down to\n"
         "          2 cut radii from an image, classification at the current model, 16 search starts, 300+150 draws at tree depth 7\n"
         "          (check the audit's far-field error before trusting a fast run)\n"
@@ -179,7 +182,7 @@ def _parse_args(argv: list[str]) -> dict:
               "halo_search": "lbfgs", "member_search": "lbfgs", "likelihood": "grf_gp", "gp_blocks": None,
               "warm_start": None, "gp_band_max": None, "start_tolerance": None, "start_max_iter": None, "gp_knee_gamma": None, "gp_knee_fixed": None, "fix_relation": None, "relation_prior": None, "kinematics": None, "drop_halos": None, "member_shapes": None,
               "warmup": None, "samples": None, "dense_offsets": None, "far_offsets": None, "offset_tail": None, "bcg_cut_prior": "lognormal",
-              "skip_plots": False}
+              "skip_plots": False, "wbic": False}
     flag_to_key = {"--campaign": "campaign", "--run-label": "run_label", "--stage": "stage", "--imaging": "imaging",
                    "--halo-search": "halo_search", "--member-search": "member_search", "--likelihood": "likelihood",
                    "--gp-blocks": "gp_blocks", "--warm-start": "warm_start",
@@ -190,7 +193,7 @@ def _parse_args(argv: list[str]) -> dict:
     index = 2
     while index < len(argv):
         flag = argv[index]
-        if flag in {"--dry-run", "--fast", "--skip-plots"}:
+        if flag in {"--dry-run", "--fast", "--skip-plots", "--wbic"}:
             values[flag.lstrip("-").replace("-", "_")] = True
             index += 1
             continue
@@ -270,7 +273,7 @@ def _parse_args(argv: list[str]) -> dict:
                 gp_band_max=values["gp_band_max"], start_tolerance=values["start_tolerance"], start_max_iter=values["start_max_iter"],
                 gp_knee_gamma=values["gp_knee_gamma"], gp_knee_fixed=values["gp_knee_fixed"], fix_relation=values["fix_relation"], relation_prior=values["relation_prior"], kinematics=values["kinematics"], drop_halos=values["drop_halos"], member_shapes=values["member_shapes"], warmup=values["warmup"], samples=values["samples"],
                 dense_offsets=values["dense_offsets"], far_offsets=values["far_offsets"], offset_tail=values["offset_tail"],
-                bcg_cut_prior=values["bcg_cut_prior"], skip_plots=values["skip_plots"])
+                bcg_cut_prior=values["bcg_cut_prior"], skip_plots=values["skip_plots"], wbic=values["wbic"])
 
 
 # The solver's tuned defaults live in kappaccino.config; a cluster entry carries only what is specific to it: the
@@ -877,6 +880,8 @@ def main(argv=None):
         sampling = replace(sampling, dense_offset_members=options["dense_offsets"])
     if options["far_offsets"] is not None:
         sampling = replace(sampling, far_field_offsets=options["far_offsets"])
+    if options.get("wbic"):
+        sampling = replace(sampling, wbic=True)
     config = replace(config, sampling=sampling)
     if options["skip_plots"]:
         config = replace(config, runtime=replace(config.runtime, skip_plots=True))

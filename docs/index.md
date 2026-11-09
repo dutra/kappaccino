@@ -29,6 +29,7 @@ catalogs
 configuration
 likelihoods
 pipeline
+model-comparison
 outputs
 mock-validation
 scripts

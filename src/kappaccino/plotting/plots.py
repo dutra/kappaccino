@@ -94,22 +94,18 @@ def plot_image_residual_histogram(image_df: pd.DataFrame, path: Path, *, draws: 
         ax.axvline(rms, color="#ba5a2a", linestyle="--", linewidth=1.3, label="RMS", zorder=4)
         ax.axvline(median, color="#303030", linestyle=":", linewidth=1.3, label="Median", zorder=4)
         ax.set_xlim(0.0, bins[-1])
-    text = f"Recovered: {values.size}/{len(image_df)}"
     if spread["draws_more_than_best"]:
         if log is not None:
             log(f"[outputs] warning: {spread['draws_more_than_best']} of {spread['draws_total']} posterior draws recovered more images "
                 f"than the best fit ({values.size}); the best fit may not be the best image-plane solution")
-    ax.text(0.97, 0.97, text, transform=ax.transAxes, ha="right", va="top", fontsize=9)
     if values.size:
-        ax.legend(loc="upper right", bbox_to_anchor=(1, .87), fontsize=8, frameon=False)
+        ax.legend(loc="upper right", fontsize=8, frameon=False)
     ax.set_xlabel("Image-position residual (arcsec)")
     ax.set_ylabel("Number of images")
     ax.set_ylim(bottom=0.0)
     ax.yaxis.set_major_locator(MaxNLocator(4, integer=True))
     ax.xaxis.set_major_locator(MaxNLocator(4))
     ax.grid(False)
-    ax.spines[["top", "right"]].set_visible(False)
-    ax.tick_params(which="both", top=False, right=False)
     fig.tight_layout()
     fig.savefig(path, dpi=300, bbox_inches="tight", pad_inches=.04)
     plt.close(fig)

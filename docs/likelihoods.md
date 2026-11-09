@@ -115,92 +115,101 @@ physical source coordinates, which avoids a spurious mode at lenses that demagni
 
 ### Uncertain members
 
-So far the lens was known up to its parameters $\Theta$. A member catalog, though, is a classification, and some of its
-galaxies may not belong to the cluster. Give each member $i$ an indicator $z_i \in \{0, 1\}$: with $z_i = 1$ it is on
-the scaling relation, with $z_i = 0$ it has no mass. Its prior is the classifier's membership probability,
+A member catalog is a classification, and some of its galaxies may not belong to the cluster. Every member $i$ has a
+prior probability $p_i$ of being a cluster member ([Prior probabilities](#prior-probabilities)). A confirmed member has
+$p_i = 1$ by default, and any member can be given a lower $p_i$ in the catalog. Confirmed and uncertain members are
+treated by the same equations below. A confirmed member is just the case $p_i = 1$.
+
+**Indicators.** Give each member an indicator $z_i$, equal to 1 when the member is in the cluster (at full mass, on
+the scaling relation) and 0 when the member has no mass. The prior on the indicators is
 
 $$
-p(z) = \prod_i p_i^{z_i} (1 - p_i)^{1 - z_i} ,
+p(z) = \prod_i p_i^{z_i} (1 - p_i)^{1 - z_i} .
 $$
 
-and a confirmed member has $p_i = 1$ ([Prior probabilities](#prior-probabilities)).
-
-**The deflection is linear in the indicators.** A member's deflection, its Jacobian and the derivative of the
-Jacobian are all proportional to its mass normalization, so
+A member's deflection is proportional to the member's mass, so the deflection of the lens is
 
 $$
-\alpha(\theta;\, \Theta, z) = \alpha_0(\theta;\, \Theta) + \sum_i z_i\, \alpha_i(\theta;\, \Theta),
+\alpha(\theta;\, \Theta, z) = \alpha_{\mathrm{halo}}(\theta;\, \Theta) + \sum_i z_i\, \alpha_i(\theta;\, \Theta),
 $$
 
-with $\alpha_0$ the halos, shear, sheet and certain members, and $\alpha_i$ the deflection of uncertain member $i$ at
-full mass. The likelihood of the images for one value of the indicators, $p(\hat\theta \mid \Theta, z)$, is the family
-likelihood above with this deflection.
+with $\alpha_{\mathrm{halo}}$ the deflection of the halos, shear and sheet, and $\alpha_i$ the deflection of member $i$
+at full mass.
 
-**Sum rule.** The indicators are latent, like the true image positions, and are removed the same way:
-
-$$
-p(\hat\theta \mid \Theta) = \sum_{z \in \{0,1\}^N} p(z)\; p(\hat\theta \mid \Theta, z) .
-$$
-
-The sum has $2^N$ terms and does not factor over members, because every image feels every member. Split the uncertain
-members into a small set $\mathcal{E}$ that can decide an image's position (the enumerated members, $K$ of them) and
-the rest, $\mathcal{M}$ ([Which members are enumerated](#which-members-are-enumerated)). The sum splits accordingly:
+**The idea.** The indicators are unknown, so the likelihood averages over them,
 
 $$
-p(\hat\theta \mid \Theta) = \sum_{z_{\mathcal E}} p(z_{\mathcal E})
-\underbrace{\sum_{z_{\mathcal M}} p(z_{\mathcal M})\; p(\hat\theta \mid \Theta, z_{\mathcal E}, z_{\mathcal M})}_{\text{inner sum}} .
+p(\hat\theta \mid \Theta) = \sum_{z} p(z)\; p(\hat\theta \mid \Theta, z),
 $$
 
-**The inner sum as a deflection error.** Write each marginalized indicator as its mean plus a fluctuation,
-$z_g = p_g + (z_g - p_g)$. The deflection becomes
+where each term is the ordinary position likelihood of the lens with deflection $\alpha(\theta;\, \Theta, z)$. A member
+with $p_i = 1$ has zero prior weight on $z_i = 0$, so only the lenses that include the member count. The full sum has
+$2^N$ terms for $N$ members, which is too many. So the members are split into two groups.
+
+- **Enumerated members** $\mathcal E$ ($K$ of them, at most `membership_max_enumerated`, default 4). These are the
+  uncertain members that matter most at the images, whose presence can change where an image lands
+  ([Which members are enumerated](#which-members-are-enumerated)). Their $2^K$ on/off configurations $z_{\mathcal E}$
+  are summed exactly.
+- **Marginalized members** $\mathcal M$ (every other member, confirmed or not). Each member $g \in \mathcal M$
+  enters every lens at its expected mass, $p_g$ times its full mass. The doubt about whether member $g$ is there becomes extra noise in the deflection, with the same role as the
+  deflection error $\eta$ of [One image](#one-image).
+
+**Result.** The likelihood of the images is a weighted sum of $2^K$ ordinary position likelihoods,
 
 $$
-\alpha = \underbrace{\alpha_0 + \sum_{i \in \mathcal E} z_i\, \alpha_i + \sum_{g \in \mathcal M} p_g\, \alpha_g}_{\bar\alpha(z_{\mathcal E}):\ \text{the model deflection}}
-\;+\; \underbrace{\sum_{g \in \mathcal M} (z_g - p_g)\, \alpha_g}_{\eta_{\mathrm{mem}}} .
-$$
-
-The fluctuation $\eta_{\mathrm{mem}}$ enters the lens equation exactly where the deflection error $\eta$ of
-[One image](#one-image) does. The indicators are independent with variance $p_g(1 - p_g)$, so $\eta_{\mathrm{mem}}$
-has zero mean and, between images $j$ and $k$, covariance
-
-$$
-C_{\mathrm{mem}}^{(jk)} = \sum_{g \in \mathcal M} p_g (1 - p_g)\, \alpha_g(\theta_j)\, \alpha_g(\theta_k)^T .
-$$
-
-It is a sum of many small independent terms, so approximate it as Gaussian. The inner sum is then the integral over
-$\eta$ already done in [One image](#one-image), with one more term in its covariance:
-
-$$
-\Sigma_\eta \;\to\; \Sigma_\eta + C_{\mathrm{mem}} .
-$$
-
-$C_{\mathrm{mem}}$ correlates images $j$ and $k$, because one missing member moves all of its nearby images together.
-Like $\eta$, it enters the Gaussian term and, through the conditioning, the smoothed determinant $h$.
-
-**Result.** With $C(z_{\mathcal E})$ the family covariance including $C_{\mathrm{mem}}$,
-
-$$
-\boxed{\;p(\hat\theta \mid \Theta) = \sum_{z_{\mathcal E} \in \{0,1\}^K} p(z_{\mathcal E})
+\boxed{\;p(\hat\theta \mid \Theta) = \sum_{z_{\mathcal E} \in \{0,1\}^K} p(z_{\mathcal E})\;
 \prod_f p\big(\hat\theta_f \mid \beta_f, \Theta;\ \bar\alpha(z_{\mathcal E}),\ \Sigma_\eta + C_{\mathrm{mem}}\big)\;}
 $$
 
-a sum of $2^K$ position likelihoods, evaluated as a `logsumexp` over the configurations. The sources and every
-continuous parameter are shared by all the configurations. NUTS samples only the continuous parameters; the
-indicators never appear as sampled variables.
+with the prior weight of a configuration, the model deflection and the membership covariance
+
+$$
+\begin{aligned}
+p(z_{\mathcal E}) &= \prod_{i \in \mathcal E} p_i^{z_i}(1 - p_i)^{1 - z_i}, \\
+\bar\alpha(\theta;\, z_{\mathcal E}) &= \alpha_{\mathrm{halo}}(\theta) + \sum_{i \in \mathcal E} z_i\, \alpha_i(\theta)
+  + \sum_{g \in \mathcal M} p_g\, \alpha_g(\theta), \\
+C_{\mathrm{mem}}^{(jk)} &= \sum_{g \in \mathcal M} p_g (1 - p_g)\, \alpha_g(\theta_j)\, \alpha_g(\theta_k)^T .
+\end{aligned}
+$$
+
+$C_{\mathrm{mem}}$ is added to the covariance $\Sigma_\eta$ of the deflection error. The covariance couples images $j$
+and $k$, because a missing member shifts all of the images near that member together.
+
+A confirmed member ($p_g = 1$) enters $\bar\alpha$ at full mass and adds $p_g(1 - p_g) = 0$ to $C_{\mathrm{mem}}$, so
+the member is an ordinary, fixed part of the lens. A member with a high but uncertain $p_g$ (say 0.95) enters at
+nearly full mass and adds a small covariance. A member with $p_g = 0.5$ adds the most. When every $p_i = 1$, no member
+is enumerated, the sum has one term, $C_{\mathrm{mem}} = 0$ and the likelihood is the usual one.
+
+In logs, the sum is a `logsumexp` over the configurations, evaluated in one vectorized pass. The sources and every
+continuous parameter are shared by all the configurations, and NUTS never samples the indicators.
+
+| member | in the model deflection $\bar\alpha$ | in $C_{\mathrm{mem}}$ | posterior membership |
+|---|---|---|---|
+| $p_i = 1$ | full mass | nothing | 1 |
+| $p_i < 1$, enumerated | full mass or zero, summed over both | nothing | updated by the images |
+| $p_i < 1$, marginalized | $p_i$ times the full mass | $p_i(1 - p_i)\,\alpha_i \alpha_i^T$ | stays at the prior $p_i$ |
+
+**Why the marginalized members can be folded into the covariance.** For a member $g \in \mathcal M$, write
+$z_g = p_g + (z_g - p_g)$. The first part gives the expected deflection $p_g\, \alpha_g$, which goes into $\bar\alpha$.
+The second part has zero mean and variance $p_g(1 - p_g)$, and the parts of different members are independent. The sum
+of these second parts over many members is approximately Gaussian, with covariance $C_{\mathrm{mem}}$. The sum over
+the $z_g$ thus becomes the same Gaussian integral over the deflection error that [One image](#one-image) already does,
+with $C_{\mathrm{mem}}$ added to $\Sigma_\eta$. For a confirmed member the second part is zero, so the step is exact.
+For an uncertain member the approximation is good when the member moves an image by much less than the image's
+position error. The uncertain members that matter most are enumerated, so the approximation is left to the members
+that matter least.
 
 **Posterior membership.** At a posterior draw, configuration $z_{\mathcal E}$ has weight
-$w(z_{\mathcal E}) \propto p(z_{\mathcal E})\, p(\hat\theta \mid \Theta, z_{\mathcal E})$, and the posterior
-membership of enumerated member $i$ is the total weight of the configurations with $z_i = 1$, averaged over the draws.
-A marginalized member is integrated out without being tracked, so its posterior is its prior: the approximation
-propagates the uncertainty these members add to the mass model, but does not update their membership.
+$w(z_{\mathcal E}) \propto p(z_{\mathcal E})\, p(\hat\theta \mid \Theta, z_{\mathcal E})$. The posterior membership
+of enumerated member $i$ is the total weight of the configurations with $z_i = 1$, averaged over the draws. The
+marginalized members are not tracked, so the posterior of each equals the prior. The approximation carries the mass uncertainty
+these members add, but the images do not update the membership of these members.
 
-**Calibration.** With `membership_calibration_prior`, a shared shift $\delta$ of the log-odds is sampled,
-$p_i \to \mathrm{sigmoid}(\mathrm{logit}\,p_i + \delta)$. It changes $p(z_{\mathcal E})$ and $C_{\mathrm{mem}}$ and
-gets its own prior factor $p(\delta)$.
+**Calibration.** With `membership_calibration_prior`, a shared shift $\delta$ of the log-odds is sampled for every
+member with $p_i < 1$, $p_i \to \mathrm{sigmoid}(\mathrm{logit}\,p_i + \delta)$. Members with $p_i = 1$ stay at 1. The
+shift changes $p(z_{\mathcal E})$, $\bar\alpha$ and $C_{\mathrm{mem}}$, and has a prior factor $p(\delta)$ of its own.
 
-With every $p_i = 1$, $\mathcal E$ and $\mathcal M$ are empty, the sum has one term and $C_{\mathrm{mem}} = 0$.
-
-**In the full likelihood**, the uncertain members do not add a factor. They change the lens, so the sum over
+**In the full likelihood**, the members do not add a factor. The members change the lens, so the sum over
 $z_{\mathcal E}$ wraps every image term, trusted and uncertain (step 3 of [The full posterior](#the-full-posterior)).
 
 ### Uncertain images
@@ -211,17 +220,51 @@ catalog assignment; only the uncertain images $j = 1, \dots, U$ have an unknown 
 $D_j = (\hat\theta_j, \hat z_j, \hat c_j)$: a position, a catalog redshift (with an error $\sigma_{z,j}$, or none) and
 colors.
 
-**Sources it can come from.** Call each possible source a slot. The trusted families are slots whose source $\beta_F$
-is the one already sampled, at the family redshift $z_F$. The new slots $k = 1, \dots, S$ are extra sources with
-parameters $\psi_k = (\beta_k, z_k, c_k)$ (position, redshift and intrinsic colors), all sampled, with the prior of a
-field source:
+**Where an uncertain image can come from.** Each uncertain image has one of three possible origins.
+
+1. **A trusted family $F$.** The image is a new counterimage of that family. The source is the family's source
+   $\beta_F$, already sampled, at the family redshift $z_F$.
+2. **A new source $k$**, with $k = 1, \dots, S$. The image belongs to a family of uncertain images only, a source that
+   no trusted family has. Each new source has parameters $\psi_k = (\beta_k, z_k, c_k)$ (source position, redshift and
+   intrinsic colors), sampled with the lens. The number $S$ of new sources is fixed before sampling
+   ([Seeding and limits](#seeding-and-limits)).
+3. **No other image.** The image is the only image of its source, unrelated to every other image.
+
+The trusted families and the new sources are the candidate sources an image can join. The code and the rest of this
+page call each candidate source a **slot**. Image $j$ has a latent label $\ell_j$ that says which origin is true,
+$\ell_j = F$ for trusted family $F$, $\ell_j = k$ for new slot $k$, or $\ell_j = 0$ for an unrelated image. The labels
+have fixed prior weights $\pi_\ell$. By default `PartitionConfig.unrelated_fraction` (0.5) goes to $\ell_j = 0$ and
+the rest is shared equally by the slots. When the catalog claims the image for a family, that family's slot gets the
+catalog's association prior instead (`PartitionConfig.association_weight`).
+
+**The prior of a new source.** A new source is a field galaxy that happens to lie behind the cluster, so the prior of
+its parameters is
 
 $$
 p(\psi_k) = N(\beta_k;\, \mu_\beta, s_\beta^2 I)\; q(z_k, c_k),
 $$
 
-where $q$ is a Gaussian mixture fit to a photometric catalog of the field. Image $j$ has a latent label $\ell_j$: an
-unrelated source ($\ell_j = 0$), a trusted family $F$, or a new slot $k$, with fixed prior weights $\pi_\ell$.
+where $q$ is the population density of field galaxies in redshift and colors. The colors $c$ are the $d$ differences of
+adjacent bands ($m_1 - m_2$, $m_2 - m_3$, and so on, from `PartitionConfig.bands`). The density $q$ is a Gaussian mixture in
+the $1 + d$ dimensions of $(z, c)$,
+
+$$
+q(z, c) = \sum_{m=1}^{M} w_m\, N\big((z, c);\, \mu_m, \Sigma_m\big), \qquad \sum_{m=1}^{M} w_m = 1,
+$$
+
+with weights $w_m$, means $\mu_m$ and full $(1 + d) \times (1 + d)$ covariances $\Sigma_m$, so the mixture also captures
+how the colors change with redshift. The number of components $M$ is `PartitionConfig.population_components` (default
+6), lowered when the catalog has few rows. The mixture is fit once, before sampling, by maximum likelihood (EM) to the
+redshifts and `mag_<band>` colors of the galaxies in `PartitionConfig.population_catalog_path`. The parameters stay
+fixed during sampling. The redshift marginal $\int q(z, c)\, dc$ is the redshift prior of a new slot. Because a slot
+pays the prior volume of $q$, grouping uncertain images into one slot is favored only when the images agree in redshift
+and colors better than two random field galaxies do by chance.
+
+The mixture falls back to simpler forms when data are missing.
+
+- **No population catalog.** The mixture is fit on the trusted and uncertain images themselves.
+- **No usable colors.** $q$ is a mixture in $z$ alone, with at most three components.
+- **No redshifts either.** $q$ is a single Gaussian, $N(z;\, 3, 2^2)$.
 
 **One image from one slot.** If image $j$ came from a slot with source $\beta$ at redshift $z$ and colors $c$, its
 position term is the [One image](#one-image) result at that redshift. The lensing efficiency $D_{ls}/D_s$ scales the
@@ -324,7 +367,7 @@ The two factors are not independent of each other in the posterior: they share t
 joins trusted family $F$ is evaluated at that family's source $\beta_F$. So a new counter-image constrains $\beta_F$
 and the lens, exactly as a trusted image would, weighted by its assignment probability.
 
-**Step 3: add the uncertain members, as a sum around everything.** Each member configuration is a different lens, and
+**Step 3: add the members, as a sum around everything.** Each member configuration is a different lens, and
 every image, trusted or uncertain, sees the same lens. So the members do not add a factor: they change the lens inside
 $L_2$, and the configurations are summed around it. With $L_2(\,\cdot\,;\, z_{\mathcal E})$ meaning $L_2$ evaluated
 with the deflection $\bar\alpha(z_{\mathcal E})$ and the covariance $C + C_{\mathrm{mem}}$,
@@ -569,7 +612,8 @@ Enumerated members
   summed exactly.
 
 Marginalized members
-: Every other uncertain member, which enters through its expected mass and the covariance $C_{\mathrm{mem}}$. Under
+: Every other member, which enters through its expected mass and the covariance $C_{\mathrm{mem}}$. A confirmed
+  member ($p_i = 1$) is in this group too, at full mass and with no covariance. Under
   the GRF likelihood $C_{\mathrm{mem}}$ adds to $W K_\alpha W$ after the low-order projection, so the shared field's
   blocks gain the cross terms. Under the image-plane GP it adds to each family's covariance, and under the smoothed
   likelihood to each image's $C_i$.

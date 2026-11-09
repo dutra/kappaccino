@@ -220,10 +220,25 @@ catalog assignment; only the uncertain images $j = 1, \dots, U$ have an unknown 
 $D_j = (\hat\theta_j, \hat z_j, \hat c_j)$: a position, a catalog redshift (with an error $\sigma_{z,j}$, or none) and
 colors.
 
-**Sources it can come from.** Call each possible source a slot. The trusted families are slots whose source $\beta_F$
-is the one already sampled, at the family redshift $z_F$. The new slots $k = 1, \dots, S$ are extra sources with
-parameters $\psi_k = (\beta_k, z_k, c_k)$ (position, redshift and intrinsic colors), all sampled, with the prior of a
-field source:
+**Where an uncertain image can come from.** Each uncertain image has one of three possible origins.
+
+1. **A trusted family $F$.** The image is a new counterimage of that family. The source is the family's source
+   $\beta_F$, already sampled, at the family redshift $z_F$.
+2. **A new source $k$**, with $k = 1, \dots, S$. The image belongs to a family of uncertain images only, a source that
+   no trusted family has. Each new source has parameters $\psi_k = (\beta_k, z_k, c_k)$ (source position, redshift and
+   intrinsic colors), sampled with the lens. The number $S$ of new sources is fixed before sampling
+   ([Seeding and limits](#seeding-and-limits)).
+3. **No other image.** The image is the only image of its source, unrelated to every other image.
+
+The trusted families and the new sources are the candidate sources an image can join. The code and the rest of this
+page call each candidate source a **slot**. Image $j$ has a latent label $\ell_j$ that says which origin is true,
+$\ell_j = F$ for trusted family $F$, $\ell_j = k$ for new slot $k$, or $\ell_j = 0$ for an unrelated image. The labels
+have fixed prior weights $\pi_\ell$. By default `PartitionConfig.unrelated_fraction` (0.5) goes to $\ell_j = 0$ and
+the rest is shared equally by the slots. When the catalog claims the image for a family, that family's slot gets the
+catalog's association prior instead (`PartitionConfig.association_weight`).
+
+**The prior of a new source.** A new source is a field galaxy that happens to lie behind the cluster, so the prior of
+its parameters is
 
 $$
 p(\psi_k) = N(\beta_k;\, \mu_\beta, s_\beta^2 I)\; q(z_k, c_k),
@@ -250,9 +265,6 @@ The mixture falls back to simpler forms when data are missing.
 - **No population catalog.** The mixture is fit on the trusted and uncertain images themselves.
 - **No usable colors.** $q$ is a mixture in $z$ alone, with at most three components.
 - **No redshifts either.** $q$ is a single Gaussian, $N(z;\, 3, 2^2)$.
-
-Image $j$ has a latent label $\ell_j$: an unrelated source ($\ell_j = 0$), a trusted family $F$, or a new slot $k$,
-with fixed prior weights $\pi_\ell$.
 
 **One image from one slot.** If image $j$ came from a slot with source $\beta$ at redshift $z$ and colors $c$, its
 position term is the [One image](#one-image) result at that redshift. The lensing efficiency $D_{ls}/D_s$ scales the

@@ -220,8 +220,30 @@ $$
 p(\psi_k) = N(\beta_k;\, \mu_\beta, s_\beta^2 I)\; q(z_k, c_k),
 $$
 
-where $q$ is a Gaussian mixture fit to a photometric catalog of the field. Image $j$ has a latent label $\ell_j$: an
-unrelated source ($\ell_j = 0$), a trusted family $F$, or a new slot $k$, with fixed prior weights $\pi_\ell$.
+where $q$ is the population density of field galaxies in redshift and colors. The colors $c$ are the $d$ differences of
+adjacent bands ($m_1 - m_2$, $m_2 - m_3$, and so on, from `PartitionConfig.bands`). The density $q$ is a Gaussian mixture in
+the $1 + d$ dimensions of $(z, c)$,
+
+$$
+q(z, c) = \sum_{m=1}^{M} w_m\, N\big((z, c);\, \mu_m, \Sigma_m\big), \qquad \sum_{m=1}^{M} w_m = 1,
+$$
+
+with weights $w_m$, means $\mu_m$ and full $(1 + d) \times (1 + d)$ covariances $\Sigma_m$, so the mixture also captures
+how the colors change with redshift. The number of components $M$ is `PartitionConfig.population_components` (default
+6), lowered when the catalog has few rows. The mixture is fit once, before sampling, by maximum likelihood (EM) to the
+redshifts and `mag_<band>` colors of the galaxies in `PartitionConfig.population_catalog_path`. The parameters stay
+fixed during sampling. The redshift marginal $\int q(z, c)\, dc$ is the redshift prior of a new slot. Because a slot
+pays the prior volume of $q$, grouping uncertain images into one slot is favored only when the images agree in redshift
+and colors better than two random field galaxies do by chance.
+
+The mixture falls back to simpler forms when data are missing.
+
+- **No population catalog.** The mixture is fit on the trusted and uncertain images themselves.
+- **No usable colors.** $q$ is a mixture in $z$ alone, with at most three components.
+- **No redshifts either.** $q$ is a single Gaussian, $N(z;\, 3, 2^2)$.
+
+Image $j$ has a latent label $\ell_j$: an unrelated source ($\ell_j = 0$), a trusted family $F$, or a new slot $k$,
+with fixed prior weights $\pi_\ell$.
 
 **One image from one slot.** If image $j$ came from a slot with source $\beta$ at redshift $z$ and colors $c$, its
 position term is the [One image](#one-image) result at that redshift. The lensing efficiency $D_{ls}/D_s$ scales the

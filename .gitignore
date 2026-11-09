@@ -85,3 +85,27 @@ catalogs/**/index.html*
 Writing_Guide.md
 feasibility/
 paper_probabilistic/
+
+# Large or binary files, wherever they are: never committed (imaging and truth maps live under data/imaging, see
+# scripts/download_imaging.py; .githooks/pre-commit also refuses anything over 5 MB)
+*.fits
+*.fits.gz
+*.fit
+*.fz
+*.gz
+*.tgz
+*.tar
+*.bz2
+*.xz
+*.7z
+*.parquet
+*.feather
+*.sqlite
+*.jpg
+*.jpeg
+*.gif
+*.tif
+*.tiff
+*.mp4
+*.mov
+*.part

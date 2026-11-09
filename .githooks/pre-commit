@@ -1,0 +1,18 @@
+#!/bin/sh
+# Refuse to commit large or binary data files.  Enable once per clone with:
+#     git config core.hooksPath .githooks
+limit=$((5 * 1024 * 1024))
+status=0
+for file in $(git diff --cached --name-only --diff-filter=AM); do
+    case "$file" in
+        *.fits|*.fits.gz|*.fit|*.fz|*.npy|*.npz|*.pkl|*.h5|*.hdf5|*.zip|*.gz|*.tar|*.tgz|*.parquet)
+            echo "pre-commit: $file is a data file; keep it out of the repository (data/, results/ or the imaging archive)" >&2
+            status=1 ;;
+    esac
+    size=$(git cat-file -s ":$file" 2>/dev/null || echo 0)
+    if [ "$size" -gt "$limit" ]; then
+        echo "pre-commit: $file is $((size / 1024 / 1024)) MB, above the 5 MB limit" >&2
+        status=1
+    fi
+done
+exit $status

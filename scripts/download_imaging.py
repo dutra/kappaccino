@@ -1,25 +1,32 @@
 #!/home/dutra/.conda/envs/lenstronomy/bin/python
-"""The imaging and truth maps the figures need, downloaded and kept in one tree, data/imaging/<cluster>/<source>/.
+"""The imaging and truth maps the figures need, downloaded and kept as plain files in one tree, data/imaging/<cluster>/<source>/.
 
-    download_imaging.py download [--clusters hera ares m0416 as1063] [--kinds jwst ffsims hst] [--hst-scale 60|30]
-                                 [--local-source DIR] [--ffsims-source DIR] [--copy] [--dry-run]
-    download_imaging.py zip [--out FILE] [--kinds jwst ffsims] [--with-catalogs]
-    download_imaging.py unpack ARCHIVE
+    download_imaging.py download [--clusters hera ares hermes hephaestus m0416 as1063] [--kinds jwst ffsims ffsims_site hst]
+                                 [--hst-scale 60|30] [--local-source DIR ...] [--dry-run]
+    download_imaging.py zip [--out FILE] [--kinds jwst ffsims ffsims_site] [--with-catalogs]
+    download_imaging.py unpack ARCHIVE [--force]
     download_imaging.py list
 
-Sources.  JWST: CANUCS DR1 NIRCam mosaics of MACS J0416 (MAST HLSP, 20 mas SW and 40 mas F444W) and the DAWN/Grizli
-v7.5 mosaics of Abell S1063; the four RGB bands of run.xsh (F115W, F150W, F200W, F444W).  HST: BUFFALO v1.0 drizzled
-mosaics of both clusters in the seven HFF bands (60 mas by default; 30 mas on request, 2.7 GB per band).  FF-SIMS: the
-simulated HST images (F435W, F606W, F814W) and the true kappa and shear maps at z = 9 of Hera and Ares (Meneghetti et
-al. 2017).  The FF-SIMS site (pico.oabo.inaf.it/~massimo/Public/FF) has been offline since 2026 and the Wayback Machine
-holds only its text files, so those FITS come from --ffsims-source (an unpacked zip of this script, or the old
-data/ff_sims/published tree); the original URLs are kept in the manifest and tried first.
+Layout (every entry is a real file; the script never creates symbolic links):
 
-Files already present under --local-source (a synced copy with the same file names, e.g.
-/data/sync/GalaxyClusterImaging) are linked instead of downloaded; --copy copies them.  Every file is validated (gzip
-CRC, FITS structure, WCS for the mosaics) and gets a .json sidecar with its origin and sha256; data/imaging/manifest.json
-lists the tree.  `zip` packs the JWST files, the FF-SIMS files and the FF-SIMS site mirror (no HST; with the catalogs/ tree by
-default) into one archive that `unpack` restores.
+    <cluster>/ffsims/     one folder per FF-SIMS cluster (hera, ares, hermes, hephaestus) with every file its page on the
+                          site served: simulation_hst_<band>.fits (seven HFF bands), simulation_subaru_R.fits, the
+                          catalogs and region files and, for Hera and Ares, the lens results (kappa / gammax / gammay at
+                          z = 9, deflAngles*.fits, <Cluster>_F.fits, <Cluster>_G.fits).  run.xsh reads the three ACS
+                          bands and the three z = 9 maps.
+    m0416/canucs_dr1/     CANUCS DR1 NIRCam mosaics (MAST HLSP): 20 mas F115W F150W F200W, 40 mas F444W
+    as1063/dja_v7.5/      DAWN JWST Archive Grizli v7.5 mosaics, the same bands
+    <cluster>/buffalo/<scale>mas/   BUFFALO v1.0 HST mosaics of M0416 and AS1063 in the seven HFF bands (on request)
+    ffsims_site/          the pages, stylesheet and thumbnails of the FF-SIMS site, for the record
+
+Sources.  The FF-SIMS site (pico.oabo.inaf.it/~massimo/Public/FF, Meneghetti et al. 2017) has been offline since 2026
+and the Wayback Machine holds only its text files, so the FITS come from a local copy given with --local-source (a
+synced folder, an unpacked archive of this script, a wget mirror of the site); the original URLs stay in the manifest
+and are tried first.  Files found under a --local-source root are copied (never linked), validated (gzip CRC, FITS
+structure, celestial WCS for the mosaics) and given a .json sidecar with origin and sha256; data/imaging/manifest.json
+lists the tree.  A symbolic link left by an earlier version is replaced by a copy of its target, or fetched again when
+the target is gone.  `zip` packs the JWST files, the FF-SIMS files and the site pages (no HST; with the catalogs/ tree by
+default) into one archive that `unpack` restores.  None of this is tracked by git (data/* and every FITS are ignored).
 """
 from __future__ import annotations
 
@@ -27,7 +34,6 @@ import argparse
 import gzip
 import hashlib
 import json
-import os
 import shutil
 import subprocess
 import sys
@@ -42,36 +48,44 @@ JWST_BANDS = ("F115W", "F150W", "F200W", "F444W")
 HFF_BANDS = ("F435W", "F606W", "F814W", "F105W", "F125W", "F140W", "F160W")
 FF_BANDS = ("F435W", "F606W", "F814W")
 FF_TRUTH = ("kappa_z9_0.fits", "gammax_z9_0.fits", "gammay_z9_0.fits")
+FF_CLUSTERS = ("hera", "ares", "hermes", "hephaestus")
 CANUCS = "https://archive.stsci.edu/hlsps/canucs/dr1/macs0416/clu/"
 DJA = "https://s3.amazonaws.com/grizli-v2/JwstMosaics/v7/"
 BUFFALO = "https://archive.stsci.edu/hlsps/buffalo/{cluster}/images/{scale}mas/"
 FFSIMS = "http://pico.oabo.inaf.it/~massimo/Public/FF/"
 WAYBACK = "http://web.archive.org/web/2025id_/"
-# The whole FF-SIMS site, for posterity: every file its pages link to, per simulated cluster, plus the pages themselves.
-# Hera and Ares have the lens results (deflection angles, F/G maps, kappa and shear at z = 9); Hermes and Hephaestus
-# only the simulated images and catalogs.  finalshearHST.cat of Hera and Ares is linked but was never archived.
+FF_RELEASE = "FF-SIMS (Meneghetti et al. 2017, MNRAS 472, 3177)"
+# Every file the FF-SIMS site served per cluster, as <site folder>/<name>; the local copy flattens them into
+# <cluster>/ffsims/<name> (no name is shared between the fits/ and results/ folders of one cluster).  Hera and Ares have
+# the lens results; Hermes and Hephaestus only the images and catalogs.  finalshearHST.cat (Hera, Ares) and nome.txt /
+# nome.reg (Hermes, Hephaestus) were linked by the site but never served, as far as the Wayback Machine knows.
 FF_SITE_FILES = {
-    "hera": ["fits/hera/" + n for n in ("clgal_cat.reg", "clgal_cat.txt", "finalshearHST.cat", "finalshear_z.cat", "galcat2.txt",
-                                        "multimages.reg", "multimages.txt", "simulation_subaru_R.fits")]
-            + [f"fits/hera/simulation_hst_{b.lower()}.fits" for b in HFF_BANDS]
-            + ["results/hera/" + n for n in ("deflAnglesHera.fits", "Hera_F.fits", "Hera_G.fits") + FF_TRUTH],
-    "ares": ["fits/ares/" + n for n in ("clgal_cat.reg", "clgal_cat.txt", "finalshear.cat", "finalshearHST.cat",
-                                        "multimages.reg", "multimages.txt", "simulation_subaru_R.fits")]
-            + [f"fits/ares/simulation_hst_{b.lower()}.fits" for b in HFF_BANDS]
-            + ["results/ares/" + n for n in ("deflAnglesAres.fits", "Ares_F.fits", "Ares_G.fits") + FF_TRUTH],
-    "hermes": ["fits/hermes/" + n for n in ("clgal_cat.reg", "clgal_cat.txt", "finalshear.cat", "nome.reg", "nome.txt", "simulation_subaru_R.fits")]
-              + [f"fits/hermes/simulation_hst_{b.lower()}.fits" for b in HFF_BANDS],
-    "hephaestus": ["fits/hephaestus/" + n for n in ("clgal_cat.reg", "clgal_cat.txt", "finalshear.cat", "nome.reg", "nome.txt", "simulation_subaru_R.fits")]
-                  + [f"fits/hephaestus/simulation_hst_{b.lower()}.fits" for b in HFF_BANDS],
+    "hera": ["fits/" + n for n in ("clgal_cat.reg", "clgal_cat.txt", "finalshearHST.cat", "finalshear_z.cat", "galcat2.txt",
+                                   "multimages.reg", "multimages.txt", "simulation_subaru_R.fits")]
+            + [f"fits/simulation_hst_{b.lower()}.fits" for b in HFF_BANDS]
+            + ["results/" + n for n in ("deflAnglesHera.fits", "Hera_F.fits", "Hera_G.fits") + FF_TRUTH],
+    "ares": ["fits/" + n for n in ("clgal_cat.reg", "clgal_cat.txt", "finalshear.cat", "finalshearHST.cat",
+                                   "multimages.reg", "multimages.txt", "simulation_subaru_R.fits")]
+            + [f"fits/simulation_hst_{b.lower()}.fits" for b in HFF_BANDS]
+            + ["results/" + n for n in ("deflAnglesAres.fits", "Ares_F.fits", "Ares_G.fits") + FF_TRUTH],
+    "hermes": ["fits/" + n for n in ("clgal_cat.reg", "clgal_cat.txt", "finalshear.cat", "nome.reg", "nome.txt", "simulation_subaru_R.fits")]
+              + [f"fits/simulation_hst_{b.lower()}.fits" for b in HFF_BANDS],
+    "hephaestus": ["fits/" + n for n in ("clgal_cat.reg", "clgal_cat.txt", "finalshear.cat", "nome.reg", "nome.txt", "simulation_subaru_R.fits")]
+                  + [f"fits/simulation_hst_{b.lower()}.fits" for b in HFF_BANDS],
 }
 FF_SITE_PAGES = ["index.html", "instructions.html", "contacts.html", "hst_image.html", "subaru_image.html", "multiple_images.html",
                  "cluster_galaxies.html", "ares.html", "hera.html", "hermes.html", "hephaestus.html", "style.css",
                  "images/ares_thumb.jpg", "images/hera_thumb.jpg", "images/hermes_thumb.jpg", "images/hephaestus_thumb.jpg",
                  "images/udf_banner2.jpeg", "images/img03.png", "images/img04.jpg"]
-# Our complete copy of the site (wget mirror) lives at /data/pico.oabo.inaf.it/~massimo/Public/FF on the Linux machine;
-# the only files it lacks are finalshearHST.cat (Hera, Ares) and nome.txt / nome.reg (Hermes, Hephaestus), which the site
-# linked but, as far as the Wayback Machine knows, never served.
-FF_MIRROR = Path("/data/pico.oabo.inaf.it/~massimo/Public/FF")
+ALL_CLUSTERS = FF_CLUSTERS + ("m0416", "as1063")
+
+
+def ff_use(name: str) -> str:
+    if name in FF_TRUTH:
+        return "truth"
+    if name in {f"simulation_hst_{b.lower()}.fits" for b in FF_BANDS}:
+        return "rgb"
+    return "archive"
 
 
 def manifest(hst_scale: int = 60) -> list[dict]:
@@ -92,26 +106,16 @@ def manifest(hst_scale: int = 60) -> list[dict]:
             out.append(dict(cluster=cluster, source="buffalo", kind="hst", band=band, relpath=f"{cluster}/buffalo/{hst_scale}mas/{name}",
                             urls=[BUFFALO.format(cluster=token, scale=hst_scale) + name],
                             release="BUFFALO v1.0 (Steinhardt et al. 2020); DOI 10.17909/t9-k61t-qc38", use="rgb"))
-    for cluster in ("hera", "ares"):
-        for band in FF_BANDS:
-            name = f"simulation_hst_{band.lower()}.fits"
-            out.append(dict(cluster=cluster, source="ffsims", kind="ffsims", band=band, relpath=f"{cluster}/ffsims/{name}",
-                            urls=[FFSIMS + f"fits/{cluster}/{name}", WAYBACK + FFSIMS + f"fits/{cluster}/{name}"],
-                            release="FF-SIMS (Meneghetti et al. 2017, MNRAS 472, 3177)", use="rgb"))
-        for name in FF_TRUTH:
-            out.append(dict(cluster=cluster, source="ffsims", kind="ffsims", band=None, relpath=f"{cluster}/ffsims/{name}",
-                            urls=[FFSIMS + f"results/{cluster}/{name}", WAYBACK + FFSIMS + f"results/{cluster}/{name}"],
-                            release="FF-SIMS (Meneghetti et al. 2017, MNRAS 472, 3177)", use="truth"))
-    # The site mirror: ffsims_site/<path as on the site>.  The Hera and Ares files the figures use appear twice in the
-    # manifest (here and above); `zip` stores them once and `unpack` links the <cluster>/ffsims copies to the mirror.
     for cluster, paths in FF_SITE_FILES.items():
         for path in paths:
-            out.append(dict(cluster=cluster, source="ffsims_site", kind="ffsims_site", band=None, relpath=f"ffsims_site/{path}",
-                            urls=[FFSIMS + path, WAYBACK + FFSIMS + path],
-                            release="FF-SIMS site mirror (Meneghetti et al. 2017)", use="archive"))
+            folder, name = path.split("/", 1)
+            band = name[len("simulation_hst_"):-len(".fits")].upper() if name.startswith("simulation_hst_") else None
+            out.append(dict(cluster=cluster, source="ffsims", kind="ffsims", band=band, relpath=f"{cluster}/ffsims/{name}",
+                            urls=[FFSIMS + f"{folder}/{cluster}/{name}", WAYBACK + FFSIMS + f"{folder}/{cluster}/{name}"],
+                            release=FF_RELEASE, use=ff_use(name)))
     for path in FF_SITE_PAGES:
         out.append(dict(cluster="ffsims", source="ffsims_site", kind="ffsims_site", band=None, relpath=f"ffsims_site/{path}",
-                        urls=[FFSIMS + path, WAYBACK + FFSIMS + path], release="FF-SIMS site mirror (Meneghetti et al. 2017)", use="archive"))
+                        urls=[FFSIMS + path, WAYBACK + FFSIMS + path], release=FF_RELEASE + ", site pages", use="archive"))
     return out
 
 
@@ -128,8 +132,9 @@ def validate(path: Path, product: dict) -> dict:
     from astropy.wcs import WCS
     from astropy.wcs.utils import proj_plane_pixel_scales
 
-    if product["kind"] == "ffsims_site":                     # the mirror: FITS must open, anything else is kept as is
-        if path.suffix.lower() == ".fits":
+    is_fits = path.name.endswith((".fits", ".fits.gz"))
+    if product["use"] == "archive":                       # kept for the record: a FITS must open, the rest is taken as is
+        if is_fits:
             with fits.open(path, memmap=False) as hdus:
                 hdus.verify("exception")
                 shape = [int(n) for n in hdus[0].shape] if hdus[0].data is not None else []
@@ -162,46 +167,66 @@ def curl(url: str, partial: Path) -> bool:
 
 
 def find_local(product: dict, roots: list[Path]) -> Path | None:
-    """The same file name under any of the roots (synced copies keep the archive names)."""
+    """A regular file of the same name under any of the roots (synced copies and mirrors keep the archive names)."""
     name = Path(product["relpath"]).name
     cluster = product.get("cluster")
     for root in roots:
         if not root.exists():
             continue
-        found = [c for c in root.rglob(name) if c.is_file()]
-        # Site files share names across clusters (clgal_cat.txt): the copy must sit under a folder named for the cluster.
-        if product["kind"] in ("ffsims", "ffsims_site"):
-            found = [c for c in found if cluster in {part.lower() for part in c.parts}]
+        found = [c for c in sorted(root.rglob(name)) if c.is_file() and not c.is_symlink()]
+        # FF-SIMS names repeat across clusters (kappa_z9_0.fits, clgal_cat.txt): the copy must sit under a folder named for it.
+        if product["kind"] == "ffsims":
+            found = [c for c in found if cluster in {part.lower() for part in c.relative_to(root).parts[:-1]}]
         if found:
             return found[0]
     return None
 
 
-def fetch(product: dict, *, local: list[Path], copy: bool, dry_run: bool) -> dict | None:
+def materialize(destination: Path) -> str | None:
+    """Replace a symbolic link by a copy of its target; returns the target, or None when it is gone (the link is removed)."""
+    link = destination.readlink()
+    target = link if link.is_absolute() else destination.parent / link
+    if not target.exists():
+        destination.unlink()
+        print(f"dangling  {destination.relative_to(ROOT)} -> {link}: removed, fetching again")
+        return None
+    temporary = destination.with_name(destination.name + ".part")
+    shutil.copy2(target.resolve(), temporary)
+    destination.unlink()
+    temporary.replace(destination)
+    print(f"copied    {destination.relative_to(ROOT)}  <-  {target.resolve()} (was a link)")
+    return str(target.resolve())
+
+
+def fetch(product: dict, *, local: list[Path], dry_run: bool) -> dict | None:
     destination = ROOT / product["relpath"]
     sidecar = destination.with_name(destination.name + ".json")
+    origin = None
+    if destination.is_symlink():
+        if dry_run:
+            print(f"link      {product['relpath']} -> {destination.readlink()}: would be replaced by a copy")
+            return None
+        target = materialize(destination)
+        if target is not None:
+            origin = {"origin": target}
     if destination.exists():
-        if sidecar.exists():
+        if sidecar.exists() and origin is None:
             print(f"present   {product['relpath']}")
             return json.loads(sidecar.read_text())
         print(f"validate  {product['relpath']}")
-        meta, origin = validate(destination, product), {"origin": "present"}
+        meta, origin = validate(destination, product), origin or {"origin": "present"}
     else:
         source = find_local(product, local)
         if dry_run:
-            print(f"{'link' if source else 'download':9s} {product['relpath']}  <-  {source or product['urls'][0]}")
+            print(f"{'copy' if source else 'download':9s} {product['relpath']}  <-  {source or product['urls'][0]}")
             return None
         destination.parent.mkdir(parents=True, exist_ok=True)
+        partial = destination.with_name(destination.name + ".part")
         if source is not None:
-            if copy:
-                print(f"copy      {product['relpath']}  <-  {source}")
-                shutil.copy2(source, destination)
-            else:
-                print(f"link      {product['relpath']}  ->  {source}")
-                destination.symlink_to(source.resolve())
+            print(f"copy      {product['relpath']}  <-  {source}")
+            shutil.copy2(source, partial)
             origin = {"origin": str(source.resolve())}
         else:
-            partial = destination.with_name(destination.name + ".part")
             for url in product["urls"]:
                 print(f"download  {product['relpath']}  <-  {url}", flush=True)
                 if "web.archive.org" in url:
@@ -211,9 +236,9 @@ def fetch(product: dict, *, local: list[Path], copy: bool, dry_run: bool) -> dic
                     break
                 partial.unlink(missing_ok=True)
             else:
-                print(f"MISSING   {product['relpath']}: no source answered (give --local-source or --ffsims-source)")
+                print(f"MISSING   {product['relpath']}: no source answered (give --local-source)")
                 return None
-            partial.replace(destination)
+        partial.replace(destination)
         meta = validate(destination, product)
     record = dict(product, **meta, **origin, path=str(destination), verified_utc=datetime.now(timezone.utc).isoformat())
     sidecar.write_text(json.dumps(record, indent=1) + "\n")
@@ -227,19 +252,16 @@ def write_manifest(records: list[dict]) -> None:
     (ROOT / "README.md").write_text(README)
 
 
-def selected(args) -> list[dict]:
-    """--clusters narrows the figure data; the site mirror (Hermes, Hephaestus, the pages) always comes whole."""
-    return [p for p in manifest(args.hst_scale) if p["kind"] in args.kinds
-            and (p["cluster"] in args.clusters or p["kind"] == "ffsims_site")]
+def selected(kinds, clusters, hst_scale: int = 60) -> list[dict]:
+    """--clusters narrows the data; the site pages always come whole."""
+    return [p for p in manifest(hst_scale) if p["kind"] in kinds and (p["cluster"] in clusters or p["kind"] == "ffsims_site")]
 
 
 def cmd_download(args) -> int:
-    local = [Path(p) for p in (args.local_source or [])] + [Path(p) for p in (args.ffsims_source or [])]
-    if FF_MIRROR.exists() and FF_MIRROR not in local:
-        local.append(FF_MIRROR)
+    local = [Path(p) for p in (args.local_source or [])]
     records, missing = [], 0
-    for product in selected(args):
-        record = fetch(product, local=local, copy=args.copy, dry_run=args.dry_run)
+    for product in selected(args.kinds, args.clusters, args.hst_scale):
+        record = fetch(product, local=local, dry_run=args.dry_run)
         if record is None and not args.dry_run:
             missing += 1
         elif record is not None:
@@ -247,47 +269,33 @@ def cmd_download(args) -> int:
     if not args.dry_run:
         present = [json.loads(p.read_text()) for p in sorted(ROOT.rglob("*.json")) if p.name != "manifest.json"]
         write_manifest(present)
+        links = [p for p in ROOT.rglob("*") if p.is_symlink()]
+        if links:
+            print(f"WARNING: {len(links)} symbolic links remain under {ROOT} (run download for their kinds to replace them)")
         print(f"{len(records)} ready, {missing} missing; manifest {ROOT / 'manifest.json'}")
     return 1 if missing else 0
 
 
 def cmd_zip(args) -> int:
     out = Path(args.out)
-    products = [p for p in manifest() if p["kind"] in args.kinds and (p["cluster"] in args.clusters or p["kind"] == "ffsims_site")]
     members: list[tuple[Path, str]] = []
-    links: dict[str, str] = {}
     missing = 0
-    for product in products:
+    for product in selected(args.kinds, args.clusters):
         path = ROOT / product["relpath"]
-        if product["kind"] == "ffsims" and "ffsims_site" in args.kinds:
-            # Stored once, in the mirror; unpack recreates <cluster>/ffsims/<name> as a link into it.
-            folder = "results" if Path(product["relpath"]).name in FF_TRUTH else "fits"
-            links[product["relpath"]] = f"ffsims_site/{folder}/{product['cluster']}/{Path(product['relpath']).name}"
-            continue
         if not path.exists():
-            print(f"missing   {product['relpath']} (not retrievable; left out)" if product["kind"] == "ffsims_site"
-                  else f"MISSING   {product['relpath']} (run download first)")
-            missing += 1
-            if product["kind"] != "ffsims_site":
-                return 1
-            continue
+            if product["use"] == "archive":
+                print(f"missing   {product['relpath']} (left out)")
+                missing += 1
+                continue
+            print(f"MISSING   {product['relpath']} (run download first)")
+            return 1
         members.append((path, f"imaging/{product['relpath']}"))
         sidecar = path.with_name(path.name + ".json")
         if sidecar.exists():
             members.append((sidecar, f"imaging/{product['relpath']}.json"))
-    if args.mirror_dir:
-        # The whole local copy of the FF-SIMS site, verbatim, in place of the manifest's ffsims_site entries.
-        mirror = Path(args.mirror_dir)
-        members = [m for m in members if not m[1].startswith("imaging/ffsims_site/")]
-        for path in sorted(mirror.rglob("*")):
-            if path.is_file() and ".comments" not in path.parts:
-                members.append((path, f"imaging/ffsims_site/{path.relative_to(mirror)}"))
     for name in ("README.md", "manifest.json"):
         if (ROOT / name).exists():
             members.append((ROOT / name, f"imaging/{name}"))
-    links_file = ROOT / "links.json"
-    links_file.write_text(json.dumps(links, indent=1) + "\n")
-    members.append((links_file, "imaging/links.json"))
     if args.with_catalogs:
         for path in sorted((REPO / "catalogs").rglob("*")):
             if path.is_file() and not path.name.endswith((".fits", ".fits.gz")):
@@ -301,8 +309,7 @@ def cmd_zip(args) -> int:
             method = zipfile.ZIP_STORED if path.name.endswith((".gz", ".jpg", ".jpeg")) else zipfile.ZIP_DEFLATED
             archive.write(path, arcname, compress_type=method)
             print(f"  {arcname}", flush=True)
-    print(f"written {out} ({out.stat().st_size / 1e9:.2f} GB); {len(links)} figure files are links into the mirror; "
-          f"{missing} site files were not retrievable")
+    print(f"written {out} ({out.stat().st_size / 1e9:.2f} GB); {missing} archive files were not available")
     return 0
 
 
@@ -317,14 +324,6 @@ def cmd_unpack(args) -> int:
             with archive.open(name) as src, target.open("wb") as dst:
                 shutil.copyfileobj(src, dst, 16 << 20)
             print(f"  {target.relative_to(REPO)}")
-    links_file = ROOT / "links.json"
-    if links_file.exists():
-        for relpath, mirror in json.loads(links_file.read_text()).items():
-            target = ROOT / relpath
-            if not target.exists() and (ROOT / mirror).exists():
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.symlink_to(os.path.relpath(ROOT / mirror, target.parent))
-                print(f"  {target.relative_to(REPO)} -> {mirror}")
     print(f"unpacked {len(names)} entries under {ROOT} (and catalogs/)")
     return 0
 
@@ -332,52 +331,51 @@ def cmd_unpack(args) -> int:
 def cmd_list(args) -> int:
     for product in manifest(args.hst_scale):
         path = ROOT / product["relpath"]
-        state = "link" if path.is_symlink() else "file" if path.exists() else "-"
-        print(f"{state:5s} {product['kind']:6s} {product['relpath']}")
+        state = "LINK" if path.is_symlink() else "file" if path.exists() else "-"
+        print(f"{state:5s} {product['kind']:11s} {product['use']:7s} {product['relpath']}")
     return 0
 
 
 README = """# data/imaging
 
-The mosaics and truth maps the figures read, one folder per cluster and source (scripts/download_imaging.py):
+The mosaics and truth maps the figures read, plain files, one folder per cluster and source (scripts/download_imaging.py):
 
-    hera/ffsims/      simulation_hst_f435w|f606w|f814w.fits, kappa_z9_0 / gammax_z9_0 / gammay_z9_0.fits (FF-SIMS, Meneghetti et al. 2017)
-    ares/ffsims/      the same
+    hera/ffsims/      every FF-SIMS file of the cluster (Meneghetti et al. 2017): simulation_hst_<band>.fits (seven HFF bands),
+                      simulation_subaru_R.fits, the catalogs and region files, and the lens results kappa_z9_0 / gammax_z9_0 /
+                      gammay_z9_0.fits, deflAnglesHera.fits, Hera_F.fits, Hera_G.fits.  run.xsh reads the three ACS bands
+                      and the three z = 9 maps.
+    ares/ffsims/      the same for Ares
+    hermes/ffsims/, hephaestus/ffsims/   images and catalogs only (the site published no lens results for them)
     m0416/canucs_dr1/ hlsp_canucs_jwst_nircam_macs0416-clu-{20,40}mas_<band>_v1_sci.fits.gz, F115W F150W F200W F444W (CANUCS DR1)
     m0416/buffalo/    <scale>mas/hlsp_buffalo_hst_*_macs0416_<band>_v1.0_drz.fits, the seven HFF bands (HST, BUFFALO v1.0)
     as1063/dja_v7.5/  abells1063-grizli-v7.5-<band>-clear_drc_sci.fits.gz, F115W F150W F200W F444W (DAWN JWST Archive)
     as1063/buffalo/   as for m0416
-    ffsims_site/      the FF-SIMS site as it was (pages, thumbnails, fits/<cluster>/ and results/<cluster>/ for Hera, Ares,
-                      Hermes and Hephaestus); the site went offline in 2026 and the Wayback Machine kept only its text files
+    ffsims_site/      the pages, stylesheet and thumbnails of the FF-SIMS site, which went offline in 2026
 
 Each file has a .json sidecar (origin URL or local path, sha256, shape, pixel scale) and manifest.json lists them.
 run.xsh points ImageCatalogCutoutConfig.image_dir at <cluster>/<source> and the truth maps at <cluster>/ffsims.
-Files may be symlinks into a synced copy (download --local-source); `zip` follows them.  In an archive the Hera and
-Ares figure files are stored once under ffsims_site/ and links.json says where; `unpack` recreates the links.
+Nothing here is a symbolic link: `download --local-source DIR` copies files it finds under DIR.  `zip` packs the JWST
+and FF-SIMS files with the catalogs/ tree; `unpack` restores the archive.  None of it is tracked by git.
 """
 
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command", required=True)
-    clusters = dict(nargs="+", choices=("hera", "ares", "m0416", "as1063"), default=["hera", "ares", "m0416", "as1063"])
-    d = sub.add_parser("download", help="fetch (or link) the files into data/imaging")
+    clusters = dict(nargs="+", choices=ALL_CLUSTERS, default=list(ALL_CLUSTERS))
+    kinds = dict(nargs="+", choices=("jwst", "ffsims", "ffsims_site", "hst"), default=["jwst", "ffsims", "ffsims_site"])
+    d = sub.add_parser("download", help="fetch or copy the files into data/imaging")
     d.add_argument("--clusters", **clusters)
-    d.add_argument("--kinds", nargs="+", choices=("jwst", "ffsims", "ffsims_site", "hst"), default=["jwst", "ffsims", "ffsims_site"],
-                   help="jwst, ffsims and the FF-SIMS site mirror by default; hst adds the BUFFALO mosaics (0.7 GB per band at 60 mas)")
+    d.add_argument("--kinds", **kinds, help="jwst, ffsims and the site pages by default; hst adds the BUFFALO mosaics (0.7 GB per band at 60 mas)")
     d.add_argument("--hst-scale", type=int, choices=(60, 30), default=60)
-    d.add_argument("--local-source", nargs="+", help="roots searched for already downloaded copies of the same file names")
-    d.add_argument("--ffsims-source", nargs="+", help="roots holding the FF-SIMS files (an unpacked zip, data/ff_sims/published)")
-    d.add_argument("--copy", action="store_true", help="copy local sources instead of symlinking them")
+    d.add_argument("--local-source", nargs="+", help="roots searched for copies of the same file names (a synced folder, an unpacked archive, a site mirror)")
     d.add_argument("--dry-run", action="store_true")
     d.set_defaults(run=cmd_download)
     z = sub.add_parser("zip", help="pack the JWST and FF-SIMS files (no HST) and the catalogs into one archive")
     z.add_argument("--out", default=str(REPO / "data" / "lenscluster_imaging_jwst_ffsims.zip"))
     z.add_argument("--clusters", **clusters)
-    z.add_argument("--kinds", nargs="+", choices=("jwst", "ffsims", "ffsims_site", "hst"), default=["jwst", "ffsims", "ffsims_site"])
+    z.add_argument("--kinds", **kinds)
     z.add_argument("--with-catalogs", action=argparse.BooleanOptionalAction, default=True)
-    z.add_argument("--mirror-dir", default=str(FF_MIRROR) if FF_MIRROR.exists() else None,
-                   help="pack this local copy of the FF-SIMS site verbatim as imaging/ffsims_site (default: the wget mirror when present)")
     z.set_defaults(run=cmd_zip)
     u = sub.add_parser("unpack", help="restore an archive made by zip into data/imaging and catalogs/")
     u.add_argument("archive")

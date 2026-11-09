@@ -14,7 +14,9 @@ Layout (every entry is a real file; the script never creates symbolic links):
                           catalogs and region files and, for Hera and Ares, the lens results (kappa / gammax / gammay at
                           z = 9, deflAngles*.fits, <Cluster>_F.fits, <Cluster>_G.fits).  run.xsh reads the three ACS
                           bands and the three z = 9 maps.
-    m0416/canucs_dr1/     CANUCS DR1 NIRCam mosaics (MAST HLSP): 20 mas F115W F150W F200W, 40 mas F444W
+    m0416/canucs_dr1/     CANUCS DR1 NIRCam mosaics (MAST HLSP): 20 mas F115W F150W F200W, 40 mas F444W, kept
+                          uncompressed (.fits): the archive's .fits.gz is unpacked once, since reading cutouts through a
+                          gzip stream is slow
     as1063/dja_v7.5/      DAWN JWST Archive Grizli v7.5 mosaics, the same bands
     <cluster>/buffalo/<scale>mas/   BUFFALO v1.0 HST mosaics of M0416 and AS1063 in the seven HFF bands (on request)
     ffsims_site/          the pages, stylesheet and thumbnails of the FF-SIMS site, for the record
@@ -93,9 +95,10 @@ def manifest(hst_scale: int = 60) -> list[dict]:
     out = []
     for band in JWST_BANDS:
         scale = 40 if band == "F444W" else 20
-        name = f"hlsp_canucs_jwst_nircam_macs0416-clu-{scale}mas_{band.lower()}_v1_sci.fits.gz"
+        name = f"hlsp_canucs_jwst_nircam_macs0416-clu-{scale}mas_{band.lower()}_v1_sci.fits"
         out.append(dict(cluster="m0416", source="canucs_dr1", kind="jwst", band=band, relpath=f"m0416/canucs_dr1/{name}",
-                        urls=[CANUCS + name], release="CANUCS DR1 (Rihtarsic et al. 2025); DOI 10.17909/18nv-np70", use="rgb"))
+                        urls=[CANUCS + name + ".gz"], archive_name=name + ".gz",
+                        release="CANUCS DR1 (Rihtarsic et al. 2025); DOI 10.17909/18nv-np70", use="rgb"))
         name = f"abells1063-grizli-v7.5-{band.lower()}-clear_drc_sci.fits.gz"
         out.append(dict(cluster="as1063", source="dja_v7.5", kind="jwst", band=band, relpath=f"as1063/dja_v7.5/{name}",
                         urls=[DJA + name], release="DAWN JWST Archive, Grizli v7.5 mosaics", use="rgb"))
@@ -167,13 +170,14 @@ def curl(url: str, partial: Path) -> bool:
 
 
 def find_local(product: dict, roots: list[Path]) -> Path | None:
-    """A regular file of the same name under any of the roots (synced copies and mirrors keep the archive names)."""
-    name = Path(product["relpath"]).name
+    """A regular file of the same name under any of the roots (synced copies and mirrors keep the archive names); for a
+    product kept uncompressed, its plain name first, then the archive's gzipped name."""
+    names = [Path(product["relpath"]).name] + ([product["archive_name"]] if product.get("archive_name") else [])
     cluster = product.get("cluster")
     for root in roots:
         if not root.exists():
             continue
-        found = [c for c in sorted(root.rglob(name)) if c.is_file() and not c.is_symlink()]
+        found = [c for name in names for c in sorted(root.rglob(name)) if c.is_file() and not c.is_symlink()]
         # FF-SIMS names repeat across clusters (kappa_z9_0.fits, clgal_cat.txt): the copy must sit under a folder named for it.
         if product["kind"] == "ffsims":
             found = [c for c in found if cluster in {part.lower() for part in c.relative_to(root).parts[:-1]}]
@@ -238,11 +242,29 @@ def fetch(product: dict, *, local: list[Path], dry_run: bool) -> dict | None:
             else:
                 print(f"MISSING   {product['relpath']}: no source answered (give --local-source)")
                 return None
-        partial.replace(destination)
+        if product.get("archive_name") and _is_gzip(partial):
+            gunzip(partial, destination)
+        else:
+            partial.replace(destination)
         meta = validate(destination, product)
     record = dict(product, **meta, **origin, path=str(destination), verified_utc=datetime.now(timezone.utc).isoformat())
     sidecar.write_text(json.dumps(record, indent=1) + "\n")
     return record
+
+
+def _is_gzip(path: Path) -> bool:
+    with path.open("rb") as stream:
+        return stream.read(2) == b"\x1f\x8b"
+
+
+def gunzip(source: Path, destination: Path) -> None:
+    """Unpack ``source`` (gzip CRC checked to the end) to ``destination`` through a temporary file, then remove ``source``."""
+    print(f"unpack    {destination.relative_to(ROOT)}", flush=True)
+    temporary = destination.with_name(destination.name + ".unpacking")
+    with gzip.open(source, "rb") as src, temporary.open("wb") as dst:
+        shutil.copyfileobj(src, dst, length=16 << 20)
+    temporary.replace(destination)
+    source.unlink()
 
 
 def write_manifest(records: list[dict]) -> None:
@@ -346,7 +368,8 @@ The mosaics and truth maps the figures read, plain files, one folder per cluster
                       and the three z = 9 maps.
     ares/ffsims/      the same for Ares
     hermes/ffsims/, hephaestus/ffsims/   images and catalogs only (the site published no lens results for them)
-    m0416/canucs_dr1/ hlsp_canucs_jwst_nircam_macs0416-clu-{20,40}mas_<band>_v1_sci.fits.gz, F115W F150W F200W F444W (CANUCS DR1)
+    m0416/canucs_dr1/ hlsp_canucs_jwst_nircam_macs0416-clu-{20,40}mas_<band>_v1_sci.fits, F115W F150W F200W F444W (CANUCS DR1,
+                      unpacked from the archive's .fits.gz)
     m0416/buffalo/    <scale>mas/hlsp_buffalo_hst_*_macs0416_<band>_v1.0_drz.fits, the seven HFF bands (HST, BUFFALO v1.0)
     as1063/dja_v7.5/  abells1063-grizli-v7.5-<band>-clear_drc_sci.fits.gz, F115W F150W F200W F444W (DAWN JWST Archive)
     as1063/buffalo/   as for m0416

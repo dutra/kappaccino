@@ -81,23 +81,21 @@ def compute_position_draws(config, state, evaluator, posterior, extra, *, log=pr
                 extra_family_ids=np.asarray(extra_families), extra_anchors=anchors)
 
 
-def position_contours(points, *, grid_size=128):
-    """68.3/95.4% KDE highest-density regions, conditional on local recovery."""
+def position_contours(points, *, grid_size=256):
+    """68.3/95.4% KDE highest-density regions, conditional on local recovery, on one ``grid_size`` square grid; no
+    contour when that grid does not hold the unit probability to 1%."""
     points = np.asarray(points); points = points[np.isfinite(points).all(1)]
     if len(points)<10 or np.linalg.matrix_rank(np.cov(points.T))<2:
         return [], 'Fewer than 10 finite draws or singular position distribution'
     kde = gaussian_kde(points.T)
     lo, hi = points.min(0)-3*points.std(0), points.max(0)+3*points.std(0)
-    for resolution in (grid_size, 2*grid_size, 4*grid_size):
-        x = np.linspace(lo[0],hi[0],resolution); y = np.linspace(lo[1],hi[1],resolution)
-        xx,yy=np.meshgrid(x,y)
-        density = kde(np.vstack([xx.ravel(),yy.ravel()])).reshape(xx.shape)
-        ranked=np.sort(density.ravel())[::-1]
-        mass=np.cumsum(ranked)*(x[1]-x[0])*(y[1]-y[0])
-        if abs(mass[-1]-1)<=.01:
-            break
-    else:
-        return [], 'Density grid did not resolve unit probability'
+    x = np.linspace(lo[0],hi[0],grid_size); y = np.linspace(lo[1],hi[1],grid_size)
+    xx,yy=np.meshgrid(x,y)
+    density = kde(np.vstack([xx.ravel(),yy.ravel()])).reshape(xx.shape)
+    ranked=np.sort(density.ravel())[::-1]
+    mass=np.cumsum(ranked)*(x[1]-x[0])*(y[1]-y[0])
+    if abs(mass[-1]-1)>.01:
+        return [], f'Density grid ({grid_size} pixels) did not resolve unit probability'
     generator=contourpy.contour_generator(x=x,y=y,z=density)
     contours=[]
     for probability in (.682689492,.954499736):
@@ -106,7 +104,7 @@ def position_contours(points, *, grid_size=128):
     return contours, None
 
 
-def prepare_contours(data, *, grid_size=128, log=print):
+def prepare_contours(data, *, grid_size=256, log=print):
     curves=[]; summaries=[]
     for kind in ('recovered','extra'):
         for i in range(data[kind].shape[1]):
@@ -116,19 +114,21 @@ def prepare_contours(data, *, grid_size=128, log=print):
             summaries.append(dict(kind=kind,identity=identity,valid_draws=int(valid.sum()),total_draws=len(points),skip_reason=reason))
             for level in levels:
                 curves.append(dict(kind=kind,identity=identity,**level))
-    log(f'[outputs] posterior contours: {len(curves)} probability levels')
+    unresolved=sum(1 for s in summaries if s['skip_reason'] and s['skip_reason'].startswith('Density grid'))
+    log(f'[outputs] posterior contours: {len(curves)} probability levels'
+        + (f'; {unresolved} positions not resolved on the {grid_size}-pixel grid' if unresolved else ''))
     return dict(curves=curves,summaries=summaries)
 
 
-def overview_draw_indices(count, best):
-    """At most 256 deterministic joint draws, including the best fit."""
-    indices=np.linspace(0,count-1,min(count,256)).astype(int)
+def overview_draw_indices(count, best, draws=256):
+    """At most ``draws`` deterministic joint draws, evenly spaced and including the best fit."""
+    indices=np.linspace(0,count-1,min(count,int(draws))).astype(int)
     if count and best not in indices:
         indices[np.argmin(abs(indices-best))]=best
     return np.sort(indices)
 
 
-def load_or_compute_contours(config, state, evaluator, posterior, extra, tables, *, grid_size=128, log=print):
+def load_or_compute_contours(config, state, evaluator, posterior, extra, tables, *, grid_size=256, log=print):
     tables=Path(tables); tables.mkdir(parents=True,exist_ok=True)
     fingerprint=hashlib.sha256(np.asarray(posterior.samples).tobytes())
     fingerprint.update(b"fast-local-known-extra-v1" + (b"-gp-mean-deflection" if getattr(evaluator, 'gp_knee', False) else b""))
@@ -137,7 +137,7 @@ def load_or_compute_contours(config, state, evaluator, posterior, extra, tables,
     fingerprint.update(json.dumps(state.members.classification,sort_keys=True,default=str).encode())
     key=fingerprint.hexdigest(); npz=tables/'posterior_overview_positions.h5'; meta=tables/'posterior_overview_positions.json'
     best=int(np.nanargmax(posterior.log_prob))
-    selected=overview_draw_indices(len(posterior.samples),best)
+    selected=overview_draw_indices(len(posterior.samples),best,config.image_catalog.contour_draws)
     data=None
     if npz.exists() and meta.exists() and json.loads(meta.read_text()).get('fingerprint')==key:
         saved = load_arrays(npz)

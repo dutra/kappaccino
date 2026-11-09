@@ -108,7 +108,7 @@ def render_rgb_critical(config, state, evaluator, theta, catalog, extra, imaging
     rgb=aligned_rgb(rgb,reference_image,geometry)
     plt.style.use(str(Path(__file__).with_name('style.mplstyle')))
     from ..diagnostics.position_contours import load_or_compute_contours
-    recovered_contours = load_or_compute_contours(config, state, evaluator, posterior, extra, tables, grid_size=1024, log=log)
+    recovered_contours = load_or_compute_contours(config, state, evaluator, posterior, extra, tables, log=log)
     main_output = output
     for show_candidates in ((False, True) if m0416 else (False,)):
         output = main_output.with_name(main_output.stem + '_candidates.pdf') if show_candidates else main_output

@@ -1506,6 +1506,9 @@ class ImageCatalogCutoutConfig:
     critical_band_draws : int, optional
         Posterior draws of the best chain, evenly spaced and including the best draw, behind the z = 9 critical curve
         and its 16-84% band on the RGB overview.  At least 1.  Default ``32``.
+    contour_draws : int, optional
+        Posterior draws, evenly spaced and including the best draw, whose solved image positions give the
+        recovered-position contours.  At least 10 (the density estimate needs them).  Default ``256``.
     mode : str, optional
         Not read by the current pipeline.  Default ``"full"``.
     dpi : int or None, optional
@@ -1526,6 +1529,7 @@ class ImageCatalogCutoutConfig:
     figure_suffix: str = ""
     rgb: RGBDisplayConfig = field(default_factory=RGBDisplayConfig)
     critical_band_draws: int = 32
+    contour_draws: int = 256
     mode: str = "full"
     dpi: int | None = None
     max_side_pixels: int | None = None
@@ -2043,6 +2047,9 @@ def validate_config(config: LensClusterSolverConfig) -> None:
     draws = config.image_catalog.critical_band_draws
     if isinstance(draws, bool) or not isinstance(draws, Integral) or draws < 1:
         raise ValueError("image_catalog.critical_band_draws must be a positive integer.")
+    draws = config.image_catalog.contour_draws
+    if isinstance(draws, bool) or not isinstance(draws, Integral) or draws < 10:
+        raise ValueError("image_catalog.contour_draws must be an integer of at least 10.")
     if not math.isfinite(diagnostics.fold_pair_max_separation_arcsec) or diagnostics.fold_pair_max_separation_arcsec <= 0:
         raise ValueError("image_diagnostics.fold_pair_max_separation_arcsec must be finite and positive.")
     if int(diagnostics.posterior_image_diagnostic_draws) < 0:

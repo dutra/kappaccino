@@ -172,8 +172,8 @@ def test_sampled_slope_normal_prior_is_truncated_to_the_table_bounds(synthetic_c
 def test_without_the_mass_field_the_knee_path_is_the_image_plane_gp(synthetic_config):
     state_ip = build_state(replace(synthetic_config, likelihood=replace(synthetic_config.likelihood, likelihood_mode="gp_image_plane")).validate())
     state_k = build_state(knee_config(synthetic_config, "family", sigma_grf_prior=None))
-    assert state_k.sigma_grf_param_index == -1 and "images.gp_knee" not in [p.name for p in state_k.parameter_specs]
-    values = dict(sigma_gp=0.15, sigma_meas=0.03, gp_ell=5.0)
+    assert state_k.sigma_grf_param_index == -1 and "images.lambda_b" not in [p.name for p in state_k.parameter_specs]
+    values = dict(sigma_gp=0.15, sigma_meas=0.03, ell_gp=5.0)
     a = float(Evaluator(state_ip, "gp_image_plane").loglike(jnp.asarray(set_sites(state_ip, state_ip.initial_theta, **values))))
     b = float(Evaluator(state_k, "gp_image_plane").loglike(jnp.asarray(set_sites(state_k, state_k.initial_theta, **values))))
     np.testing.assert_allclose(a, b, rtol=1e-12)
@@ -232,7 +232,7 @@ def test_gradients_match_finite_differences(tmp_path, blocks):
     theta[names.index("source.1.beta_x")] = 0.3
     value, grad = evaluator.value_and_grad(jnp.asarray(theta))
     assert np.isfinite(float(value)) and bool(jnp.all(jnp.isfinite(grad)))
-    for name, step in (("images.sigma_grf", 1e-5), ("images.gp_knee", 1e-5), ("images.sigma_gp", 1e-5), ("images.gp_ell", 1e-5),
+    for name, step in (("images.sigma_grf", 1e-5), ("images.lambda_b", 1e-5), ("images.sigma_gp", 1e-5), ("images.ell_gp", 1e-5),
                        ("images.sigma_meas", 1e-6), ("images.gp_knee_gamma", 1e-5), ("halo.v_disp", 1e-6), ("source.1.beta_x", 1e-5)):
         i = names.index(name)
         plus, minus = theta.copy(), theta.copy()

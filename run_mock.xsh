@@ -184,16 +184,16 @@ def _likelihood(likelihood: str, gp_blocks: str) -> LikelihoodConfig:
         gp_knee_project_modes=(("translation", "convergence", "shear") if likelihood == "grf_gp" and gp_blocks == "all" else ()),
         gp_knee_gamma_prior=(2.0, 6.0), gp_knee_gamma=4.0,     # sampled: the injected field varies the slope
         gp_knee_scales_arcsec=(0.2, 100.0),
-        gp_knee_prior=truncated_lognormal(6.0, 0.6, low=2.5, high=15.0),
-        gp_knee_start_arcsec=6.0,
+        lambda_b_prior=truncated_lognormal(6.0, 0.6, low=2.5, high=15.0),
+        lambda_b_start_arcsec=6.0,
         # Mock only (run.xsh keeps median 0.08", cap 0.5", and the library sigma_gp prior, median 0.10", cap 0.3"): the
         # geometric centres of the mock's injection ranges, each range inside about one prior width of the median.
         sigma_grf_prior=truncated_lognormal(0.06, 0.5, high=0.3),
         sigma_grf_start_arcsec=0.06,
         gp_knee_sigma_gp_prior=truncated_lognormal(0.035, 0.6, high=0.15),
         gp_knee_sigma_gp_start_arcsec=0.035,
-        gp_knee_ell_prior=truncated_lognormal(1.0, 0.4, low=0.4, high=3.0),
-        gp_knee_ell_start_arcsec=1.0,
+        gp_knee_ell_gp_prior=truncated_lognormal(1.0, 0.4, low=0.4, high=3.0),
+        gp_knee_ell_gp_start_arcsec=1.0,
     )
 
 

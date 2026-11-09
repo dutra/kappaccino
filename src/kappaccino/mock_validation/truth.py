@@ -209,10 +209,10 @@ def parameter_truth(truth: dict[str, Any], *, solver_pivot_magnitude: float | No
     # knee wavelength, slope; image-plane GP: sigma_gp, ell); zero when not injected (reported, not scored).
     field, image_plane = truth["field"], truth["image_plane_error"]
     values.update({"images.sigma_grf": float(field["sigma_grf_arcsec"]) if field else 0.0,
-                   "images.gp_knee": float(field["knee_arcsec"]) if field else np.nan,
+                   "images.lambda_b": float(field["knee_arcsec"]) if field else np.nan,
                    "images.gp_knee_gamma": float(field["gamma"]) if field else np.nan,
                    "images.sigma_gp": float(image_plane["sigma_arcsec"]) if image_plane else 0.0,
-                   "images.gp_ell": float(image_plane["ell_arcsec"]) if image_plane else np.nan})
+                   "images.ell_gp": float(image_plane["ell_arcsec"]) if image_plane else np.nan})
     for source in truth.get("sources", []):
         values[f"source.{source['family_id']}.beta_x"] = float(source["beta_x"])
         values[f"source.{source['family_id']}.beta_y"] = float(source["beta_y"])

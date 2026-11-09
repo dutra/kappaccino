@@ -119,11 +119,11 @@ def plot_covariance_errors(config, state, evaluator, posterior, paths, *, draws=
 def plot_covariance_corner(config, state, posterior, paths):
     """Covariance hyperparameters in the common prior-overlaid corner style."""
     from .corner import plot_parameter_corner
-    fields = ['sigma_meas', 'sigma_def', 'sigma_sel', 'lambda_sel', 'sigma_gp', 'gp_ell',
-              'sigma_grf', 'gp_knee', 'gp_knee_gamma']
+    fields = ['sigma_meas', 'sigma_def', 'sigma_sel', 'lambda_sel', 'sigma_gp', 'ell_gp',
+              'sigma_grf', 'lambda_b', 'gp_knee_gamma']
     symbols = [r'$\sigma_{\rm meas}$', r'$\sigma_{\rm def}$',
                r'$\sigma_{\rm sel}$', r'$\lambda_{\rm sel}$', r'$\sigma_{\rm GP}$', r'$\ell_{\rm GP}$',
-               r'$\sigma_{\rm GRF}$', r'$\ell_{\rm knee}$', r'$\gamma_{\rm GRF}$']
+               r'$\sigma_{\rm GRF}$', r'$\lambda_{\rm b}$', r'$\gamma_\kappa$']
     selection = [(i, spec, label) for field, label in zip(fields, symbols)
                  for i, spec in enumerate(state.parameter_specs) if spec.name == 'images.'+field]
     grouped = None

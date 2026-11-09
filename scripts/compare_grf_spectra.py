@@ -38,8 +38,8 @@ sys.path.insert(0, str(ROOT / "src"))
 
 VARIANTS = ("knee", "two_knee", "broken_power_law", "power_law", "knee_foreground", "fixed")
 NESTED = {"two_knee", "broken_power_law", "knee_foreground"}               # contain the knee
-GRF_SITES = ("images.sigma_grf", "images.gp_knee", "images.gp_knee_gamma", "images.sigma_grf2", "images.gp_knee2",
-             "images.gp_knee_beta_low", "images.sigma_gp", "images.gp_ell", "images.sigma_meas", "shear.gamma1", "shear.gamma2")
+GRF_SITES = ("images.sigma_grf", "images.lambda_b", "images.gp_knee_gamma", "images.sigma_grf2", "images.lambda_b2",
+             "images.gp_knee_beta_low", "images.sigma_gp", "images.ell_gp", "images.sigma_meas", "shear.gamma1", "shear.gamma2")
 NULL_START = {"images.sigma_grf2": math.log(1.0e-3), "images.gp_knee_beta_low": 0.0}      # the added parameters' null values
 ISOTHERMAL_KNEE_PER_RT = 6.38          # lambda_t / r_t of the gamma = 2 knee fitted to (1 - exp(-k r_t))^2 / k^2
 
@@ -53,20 +53,20 @@ def variant_likelihood(likelihood, variant: str, tight_gp: bool, *, fixed_knee: 
     def LN(median, log_sigma, upper, lower=ERROR_SCALE_FLOOR_ARCSEC):
         return truncated_lognormal(median, log_sigma, low=lower, high=upper)
     tight = dict(gp_knee_sigma_gp_prior=LN(median=0.03, log_sigma=0.7, upper=0.1), gp_knee_sigma_gp_start_arcsec=0.03,
-                 gp_knee_ell_prior=LN(median=1.0, log_sigma=0.5, upper=2.0), gp_knee_ell_start_arcsec=1.0)
+                 gp_knee_ell_gp_prior=LN(median=1.0, log_sigma=0.5, upper=2.0), gp_knee_ell_gp_start_arcsec=1.0)
     common = dict(gp_blocks="all", gp_knee_scales_arcsec=(0.2, 100.0), gp_knee_spectrum=variant, gp_knee_gamma=4.0,
-                  gp_knee_gamma_prior=None, gp_knee_prior=LN(median=20.0, log_sigma=1.0, upper=80.0), gp_knee_start_arcsec=20.0,
+                  gp_knee_gamma_prior=None, lambda_b_prior=LN(median=20.0, log_sigma=1.0, upper=80.0), lambda_b_start_arcsec=20.0,
                   **(tight if tight_gp else {}))
     extra = {
         "knee": {},
-        "two_knee": dict(gp_knee_prior=LN(median=30.0, log_sigma=0.7, upper=80.0, lower=10.0), gp_knee_start_arcsec=30.0,
-                         gp_knee2_prior=LN(median=3.0, log_sigma=0.5, upper=10.0), gp_knee2_start_arcsec=3.0,
+        "two_knee": dict(lambda_b_prior=LN(median=30.0, log_sigma=0.7, upper=80.0, lower=10.0), lambda_b_start_arcsec=30.0,
+                         lambda_b2_prior=LN(median=3.0, log_sigma=0.5, upper=10.0), lambda_b2_start_arcsec=3.0,
                          gp_knee2_sigma_grf_prior=LN(median=0.05, log_sigma=0.7, upper=0.3), gp_knee2_sigma_grf_start_arcsec=0.05),
         "broken_power_law": dict(gp_knee_beta_low_prior=dist.Uniform(-1.0, 3.5), gp_knee_beta_low_start=0.0),
         "power_law": dict(gp_knee_gamma_prior=dist.Uniform(0.5, 6.0), gp_knee_gamma=3.0),
-        "knee_foreground": dict(gp_knee2_prior=LN(median=20.0, log_sigma=1.0, upper=80.0), gp_knee2_start_arcsec=20.0,
+        "knee_foreground": dict(lambda_b2_prior=LN(median=20.0, log_sigma=1.0, upper=80.0), lambda_b2_start_arcsec=20.0,
                                 gp_knee2_sigma_grf_prior=LN(median=0.05, log_sigma=0.7, upper=0.3), gp_knee2_sigma_grf_start_arcsec=0.05),
-        "fixed": dict(gp_knee_spectrum="knee", gp_knee_gamma=2.0, gp_knee_fixed_arcsec=float(fixed_knee), gp_knee_ell_fixed_arcsec=float(fixed_ell),
+        "fixed": dict(gp_knee_spectrum="knee", gp_knee_gamma=2.0, lambda_b_fixed_arcsec=float(fixed_knee), gp_knee_ell_gp_fixed_arcsec=float(fixed_ell),
                       **tight),
     }[variant]
     return replace(likelihood, **{**common, **extra})

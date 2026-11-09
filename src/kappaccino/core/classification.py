@@ -91,8 +91,8 @@ FAR_FIELD_THRESHOLD_GRID = (2.0, 3.0, 4.0, 5.0, 10.0)
 
 def member_field_terms(state: ModelState, evaluator: Evaluator, physical: np.ndarray) -> dict[str, np.ndarray]:
     """Per member and image at this model: the exact (elliptical) deflection, the circular far-field series, their
-    difference whitened by the source-plane covariance C of the likelihood (at the catalog measurement error), the precision
-    and the separation."""
+    difference whitened by the per-image source-plane covariance C of the likelihood at this model, the precision and the
+    separation."""
     members = state.members
     physical_jax = jnp.asarray(physical, dtype=jnp.float64)
     packed, _ = evaluator.packed_state(physical_jax)

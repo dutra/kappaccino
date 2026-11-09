@@ -36,7 +36,7 @@ def main():
         sigma_meas=sm,sigma_gp=sh,
         sigma_grf_reference=alpha,redshift_weight_inferred_from_saved_diagonal=w,sigma_grf_at_image=sa,source_floor=floor,
         deflection_plus_floor=effective,lambda_t_abs=lt,lambda_r_abs=lr,angle_deg=angle,
-        gp_knee=values['images.gp_knee'],gp_ell=values['images.gp_ell'],max_saved_total_width_error=max(errors),
+        lambda_b=values['images.lambda_b'],ell_gp=values['images.ell_gp'],max_saved_total_width_error=max(errors),
         posterior_sha256=hashlib.sha256((final/'artifacts/posterior.h5').read_bytes()).hexdigest())
     (m.OUT/'latest_run_provenance.json').write_text(json.dumps(provenance,indent=2));print(json.dumps(provenance,indent=2))
     (m.OUT/'latest_run_caption.txt').write_text(

@@ -71,8 +71,8 @@ from kappaccino.inference.search import Objective  # noqa: E402
 from kappaccino.core.state import build_state, with_member_classes  # noqa: E402
 
 KEY_PARAMETERS = ("4.x_centre", "4.y_centre", "4.v_disp", "1.v_disp", "2.v_disp", "potfile_1.sigma", "potfile_1.cutkpc",
-                  "potfile_1.velocity_log_scatter", "potfile_1.radius_log_scatter", "images.sigma_grf", "images.gp_knee",
-                  "images.gp_ell", "shear.gamma1", "shear.gamma2")
+                  "potfile_1.velocity_log_scatter", "potfile_1.radius_log_scatter", "images.sigma_grf", "images.lambda_b",
+                  "images.ell_gp", "shear.gamma1", "shear.gamma2")
 
 
 # ----------------------------------------------------------------------------------------------- the target

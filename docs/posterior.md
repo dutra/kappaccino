@@ -147,12 +147,12 @@ Names `images.<field>`, family `error_scale`. Every scale is sampled as ln of it
 | `sigma_sel` | `smoothed` | arcsec (source plane) | ln(arcsec) | Feature-selection scatter, weighted by the image's stretching. |
 | `lambda_sel` | `smoothed` | dimensionless (Jacobian eigenvalue) | ln of the value | Stretching scale of that weight: the selection variance is halved where an absolute eigenvalue of the lensing Jacobian equals it. |
 | `sigma_gp` | `gp_image_plane` | arcsec (image plane) | ln(arcsec) | Amplitude of the correlated image-plane displacement (the image-plane GP). |
-| `gp_ell` | `gp_image_plane` | arcsec | ln(arcsec) | Correlation length of that GP (absent when fixed). |
+| `ell_gp` | `gp_image_plane` | arcsec | ln(arcsec) | Correlation length of that GP (absent when fixed). |
 | `sigma_grf` | knee kernel | arcsec (deflection) | ln(arcsec) | RMS deflection error per component of the unmodeled-mass field, for a source at `gp_reference_redshift`. |
-| `gp_knee` | knee kernel | arcsec | ln(arcsec) | Knee wavelength $\lambda_t = 2\pi/k_t$ of the convergence spectrum (absent when fixed or for a power law). |
+| `lambda_b` | knee kernel | arcsec | ln(arcsec) | Knee wavelength $\lambda_{\mathrm{b}} = 2\pi/k_t$ of the convergence spectrum (absent when fixed or for a power law). |
 | `gp_knee_gamma` | knee kernel | dimensionless | dimensionless | High-$k$ slope $\gamma$ of the convergence spectrum (when sampled). |
 | `sigma_grf2` | knee kernel, two-field spectra | arcsec (deflection) | ln(arcsec) | The second field's RMS deflection error. |
-| `gp_knee2` | knee kernel, two-field spectra | arcsec | ln(arcsec) | The second field's knee wavelength. |
+| `lambda_b2` | knee kernel, two-field spectra | arcsec | ln(arcsec) | The second field's knee wavelength. |
 | `gp_knee_beta_low` | `broken_power_law` | dimensionless | dimensionless | Low-$k$ slope of the convergence spectrum. |
 
 ## Sources

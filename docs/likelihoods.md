@@ -439,7 +439,7 @@ $\delta\alpha$
 : The deflection error of mass the parametric model lacks: a curl-free Gaussian random field on the lens potential
   with the convergence power spectrum $P_\kappa(k) = P_0 / [1 + (k/k_t)^\gamma]$ between fixed wavelength cutoffs. Its
   amplitude $\sigma_{\mathrm{GRF}}$ is the rms deflection error per component for a source at the reference redshift
-  (`gp_reference_redshift`, 2). The knee wavelength $\lambda_t = 2\pi/k_t$ sets the scale of the unmodeled mass.
+  (`gp_reference_redshift`, 2). The knee wavelength $\lambda_{\mathrm{b}} = 2\pi/k_t$ sets the scale of the unmodeled mass.
 
 $d$
 : A correlated image-plane displacement with an isotropic Gaussian kernel of length $\ell$ and amplitude
@@ -476,7 +476,7 @@ The init search runs on system blocks either way; the chain-start step and NUTS 
 
 #### Hyperparameters
 
-The sampled hyperparameters are $\sigma_{\mathrm{GRF}}$, the knee $\lambda_t$, the image-plane $\ell$,
+The sampled hyperparameters are $\sigma_{\mathrm{GRF}}$, the knee $\lambda_{\mathrm{b}}$, the image-plane $\ell$,
 $\sigma_{\mathrm{GP}}$ and $\sigma_{\mathrm{meas}}$; the slope $\gamma$ is fixed at 4 unless
 `gp_knee_gamma_prior` (a `dist.Uniform` or a two-sided `dist.TruncatedNormal`, whose bounds are also those of the
 tables) frees it. The production fits use these settings:
@@ -494,17 +494,17 @@ grf_likelihood = LikelihoodConfig(
     gp_knee_gamma=4.0,
     gp_knee_gamma_prior=None,                                   # dist.TruncatedNormal(4.0, 0.5, low=2.0, high=6.0) samples it
     gp_knee_scales_arcsec=(0.2, 100.0),
-    gp_knee_prior=truncated_lognormal(6.0, 0.6, low=2.5, high=8.0),
-    gp_knee_start_arcsec=6.0,
+    lambda_b_prior=truncated_lognormal(6.0, 0.6, low=2.5, high=8.0),
+    lambda_b_start_arcsec=6.0,
     sigma_grf_prior=truncated_lognormal(0.08, 0.5, low=1e-4, high=0.5),
     sigma_grf_start_arcsec=0.08,
-    gp_knee_ell_prior=truncated_lognormal(1.0, 0.4, low=0.4, high=3.0),
-    gp_knee_ell_start_arcsec=1.0,
+    gp_knee_ell_gp_prior=truncated_lognormal(1.0, 0.4, low=0.4, high=3.0),
+    gp_knee_ell_gp_start_arcsec=1.0,
 )
 config = replace(config, likelihood=grf_likelihood)
 ```
 
-`gp_knee_fixed_arcsec` holds the knee at one value instead of sampling it.
+`lambda_b_fixed_arcsec` holds the knee at one value instead of sampling it.
 
 The knee prior keeps the field at the galaxy scale: left free, the knee moved to 14–25" and absorbed the halo-scale
 misfit. A slope of 2 corresponds to truncated isothermal lumps, 4 to NFW-like cusps, and 6 to cored lumps.

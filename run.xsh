@@ -130,7 +130,7 @@ def _usage() -> str:
         "          system or family, about 5x cheaper per gradient, no projection; the default with --fast)\n"
         "  --gp-band-max ARCSEC: grf_gp only: the longest wavelength of the mass field (default 30); above 30 the knee prior\n"
         "          becomes log-normal with median min(20, ARCSEC / 2), log-width 1, up to min(ARCSEC, 80), started at its median\n"
-        "  --gp-knee-fixed ARCSEC: grf_gp only: hold the knee at this scale (no images.gp_knee site)\n"
+        "  --gp-knee-fixed ARCSEC: grf_gp only: hold the knee at this scale (no images.lambda_b site)\n"
         "  --kinematics SRC[,SRC]: member stellar dispersions of these catalog sources in the likelihood (M0416: G26; AS1063_JWST: B25)\n"
         "  --drop-halos ID[,ID]: leave these large-scale components out of the model (M0416: e.g. los736,dark_s,4)\n"
         "  --member-shapes SIGMA|none: sample e1, e2 of every exact member around its catalog light shape with this prior width\n"
@@ -713,8 +713,8 @@ def build_config(
                                     # the halo-scale misfit (compare_grf_spectra, 2026-11-02); with the cap at 15" every all-block
                                     # run sat on it (nov4b, nov5a, nov6: 14-15", 2026-11-07).  Capped at 8" (2026-11-07) so the
                                     # field stays at the galaxy scale and the large-scale misfit has to go elsewhere; ln-width 0.6 kept.
-                                    gp_knee_prior=truncated_lognormal(6.0, 0.6, low=2.5, high=8.0),
-                                    gp_knee_start_arcsec=6.0,
+                                    lambda_b_prior=truncated_lognormal(6.0, 0.6, low=2.5, high=8.0),
+                                    lambda_b_start_arcsec=6.0,
                                     # The rms deflection error of that substructure at z_ref: 0.08" median, 0.05-0.13" at 1 sigma,
                                     # truncated at 0.2" (galaxy-scale fits on 2026-11-02: 0.07-0.11"; at 0.2-0.3" it was carrying
                                     # the halo-scale misfit).
@@ -722,8 +722,8 @@ def build_config(
                                     sigma_grf_start_arcsec=0.08,
                                     # The image-plane GP's correlation length near the measurement scale (1", between 0.4"
                                     # and 3"): fitted free it went to 4.4" and did the mass field's work.
-                                    gp_knee_ell_prior=truncated_lognormal(1.0, 0.4, low=0.4, high=3.0),
-                                    gp_knee_ell_start_arcsec=1.0,
+                                    gp_knee_ell_gp_prior=truncated_lognormal(1.0, 0.4, low=0.4, high=3.0),
+                                    gp_knee_ell_gp_start_arcsec=1.0,
                                     gp_floor_arcsec=float(cluster_config.get("gp_floor_arcsec", LikelihoodConfig.gp_floor_arcsec))),
         paths=RunPathsConfig(output_dir=f"results/{campaign_name}/{cluster_config['cluster_key']}",
                              run_name=run_label if run_label is not None else "smoothed-local-image-plane",
@@ -774,12 +774,12 @@ def build_config(
         # (compare_grf_spectra.py: the knee settles at 14-17" with a 100" band).
         median = min(20.0, 0.5 * float(gp_band_max))
         config = replace(config, likelihood=replace(config.likelihood, gp_knee_scales_arcsec=(0.2, float(gp_band_max)),
-                                                    gp_knee_prior=truncated_lognormal(median, 1.0, low=1.0e-4, high=min(float(gp_band_max), 80.0)),
-                                                    gp_knee_start_arcsec=median))
+                                                    lambda_b_prior=truncated_lognormal(median, 1.0, low=1.0e-4, high=min(float(gp_band_max), 80.0)),
+                                                    lambda_b_start_arcsec=median))
     elif gp_band_max is not None:
         config = replace(config, likelihood=replace(config.likelihood, gp_knee_scales_arcsec=(0.2, float(gp_band_max))))
     if gp_knee_fixed is not None:
-        config = replace(config, likelihood=replace(config.likelihood, gp_knee_fixed_arcsec=float(gp_knee_fixed)))
+        config = replace(config, likelihood=replace(config.likelihood, lambda_b_fixed_arcsec=float(gp_knee_fixed)))
     if kinematics:
         pops = list(config.model.member_populations)
         pops[0] = replace(pops[0], kinematics_sources=tuple(s.strip() for s in kinematics.split(",") if s.strip()))

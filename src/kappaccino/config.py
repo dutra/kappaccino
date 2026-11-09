@@ -1146,7 +1146,7 @@ class LikelihoodConfig:
         least 2 intervals.  Default ``0.25``.
     gp_knee_scales_arcsec : tuple of float, optional
         Knee kernel: (shortest, longest) wavelength of the mass field, in arcsec: from the smallest image separation
-        resolved to the scale of the cluster halos.  ``0 < min < max``; the upper bound of ``gp_knee_prior`` must not
+        resolved to the scale of the cluster halos.  ``0 < min < max``; the upper bound of ``lambda_b_prior`` must not
         exceed the longest.  Default ``(0.2, 30.0)``.
     gp_knee_project_modes : tuple of str, optional
         Knee kernel: low-order modes removed from the mass field over the images, any of ``"translation"``,
@@ -1156,7 +1156,7 @@ class LikelihoodConfig:
         ``()``.
     gp_knee_lambda_grid : tuple of (float, float, int), optional
         Knee kernel: tabulated knee wavelengths (min, max in arcsec, count), log-spaced; the sampled
-        :math:`\\ln\\lambda_t` is clamped to the grid.  ``0 < min < max`` and count at least 8.  Default
+        :math:`\\ln\\lambda_b` is clamped to the grid.  ``0 < min < max`` and count at least 8.  Default
         ``(0.5, 80.0, 64)``.
     gp_knee_r_step_arcsec : float, optional
         Knee kernel: separation step of the kernel tables, in arcsec.  Positive.  Default ``0.02``.
@@ -1167,28 +1167,28 @@ class LikelihoodConfig:
         Default: median 0.08 arcsec, ln-width 0.7, truncated at 0.3 arcsec.
     sigma_grf_start_arcsec : float, optional
         Start of the rms deflection error, in arcsec.  Positive.  Default ``0.08``.
-    gp_knee_prior : numpyro distribution, optional
-        Knee kernel: prior of the knee wavelength :math:`\\lambda_t = 2\\pi/k_t`, in arcsec.  Its upper bound must not
+    lambda_b_prior : numpyro distribution, optional
+        Knee kernel: prior of the break scale :math:`\\lambda_b = 2\\pi/k_t`, in arcsec.  Its upper bound must not
         exceed ``gp_knee_scales_arcsec[1]`` (a knee above it is the scale of the cluster halos and the external shear)
         nor the largest tabulated wavelength.  Default: median 6 arcsec, ln-width 0.5, truncated at 30 arcsec.
-    gp_knee_start_arcsec : float, optional
-        Start of the knee wavelength, in arcsec, strictly inside the bounds of ``gp_knee_prior``.  Default ``6.0``.
+    lambda_b_start_arcsec : float, optional
+        Start of the knee wavelength, in arcsec, strictly inside the bounds of ``lambda_b_prior``.  Default ``6.0``.
     gp_knee_sigma_gp_prior : numpyro distribution, optional
         Knee kernel: prior of the image-plane GP amplitude :math:`\\sigma_{shared}`, in arcsec; an image-plane
         displacement above 0.3 arcsec is lensing, not astrometry or feature selection.  Default: median 0.10 arcsec,
         ln-width 0.7, truncated at 0.3 arcsec.
     gp_knee_sigma_gp_start_arcsec : float, optional
         Start of that amplitude, in arcsec.  Positive.  Default ``0.10``.
-    gp_knee_ell_prior : numpyro distribution, optional
+    gp_knee_ell_gp_prior : numpyro distribution, optional
         Knee kernel: prior of the image-plane GP correlation length, in arcsec; coherence over more than 5 arcsec is
         lensing.  Default: median 2 arcsec, ln-width 0.5, truncated at 5 arcsec.
-    gp_knee_ell_start_arcsec : float, optional
+    gp_knee_ell_gp_start_arcsec : float, optional
         Start of that correlation length, in arcsec.  Positive.  Default ``2.0``.
     gp_knee_spectrum : str, optional
         Knee kernel: shape of the mass-field spectrum (``scripts/compare_grf_spectra.py`` compares them):
         ``"knee"`` (:math:`P = 1/(1 + (k/k_t)^{\\gamma})`, the one-halo term of one population of truncated halos);
         ``"two_knee"`` (a second, independent knee field with the same slope, for a second population; the upper bound
-        of ``gp_knee2_prior`` must not exceed the lower bound of ``gp_knee_prior``, so the two cannot swap);
+        of ``lambda_b2_prior`` must not exceed the lower bound of ``lambda_b_prior``, so the two cannot swap);
         ``"broken_power_law"`` (:math:`P = x^{-\\beta_{low}} (1 + x^{\\gamma})^{-(\\gamma - \\beta_{low})/\\gamma}`,
         :math:`x = k/k_b`, with :math:`\\beta_{low}` sampled on ``gp_knee_beta_low_prior`` and :math:`\\gamma` fixed;
         :math:`\\beta_{low} = 0` is the knee); ``"power_law"`` (:math:`P = k^{-\\gamma}` between the cutoffs, no knee,
@@ -1203,11 +1203,11 @@ class LikelihoodConfig:
         arcsec, ln-width 0.7, truncated at 0.3 arcsec.
     gp_knee2_sigma_grf_start_arcsec : float, optional
         Start of that rms deflection error, in arcsec.  Positive.  Default ``0.05``.
-    gp_knee2_prior : numpyro distribution, optional
+    lambda_b2_prior : numpyro distribution, optional
         Second-field spectra: prior of the second knee wavelength, in arcsec; bounded above by at most the largest
         tabulated wavelength.  Default: median 3 arcsec, ln-width 0.5, truncated at 10 arcsec.
-    gp_knee2_start_arcsec : float, optional
-        Start of the second knee wavelength, in arcsec, strictly inside the bounds of ``gp_knee2_prior``.  Default
+    lambda_b2_start_arcsec : float, optional
+        Start of the second knee wavelength, in arcsec, strictly inside the bounds of ``lambda_b2_prior``.  Default
         ``3.0``.
     gp_knee2_plane_redshift : float, optional
         ``"knee_background"``: redshift of the background mass plane; must exceed the cluster redshift.  Default
@@ -1220,10 +1220,10 @@ class LikelihoodConfig:
         Default ``0.25``.
     gp_knee_beta_low_start : float, optional
         Start of :math:`\\beta_{low}`, inside its prior's bounds.  Default ``0.0``.
-    gp_knee_fixed_arcsec : float or None, optional
+    lambda_b_fixed_arcsec : float or None, optional
         Fixed knee wavelength of the mass field, in arcsec (no sampled knee); must lie inside the knee tables and
         ``gp_knee_scales_arcsec``; not with ``"power_law"``.  None samples it.  Default None.
-    gp_knee_ell_fixed_arcsec : float or None, optional
+    gp_knee_ell_gp_fixed_arcsec : float or None, optional
         Fixed correlation length of the knee kernel's image-plane GP, in arcsec (no sampled length).  Positive.  None
         samples it.  Default None.
     gp_knee_sigma_meas_prior : numpyro distribution, optional
@@ -1275,8 +1275,8 @@ class LikelihoodConfig:
     gp_kernel: str = "image_plane"
     gp_reference_redshift: float = 2.0
     # Knee kernel: gp_knee.py, .agents/gp-knee-plan.md.  gp_blocks "system" is run.xsh --fast; "family" is for
-    # regression.  Sites: images.sigma_grf, images.gp_knee (lambda_t), images.gp_knee_gamma, images.sigma_gp,
-    # images.gp_ell, images.sigma_meas.
+    # regression.  Sites: images.sigma_grf, images.lambda_b (lambda_t), images.gp_knee_gamma, images.sigma_gp,
+    # images.ell_gp, images.sigma_meas.
     gp_blocks: str = "all"
     gp_knee_gamma: float = 4.0
     # run.xsh uses dist.TruncatedNormal(4, 0.5, low=2, high=6): the slope of an NFW-like cusp, within a quarter of n.
@@ -1291,23 +1291,23 @@ class LikelihoodConfig:
     gp_knee_r_step_arcsec: float = 0.02
     sigma_grf_prior: Any | None = field(default_factory=lambda: _error_scale_prior(0.08, 0.7, 0.3))
     sigma_grf_start_arcsec: float = 0.08
-    gp_knee_prior: Any = field(default_factory=lambda: _error_scale_prior(6.0, 0.5, 30.0))
-    gp_knee_start_arcsec: float = 6.0
+    lambda_b_prior: Any = field(default_factory=lambda: _error_scale_prior(6.0, 0.5, 30.0))
+    lambda_b_start_arcsec: float = 6.0
     gp_knee_sigma_gp_prior: Any = field(default_factory=lambda: _error_scale_prior(0.10, 0.7, 0.3))
     gp_knee_sigma_gp_start_arcsec: float = 0.10
-    gp_knee_ell_prior: Any = field(default_factory=lambda: _error_scale_prior(2.0, 0.5, 5.0))
-    gp_knee_ell_start_arcsec: float = 2.0
+    gp_knee_ell_gp_prior: Any = field(default_factory=lambda: _error_scale_prior(2.0, 0.5, 5.0))
+    gp_knee_ell_gp_start_arcsec: float = 2.0
     gp_knee_spectrum: str = "knee"
     gp_knee2_sigma_grf_prior: Any = field(default_factory=lambda: _error_scale_prior(0.05, 0.7, 0.3))
     gp_knee2_sigma_grf_start_arcsec: float = 0.05
-    gp_knee2_prior: Any = field(default_factory=lambda: _error_scale_prior(3.0, 0.5, 10.0))
-    gp_knee2_start_arcsec: float = 3.0
+    lambda_b2_prior: Any = field(default_factory=lambda: _error_scale_prior(3.0, 0.5, 10.0))
+    lambda_b2_start_arcsec: float = 3.0
     gp_knee2_plane_redshift: float = 0.7
     gp_knee_beta_low_prior: Any = field(default_factory=lambda: dist.Uniform(-1.0, 3.5))
     gp_knee_beta_low_step: float = 0.25
     gp_knee_beta_low_start: float = 0.0
-    gp_knee_fixed_arcsec: float | None = None
-    gp_knee_ell_fixed_arcsec: float | None = None
+    lambda_b_fixed_arcsec: float | None = None
+    gp_knee_ell_gp_fixed_arcsec: float | None = None
     # gp_knee_sigma_meas log-normal: the fits put it at 0.006-0.02" (2026-11-05).
     gp_knee_sigma_meas_prior: Any = field(default_factory=lambda: _error_scale_prior(0.015, 0.5, 0.1))
     gp_knee_sigma_meas_start_arcsec: float = 0.012
@@ -1942,48 +1942,48 @@ def validate_config(config: LensClusterSolverConfig) -> None:
             if config.likelihood.gp_knee_gamma_prior is not None:
                 raise ValueError("likelihood.gp_knee_spectrum 'broken_power_law' fixes the high-k slope: set gp_knee_gamma_prior to None.")
         if spectrum in {"two_knee", "knee_foreground", "knee_background"}:
-            upper2 = physical_bounds(config.likelihood.gp_knee2_prior)[1]
+            upper2 = physical_bounds(config.likelihood.lambda_b2_prior)[1]
             if float(upper2) > float(config.likelihood.gp_knee_lambda_grid[1]) * (1.0 + 1.0e-12):
-                raise ValueError("likelihood.gp_knee2_prior must be bounded above by at most the largest tabulated knee wavelength.")
-            if spectrum == "two_knee" and float(upper2) > physical_bounds(config.likelihood.gp_knee_prior)[0] * (1.0 + 1.0e-12):
-                raise ValueError("likelihood.gp_knee_spectrum 'two_knee': the upper bound of gp_knee2_prior must not exceed the lower "
-                                 "bound of gp_knee_prior, so the small and the large knee cannot swap.")
+                raise ValueError("likelihood.lambda_b2_prior must be bounded above by at most the largest tabulated knee wavelength.")
+            if spectrum == "two_knee" and float(upper2) > physical_bounds(config.likelihood.lambda_b_prior)[0] * (1.0 + 1.0e-12):
+                raise ValueError("likelihood.gp_knee_spectrum 'two_knee': the upper bound of lambda_b2_prior must not exceed the lower "
+                                 "bound of lambda_b_prior, so the small and the large knee cannot swap.")
             if spectrum in {"knee_foreground", "knee_background"} and config.likelihood.gp_knee_project_modes:
                 raise ValueError(f"likelihood.gp_knee_project_modes assume one redshift weighting; not with {spectrum!r}.")
             if spectrum == "knee_background" and not float(config.likelihood.gp_knee2_plane_redshift) > float(config.model.large_halos[0].z_lens):
                 raise ValueError("likelihood.gp_knee2_plane_redshift must lie behind the cluster.")
-            for name in ("gp_knee2_sigma_grf_start_arcsec", "gp_knee2_start_arcsec"):
+            for name in ("gp_knee2_sigma_grf_start_arcsec", "lambda_b2_start_arcsec"):
                 _positive(f"likelihood.{name}", getattr(config.likelihood, name))
-    for start, prior, label in ((config.likelihood.gp_knee_start_arcsec, config.likelihood.gp_knee_prior, "gp_knee"),
-                                (config.likelihood.gp_knee2_start_arcsec, config.likelihood.gp_knee2_prior, "gp_knee2")):
+    for start, prior, label in ((config.likelihood.lambda_b_start_arcsec, config.likelihood.lambda_b_prior, "lambda_b"),
+                                (config.likelihood.lambda_b2_start_arcsec, config.likelihood.lambda_b2_prior, "lambda_b2")):
         low, high = physical_bounds(prior)
         if not low < float(start) < high:
             raise ValueError(f"likelihood.{label}_start_arcsec ({float(start):g}\") must lie inside the bounds of {label}_prior.")
-    if config.likelihood.gp_knee_fixed_arcsec is not None:
-        fixed = float(config.likelihood.gp_knee_fixed_arcsec)
+    if config.likelihood.lambda_b_fixed_arcsec is not None:
+        fixed = float(config.likelihood.lambda_b_fixed_arcsec)
         if spectrum == "power_law" or not (float(lam_lo) <= fixed <= min(float(lam_hi), float(hi))):
-            raise ValueError("likelihood.gp_knee_fixed_arcsec must lie inside the knee tables and the band, and a power law has no knee.")
-    if config.likelihood.gp_knee_ell_fixed_arcsec is not None:
-        _positive("likelihood.gp_knee_ell_fixed_arcsec", config.likelihood.gp_knee_ell_fixed_arcsec)
-    knee_upper = physical_bounds(config.likelihood.gp_knee_prior)[1]
+            raise ValueError("likelihood.lambda_b_fixed_arcsec must lie inside the knee tables and the band, and a power law has no knee.")
+    if config.likelihood.gp_knee_ell_gp_fixed_arcsec is not None:
+        _positive("likelihood.gp_knee_ell_gp_fixed_arcsec", config.likelihood.gp_knee_ell_gp_fixed_arcsec)
+    knee_upper = physical_bounds(config.likelihood.lambda_b_prior)[1]
     # Bounds come back from the log coordinate (exp(ln 30) = 30.000000000000004): compare with a relative tolerance.
     exceeds = lambda value, limit: float(value) > float(limit) * (1.0 + 1.0e-12)
     if config.likelihood.gp_kernel == "knee" and math.isfinite(knee_upper) and exceeds(knee_upper, hi):
-        raise ValueError(f"the upper bound of likelihood.gp_knee_prior ({float(knee_upper):g}\") must not exceed the longest GRF "
+        raise ValueError(f"the upper bound of likelihood.lambda_b_prior ({float(knee_upper):g}\") must not exceed the longest GRF "
                          f"wavelength gp_knee_scales_arcsec[1] ({float(hi):g}\"): beyond it the spectrum is flat and the knee has no meaning.")
     if config.likelihood.gp_kernel == "knee" and exceeds(knee_upper, lam_hi):
-        raise ValueError("likelihood.gp_knee_prior must be bounded above by at most the largest tabulated knee wavelength "
+        raise ValueError("likelihood.lambda_b_prior must be bounded above by at most the largest tabulated knee wavelength "
                          f"({float(lam_hi):g}\"): beyond the tables the knee is clamped and only the prior moves it.")
-    for name in ("gp_knee_r_step_arcsec", "sigma_grf_start_arcsec", "gp_knee_start_arcsec", "gp_knee_sigma_gp_start_arcsec",
-                 "gp_knee_ell_start_arcsec", "gp_knee_sigma_meas_start_arcsec"):
+    for name in ("gp_knee_r_step_arcsec", "sigma_grf_start_arcsec", "lambda_b_start_arcsec", "gp_knee_sigma_gp_start_arcsec",
+                 "gp_knee_ell_gp_start_arcsec", "gp_knee_sigma_meas_start_arcsec"):
         _positive(f"likelihood.{name}", getattr(config.likelihood, name))
     _positive("likelihood.gp_reference_redshift", config.likelihood.gp_reference_redshift)
-    for name in ("sigma_def_prior", "sigma_grf_prior", "gp_knee_prior", "gp_knee2_sigma_grf_prior", "gp_knee2_prior",
-                 "gp_knee_sigma_gp_prior", "gp_knee_ell_prior", "gp_knee_sigma_meas_prior", "gp_sigma_meas_prior", "sigma_meas_prior",
+    for name in ("sigma_def_prior", "sigma_grf_prior", "lambda_b_prior", "gp_knee2_sigma_grf_prior", "lambda_b2_prior",
+                 "gp_knee_sigma_gp_prior", "gp_knee_ell_gp_prior", "gp_knee_sigma_meas_prior", "gp_sigma_meas_prior", "sigma_meas_prior",
                  "sigma_sel_prior", "lambda_sel_prior", "sigma_gp_prior", "gp_correlation_length_prior"):
         _positive_prior(f"likelihood.{name}", getattr(config.likelihood, name))
     for name in ("gp_sigma_meas_prior", "gp_knee_sigma_meas_prior", "sigma_gp_prior", "gp_knee_sigma_gp_prior", "sigma_def_prior",
-                 "lambda_sel_prior", "gp_knee_prior", "gp_knee_ell_prior"):
+                 "lambda_sel_prior", "lambda_b_prior", "gp_knee_ell_gp_prior"):
         if getattr(config.likelihood, name) is None:
             raise ValueError(f"likelihood.{name} is always sampled and needs a prior (e.g. dist.TruncatedNormal(0.0, 0.05, low=0.0) for a "
                              "half-normal).")

@@ -349,19 +349,19 @@ def test_sampled_ell_matches_the_fixed_kernel_and_has_a_gradient(synthetic_confi
     from kappaccino import priors
     sampled_state = build_state(gp_config(synthetic_config))
     fixed_state = build_state(gp_config(synthetic_config, gp_correlation_length_prior=None, gp_correlation_length_arcsec=3.0))
-    assert fixed_state.gp_ell_param_index == -1 and not any(s.name == "images.gp_ell" for s in fixed_state.parameter_specs)
-    spec = sampled_state.parameter_specs[sampled_state.gp_ell_param_index]
-    assert spec.name == "images.gp_ell" and spec.log and np.isclose(priors.physical_bounds(spec.prior)[1], 30.0)
-    assert np.isclose(np.exp(sampled_state.initial_theta[sampled_state.gp_ell_param_index]), 7.0)
+    assert fixed_state.ell_gp_param_index == -1 and not any(s.name == "images.ell_gp" for s in fixed_state.parameter_specs)
+    spec = sampled_state.parameter_specs[sampled_state.ell_gp_param_index]
+    assert spec.name == "images.ell_gp" and spec.log and np.isclose(priors.physical_bounds(spec.prior)[1], 30.0)
+    assert np.isclose(np.exp(sampled_state.initial_theta[sampled_state.ell_gp_param_index]), 7.0)
     sampled, fixed = Evaluator(sampled_state, "gp_image_plane"), Evaluator(fixed_state, "gp_image_plane")
-    theta = set_scale(sampled_state, sampled_state.initial_theta, "images.gp_ell", 3.0)
+    theta = set_scale(sampled_state, sampled_state.initial_theta, "images.ell_gp", 3.0)
     names = [s.name for s in sampled_state.parameter_specs]
     fixed_theta = jnp.asarray([float(theta[names.index(s.name)]) for s in fixed_state.parameter_specs])
     assert np.isclose(float(sampled.log_likelihood(theta)), float(fixed.log_likelihood(fixed_theta)), rtol=0, atol=1e-9)
     # The kernel changes the likelihood, and the gradient with respect to ln ell matches central differences.
-    other = set_scale(sampled_state, theta, "images.gp_ell", 12.0)
+    other = set_scale(sampled_state, theta, "images.ell_gp", 12.0)
     assert abs(float(sampled.log_likelihood(other)) - float(sampled.log_likelihood(theta))) > 1e-3
-    index = sampled_state.gp_ell_param_index
+    index = sampled_state.ell_gp_param_index
     gradient = float(jax.grad(sampled.log_likelihood)(theta)[index])
     h = 1e-5
     plus, minus = theta.at[index].add(h), theta.at[index].add(-h)

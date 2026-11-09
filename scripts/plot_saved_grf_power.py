@@ -15,7 +15,7 @@ def main():
  cfg=json.loads((r/'final/artifacts/config.json').read_text())['likelihood']
  specs=json.loads((r/'init/artifacts/state.json').read_text())['parameter_specs'];names=[s['name'] for s in specs]
  d=load_arrays(r/'final/artifacts/posterior.h5');phys=d['physical'];best=int(np.nanargmax(d['log_prob']))
- knee=phys[:,names.index('images.gp_knee')];sigma=phys[:,names.index('images.sigma_grf')]
+ knee=phys[:,names.index('images.lambda_b')];sigma=phys[:,names.index('images.sigma_grf')]
  assert cfg['gp_knee_spectrum']=='knee' and cfg['gp_knee_gamma_prior'] is None
  gamma=cfg['gp_knee_gamma'];small,large=cfg['gp_knee_scales_arcsec'];k=np.geomspace(2*np.pi/large,2*np.pi/small,2401)
  shape=1/(1+(k[None,:]*knee[:,None]/(2*np.pi))**gamma)
@@ -41,7 +41,7 @@ def main():
  out=ROOT/'plots/paper/grf_power_spectrum';out.mkdir(parents=True,exist_ok=True);fig.savefig(out/'grf_power_near_10arcsec.pdf');plt.close(fig)
  diag=json.loads((r/'final/artifacts/posterior_diagnostics.json').read_text())
  report=dict(run=str(r),draw=best,break_quantiles=q.tolist(),break_best=float(knee[best]),sigma_grf_best=float(sigma[best]),gamma_fixed=gamma,
- wavelength_band=[small,large],reference_redshift=cfg['gp_reference_redshift'],divergences=int(d['diverging'].sum()),knee_rhat=diag['r_hat'][names.index('images.gp_knee')],max_rhat=diag['max_r_hat'],
+ wavelength_band=[small,large],reference_redshift=cfg['gp_reference_redshift'],divergences=int(d['diverging'].sum()),knee_rhat=diag['r_hat'][names.index('images.lambda_b')],max_rhat=diag['max_r_hat'],
  normalization='sigma_grf^2 = integral P_kappa dlnk / pi; Fourier covariance = integral d^2k/(2pi)^2 P exp(ik.r)',
  interpretation='Parametric convergence fluctuation spectrum inferred from saved draws; not a direct binned measurement. Outside band power is zero. Bands preliminary due to incomplete convergence. System-block covariance does not correlate different systems.',
  normalization_refinement_max_relative_error=float(np.max(abs(fi/integrals-1))))

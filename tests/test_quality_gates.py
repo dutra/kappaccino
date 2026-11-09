@@ -39,7 +39,7 @@ def test_stage_a_holds_the_error_scales_and_the_search_uses_system_blocks(synthe
     specs = stage_a["state"].parameter_specs
     error = [i for i, s in enumerate(specs) if s.component_family == "error_scale"]
     error_sites = {specs[i].sample_site_name or specs[i].sample_name for i in error}
-    assert {"images_sigma_grf", "images_gp_knee", "images_gp_knee_gamma", "images_sigma_gp"} <= error_sites
+    assert {"images_sigma_grf", "images_lambda_b", "images_gp_knee_gamma", "images_sigma_gp"} <= error_sites
     assert not error_sites & stage_a["active"] and stage_a["polish"] == stage_a["active"]
     # every stage A mode, polished or not, keeps the error scales at the configured starts
     for mode in stage_a["result"]["modes"]:
@@ -50,13 +50,13 @@ def test_stage_a_holds_the_error_scales_and_the_search_uses_system_blocks(synthe
 
 def test_grf_gp_hyperparameter_priors_have_physical_upper_bounds():
     likelihood = LikelihoodConfig()
-    bounds = {"sigma_grf_prior": 0.3, "gp_knee_prior": 30.0, "gp_knee_sigma_gp_prior": 0.3, "gp_knee_ell_prior": 5.0}
+    bounds = {"sigma_grf_prior": 0.3, "lambda_b_prior": 30.0, "gp_knee_sigma_gp_prior": 0.3, "gp_knee_ell_gp_prior": 5.0}
     for name, upper in bounds.items():
         assert np.isclose(priors.physical_bounds(getattr(likelihood, name))[1], upper), name
-    assert priors.physical_bounds(likelihood.gp_knee_prior)[1] <= likelihood.gp_knee_lambda_grid[1]
+    assert priors.physical_bounds(likelihood.lambda_b_prior)[1] <= likelihood.gp_knee_lambda_grid[1]
 
 
 def test_knee_prior_upper_must_lie_inside_the_tables(synthetic_config):
     for prior in (dist.LogNormal(np.log(6.0), 0.5), priors.truncated_lognormal(6.0, 0.5, high=100.0)):
-        with pytest.raises(ValueError, match="gp_knee_prior"):
-            knee_config(synthetic_config, "all", gp_knee_prior=prior)
+        with pytest.raises(ValueError, match="lambda_b_prior"):
+            knee_config(synthetic_config, "all", lambda_b_prior=prior)

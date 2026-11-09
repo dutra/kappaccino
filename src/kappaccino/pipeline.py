@@ -808,9 +808,9 @@ def _run_init(config: LensClusterSolverConfig) -> InitResult:
             from .likelihood.gp_image_plane import shallow_fold_pair_report, shallow_fold_pairs
             if getattr(evaluator, "gp_knee", False):
                 scales = {k: float(v) for k, v in evaluator.error_scales(evaluator.physical(jnp.asarray(theta))).items()
-                          if k in ("sigma_grf", "gp_knee", "gp_knee_gamma", "sigma_gp", "gp_ell", "sigma_meas")}
-                header = (f"grf_gp likelihood (GRF of unmodelled mass with a knee spectrum + image-plane GP) on {evaluator.gp_blocks} blocks at the start: sigma_grf {scales['sigma_grf']:.3f}\" knee {scales['gp_knee']:.2f}\" slope {scales['gp_knee_gamma']:.2f} "
-                          f"sigma_gp {scales['sigma_gp']:.3f}\" at {scales['gp_ell']:.2f}\" sigma_meas {scales['sigma_meas']:.3f}\"")
+                          if k in ("sigma_grf", "lambda_b", "gp_knee_gamma", "sigma_gp", "ell_gp", "sigma_meas")}
+                header = (f"grf_gp likelihood (GRF of unmodelled mass with a knee spectrum + image-plane GP) on {evaluator.gp_blocks} blocks at the start: sigma_grf {scales['sigma_grf']:.3f}\" knee {scales['lambda_b']:.2f}\" slope {scales['gp_knee_gamma']:.2f} "
+                          f"sigma_gp {scales['sigma_gp']:.3f}\" at {scales['ell_gp']:.2f}\" sigma_meas {scales['sigma_meas']:.3f}\"")
                 pairs = shallow_fold_pairs(state, evaluator, theta)
                 log(shallow_fold_pair_report(pairs, evaluator.gp_floor, header=header, knee=True))
                 artifacts.write_json(paths.tables / "shallow_fold_pairs.json", {"pairs": pairs, "model": "init start", "likelihood": "grf_gp", "gp_kernel": "knee",

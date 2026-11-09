@@ -69,7 +69,7 @@ def run(seed,output,draw_count,step):
     @jax.jit
     def statistics(theta):
         st=e.statistics(theta);scales=e.error_scales(st['physical']);blocks=e.gp_kernel_blocks(st['physical'],scales)
-        cl,ct=gp_knee.knee_curves(e.gp_tables,scales['gp_knee'],scales['gp_knee_gamma'])
+        cl,ct=gp_knee.knee_curves(e.gp_tables,scales['lambda_b'],scales['gp_knee_gamma'])
         return (st['family_cholesky'],st['fields']['backprojected']-st['source_by_family'][family],st['fields']['jacobian'],blocks['k_alpha'],blocks['k_img'],scales['sigma_grf'],cl,ct)
     grid_means=[];grid_variances=[];image_means=[];image_variances=[];mixture_draws=[]
     rng=np.random.default_rng(20261106)

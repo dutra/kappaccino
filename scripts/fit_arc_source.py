@@ -159,7 +159,7 @@ def image_gp_offsets(evaluator, physical, theta, obs, obs_family, z_source, fami
     eps = np.einsum("nij,nj->ni", np.linalg.inv(a), (obs - alpha) - sources)
     phys = np.asarray(physical)
     sigma_gp, sigma_meas = float(phys[evaluator.sigma_gp_index]), float(phys[evaluator.sigma_meas_index])
-    ell = float(phys[evaluator.gp_ell_index]) if evaluator.gp_ell_index >= 0 else float(evaluator.gp_ell_fixed)
+    ell = float(phys[evaluator.ell_gp_index]) if evaluator.ell_gp_index >= 0 else float(evaluator.ell_gp_fixed)
     return eps, sigma_gp, sigma_meas, ell
 
 

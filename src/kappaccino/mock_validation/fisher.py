@@ -36,10 +36,10 @@ from .truth import truth_from_json
 # Solver scale name -> (truth key, LikelihoodConfig prior field, log units).
 HYPERPARAMETERS = {
     "sigma_grf": ("field_sigma_grf", "sigma_grf_prior", True),
-    "gp_knee": ("field_knee", "gp_knee_prior", True),
+    "lambda_b": ("field_knee", "lambda_b_prior", True),
     "gp_knee_gamma": ("field_gamma", "gp_knee_gamma_prior", False),
     "sigma_gp": ("image_plane_sigma", "gp_knee_sigma_gp_prior", True),
-    "gp_ell": ("image_plane_ell", "gp_knee_ell_prior", True),
+    "ell_gp": ("image_plane_ell", "gp_knee_ell_gp_prior", True),
     "sigma_meas": ("measurement_noise", "gp_knee_sigma_meas_prior", True),
 }
 SEPARATION_BINS_ARCSEC = (0.0, 0.5, 1.0, 2.0, 5.0, 15.0, 40.0, math.inf)
@@ -105,9 +105,9 @@ def hyperparameter_fisher(solver_config: LensClusterSolverConfig, truth: dict[st
 
     # The hyperparameters the solver samples and that were injected.
     injected = _truth_hyperparameters(truth)
-    sampled = {"sigma_grf": evaluator.sigma_grf_index, "gp_knee": evaluator.gp_knee_index,
+    sampled = {"sigma_grf": evaluator.sigma_grf_index, "lambda_b": evaluator.lambda_b_index,
                "gp_knee_gamma": evaluator.gp_knee_gamma_index, "sigma_gp": evaluator.sigma_gp_index,
-               "gp_ell": evaluator.gp_ell_index, "sigma_meas": evaluator.sigma_meas_index}
+               "ell_gp": evaluator.ell_gp_index, "sigma_meas": evaluator.sigma_meas_index}
     names = [n for n, (key, _, _) in HYPERPARAMETERS.items() if sampled[n] >= 0 and key in injected]
     if not names:
         raise ValueError("no injected error component matches a sampled hyperparameter")

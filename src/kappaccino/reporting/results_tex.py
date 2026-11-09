@@ -169,7 +169,7 @@ def write_run_results(final_dir: str | Path, *, name: str | None = None) -> Path
     RMS); position coverage (``PositionCoverageXPercent``,
     ``PositionCoverageYPercent`` and their counts); likelihood-noise posterior
     medians and intervals (``SigmaGP``, ``SigmaMeas``,
-    ``GPCorrelationLength``, ``SigmaGRF``, ``GRFTurnoverScale``;
+    ``EllGP``, ``SigmaGRF``, ``LambdaB``;
     angular scales in arcsec); convergence (``MaxRhat``, ``MinESS``); run time
     (``Runtime``, ``SamplingRuntime`` as h/min/s, plus ``...Seconds`` and
     ``...Hours``); and ``ApertureMassRatio...`` macros when the aperture
@@ -240,9 +240,9 @@ def write_run_results(final_dir: str | Path, *, name: str | None = None) -> Path
     for suffix, parameter, decimals in [
         ('SigmaGP', 'images.sigma_gp', 3),
         ('SigmaMeas', 'images.sigma_meas', 3),
-        ('GPCorrelationLength', 'images.gp_ell', 1),
+        ('EllGP', 'images.ell_gp', 1),
         ('SigmaGRF', 'images.sigma_grf', 2),
-        ('GRFTurnoverScale', 'images.gp_knee', 1),
+        ('LambdaB', 'images.lambda_b', 1),
     ]:
         value = parameters.loc[parameter, 'median'] if parameter in parameters.index else None
         metrics[suffix] = number(value, decimals)

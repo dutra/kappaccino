@@ -42,16 +42,16 @@ def test_correlated_error_parameters_in_aggregate_figures(tmp_path):
     from types import SimpleNamespace
     from kappaccino.mock_validation import aggregate_plots as plots
 
-    names = ['images.sigma_grf', 'images.gp_knee', 'images.gp_knee_gamma',
-             'images.sigma_gp', 'images.gp_ell', 'images.sigma_meas']
+    names = ['images.sigma_grf', 'images.lambda_b', 'images.gp_knee_gamma',
+             'images.sigma_gp', 'images.ell_gp', 'images.sigma_meas']
     rows = [dict(parameter=name, seed=seed, truth=value, median=value * 1.1,
                  q16=value * .8, q84=value * 1.3, covered_68=True, covered_95=True, scored=True)
             for name in names for seed, value in enumerate([.1, .2, .3])]
     campaign = SimpleNamespace(parameters=pd.DataFrame(rows))
     assert {p for p, _ in plots._standardized_parameter_panels(campaign)} == set(names)
     assert plots._parameter_component(names[0]) == 'grf'
-    assert plots._parameter_component('images.gp_ell') == 'gp'
-    assert 'arcsec' in plots._axis_label('images.gp_ell', 'truth')
+    assert plots._parameter_component('images.ell_gp') == 'gp'
+    assert 'arcsec' in plots._axis_label('images.ell_gp', 'truth')
     assert 'arcsec' not in plots._axis_label('images.gp_knee_gamma', 'truth')
     for render in [plots.plot_parameter_recovery, plots.plot_standardized_residuals, plots.plot_bias_and_coverage]:
         path = tmp_path / (render.__name__ + '.pdf')

@@ -19,13 +19,13 @@ from kappaccino.likelihood.evaluator import Evaluator
 from kappaccino.core.state import build_state
 from test_gp_knee import knee_config, set_sites, two_knot_config
 
-WIDE = dict(gp_knee_scales_arcsec=(0.2, 100.0), gp_knee_prior=truncated_lognormal(20.0, 1.0, low=1.0e-4, high=80.0),
-            gp_knee_start_arcsec=20.0)
+WIDE = dict(gp_knee_scales_arcsec=(0.2, 100.0), lambda_b_prior=truncated_lognormal(20.0, 1.0, low=1.0e-4, high=80.0),
+            lambda_b_start_arcsec=20.0)
 TABLE = dict(r_max=30.0, r_step=0.05, lam_min=0.5, lam_max=80.0, n_lam=24, scale_min=0.2, scale_max=100.0, n_nodes=1500)
 
 
 def _variant(config, spectrum, **likelihood):
-    extra = {"two_knee": dict(gp_knee_gamma_prior=None, gp_knee_prior=truncated_lognormal(20.0, 1.0, low=10.0, high=80.0)),
+    extra = {"two_knee": dict(gp_knee_gamma_prior=None, lambda_b_prior=truncated_lognormal(20.0, 1.0, low=10.0, high=80.0)),
              "knee_foreground": dict(gp_knee_gamma_prior=None),
              "knee_background": dict(gp_knee_gamma_prior=None, gp_knee2_plane_redshift=0.7),
              "broken_power_law": dict(gp_knee_gamma_prior=None),
@@ -69,12 +69,12 @@ def test_two_knees_with_a_vanishing_second_field_are_one_knee(tmp_path):
     config, _ = two_knot_config(tmp_path)
     one, two = build_state(_variant(config, "knee")), build_state(_variant(config, "two_knee"))
     e1, e2 = Evaluator(one, "gp_image_plane"), Evaluator(two, "gp_image_plane")
-    t1 = _set(one, one.initial_theta, "images.gp_knee", 20.0)
-    t2 = _set(two, _set(two, two.initial_theta, "images.gp_knee", 20.0), "images.sigma_grf2", 1.0e-4)
+    t1 = _set(one, one.initial_theta, "images.lambda_b", 20.0)
+    t2 = _set(two, _set(two, two.initial_theta, "images.lambda_b", 20.0), "images.sigma_grf2", 1.0e-4)
     np.testing.assert_allclose(_kernel(e2, t2), _kernel(e1, t1), rtol=0, atol=2e-8)      # the second field's variance is 1e-8
     # with a real second amplitude the kernel is the sum of the two fields
     t3 = _set(two, t2, "images.sigma_grf2", 0.05)
-    lone = _set(one, _set(one, one.initial_theta, "images.gp_knee", 3.0), "images.sigma_grf", 0.05)
+    lone = _set(one, _set(one, one.initial_theta, "images.lambda_b", 3.0), "images.sigma_grf", 0.05)
     np.testing.assert_allclose(_kernel(e2, t3), _kernel(e1, t1) + _kernel(e1, lone), rtol=1e-6, atol=1e-12)
 
 
@@ -86,7 +86,7 @@ def test_the_foreground_field_has_redshift_weight_one(tmp_path):
     k = _kernel(evaluator, theta)
     knee_only = Evaluator(build_state(_variant(config, "knee")), "gp_image_plane")
     reference = knee_only.state
-    alone = _set(reference, _set(reference, reference.initial_theta, "images.gp_knee", 3.0), "images.sigma_grf", 0.05)
+    alone = _set(reference, _set(reference, reference.initial_theta, "images.lambda_b", 3.0), "images.sigma_grf", 0.05)
     w = np.asarray(knee_only.gp["weights"])
     unweighted = _kernel(knee_only, alone) / (w[:, :, None] * w[:, None, :])[..., None, None]
     mask = np.asarray(knee_only.gp["pair_mask"])[..., None, None] > 0
@@ -99,7 +99,7 @@ def test_every_variant_gives_a_finite_likelihood_and_gradient(tmp_path, spectrum
     state = build_state(_variant(config, spectrum))
     evaluator = Evaluator(state, "gp_image_plane")
     names = [s.name for s in state.parameter_specs]
-    assert ("images.gp_knee" in names) == (spectrum != "power_law")
+    assert ("images.lambda_b" in names) == (spectrum != "power_law")
     assert ("images.sigma_grf2" in names) == (spectrum in ("two_knee", "knee_foreground", "knee_background"))
     assert ("images.gp_knee_beta_low" in names) == (spectrum == "broken_power_law")
     value, grad = jax.jit(jax.value_and_grad(evaluator.log_likelihood))(jnp.asarray(state.initial_theta))
@@ -120,15 +120,15 @@ def test_configurations_that_would_mix_up_the_components_are_refused(tmp_path):
 def test_a_fixed_knee_and_length_equal_the_sampled_model_at_those_values(tmp_path):
     config, _ = two_knot_config(tmp_path)
     free = build_state(knee_config(config, "all", gp_knee_gamma_prior=None))
-    fixed = build_state(knee_config(config, "all", gp_knee_gamma_prior=None, gp_knee_fixed_arcsec=6.0, gp_knee_ell_fixed_arcsec=1.0))
+    fixed = build_state(knee_config(config, "all", gp_knee_gamma_prior=None, lambda_b_fixed_arcsec=6.0, gp_knee_ell_gp_fixed_arcsec=1.0))
     names_free, names_fixed = [s.name for s in free.parameter_specs], [s.name for s in fixed.parameter_specs]
-    assert sorted(set(names_free) - set(names_fixed)) == ["images.gp_ell", "images.gp_knee"]
-    theta = _set(free, _set(free, free.initial_theta, "images.gp_knee", 6.0), "images.gp_ell", 1.0)
+    assert sorted(set(names_free) - set(names_fixed)) == ["images.ell_gp", "images.lambda_b"]
+    theta = _set(free, _set(free, free.initial_theta, "images.lambda_b", 6.0), "images.ell_gp", 1.0)
     reduced = np.array([theta[names_free.index(n)] for n in names_fixed])
     values = [float(Evaluator(s, "gp_image_plane").log_likelihood(jnp.asarray(t))) for s, t in ((free, theta), (fixed, reduced))]
     assert values[0] == values[1]
     with pytest.raises(ValueError, match="no knee"):
-        knee_config(config, "all", gp_knee_spectrum="power_law", gp_knee_fixed_arcsec=6.0, **WIDE)
+        knee_config(config, "all", gp_knee_spectrum="power_law", lambda_b_fixed_arcsec=6.0, **WIDE)
 
 
 def test_the_background_field_has_the_weights_of_its_plane(tmp_path):

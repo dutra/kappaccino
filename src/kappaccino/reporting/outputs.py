@@ -142,6 +142,12 @@ def write_outputs(config: LensClusterSolverConfig, state: ModelState, evaluator:
                 continue
             write_covariance_cutouts(replace(config, image_catalog=image_config), state, evaluator, posterior,
                                      paths, imaging, log=log)
+            from ..plotting.jwst_rgb import render_rgb_critical, rgb_overview_stem
+            render_rgb_critical(replace(config, image_catalog=image_config), state, evaluator, best, image_df,
+                recovery['image_recovery_extra_images'], imaging,
+                plots.figure_path(figures, rgb_overview_stem(image_config, imaging[1]) + '.pdf', prefix), tables,
+                best_index=int(np.nanargmax(log_prob)) if np.isfinite(log_prob).any() else None,
+                posterior=posterior, log=log)
             overview_config = next((view for view in overview_configs
                                     if replace(view, figure_suffix=image_config.figure_suffix) == image_config), None)
             if overview_config is None:
@@ -176,15 +182,9 @@ def write_outputs(config: LensClusterSolverConfig, state: ModelState, evaluator:
                     source_cache=tables/'fold_pairs_source_caustics.h5')
                 if output is not None:
                     log(f'[outputs] ApJ fold cutouts: {output}')
-            simulated_hst = imaging[3].lower() in {'hera', 'ares'} and image_config.figure_suffix != '_jwst'
-            if simulated_hst or (image_config.figure_suffix == '_jwst' and imaging[3].lower() == 'm0416'):
-                from ..plotting.jwst_rgb import render_rgb_critical
-                critical_name = 'hst_rgb_critical_z9.pdf' if simulated_hst else 'jwst_rgb_critical_z9.pdf'
-                render_rgb_critical(config, state, evaluator, best, image_df,
-                    recovery['image_recovery_extra_images'], imaging,
-                    plots.figure_path(figures, critical_name, prefix), tables,
-                    best_index=int(np.nanargmax(log_prob)) if np.isfinite(log_prob).any() else None,
-                    posterior=posterior, log=log)
+                from ..plotting.paper_cutouts import write_paper_cutouts
+                write_paper_cutouts(replace(config, image_catalog=image_config), state, evaluator,
+                    posterior, tables, figures, imaging, log=log)
     (tables / "run_summary.json").write_text(json.dumps(summary, indent=2, default=float))
     write_run_results(paths.root, name=prefix)
     return summary

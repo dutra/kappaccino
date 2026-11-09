@@ -38,6 +38,41 @@ def marker_photometry(catalog, reference, photpath):
     return result
 
 
+def rgb_overview_stem(image_config, bands):
+    """Name the imaging product by its instrument, independently of cluster."""
+    jwst = str(getattr(image_config, 'figure_suffix', '')).lower() == '_jwst'
+    jwst |= any(str(b).lower().split('_')[-1] in {'f090w', 'f115w', 'f150w', 'f200w', 'f277w', 'f356w', 'f410m', 'f444w'} for b in bands)
+    return ('jwst' if jwst else 'hst') + '_rgb_critical_z9'
+
+
+def overview_marker_photometry(config, catalog, reference, photpath, stem):
+    """Attach catalog photometry by ID; prefer matched F200W measurements."""
+    result = marker_photometry(catalog, reference, photpath)
+    result['magnitude_AB'] = result['m_F200W_AB']
+    result['magnitude_band'] = np.where(result.valid_photometry, 'F200W', '')
+    constraints = getattr(getattr(config, 'model', None), 'image_constraints', None)
+    path = getattr(constraints, 'catalog_path', None)
+    if path:
+        from ..io.image_catalog import load_image_catalog
+        phot = load_image_catalog(path).set_index('image_label').reindex(catalog.image_label)
+    else:
+        phot = catalog
+    preferred = ('f200w', 'f814w') if stem.startswith('jwst') else ('f814w', 'f200w')
+    columns = [c for band in preferred for c in phot if c.lower() in {f'mag_{band}', f'mag_hst_{band}', f'mag_jwst_{band}'}]
+    columns += [c for c in phot if c.startswith('mag_') and not c.startswith('mag_err_') and c not in columns]
+    if 'catalog_mag' in phot:
+        columns.append('catalog_mag')
+    for column in columns:
+        values = pd.to_numeric(phot[column], errors='coerce').to_numpy()
+        use = ~result.valid_photometry.to_numpy() & np.isfinite(values)
+        result.loc[use, 'magnitude_AB'] = values[use]
+        result.loc[use, 'magnitude_band'] = column.removeprefix('mag_')
+        result.loc[use, 'valid_photometry'] = True
+    valid = result.valid_photometry.to_numpy()
+    result.loc[valid, 'marker_area_pt2'] = np.clip(16 * 10**(-.2 * (result.loc[valid, 'magnitude_AB'] - 26)), 9, 64)
+    return result
+
+
 @plt.rc_context()
 def render_rgb_critical(config, state, evaluator, theta, catalog, extra, imaging,
                              output, tables, *, best_index=None, posterior=None, log=print):
@@ -51,7 +86,7 @@ def render_rgb_critical(config, state, evaluator, theta, catalog, extra, imaging
     import hashlib
     images,bands,display,cluster=imaging
     simulated=cluster.lower() in {'hera','ares'}
-    stem='hst_rgb_critical_z9' if simulated else 'jwst_rgb_critical_z9'
+    stem=rgb_overview_stem(config.image_catalog, bands)
     m0416=cluster.lower()=='m0416'
     reference_image=images[cutouts.rgb_reference_band(bands)]
     geometry=overview_geometry(reference_image,catalog,extra,state.reference,resolution=768)
@@ -72,77 +107,140 @@ def render_rgb_critical(config, state, evaluator, theta, catalog, extra, imaging
     rgb=cutouts.rgb_cutout(images,bands,display,geometry['center'],geometry['size'])
     rgb=aligned_rgb(rgb,reference_image,geometry)
     plt.style.use(str(Path(__file__).with_name('style.mplstyle')))
-    insets=None
-    if m0416:
-        from .rgb_overview_cutouts import overview_cutout_data, render_overview_cutouts
-        insets=overview_cutout_data(tables,config.paths.figure_prefix,
-            image_labels=getattr(config.image_catalog,'rgb_critical_image_cutouts',()),
-            system_ids=getattr(config.image_catalog,'rgb_critical_fold_cutouts',()),
-            state=state,evaluator=evaluator,posterior=posterior,log=log)
-    fig=plt.figure(figsize=(11.4,11.4) if insets is not None else (9,9))
-    ax=(fig.add_axes([.07,.07,.72,.72],projection=geometry['wcs']) if insets is not None
-        else fig.add_subplot(111,projection=geometry['wcs']))
-    n=geometry['resolution']
-    ax.imshow(rgb,origin='lower',extent=(-.5,n-.5,-.5,n-.5),interpolation='none')
-    if band is not None:
-        draw_critical_interval(ax,lower,upper,CRITICAL_COLOR,(-.5,n-.5,-.5,n-.5))
-    ax.contour(det,levels=[0.],colors=[CRITICAL_COLOR],linewidths=.65,
-               origin='lower',extent=(-.5,n-.5,-.5,n-.5))
-    px,py=grid_pixels(geometry,catalog.x_obs_arcsec.to_numpy(),catalog.y_obs_arcsec.to_numpy())
-    photpath=Path(__file__).parents[1]/'data'/'m0416_image_f200w_photometry.csv' if m0416 else None
-    marker_table=marker_photometry(catalog,state.reference,photpath)
-    mags=marker_table.m_F200W_AB.to_numpy();sizes=marker_table.marker_area_pt2.to_numpy()
-    valid=marker_table.valid_photometry.to_numpy()
-    candidate_path=getattr(config.image_catalog,'candidate_catalog_path',None)
-    candidate_path=(Path(candidate_path) if candidate_path else Path(__file__).parents[1]/'data'/'m0416_candidates.json') if m0416 else None
-    candidates=json.loads(candidate_path.read_text())['candidates'] if candidate_path is not None and candidate_path.exists() else []
-    family_colors={'K66':'#40DFFF','K67':'#FF70C5','K20':'#FF6060',
-                   'K28':'#BD9AFF','K34':'#609FFF','K115':'#FFFFFF','A':'#32E875'}
-    systems=catalog.family_id.astype(str).str.extract(r'^(K\d+|C\d+)',expand=False)
-    selected={r['system'] for r in candidates if r['kind']=='counterimage'}
-    colors=[family_colors.get(system,'#FF9500') if system in selected else '#FF9500' for system in systems]
-    ax.scatter(px,py,s=sizes,facecolors='none',edgecolors=colors,linewidths=.8)
-    marker_table['system']=systems.to_numpy()
-    marker_table['color']=colors
-    overlay_rows=[]
-    all_px,all_py=list(px),list(py)
-    for system in dict.fromkeys(r['system'] for r in candidates):
-        color=family_colors.get(system,'#42A5FF')
-        label='Family A' if system=='A' else system
-        rows=[r for r in candidates if r['system']==system]
-        if not rows:
-            continue
-        ra0,dec0=state.reference[1:]
-        x=-(np.array([r['ra'] for r in rows])-ra0)*3600*np.cos(np.deg2rad(dec0))
-        y=(np.array([r['dec'] for r in rows])-dec0)*3600
-        cx,cy=grid_pixels(geometry,x,y)
-        if not np.all((cx>=0)&(cx<n)&(cy>=0)&(cy<n)):
-            raise ValueError('Candidate overlay extends beyond the RGB grid')
-        ax.scatter(cx,cy,s=48,marker='s',facecolors='none',edgecolors=color,linewidths=1.,zorder=8,label=label)
-        all_px.extend(cx);all_py.extend(cy)
-        overlay_rows.extend(rows)
-    if overlay_rows:
-        pd.DataFrame(overlay_rows).to_csv(tables/f'{stem}_candidate_overlays.csv',index=False)
-    # Include both fitted images and proposed candidates, with 3 arcsec padding.
-    pad=3./geometry['size']*n
-    limits=[float(min(all_px)-pad),float(max(all_px)+pad),float(min(all_py)-pad),float(max(all_py)+pad)]
-    ax.set_xlim(limits[:2]);ax.set_ylim(limits[2:])
-    assert np.all((px>limits[0])&(px<limits[1])&(py>limits[2])&(py<limits[3]))
-    marker_table.to_csv(tables/('hst_rgb_markers.csv' if simulated else 'jwst_rgb_marker_magnitudes.csv'),index=False)
-    log(f'[outputs] magnitude-scaled RGB markers: {valid.sum()}/{len(valid)}')
-    ra,dec=ax.coords
-    ra.set_axislabel('R.A. (J2000)');dec.set_axislabel('Dec. (J2000)')
-    ra.set_major_formatter('hh:mm:ss');dec.set_major_formatter('dd:mm:ss')
-    ra.set_ticks(number=5,color='white',direction='in',size=6,width=1)
-    dec.set_ticks(number=5,color='white',direction='in',size=6,width=1)
-    ra.set_ticks_position('bt');dec.set_ticks_position('lr')
-    ra.set_ticklabel_position('b');dec.set_ticklabel_position('l')
-    ra.display_minor_ticks(True);dec.display_minor_ticks(True)
-    inset_info=render_overview_cutouts(fig,insets,imaging,state.reference) if insets is not None else None
-    fig.savefig(output,dpi=300,bbox_inches='tight',pad_inches=.06);plt.close(fig)
-    output.with_suffix('.json').write_text(json.dumps(dict(run=config.paths.run_name,image_position_marker='circle',recovered_position_probability=None,insets=inset_info,best_index=best_index,central_statistic='zero contour of pointwise posterior median determinant; same draws as band',z_source=9.,model='parametric + conditional mean GRF; no GP displacement' if shared_grf else 'parametric only; no shared GRF available',grf_field=shared_grf_label(evaluator),grf_derivatives=PLOT_FIELD_VERSION,bands=list(bands),catalog_images=len(catalog),resolution=n,determinant_resolution=int(det.shape[0]),critical_definition='median over draws of det(I - Hessian_draw) = 0',cache_fingerprint=fingerprint,marker_photometry=str(photpath) if photpath else None,magnitude_band='F200W AB' if photpath else None,matched_magnitudes=int(valid.sum()),missing_magnitude_policy='minimum marker area 9 pt^2',marker_area='clip(16*10**(-0.2*(m-26)),9,64) pt^2',crop_padding_arcsec=3.,crop_pixel_limits=limits,candidate_catalog=str(candidate_path) if candidate_path else None,candidate_overlays=[r['id'] for r in overlay_rows]),indent=2)+'\n')
-    log(f"[outputs] RGB critical overview written: {output}")
-    return output
+    from ..diagnostics.position_contours import load_or_compute_contours
+    recovered_contours = load_or_compute_contours(config, state, evaluator, posterior, extra, tables, log=log)
+    main_output = output
+    for show_candidates in ((False, True) if m0416 else (False,)):
+        output = main_output.with_name(main_output.stem + '_candidates.pdf') if show_candidates else main_output
+        # Match the M0416 candidate overview's page and map footprint for
+        # side-by-side paper figures. Expand the sky crop, never stretch pixels.
+        matched_page = cluster.lower() == 'as1063'
+        page_width, page_height = 612.8157348632812, 551.6261596679688
+        map_left, map_top, map_right, map_bottom = 113.94043731689453, 6.9825439453125, 608.6768798828125, 506.11749267578125
+        if matched_page:
+            fig=plt.figure(figsize=(page_width/72.,page_height/72.))
+            ax=fig.add_axes([map_left/page_width, (page_height-map_bottom)/page_height,
+                             (map_right-map_left)/page_width, (map_bottom-map_top)/page_height],
+                            projection=geometry['wcs'])
+        else:
+            fig=plt.figure(figsize=(9,9))
+            ax=fig.add_subplot(111,projection=geometry['wcs'])
+        n=geometry['resolution']
+        ax.imshow(rgb,origin='lower',extent=(-.5,n-.5,-.5,n-.5),interpolation='none')
+        if band is not None:
+            draw_critical_interval(ax,lower,upper,CRITICAL_COLOR,(-.5,n-.5,-.5,n-.5))
+        ax.contour(det,levels=[0.],colors=[CRITICAL_COLOR],linewidths=.65,
+                   origin='lower',extent=(-.5,n-.5,-.5,n-.5))
+        px,py=grid_pixels(geometry,catalog.x_obs_arcsec.to_numpy(),catalog.y_obs_arcsec.to_numpy())
+        photpath=Path(__file__).parents[1]/'data'/'m0416_image_f200w_photometry.csv' if m0416 else None
+        marker_table=overview_marker_photometry(config, catalog, state.reference, photpath, stem)
+        sizes=marker_table.marker_area_pt2.to_numpy()
+        valid=marker_table.valid_photometry.to_numpy()
+        candidate_path=getattr(config.image_catalog,'candidate_catalog_path',None)
+        candidate_path=(Path(candidate_path) if candidate_path else Path(__file__).parents[1]/'data'/'m0416_candidates.json') if m0416 and show_candidates else None
+        candidates=json.loads(candidate_path.read_text())['candidates'] if candidate_path is not None and candidate_path.exists() else []
+        family_colors={'K66':'#40DFFF','K67':'#FF70C5','K20':'#FF6060',
+                       'K28':'#BD9AFF','K34':'#609FFF','K115':'#FFFFFF','A':'#32E875'}
+        systems=catalog.family_id.astype(str).str.extract(r'^(K\d+|C\d+)',expand=False)
+        selected={r['system'] for r in candidates if r['kind']=='counterimage'}
+        colors=[family_colors.get(system,'#FF9500') if system in selected else '#FF9500' for system in systems]
+        ax.scatter(px,py,s=sizes,marker='s',
+                   facecolors='none',edgecolors=colors,linewidths=.8,zorder=8)
+        for curve in recovered_contours['curves']:
+            if curve['kind'] != 'recovered' or not np.isclose(curve['probability'], .954499736):
+                continue
+            for segment in curve['segments']:
+                sx, sy = grid_pixels(geometry, segment[:, 0], segment[:, 1])
+                line, = ax.plot(sx, sy, color='cyan', linewidth=.45,
+                                antialiased=True, solid_joinstyle='round', zorder=20)
+                line.get_path().should_simplify = False
+        marker_table['system']=systems.to_numpy()
+        marker_table['color']=colors
+        overlay_rows=[]
+        all_px,all_py=list(px),list(py)
+        for system in dict.fromkeys(r['system'] for r in candidates):
+            color=family_colors.get(system,'#42A5FF')
+            label='New family A' if system=='A' else f'{system} candidates'
+            rows=[r for r in candidates if r['system']==system]
+            if not rows:
+                continue
+            ra0,dec0=state.reference[1:]
+            x=-(np.array([r['ra'] for r in rows])-ra0)*3600*np.cos(np.deg2rad(dec0))
+            y=(np.array([r['dec'] for r in rows])-dec0)*3600
+            cx,cy=grid_pixels(geometry,x,y)
+            if not np.all((cx>=0)&(cx<n)&(cy>=0)&(cy<n)):
+                raise ValueError('Candidate overlay extends beyond the RGB grid')
+            ax.scatter(cx,cy,s=48,marker='D',facecolors='none',edgecolors=color,linewidths=1.,zorder=8,label=label)
+            all_px.extend(cx);all_py.extend(cy)
+            overlay_rows.extend(rows)
+        if overlay_rows:
+            pd.DataFrame(overlay_rows).to_csv(tables/f'{stem}_candidate_overlays.csv',index=False)
+        # Include both fitted images and proposed candidates, with 3 arcsec padding.
+        pad=3./geometry['size']*n
+        limits=[float(min(all_px)-pad),float(max(all_px)+pad),float(min(all_py)-pad),float(max(all_py)+pad)]
+        if matched_page:
+            target_ratio=(map_right-map_left)/(map_bottom-map_top)
+            width,height=limits[1]-limits[0],limits[3]-limits[2]
+            cx,cy=(limits[0]+limits[1])/2.,(limits[2]+limits[3])/2.
+            width=max(width,height*target_ratio)
+            height=width/target_ratio
+            limits=[cx-width/2.,cx+width/2.,cy-height/2.,cy+height/2.]
+        ax.set_xlim(limits[:2]);ax.set_ylim(limits[2:])
+        from matplotlib.lines import Line2D
+        from matplotlib.patches import Patch
+        from matplotlib.legend_handler import HandlerTuple
+        handles = [
+            Line2D([], [], marker='s', linestyle='none', markerfacecolor='none',
+                   markeredgecolor='#FF9500', markeredgewidth=.8, markersize=5),
+            Line2D([], [], marker='o', linestyle='none', markerfacecolor='none',
+                   markeredgecolor='cyan', markeredgewidth=.45, markersize=5),
+            (Patch(facecolor=CRITICAL_COLOR, alpha=.25, edgecolor='none'),
+             Line2D([], [], color=CRITICAL_COLOR, linewidth=.65)),
+        ]
+        labels = ['Observed images', 'Recovered positions', r'Critical curve ($z=9$)']
+        candidate_handles, candidate_labels = ax.get_legend_handles_labels()
+        if show_candidates:
+            candidate_handles = [
+                Line2D([], [], marker='D', linestyle='none', markerfacecolor='none',
+                       markeredgecolor='white', markersize=5),
+                Line2D([], [], marker='D', linestyle='none', markerfacecolor='none',
+                       markeredgecolor=family_colors['A'], markersize=5),
+            ]
+            candidate_labels = ['Candidate counterimages', 'New family A']
+        legend = ax.legend(handles + candidate_handles, labels + candidate_labels,
+                           handler_map={tuple: HandlerTuple(ndivide=1)}, loc='lower right',
+                           frameon=True, facecolor='black', edgecolor='none',
+                           framealpha=.7, labelcolor='white', borderpad=.6)
+        legend.set_zorder(40)
+        bar_length = 5. * n / abs(geometry['xlim'][1] - geometry['xlim'][0])
+        bar_right = limits[0] + .05 * (limits[1] - limits[0]) + bar_length
+        bar_y = limits[3] - .07 * (limits[3] - limits[2])
+        ax.plot([bar_right - bar_length, bar_right], [bar_y, bar_y],
+                color='white', linewidth=2.5, solid_capstyle='butt', zorder=30)
+        ax.annotate(r'$5^{\prime\prime}$', (bar_right - bar_length / 2, bar_y),
+                    xytext=(0, 5), textcoords='offset points', ha='center',
+                    va='bottom', color='white', fontsize=12, zorder=30)
+        assert np.all((px>limits[0])&(px<limits[1])&(py>limits[2])&(py<limits[3]))
+        marker_table.to_csv(tables/(('hst_rgb_markers' if stem.startswith('hst') else 'jwst_rgb_marker_magnitudes') + ('_candidates' if show_candidates else '') + '.csv'),index=False)
+        log(f'[outputs] magnitude-scaled RGB markers: {valid.sum()}/{len(valid)}')
+        ra,dec=ax.coords
+        ra.set_axislabel('R.A. (J2000)');dec.set_axislabel('Dec. (J2000)')
+        ra.set_major_formatter('hh:mm:ss');dec.set_major_formatter('dd:mm:ss')
+        ra.set_ticks(number=5,color='white',direction='in',size=6,width=1)
+        dec.set_ticks(number=5,color='white',direction='in',size=6,width=1)
+        ra.set_ticks_position('bt');dec.set_ticks_position('lr')
+        ra.set_ticklabel_position('b');dec.set_ticklabel_position('l')
+        ra.display_minor_ticks(True);dec.display_minor_ticks(True)
+        inset_info=None
+        if matched_page:
+            from matplotlib.transforms import Bbox
+            fig.savefig(output,dpi=300,bbox_inches=Bbox.from_bounds(0,0,page_width/72.,page_height/72.),pad_inches=0)
+        else:
+            fig.savefig(output,dpi=300,bbox_inches='tight',pad_inches=.06)
+        plt.close(fig)
+        output.with_suffix('.json').write_text(json.dumps(dict(run=config.paths.run_name,image_position_marker='square',recovered_position_probability=.954499736,insets=inset_info,candidate_marker='diamond' if show_candidates else None,best_index=best_index,central_statistic='zero contour of pointwise posterior median determinant; same draws as band',z_source=9.,model='parametric + conditional mean GRF; no GP displacement' if shared_grf else 'parametric only; no shared GRF available',grf_field=shared_grf_label(evaluator),grf_derivatives=PLOT_FIELD_VERSION,bands=list(bands),catalog_images=len(catalog),resolution=n,determinant_resolution=int(det.shape[0]),critical_definition='median over draws of det(I - Hessian_draw) = 0',cache_fingerprint=fingerprint,marker_photometry=str(photpath) if photpath else None,magnitude_band=sorted(set(marker_table.loc[valid, 'magnitude_band'])),marker_photometry_catalog=str(getattr(getattr(getattr(config, 'model', None), 'image_constraints', None), 'catalog_path', '')),matched_magnitudes=int(valid.sum()),missing_magnitude_policy='minimum marker area 9 pt^2',marker_area='clip(16*10**(-0.2*(m-26)),9,64) pt^2',crop_padding_arcsec=3.,crop_pixel_limits=limits,candidate_catalog=str(candidate_path) if candidate_path else None,candidate_overlays=[r['id'] for r in overlay_rows]),indent=2)+'\n')
+        log(f"[outputs] RGB critical overview written: {output}")
+    return main_output
 
 
 def best_chain_draw_indices(posterior, best_index, count=32):
@@ -192,7 +290,7 @@ def critical_quantile_band(determinants):
 def critical_band(config,state,evaluator,posterior,best_index,geometry,tables,log=print,*,cache_stem='jwst_rgb_critical_z9'):
     import hashlib
     from ..lens.cosmology import dpie_sigma0_factor_from_config
-    indices,chain=best_chain_draw_indices(posterior,best_index)
+    indices,chain=best_chain_draw_indices(posterior,best_index,count=int(config.image_catalog.critical_band_draws))
     samples=np.asarray(posterior.samples)[indices]
     resolution=512
     xe=np.linspace(*geometry['xlim'],resolution+1);ye=np.linspace(*geometry['ylim'],resolution+1)

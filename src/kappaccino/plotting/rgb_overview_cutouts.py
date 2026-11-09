@@ -85,7 +85,7 @@ def overview_cutout_data(tables, prefix, *, image_labels=(), system_ids=(), stat
     return dict(images=images,systems=systems)
 
 
-def render_overview_cutouts(fig, data, imaging, frame):
+def render_overview_cutouts(fig, data, imaging, frame, *, image_rects=None, system_rects=None):
     """Four panels left-to-right above; four folds top-to-bottom at right."""
     images,bands,display,_=imaging
     reference=images[rgb_reference_band(bands)]
@@ -116,7 +116,8 @@ def render_overview_cutouts(fig, data, imaging, frame):
             ax.contour(*pixels(grid['x'],grid['y']),grid['density'],
                        levels=[grid['levels'][0]],colors=[color],linewidths=.65,linestyles='-')
     for i,item in enumerate(data['images']):
-        ax,pixels=panel([.07+i*.18,.80,.18,.18],item['center'],item['fov'],item['label'],item['z'])
+        rect = image_rects[i] if image_rects is not None else [.07+i*.18,.80,.18,.18]
+        ax,pixels=panel(rect,item['center'],item['fov'],item['label'],item['z'])
         from .jwst_rgb import draw_critical_interval
         critical=item['critical'];det=critical['median_determinant']
         axis=np.linspace(-.5,.5,det.shape[0])
@@ -126,8 +127,12 @@ def render_overview_cutouts(fig, data, imaging, frame):
         if det.min()<0<det.max():
             ax.contour(*coordinates,det,levels=[0],colors=[CRITICAL_COLOR],linewidths=.65)
         contour(ax,item['grid'],pixels,'tab:orange')
+        ax.plot(*pixels(*item['center']), marker='s', linestyle='none',
+                markerfacecolor='none', markeredgecolor='tab:orange',
+                markersize=4, markeredgewidth=.8, zorder=8)
     for i,s in enumerate(data['systems']):
-        ax,pixels=panel([.80,.61-i*.18,.18,.18],s['center'],s['fov'],f"System {s['system_id']}",s['z_source'])
+        rect = system_rects[i] if system_rects is not None else [.80,.61-i*.18,.18,.18]
+        ax,pixels=panel(rect,s['center'],s['fov'],s.get('panel_label',f"System {s['system_id']}"),s['z_source'])
         curves=s.get('critical_grf_local_draws',s.get('critical_grf_draws',s['critical']))
         for low,median,high in critical_curve_quantiles(curves,s['seeds'],s['origin'],s['normal']):
             vertices=np.vstack((low,high[::-1]))
@@ -138,7 +143,8 @@ def render_overview_cutouts(fig, data, imaging, frame):
             color=palette[s['image_family_index'][j]%len(palette)]
             contour(ax,_credible_density_grid(s['positions'][:,j]),pixels,color)
             point=pixels(*s['observed'][j])
-            ax.plot(*point,'x',color=color,ms=3,mew=.5)
+            ax.plot(*point,marker='s',linestyle='none',color=color,
+                    markerfacecolor='none',ms=4,mew=.8,zorder=8)
             label_points.append((label,point,color))
         from .apj_fold_cutouts import label_catalog_images
         label_catalog_images(ax,label_points)

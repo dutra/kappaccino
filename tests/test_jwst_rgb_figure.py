@@ -87,12 +87,18 @@ def test_critical_band_shading_preserves_subpixel_interval():
     plt.close(fig)
 
 
-@pytest.mark.parametrize('cluster',['hera','ares'])
+@pytest.mark.parametrize('cluster',['hera','ares','as1063','newcluster','m0416'])
 def test_simulated_hst_overview_has_no_m0416_overlays(tmp_path, monkeypatch, cluster):
     from types import SimpleNamespace as NS
     from astropy.wcs import WCS
     from kappaccino.plotting import jwst_rgb as rgb, mass_figure
     from kappaccino.imaging import cutouts
+    from kappaccino.diagnostics import position_contours as image_position_contours
+    position_calls=[]
+    def positions(*args, **kwargs):
+        position_calls.append(True)
+        return {'curves': []}
+    monkeypatch.setattr(image_position_contours, 'load_or_compute_contours', positions)
     wcs=WCS(naxis=2)
     wcs.wcs.ctype=['RA---TAN','DEC--TAN'];wcs.wcs.crval=[64.,-24.]
     wcs.wcs.crpix=[16.,16.];wcs.wcs.cdelt=[-.1/3600,.1/3600]
@@ -111,6 +117,14 @@ def test_simulated_hst_overview_has_no_m0416_overlays(tmp_path, monkeypatch, clu
     monkeypatch.setattr(rgb,'critical_band',band)
     catalog=pd.DataFrame(dict(image_label=['a','b'],family_id=['1','2'],x_obs_arcsec=[-.3,.3],y_obs_arcsec=[-.3,.3]))
     config=NS(paths=NS(run_name=cluster),image_catalog=NS(candidate_catalog_path='must-not-read.json'))
+    if cluster == 'm0416':
+        import json
+        candidate_path = tmp_path/'candidates.json'
+        candidate_path.write_text(json.dumps({'candidates':[
+            dict(id='K66.c1',system='K66',kind='counterimage',ra=64.,dec=-24.),
+            dict(id='A.1',system='A',kind='new_family',ra=64.,dec=-24.)]}))
+        config.image_catalog.candidate_catalog_path = candidate_path
+        catalog['family_id'] = ['K66','K67']
     state=NS(reference=(3,64.,-24.))
     output=tmp_path/f'{cluster}_hst_rgb_critical_z9.pdf'
     rgb.render_rgb_critical(config,state,NS(gp_knee=False),None,catalog,pd.DataFrame(),
@@ -118,9 +132,65 @@ def test_simulated_hst_overview_has_no_m0416_overlays(tmp_path, monkeypatch, clu
     import json
     info=json.loads(output.with_suffix('.json').read_text())
     assert output.exists() and info['candidate_overlays']==[]
-    assert info['candidate_catalog'] is None and info['marker_photometry'] is None
-    assert info['magnitude_band'] is None
+    assert len(position_calls) == 1
+    assert info['candidate_catalog'] is None
+    assert (info['marker_photometry'] is None) == (cluster != 'm0416')
+    assert info['insets'] is None
+    assert info['magnitude_band'] == []
     assert (tmp_path/'hst_rgb_critical_z9.h5').exists()
     assert not (tmp_path/'jwst_rgb_critical_z9.h5').exists()
     markers=pd.read_csv(tmp_path/'hst_rgb_markers.csv')
     assert len(markers)==2 and (markers.marker_area_pt2==9).all()
+    assert set(markers.color) == {'#FF9500'}
+    candidate_output = output.with_name(output.stem+'_candidates.pdf')
+    assert candidate_output.exists() == (cluster == 'm0416')
+    if cluster == 'm0416':
+        variant = json.loads(candidate_output.with_suffix('.json').read_text())
+        assert variant['candidate_marker'] == 'diamond'
+        assert variant['candidate_overlays'] == ['K66.c1','A.1']
+        colored = pd.read_csv(tmp_path/'hst_rgb_markers_candidates.csv')
+        assert colored.color.tolist() == ['#40DFFF','#FF9500']
+
+
+def test_overview_catalog_magnitude_scaling_and_id_alignment(tmp_path):
+    from types import SimpleNamespace as NS
+    from kappaccino.plotting.jwst_rgb import overview_marker_photometry, rgb_overview_stem
+    path = tmp_path / 'images.yaml'
+    path.write_text('''format: lenscluster-images/1
+systems:
+  '1':
+    z: 2.0
+    images:
+      a: {ra: 64, dec: -24, bands: {hst_f814w: [24, 0.1]}}
+      b: {ra: 64, dec: -24, bands: {hst_f814w: [28, 0.1]}}
+''')
+    config = NS(model=NS(image_constraints=NS(catalog_path=path)))
+    catalog = pd.DataFrame(dict(image_label=['1.b', '1.a', 'new'], x_obs_arcsec=[0.,0.,0.], y_obs_arcsec=[0.,0.,0.]))
+    result = overview_marker_photometry(config, catalog, (3,64.,-24.), None, 'hst_rgb_critical_z9')
+    np.testing.assert_allclose(result.magnitude_AB[:2], [28.,24.])
+    np.testing.assert_allclose(result.marker_area_pt2, [9.,16*10**.4,9.])
+    assert result.valid_photometry.tolist() == [True, True, False]
+    assert rgb_overview_stem(NS(), ['F435W','F606W','F814W']) == 'hst_rgb_critical_z9'
+    assert rgb_overview_stem(NS(), ['F150W','F200W','F444W']) == 'jwst_rgb_critical_z9'
+
+
+def test_critical_band_draw_count_is_configured(synthetic_config, monkeypatch):
+    """image_catalog.critical_band_draws sets how many best-chain draws the critical band uses; it must be positive."""
+    from dataclasses import replace
+    from types import SimpleNamespace
+    from kappaccino.plotting import jwst_rgb as rgb
+    assert synthetic_config.image_catalog.critical_band_draws == 32
+    with pytest.raises(ValueError, match="critical_band_draws"):
+        replace(synthetic_config, image_catalog=replace(synthetic_config.image_catalog, critical_band_draws=0)).validate()
+    posterior = SimpleNamespace(grouped_samples=np.zeros((2, 100, 3)), samples=np.zeros((200, 3)))
+    indices, chain = rgb.best_chain_draw_indices(posterior, 150, count=4)
+    assert chain == 1 and len(indices) == 4 and 150 in indices and np.all((indices >= 100) & (indices < 200))
+    config = replace(synthetic_config, image_catalog=replace(synthetic_config.image_catalog, critical_band_draws=4)).validate()
+    seen = []
+    def select(posterior, best_index, count=32):
+        seen.append(count)
+        raise RuntimeError('stop after the draw selection')
+    monkeypatch.setattr(rgb, 'best_chain_draw_indices', select)
+    with pytest.raises(RuntimeError):
+        rgb.critical_band(config, None, None, None, 0, None, None)
+    assert seen == [4]

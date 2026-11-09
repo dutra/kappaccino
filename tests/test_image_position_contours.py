@@ -73,7 +73,9 @@ def test_overview_draw_selection_and_cache_subset(tmp_path,monkeypatch):
         indices=ipc.overview_draw_indices(count,best)
         assert len(indices)==min(count,256) and best in indices
         assert len(set(indices))==len(indices)
-    config=SimpleNamespace(to_json_dict=lambda:{})
+        fewer=ipc.overview_draw_indices(count,best,32)
+        assert len(fewer)==min(count,32) and best in fewer
+    config=SimpleNamespace(to_json_dict=lambda:{},image_catalog=SimpleNamespace(contour_draws=256))
     state=SimpleNamespace(members=SimpleNamespace(classification={}))
     posterior=SimpleNamespace(samples=np.arange(4000.)[:,None],log_prob=np.arange(4000.))
     seen=[]

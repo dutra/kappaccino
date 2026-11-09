@@ -1487,10 +1487,12 @@ class ImageCatalogCutoutConfig:
     candidate_catalog_path : str or pathlib.Path or None, optional
         Optional catalog of proposed image associations, drawn on the RGB critical-curve figure for display only.
         Default None.
-    rgb_critical_image_cutouts : tuple of str, optional
-        Image labels of the top inset panels of the RGB critical-curve figure, in order, at most four.  Default ``()``.
-    rgb_critical_fold_cutouts : tuple of str, optional
-        System ids of the right inset panels of that figure, in order, at most four.  Default ``()``.
+    paper_small_lambda_cutouts : tuple of str, optional
+        Panels of the standalone small-eigenvalue posterior figure, one per selector, in order: ``image:<label>`` (one
+        image), ``family:<id>`` (a knot's images) or ``system:<id>`` (every knot of a saved fold cutout).  Empty
+        (default) skips the figure.
+    paper_fold_cutouts : tuple of str, optional
+        Panels of the standalone fold-cutout figure, same selectors.  Empty (default) skips the figure.
     image_scale : str, optional
         Pixel scale of the imaging to use when several exist: ``"auto"``, ``"20mas"``, ``"30mas"``, ``"40mas"`` or
         ``"60mas"``.  Default ``"60mas"``.
@@ -1501,6 +1503,12 @@ class ImageCatalogCutoutConfig:
         Suffix appended to the cluster mass figure name and related products, e.g. ``"_jwst"``.  Default ``""``.
     rgb : RGBDisplayConfig, optional
         Display overrides.  Default: ``RGBDisplayConfig()`` (recipe defaults).
+    critical_band_draws : int, optional
+        Posterior draws of the best chain, evenly spaced and including the best draw, behind the z = 9 critical curve
+        and its 16-84% band on the RGB overview.  At least 1.  Default ``32``.
+    contour_draws : int, optional
+        Posterior draws, evenly spaced and including the best draw, whose solved image positions give the
+        recovered-position contours.  At least 10 (the density estimate needs them).  Default ``256``.
     mode : str, optional
         Not read by the current pipeline.  Default ``"full"``.
     dpi : int or None, optional
@@ -1514,12 +1522,14 @@ class ImageCatalogCutoutConfig:
     """
     image_dir: str | Path | None = None
     candidate_catalog_path: str | Path | None = None
-    rgb_critical_image_cutouts: tuple[str, ...] = ()
-    rgb_critical_fold_cutouts: tuple[str, ...] = ()
+    paper_small_lambda_cutouts: tuple[str, ...] = ()  # image:/family:/system: selectors, one per panel
+    paper_fold_cutouts: tuple[str, ...] = ()          # same syntax; empty disables the figure
     image_scale: str = "60mas"
     bands: tuple[str, ...] | None = None
     figure_suffix: str = ""
     rgb: RGBDisplayConfig = field(default_factory=RGBDisplayConfig)
+    critical_band_draws: int = 32
+    contour_draws: int = 256
     mode: str = "full"
     dpi: int | None = None
     max_side_pixels: int | None = None
@@ -2034,6 +2044,12 @@ def validate_config(config: LensClusterSolverConfig) -> None:
         raise ValueError("image_diagnostics.posterior_diagnostic_draws must be a nonnegative integer.")
     if not isinstance(diagnostics.fold_max_draws, int) or not 1 <= diagnostics.fold_max_draws <= 128:
         raise ValueError("image_diagnostics.fold_max_draws must be an integer between 1 and 128.")
+    draws = config.image_catalog.critical_band_draws
+    if isinstance(draws, bool) or not isinstance(draws, Integral) or draws < 1:
+        raise ValueError("image_catalog.critical_band_draws must be a positive integer.")
+    draws = config.image_catalog.contour_draws
+    if isinstance(draws, bool) or not isinstance(draws, Integral) or draws < 10:
+        raise ValueError("image_catalog.contour_draws must be an integer of at least 10.")
     if not math.isfinite(diagnostics.fold_pair_max_separation_arcsec) or diagnostics.fold_pair_max_separation_arcsec <= 0:
         raise ValueError("image_diagnostics.fold_pair_max_separation_arcsec must be finite and positive.")
     if int(diagnostics.posterior_image_diagnostic_draws) < 0:

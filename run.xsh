@@ -13,11 +13,13 @@ seed = 12345
 # Proposed M0416 associations, including observed coordinates and redshift provenance.
 # Counterimages: K66.c1, K67.c1, K20.c1; weaker: K28.c1, K34.c1, K34.c2, K115.c1.
 # New family A: A.1, A.2, A.3; geometric z=1.3847046874, no spectroscopic redshift.
-# This catalog controls RGB overlays (family-matched circles/squares; green family-A squares).
+# Used only in the additional RGB candidate map: matched family squares and candidate diamonds.
 M0416_CANDIDATES = "src/kappaccino/data/m0416_candidates.json"
-# Critical-curve RGB composite: top left-to-right, then right top-to-bottom.
-M0416_RGB_IMAGE_CUTOUTS = ("K34.b", "K34.a", "K33.e", "K77.b")
-M0416_RGB_FOLD_CUTOUTS = ("K1", "K6", "K8", "K12")
+# Standalone paper figures: one row, one panel per selector, in this order.
+# image:K34.b selects one image; family:K6A selects that knot's images;
+# system:K6 selects all knots in the saved fold cutout. Empty tuple disables.
+M0416_SMALL_LAMBDA_POSTERIORS = ("image:K34.b", "image:K34.a", "image:K33.e", "image:K77.b")
+M0416_FOLD_CUTOUTS = ("system:K1", "system:K6", "system:K8", "system:K12")
 
 $MPLCONFIGDIR = "/tmp/matplotlib-kappaccino"
 os.environ["MPLCONFIGDIR"] = "/tmp/matplotlib-kappaccino"
@@ -100,6 +102,8 @@ HFF_RGB_DISPLAY = {}      # library defaults: f_nu-scaled Lupton display with th
 # --imaging jwst: NIRCam mosaics (CANUCS for MACS0416, DJA for AS1063) under data/imaging/<cluster>/{canucs_dr1,dja_v7.5} (scripts/download_imaging.py); blue F115W+F150W, green
 # F150W+F200W, red F444W, the STScI/UNCOVER hue assignment with the four bands we hold.
 JWST_RGB_BANDS = ["F115W", "F150W", "F200W", "F444W"]
+# Brighter AS1063 display to reveal faint cluster galaxies and arcs.
+AS1063_JWST_RGB_DISPLAY = RGBDisplayConfig(q=80.0, stretch=20.0)
 
 VALID_CLUSTERS = "ARES, HERA, AS1063, AS1063_JWST, M0416_BERGAMINI2023, M0416_CANUCS2025"
 FF_RGB_BANDS = ("F435W", "F606W", "F814W")
@@ -730,7 +734,7 @@ def build_config(
                              figure_prefix=cluster_config["cluster_key"]),
         runtime=runtime if runtime is not None else build_runtime(cores),
         search=SearchConfig(n_starts=256, halo_method=halo_search, member_method=member_search, warm_start=warm_start),
-        sampling=SamplingConfig(warmup=500, samples=250, max_tree_depth=8, target_accept=0.8),
+        sampling=SamplingConfig(warmup=500, samples=250, max_tree_depth=7, target_accept=0.8),
         scaling=replace(cluster_config.get("scaling", ScalingModelConfig()),
                         softening_length_prior=(dist.LogNormal(math.log(cluster_config["softening_length_kpc"]), 0.15)
                                                 if cluster_config.get("softening_length_kpc", 0.0) > 0.0 else None)),
@@ -745,12 +749,13 @@ def build_config(
                                   gammay_true_fits=cluster_config.get("gammay_true_fits")),
         image_catalog=ImageCatalogCutoutConfig(
             candidate_catalog_path=M0416_CANDIDATES if cluster == "M0416_CANUCS2025" else None,
-            rgb_critical_image_cutouts=M0416_RGB_IMAGE_CUTOUTS if cluster.startswith("M0416") else (),
-            rgb_critical_fold_cutouts=M0416_RGB_FOLD_CUTOUTS if cluster.startswith("M0416") else (),
+            paper_small_lambda_cutouts=M0416_SMALL_LAMBDA_POSTERIORS if cluster.startswith("M0416") else (),
+            paper_fold_cutouts=M0416_FOLD_CUTOUTS if cluster.startswith("M0416") else (),
             image_dir=imaging_dir(cluster_config["cluster_key"], imaging if is_hff else "ffsims"),
             image_scale="auto",
             bands=(tuple(JWST_RGB_BANDS) if imaging == "jwst" else tuple(HFF_RGB_BANDS)) if is_hff else FF_RGB_BANDS,
-            rgb=RGBDisplayConfig(**HFF_RGB_DISPLAY) if is_hff else FF_RGB_DISPLAY,
+            rgb=(AS1063_JWST_RGB_DISPLAY if cluster in {"AS1063", "AS1063_JWST"} and imaging == "jwst"
+                 else RGBDisplayConfig(**HFF_RGB_DISPLAY) if is_hff else FF_RGB_DISPLAY),
             figure_suffix="_jwst" if (is_hff and imaging == "jwst") else "",
         ),
     )
@@ -761,8 +766,11 @@ def build_config(
         config = replace(
             config,
             search=replace(config.search, n_starts=256),
-            image_diagnostics=replace(config.image_diagnostics, fold_max_draws=16,
+            image_diagnostics=replace(config.image_diagnostics, fold_max_draws=8,
                                       fold_pair_max_separation_arcsec=3.0),
+            # Four draws of the best chain behind the RGB overview's z = 9 critical curve and band; 32 posterior draws
+            # behind the recovered-position contours.
+            image_catalog=replace(config.image_catalog, critical_band_draws=4, contour_draws=32),
             sampling=SamplingConfig(warmup=500, samples=250, max_tree_depth=7, target_accept=0.8),
             members=replace(config.members, far_field_cut_radii=2.0, classification_prior_quantile=None, min_deflection_arcsec=None,
                             cut_radius_inflation=3.0),

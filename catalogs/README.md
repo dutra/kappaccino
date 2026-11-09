@@ -45,7 +45,7 @@ Positions of the real clusters are ICRS RA/Dec; the CANUCS catalog is in the fra
 (.agents/m0416-catalog-astrometric-frames.md).
 
 Not here, because of size: `bayes.dat` of the Lenstool runs, the FF-SIMS truth maps and simulated images
-(`data/ff_sims/published/`), the Caminha lensing maps, and the CANUCS DR1 photometry catalog
+(`data/imaging/<cluster>/ffsims/`, scripts/download_imaging.py), the Caminha lensing maps, and the CANUCS DR1 photometry catalog
 (`data/CANUCS/M0416_Rihtarsic2025/canucs_dr1/`, also under `/data/sync/GalaxyClusterImaging/RedshiftCatalogs/M0416/`
 on Linux). Imaging lives under `data/imaging/<cluster>/<source>` (scripts/download_imaging.py).
 

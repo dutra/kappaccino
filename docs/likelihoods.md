@@ -115,22 +115,44 @@ physical source coordinates, which avoids a spurious mode at lenses that demagni
 
 ### Uncertain members
 
-A member catalog is a classification, and some of its galaxies may not belong to the cluster. Each uncertain member
-$i$ has a prior probability $p_i$ of being a member, from the classifier ([Prior probabilities](#prior-probabilities)).
-A confirmed member has $p_i = 1$ and is part of the lens as usual.
+A member catalog is a classification, and some of its galaxies may not belong to the cluster. Every member $i$ has a
+prior probability $p_i$ of being a cluster member ([Prior probabilities](#prior-probabilities)). A confirmed member has
+$p_i = 1$ by default, and any member can be given a lower $p_i$ in the catalog. Confirmed and uncertain members are
+treated by the same equations below. A confirmed member is just the case $p_i = 1$.
 
-**The idea.** We do not know which members are real, so the likelihood averages over the possibilities. Each
-possibility is a different lens, and each lens gives an ordinary position likelihood. The average weights each lens
-by its prior probability. Summing over every possibility costs $2^N$ position likelihoods for $N$ uncertain members,
-which is too many. So the uncertain members are split into two groups and each group is handled differently.
+**Indicators.** Give each member an indicator $z_i$, equal to 1 when the member is in the cluster (at full mass, on
+the scaling relation) and 0 when the member has no mass. The prior on the indicators is
 
-- **Enumerated members** ($K$ of them, at most `membership_max_enumerated`, default 4). These are the uncertain members
-  that matter most at the images, whose presence can change where an image lands
-  ([Which members are enumerated](#which-members-are-enumerated)). They are summed exactly. Each of the
-  $2^K$ on/off configurations $z_{\mathcal E}$ is a separate lens, with each enumerated member at full mass or at zero.
-- **Marginalized members** (all the others). Each marginalized member $g$ enters every lens at its expected mass,
-  $p_g$ times its full mass. The doubt about whether member $g$ is there becomes extra noise in the deflection, with
-  the same role as the deflection error $\eta$ of [One image](#one-image).
+$$
+p(z) = \prod_i p_i^{z_i} (1 - p_i)^{1 - z_i} .
+$$
+
+A member's deflection is proportional to the member's mass, so the deflection of the lens is
+
+$$
+\alpha(\theta;\, \Theta, z) = \alpha_{\mathrm{halo}}(\theta;\, \Theta) + \sum_i z_i\, \alpha_i(\theta;\, \Theta),
+$$
+
+with $\alpha_{\mathrm{halo}}$ the deflection of the halos, shear and sheet, and $\alpha_i$ the deflection of member $i$
+at full mass.
+
+**The idea.** The indicators are unknown, so the likelihood averages over them,
+
+$$
+p(\hat\theta \mid \Theta) = \sum_{z} p(z)\; p(\hat\theta \mid \Theta, z),
+$$
+
+where each term is the ordinary position likelihood of the lens with deflection $\alpha(\theta;\, \Theta, z)$. A member
+with $p_i = 1$ has zero prior weight on $z_i = 0$, so only the lenses that include the member count. The full sum has
+$2^N$ terms for $N$ members, which is too many. So the members are split into two groups.
+
+- **Enumerated members** $\mathcal E$ ($K$ of them, at most `membership_max_enumerated`, default 4). These are the
+  uncertain members that matter most at the images, whose presence can change where an image lands
+  ([Which members are enumerated](#which-members-are-enumerated)). Their $2^K$ on/off configurations $z_{\mathcal E}$
+  are summed exactly.
+- **Marginalized members** $\mathcal M$ (every other member, confirmed or not). Each member $g \in \mathcal M$
+  enters every lens at its expected mass, $p_g$ times its full mass. The doubt about whether member $g$ is there becomes extra noise in the deflection, with the same role as the
+  deflection error $\eta$ of [One image](#one-image).
 
 **Result.** The likelihood of the images is a weighted sum of $2^K$ ordinary position likelihoods,
 
@@ -139,55 +161,55 @@ $$
 \prod_f p\big(\hat\theta_f \mid \beta_f, \Theta;\ \bar\alpha(z_{\mathcal E}),\ \Sigma_\eta + C_{\mathrm{mem}}\big)\;}
 $$
 
-with three ingredients.
+with the prior weight of a configuration, the model deflection and the membership covariance
 
-- $p(z_{\mathcal E}) = \prod_{i \in \mathcal E} p_i^{z_i}(1 - p_i)^{1 - z_i}$ is the prior weight of a configuration.
-- $\bar\alpha(z_{\mathcal E})$ is the model deflection of that configuration. It is the deflection of the halos, shear
-  and certain members, plus the enumerated members that are on, plus every marginalized member at $p_g$ times its
-  mass.
-- $C_{\mathrm{mem}}$ is added to the covariance of the deflection error $\Sigma_\eta$. With $\alpha_g(\theta)$ the
-  deflection of marginalized member $g$ at full mass,
+$$
+\begin{aligned}
+p(z_{\mathcal E}) &= \prod_{i \in \mathcal E} p_i^{z_i}(1 - p_i)^{1 - z_i}, \\
+\bar\alpha(\theta;\, z_{\mathcal E}) &= \alpha_{\mathrm{halo}}(\theta) + \sum_{i \in \mathcal E} z_i\, \alpha_i(\theta)
+  + \sum_{g \in \mathcal M} p_g\, \alpha_g(\theta), \\
+C_{\mathrm{mem}}^{(jk)} &= \sum_{g \in \mathcal M} p_g (1 - p_g)\, \alpha_g(\theta_j)\, \alpha_g(\theta_k)^T .
+\end{aligned}
+$$
 
-  $$
-  C_{\mathrm{mem}}^{(jk)} = \sum_{g \in \mathcal M} p_g (1 - p_g)\, \alpha_g(\theta_j)\, \alpha_g(\theta_k)^T .
-  $$
+$C_{\mathrm{mem}}$ is added to the covariance $\Sigma_\eta$ of the deflection error. The covariance couples images $j$
+and $k$, because a missing member shifts all of the images near that member together.
 
-  The covariance couples images $j$ and $k$, because a missing member shifts all of the images near that member
-  together. A member with $p_g$ near 0 or 1 adds almost nothing, and a member with $p_g = 0.5$ adds the most.
+A confirmed member ($p_g = 1$) enters $\bar\alpha$ at full mass and adds $p_g(1 - p_g) = 0$ to $C_{\mathrm{mem}}$, so
+the member is an ordinary, fixed part of the lens. A member with a high but uncertain $p_g$ (say 0.95) enters at
+nearly full mass and adds a small covariance. A member with $p_g = 0.5$ adds the most. When every $p_i = 1$, no member
+is enumerated, the sum has one term, $C_{\mathrm{mem}} = 0$ and the likelihood is the usual one.
 
 In logs, the sum is a `logsumexp` over the configurations, evaluated in one vectorized pass. The sources and every
-continuous parameter are shared by all the configurations, and NUTS never samples the on/off indicators.
+continuous parameter are shared by all the configurations, and NUTS never samples the indicators.
 
-| member | in the model deflection $\bar\alpha$ | in the covariance | posterior membership |
+| member | in the model deflection $\bar\alpha$ | in $C_{\mathrm{mem}}$ | posterior membership |
 |---|---|---|---|
-| confirmed ($p_i = 1$) | full mass | nothing | 1 |
-| enumerated | full mass or zero, summed over both | nothing | updated by the images |
-| marginalized | $p_g$ times the full mass | $C_{\mathrm{mem}}$ | stays at the prior $p_g$ |
+| $p_i = 1$ | full mass | nothing | 1 |
+| $p_i < 1$, enumerated | full mass or zero, summed over both | nothing | updated by the images |
+| $p_i < 1$, marginalized | $p_i$ times the full mass | $p_i(1 - p_i)\,\alpha_i \alpha_i^T$ | stays at the prior $p_i$ |
 
-With every $p_i = 1$, both groups are empty, the sum has one term, $C_{\mathrm{mem}} = 0$ and the likelihood is the
-usual one.
-
-**Why the marginalized members can be folded into the covariance.** A member's deflection is proportional to the
-member's mass. The deflection of a marginalized member is therefore $z_g\, \alpha_g$, with $z_g = 1$ for a member and
-$z_g = 0$ otherwise. Write $z_g = p_g + (z_g - p_g)$. The first part, $p_g\, \alpha_g$, is the expected deflection and
-goes into $\bar\alpha$. The second part has zero mean and variance $p_g(1 - p_g)$, and the parts of different members
-are independent. The sum of these second parts over many members is approximately Gaussian, with covariance
-$C_{\mathrm{mem}}$. The sum over the $z_g$ thus becomes the same Gaussian integral over the deflection error that
-[One image](#one-image) already does, with $C_{\mathrm{mem}}$ added to $\Sigma_\eta$. This approximation is good when
-each marginalized member moves an image by much less than the image's position error. The members that matter most
-are enumerated, so the approximation is left to the members that matter least.
+**Why the marginalized members can be folded into the covariance.** For a member $g \in \mathcal M$, write
+$z_g = p_g + (z_g - p_g)$. The first part gives the expected deflection $p_g\, \alpha_g$, which goes into $\bar\alpha$.
+The second part has zero mean and variance $p_g(1 - p_g)$, and the parts of different members are independent. The sum
+of these second parts over many members is approximately Gaussian, with covariance $C_{\mathrm{mem}}$. The sum over
+the $z_g$ thus becomes the same Gaussian integral over the deflection error that [One image](#one-image) already does,
+with $C_{\mathrm{mem}}$ added to $\Sigma_\eta$. For a confirmed member the second part is zero, so the step is exact.
+For an uncertain member the approximation is good when the member moves an image by much less than the image's
+position error. The uncertain members that matter most are enumerated, so the approximation is left to the members
+that matter least.
 
 **Posterior membership.** At a posterior draw, configuration $z_{\mathcal E}$ has weight
 $w(z_{\mathcal E}) \propto p(z_{\mathcal E})\, p(\hat\theta \mid \Theta, z_{\mathcal E})$. The posterior membership
-of enumerated member $i$ is the total weight of the configurations with $z_i = 1$, averaged over the draws. A
-marginalized member is not tracked, so the member's posterior equals the prior. The approximation carries the mass
-uncertainty these members add, but the images do not update the membership of these members.
+of enumerated member $i$ is the total weight of the configurations with $z_i = 1$, averaged over the draws. The
+marginalized members are not tracked, so the posterior of each equals the prior. The approximation carries the mass uncertainty
+these members add, but the images do not update the membership of these members.
 
-**Calibration.** With `membership_calibration_prior`, a shared shift $\delta$ of the log-odds is sampled,
-$p_i \to \mathrm{sigmoid}(\mathrm{logit}\,p_i + \delta)$. The shift changes $p(z_{\mathcal E})$, $\bar\alpha$ and
-$C_{\mathrm{mem}}$, and has a prior factor $p(\delta)$ of its own.
+**Calibration.** With `membership_calibration_prior`, a shared shift $\delta$ of the log-odds is sampled for every
+member with $p_i < 1$, $p_i \to \mathrm{sigmoid}(\mathrm{logit}\,p_i + \delta)$. Members with $p_i = 1$ stay at 1. The
+shift changes $p(z_{\mathcal E})$, $\bar\alpha$ and $C_{\mathrm{mem}}$, and has a prior factor $p(\delta)$ of its own.
 
-**In the full likelihood**, the uncertain members do not add a factor. The members change the lens, so the sum over
+**In the full likelihood**, the members do not add a factor. The members change the lens, so the sum over
 $z_{\mathcal E}$ wraps every image term, trusted and uncertain (step 3 of [The full posterior](#the-full-posterior)).
 
 ### Uncertain images
@@ -333,7 +355,7 @@ The two factors are not independent of each other in the posterior: they share t
 joins trusted family $F$ is evaluated at that family's source $\beta_F$. So a new counter-image constrains $\beta_F$
 and the lens, exactly as a trusted image would, weighted by its assignment probability.
 
-**Step 3: add the uncertain members, as a sum around everything.** Each member configuration is a different lens, and
+**Step 3: add the members, as a sum around everything.** Each member configuration is a different lens, and
 every image, trusted or uncertain, sees the same lens. So the members do not add a factor: they change the lens inside
 $L_2$, and the configurations are summed around it. With $L_2(\,\cdot\,;\, z_{\mathcal E})$ meaning $L_2$ evaluated
 with the deflection $\bar\alpha(z_{\mathcal E})$ and the covariance $C + C_{\mathrm{mem}}$,
@@ -578,7 +600,8 @@ Enumerated members
   summed exactly.
 
 Marginalized members
-: Every other uncertain member, which enters through its expected mass and the covariance $C_{\mathrm{mem}}$. Under
+: Every other member, which enters through its expected mass and the covariance $C_{\mathrm{mem}}$. A confirmed
+  member ($p_i = 1$) is in this group too, at full mass and with no covariance. Under
   the GRF likelihood $C_{\mathrm{mem}}$ adds to $W K_\alpha W$ after the low-order projection, so the shared field's
   blocks gain the cross terms. Under the image-plane GP it adds to each family's covariance, and under the smoothed
   likelihood to each image's $C_i$.

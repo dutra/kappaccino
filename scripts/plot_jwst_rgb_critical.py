@@ -9,7 +9,9 @@ sys.path.insert(0, str(ROOT / "src"))
 
 
 def main():
+    from _covariance_plot_cli import add_catalogs_argument, with_catalogs, with_ffsims_dir
     parser = argparse.ArgumentParser(description=__doc__)
+    add_catalogs_argument(parser)
     parser.add_argument("run_directory", type=Path, help="Directory containing init/ and final/")
     parser.add_argument("--imaging", choices=("saved", "hst", "jwst"), default="jwst",
                         help="Imaging for the background: the run's saved configuration, the HST (BUFFALO) mosaics, or the JWST NIRCam mosaics (suffix _jwst)")
@@ -29,7 +31,7 @@ def main():
 
     run = args.run_directory.resolve()
     init, final = run / "init" / "artifacts", run / "final"
-    config = artifacts.load_config(final / "artifacts")
+    config = with_ffsims_dir(with_catalogs(artifacts.load_config(final / "artifacts"), args.catalogs), args.ffsims_dir)
     if args.imaging != "saved":
         from dataclasses import replace
         from kappaccino.imaging.rgb import DEFAULT_HFF_RGB_BANDS, DEFAULT_JWST_RGB_BANDS
@@ -67,10 +69,10 @@ def main():
         extra = pd.read_csv(final / "tables" / "image_recovery_extra_images.csv", dtype={"family_id": str})
     except pd.errors.EmptyDataError:
         extra = pd.DataFrame()  # No extra images were recovered in this saved run.
-    from kappaccino.plotting.jwst_rgb import render_jwst_rgb_critical
+    from kappaccino.plotting.jwst_rgb import render_jwst_rgb_critical, rgb_overview_stem
     imaging = load_cluster_imaging(config.image_catalog, config.model, config.paths.run_name)
     render_jwst_rgb_critical(config,state,evaluator,theta,catalog,extra,imaging,
-        plots.figure_path(final/'figures','hst_rgb_critical_z9.pdf' if imaging[3].lower() in {'hera','ares'} else 'jwst_rgb_critical_z9.pdf',config.paths.figure_prefix),
+        plots.figure_path(final/'figures',rgb_overview_stem(config.image_catalog, imaging[1]) + '.pdf',config.paths.figure_prefix),
         final/'tables',best_index=best_index,posterior=posterior)
 
 if __name__=='__main__':

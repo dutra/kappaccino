@@ -31,7 +31,7 @@ def test_panel_order_and_only_two_sigma(monkeypatch):
         np.testing.assert_allclose(ax.collections[0].levels,[.3])
     assert [ax.texts[0].get_text().split('\n')[0] for ax in fig.axes]==list(IMAGE_LABELS)+['System '+k for k in SYSTEM_IDS]
     for ax in fig.axes[4:]:
-        marker=next(line for line in ax.lines if line.get_marker()=='x')
+        marker=next(line for line in ax.lines if line.get_marker()=='s')
         label=next(text for text in ax.texts if text.get_text()=='a')
         assert marker.get_color()==label.get_color()=='#0072B2'
     plt.close(fig)
@@ -42,11 +42,11 @@ def test_configured_panel_order_roundtrip_and_limit(tmp_path):
     from kappaccino.config import ImageCatalogCutoutConfig
     import json
     import pytest
-    config=ImageCatalogCutoutConfig(rgb_critical_image_cutouts=IMAGE_LABELS,
-                                   rgb_critical_fold_cutouts=SYSTEM_IDS)
+    config=ImageCatalogCutoutConfig(paper_small_lambda_cutouts=IMAGE_LABELS,
+                                   paper_fold_cutouts=SYSTEM_IDS)
     saved=json.loads(json.dumps(asdict(config)))
-    assert saved['rgb_critical_image_cutouts']==list(IMAGE_LABELS)
-    assert saved['rgb_critical_fold_cutouts']==list(SYSTEM_IDS)
+    assert saved['paper_small_lambda_cutouts']==list(IMAGE_LABELS)
+    assert saved['paper_fold_cutouts']==list(SYSTEM_IDS)
     assert rc.overview_cutout_data(tmp_path,'unused') is None
     with pytest.raises(ValueError,match='at most four'):
         rc.overview_cutout_data(tmp_path,'unused',image_labels=('a','b','c','d','e'))
@@ -56,11 +56,11 @@ def test_launcher_declares_ordered_panels():
     from pathlib import Path
     import ast
     source=(Path(__file__).resolve().parents[1]/'run.xsh').read_text()
-    for name,expected in [('M0416_RGB_IMAGE_CUTOUTS',IMAGE_LABELS),('M0416_RGB_FOLD_CUTOUTS',SYSTEM_IDS)]:
+    for name,expected in [('M0416_SMALL_LAMBDA_POSTERIORS',tuple('image:'+s for s in IMAGE_LABELS)),('M0416_FOLD_CUTOUTS',tuple('system:'+s for s in SYSTEM_IDS))]:
         line=next(line for line in source.splitlines() if line.startswith(name+' ='))
         assert ast.literal_eval(line.split('=',1)[1].strip())==expected
-    assert 'rgb_critical_image_cutouts=M0416_RGB_IMAGE_CUTOUTS' in source
-    assert 'rgb_critical_fold_cutouts=M0416_RGB_FOLD_CUTOUTS' in source
+    assert 'paper_small_lambda_cutouts=M0416_SMALL_LAMBDA_POSTERIORS' in source
+    assert 'paper_fold_cutouts=M0416_FOLD_CUTOUTS' in source
 
 
 def test_explicit_panels_compute_missing_critical_fields(tmp_path,monkeypatch):

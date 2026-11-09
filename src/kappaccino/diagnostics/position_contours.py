@@ -106,12 +106,12 @@ def position_contours(points, *, grid_size=128):
     return contours, None
 
 
-def prepare_contours(data, *, log=print):
+def prepare_contours(data, *, grid_size=128, log=print):
     curves=[]; summaries=[]
     for kind in ('recovered','extra'):
         for i in range(data[kind].shape[1]):
             points=data[kind][:,i]; valid=np.isfinite(points).all(1)
-            levels,reason=position_contours(points)
+            levels,reason=position_contours(points, grid_size=grid_size)
             identity=str(data['image_labels'][i]) if kind=='recovered' else f"{data['extra_family_ids'][i]} extra {i+1}"
             summaries.append(dict(kind=kind,identity=identity,valid_draws=int(valid.sum()),total_draws=len(points),skip_reason=reason))
             for level in levels:
@@ -128,7 +128,7 @@ def overview_draw_indices(count, best):
     return np.sort(indices)
 
 
-def load_or_compute_contours(config, state, evaluator, posterior, extra, tables, *, log=print):
+def load_or_compute_contours(config, state, evaluator, posterior, extra, tables, *, grid_size=128, log=print):
     tables=Path(tables); tables.mkdir(parents=True,exist_ok=True)
     fingerprint=hashlib.sha256(np.asarray(posterior.samples).tobytes())
     fingerprint.update(b"fast-local-known-extra-v1" + (b"-gp-mean-deflection" if getattr(evaluator, 'gp_knee', False) else b""))
@@ -156,7 +156,7 @@ def load_or_compute_contours(config, state, evaluator, posterior, extra, tables,
     rows=np.array([np.flatnonzero(stored==index)[0] for index in selected])
     selected_data={k:(v[rows] if k in ('recovered','extra') else v) for k,v in data.items()}
     selected_data['draw_indices']=selected
-    contours=prepare_contours(selected_data,log=log)
+    contours=prepare_contours(selected_data,grid_size=grid_size,log=log)
     contours['position_data']=selected_data
     contours['fingerprint']=key
     meta.write_text(json.dumps(dict(fingerprint=key,draws=len(selected),selected_draw_indices=selected.tolist(),

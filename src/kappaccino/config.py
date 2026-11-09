@@ -1487,10 +1487,12 @@ class ImageCatalogCutoutConfig:
     candidate_catalog_path : str or pathlib.Path or None, optional
         Optional catalog of proposed image associations, drawn on the RGB critical-curve figure for display only.
         Default None.
-    rgb_critical_image_cutouts : tuple of str, optional
-        Image labels of the top inset panels of the RGB critical-curve figure, in order, at most four.  Default ``()``.
-    rgb_critical_fold_cutouts : tuple of str, optional
-        System ids of the right inset panels of that figure, in order, at most four.  Default ``()``.
+    paper_small_lambda_cutouts : tuple of str, optional
+        Panels of the standalone small-eigenvalue posterior figure, one per selector, in order: ``image:<label>`` (one
+        image), ``family:<id>`` (a knot's images) or ``system:<id>`` (every knot of a saved fold cutout).  Empty
+        (default) skips the figure.
+    paper_fold_cutouts : tuple of str, optional
+        Panels of the standalone fold-cutout figure, same selectors.  Empty (default) skips the figure.
     image_scale : str, optional
         Pixel scale of the imaging to use when several exist: ``"auto"``, ``"20mas"``, ``"30mas"``, ``"40mas"`` or
         ``"60mas"``.  Default ``"60mas"``.
@@ -1514,8 +1516,8 @@ class ImageCatalogCutoutConfig:
     """
     image_dir: str | Path | None = None
     candidate_catalog_path: str | Path | None = None
-    rgb_critical_image_cutouts: tuple[str, ...] = ()
-    rgb_critical_fold_cutouts: tuple[str, ...] = ()
+    paper_small_lambda_cutouts: tuple[str, ...] = ()  # image:/family:/system: selectors, one per panel
+    paper_fold_cutouts: tuple[str, ...] = ()          # same syntax; empty disables the figure
     image_scale: str = "60mas"
     bands: tuple[str, ...] | None = None
     figure_suffix: str = ""

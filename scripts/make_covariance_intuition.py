@@ -54,7 +54,7 @@ def field():
     # Conditional mean given delta alpha(0) = (sigma_alpha,0).
     vx=ct+(cl-ct)*nx*nx;vy=(cl-ct)*nx*ny
     fig,axes=plt.subplots(1,2,figsize=(8.6,3.7))
-    for i,(ax,z,label) in enumerate(zip(axes,[vx,vy],[r'$\langle\delta\alpha_x\mid\delta\boldsymbol\alpha(0)=(\sigma_\alpha,0)\rangle/\sigma_\alpha$',r'$\langle\delta\alpha_y\mid\delta\boldsymbol\alpha(0)=(\sigma_\alpha,0)\rangle/\sigma_\alpha$'])):
+    for i,(ax,z,label) in enumerate(zip(axes,[vx,vy],[r'$\langle\delta\alpha_x\mid\delta\boldsymbol\alpha(0)=(\sigma_{\rm GRF},0)\rangle/\sigma_{\rm GRF}$',r'$\langle\delta\alpha_y\mid\delta\boldsymbol\alpha(0)=(\sigma_{\rm GRF},0)\rangle/\sigma_{\rm GRF}$'])):
         im=ax.imshow(z,origin='lower',extent=(-15,15,-15,15),cmap=cm.vik,vmin=-1,vmax=1)
         sl=(slice(5,None,9),slice(5,None,9));ax.quiver(x[sl],y[sl],vx[sl],vy[sl],color='black',angles='xy',scale_units='xy',scale=.42,width=.004)
         ax.plot(0,0,'o',mfc='white',mec='black',ms=5)

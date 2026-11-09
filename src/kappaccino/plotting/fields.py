@@ -202,10 +202,13 @@ def write_field_plots(config, state, evaluator, posterior, paths, *, log=print):
     import matplotlib.pyplot as plt
     if not getattr(evaluator, 'gp_knee', False):
         return []
-    if config.likelihood.gp_blocks != 'all' or evaluator.gp_knee_spectrum != 'knee' or evaluator.gp_sigma_alpha_index < 0:
-        log('[outputs] shared field maps skipped: require gp_blocks=all and an active knee-spectrum GRF')
+    from ..likelihood.grf_fields import shared_evaluator_and_posterior, shared_field_evaluator, shared_grf_label
+    if shared_field_evaluator(evaluator) is None:
+        log('[outputs] shared field maps skipped: no active knee-spectrum GRF')
         return []
-    log('[outputs] computing shared GRF and GP diagnostic maps from the best saved draw')
+    field_label = shared_grf_label(evaluator)
+    evaluator, posterior = shared_evaluator_and_posterior(evaluator, posterior)
+    log(f'[outputs] computing shared GRF and GP diagnostic maps from the best saved draw ({field_label})')
     data = compute_fields(config, state, evaluator, posterior)
     paths.tables.mkdir(parents=True, exist_ok=True); paths.figures.mkdir(parents=True, exist_ok=True)
     prefix = f'{config.paths.figure_prefix}_' if config.paths.figure_prefix else ''
@@ -217,7 +220,7 @@ def write_field_plots(config, state, evaluator, posterior, paths, *, log=print):
     provenance = dict(draw_index=int(data['draw_index']), reference_redshift=float(data['reference_redshift']),
                       conditioning='highest-log-probability saved draw; fitted source positions and projection retained',
                       spectrum='homogeneous kernel before projection; Delta_kappa^2=k^2 P_kappa/(2 pi)',
-                      map='conditional mean, not posterior average or significance',
+                      map='conditional mean, not posterior average or significance', field=field_label,
                       nonpositive_total_pixels=int(np.sum(data['total']<=0)),
                       nonpositive_display='masked in the logarithmic total-convergence panel')
     (paths.tables / 'conditional_field_maps.json').write_text(json.dumps(provenance, indent=2))

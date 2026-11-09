@@ -61,11 +61,13 @@ def main():
     images=pd.read_csv(final/'tables/image_fit_quality.csv')
     if not a.render_only:
         config,state,evaluator,posterior,paths=load_run(a.run)
-        if not (evaluator.gp_knee and state.gp_blocks=='all'):
-            raise ValueError('A single cluster field requires the saved shared GRF model')
-        # Exactly the parameter statistic used by compute_truth_recovery, not the best draw.
-        theta=np.median(posterior.samples,axis=0)
-        correction=evaluator.gp_deflection_correction(theta)
+        from kappaccino.likelihood.grf_fields import posterior_median_theta, shared_field_evaluator, shared_theta
+        twin=shared_field_evaluator(evaluator)
+        if twin is None:
+            raise ValueError('A single cluster field requires a knee mass field')
+        # Exactly the parameter statistic used by compute_truth_recovery (physical posterior median), not the best draw.
+        theta=posterior_median_theta(evaluator,posterior)
+        correction=twin.gp_deflection_correction(shared_theta(evaluator,theta))
         if correction is None:raise ValueError('Conditional GRF not available for this saved model')
         z=float(config.truth.caustic_source_redshift)
         data={}
@@ -78,7 +80,7 @@ def main():
         _,u=evaluator.total_fields_at(points,packed,chunk=4096)
         ref=float(dpie_sigma0_factor_from_config(state.z_lens,state.gp_reference_redshift,state.cosmo_config))
         target=float(dpie_sigma0_factor_from_config(state.z_lens,z,state.cosmo_config))
-        weight=target/ref/float(evaluator.gp_weights_per_family[0])
+        weight=target/ref/float(twin.gp_weights_per_family[0])
         du=[]
         for start in range(0,len(points),1024):
             block=points[start:start+1024];n=len(block);block=np.pad(block,((0,1024-n),(0,0)),mode='edge')
@@ -100,7 +102,7 @@ def main():
             differences[q]=float(np.nanmax(abs(data[f'{mode}_{q}']-saved)))
         data.update(x=x,y=y,grf_kappa=(.5*np.trace(du,axis1=-2,axis2=-1)).reshape(shape),theta=theta)
         save_arrays(cache,**data)
-        metadata=dict(run=str(a.run.resolve()),z_source=z,model='median latent parameter vector, matching the existing truth-recovery plot',
+        metadata=dict(run=str(a.run.resolve()),z_source=z,model='physical posterior median, matching the truth-recovery plot',
             grf='conditional mean at the same model and its reconstructed sources, not posterior-averaged fields',
             grid_shape=list(shape),redshift_weight=weight,baseline_max_absolute_difference=differences,
             magnification='1 / det(I - U_parametric - U_GRF), recomputed from the total Jacobian',

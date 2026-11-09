@@ -20,7 +20,7 @@ from ..imaging import cutouts
 from ..likelihood.evaluator import Evaluator
 from ..diagnostics.exact_images import astropy_cosmology
 from ..diagnostics.truth_recovery import lens_quantities, load_truth_fits
-from ..likelihood.grf_fields import shared_grf_fields
+from ..likelihood.grf_fields import shared_field_evaluator, shared_grf_fields, shared_grf_label
 
 MIN_OVERVIEW_SIZE_ARCSEC = 40.0
 CONTOUR_LEVELS_MSUN_PER_KPC2 = np.array([0.5, 1.0, 2.0, 4.0]) * 1.0e9
@@ -317,9 +317,7 @@ def overview_axes(fig, ax, images, bands, display, display_image, catalog, extra
 
 def shared_grf_convergence(evaluator, theta, geometry, z_source, chunk=384):
     """Conditional mean convergence at the overview redshift, with the fitted projection."""
-    if not (getattr(evaluator, "gp_knee", False) and evaluator.state.gp_blocks == "all"):
-        return None
-    if evaluator.gp_deflection_correction(theta) is None:
+    if shared_field_evaluator(evaluator) is None:
         return None
     points = np.column_stack([geometry["x"].ravel(), geometry["y"].ravel()])
     _, jacobian = shared_grf_fields(evaluator, theta, z_source, points, chunk=chunk)
@@ -348,7 +346,8 @@ def render_cluster_mass_figure(evaluator: Evaluator, theta: np.ndarray, catalog:
     provenance: dict[str, Any] = {"cluster": cluster, "bands": list(bands), "map_statistic": "coordinatewise physical posterior median" if posterior is not None else "supplied model", **physical}
     if grf is not None:
         provenance["grf"] = dict(quantity="conditional mean at the displayed model; not posterior mean field",
-            projection=list(getattr(evaluator, "gp_project_modes", ())),
+            projection=list(getattr(shared_field_evaluator(evaluator), "gp_project_modes", ())),
+            field=shared_grf_label(evaluator),
             map_redshift=z_source, reference_redshift=evaluator.state.gp_reference_redshift,
             minimum_kappa=float(grf.min()), maximum_kappa=float(grf.max()))
     profiles, profile, yprofile = {}, pd.DataFrame(), pd.DataFrame()

@@ -83,7 +83,7 @@ def write_outputs(config: LensClusterSolverConfig, state: ModelState, evaluator:
     for name, frame in recovery.items():
         frame.to_csv(tables / f"{name}.csv", index=False)
     image_df = recovery["image_fit_quality"]
-    summary["fit"] = fit_summary(state, image_df, recovery["image_count_recovery"])
+    summary["fit"] = fit_summary(state, image_df, recovery["image_count_recovery"], recovery.get("image_fit_quality_lens_only"))
     log(f"[outputs] recovered {summary['fit'].get('recovered_image_count')}/{summary['fit']['observed_image_count']} images at the best fit, "
         f"rms={summary['fit'].get('image_rms_arcsec')}")
     if not image_df.empty:
@@ -104,8 +104,12 @@ def write_outputs(config: LensClusterSolverConfig, state: ModelState, evaluator:
     plots.plot_critical_curves(state, evaluator, best, sources, z_crit if z_crit > state.z_lens else max(state.z_source_values),
                                plots.figure_path(figures, "critical_curves.pdf", prefix))
 
+    median_theta = None
+    if config.truth.kappa_true_fits:
+        from ..likelihood.grf_fields import posterior_median_theta
+        median_theta = posterior_median_theta(evaluator, posterior)
     truth = compute_truth_recovery(state, evaluator, np.asarray(posterior.samples), config.truth, paths.fits, tables,
-                                   seed=config.runtime.seed, log=log)
+                                   seed=config.runtime.seed, log=log, median_theta=median_theta)
     write_aperture_mass_histogram(config, state, evaluator, posterior, paths, image_df, log=log)
     if truth is not None:
         from ..diagnostics.exact_images import astropy_cosmology
@@ -119,6 +123,11 @@ def write_outputs(config: LensClusterSolverConfig, state: ModelState, evaluator:
                                           plots.figure_path(figures, "truth_recovery_m2d_aperture_ratio.pdf", prefix))
             ratio = truth["profile"]
             summary["truth"] = {"m2d_ratio_at_max_radius": float(ratio["m2d_ratio_median"].iloc[-1]), "n_radii": int(len(ratio))}
+    # The headline numbers and the results macros are written here and again at the end: the imaging products below
+    # (overview, fold cutouts, RGB critical curves) are the slowest and most failure-prone stage, and the Ares run of
+    # 2026-11-08 ended inside it with no run_summary.json and "not available" macros.
+    (tables / "run_summary.json").write_text(json.dumps(summary, indent=2, default=float))
+    write_run_results(paths.root, name=prefix)
     if config.image_catalog.image_dir and not image_df.empty:
         from ..imaging.cutouts import imaging_variants, load_cluster_imaging
         from ..plotting.mass_figure import render_cluster_mass_figure
@@ -159,8 +168,7 @@ def write_outputs(config: LensClusterSolverConfig, state: ModelState, evaluator:
                 from ..plotting.apj_fold_cutouts import render_apj_fold_cutouts
                 from ..plotting.fold_pairs import add_best_grf_critical_curves
                 # Reuse selected draws and imaging; never rerun image recovery.
-                add_best_grf_critical_curves(state, evaluator, posterior, fold_data, log=log,
-                                           system_block_fields=True, critical_only=True)
+                add_best_grf_critical_curves(state, evaluator, posterior, fold_data, log=log, critical_only=True)
                 save_fold_data(fold_data, tables)
                 output = render_apj_fold_cutouts(config, fold_data, imaging,
                     plots.figure_path(figures, 'fold_cutouts_apj_jwst.pdf', prefix),

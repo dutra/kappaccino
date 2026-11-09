@@ -45,6 +45,14 @@ def test_run_export(tmp_path):
     assert r'\MJZeroFourOneSixRuntime}{\textnormal{not available}}' in text
     commands = re.findall(r'\\newcommand\{\\([^}]+)\}', text)
     assert commands and all(re.fullmatch('[A-Za-z]+', c) for c in commands)
+    assert r'\MJZeroFourOneSixLensOnlyRMS}{\textnormal{not available}}' in text
+    save('tables/run_summary.json', {'fit': {'observed_image_count': 3, 'recovered_image_count': 2, 'image_rms_arcsec': .12345,
+                                             'lens_only_image_rms_arcsec': .25912, 'lens_only_image_median_residual_arcsec': .2031,
+                                             'lens_only_recovered_image_count': 3}})
+    text = write_run_results(tmp_path).read_text()
+    assert r'\MJZeroFourOneSixLensOnlyRMS}{0.259}' in text
+    assert r'\MJZeroFourOneSixLensOnlyMedianResidual}{0.203}' in text
+    assert r'\MJZeroFourOneSixNLensOnlyRecovered}{3}' in text
     save('tables/runtime.json', {'total': 3661})
     assert r'\MJZeroFourOneSixRuntimeHours}{1.017}' in write_run_results(tmp_path).read_text()
 

@@ -38,8 +38,10 @@ def conditional_displacement(query, observed, jacobian, cholesky, residual, sigm
 
 def add_gp_position_diagnostics(state,evaluator,posterior,data,*,log=print):
     """Cache moments at every recovered image, paired with its original draw."""
-    if not (getattr(evaluator,'gp_knee',False) and state.gp_blocks=='all'):
+    from ..likelihood.grf_fields import shared_evaluator_and_posterior, shared_field_evaluator
+    if shared_field_evaluator(evaluator) is None:
         return data
+    evaluator,posterior=shared_evaluator_and_posterior(evaluator,posterior)
     systems=data.get('systems',[])
     if not systems:
         return data

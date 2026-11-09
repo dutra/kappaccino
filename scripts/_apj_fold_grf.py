@@ -20,7 +20,7 @@ def prepare(run, data):
             return saved
     config, state, evaluator, posterior, paths = load_run(run, physical_draw_indices=data['draw_indices'])
     add_best_grf_critical_curves(state, evaluator, posterior, data,
-                               system_block_fields=True, critical_only=True)
+                               critical_only=True)
     if not all('critical_grf_best' in s for s in data['systems']):
         raise ValueError('No GRF critical curves available for this model')
     data['critical_overlay'] = 'Parametric and parametric + conditional-mean GRF; smooth potential derivatives; separate pointwise bands; system-specific fields when gp_blocks=system'

@@ -7,7 +7,39 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'src'))
 
 
-def load_run(run_directory, *, physical_draw_indices=None):
+def with_catalogs(config, catalogs):
+    """``config`` reading the image and member catalogs from ``catalogs`` = (images.yaml, members.yaml): for a saved run
+    whose catalog files have since moved (the FF-SIMS catalogs went from data/ff_sims to catalogs/<cluster>, 2026-11-08).
+    The catalog contents must be the ones the run used; the rebuilt parameter order is checked against the saved state."""
+    if not catalogs:
+        return config
+    from dataclasses import replace
+    images, members = catalogs
+    model = replace(config.model, image_constraints=replace(config.model.image_constraints, catalog_path=images),
+                    member_populations=tuple(replace(p, catalog_path=members) for p in config.model.member_populations))
+    return replace(config, model=model)
+
+
+def with_ffsims_dir(config, directory):
+    """``config`` reading the FF-SIMS truth maps and simulated HST frames from ``directory`` (data/imaging/<cluster>/ffsims)
+    instead of the paths saved in the run (data/ff_sims before 2026-11-08)."""
+    if not directory:
+        return config
+    from dataclasses import replace
+    directory = str(directory).rstrip('/')
+    truth = replace(config.truth, kappa_true_fits=f'{directory}/kappa_z9_0.fits', gammax_true_fits=f'{directory}/gammax_z9_0.fits',
+                    gammay_true_fits=f'{directory}/gammay_z9_0.fits')
+    return replace(config, truth=truth, image_catalog=replace(config.image_catalog, image_dir=directory))
+
+
+def add_catalogs_argument(parser):
+    parser.add_argument('--catalogs', nargs=2, metavar=('IMAGES_YAML', 'MEMBERS_YAML'),
+                        help='read the catalogs from these files instead of the paths saved in the run (moved catalog files)')
+    parser.add_argument('--ffsims-dir', metavar='DIR',
+                        help='read the FF-SIMS truth maps and simulated frames from DIR (data/imaging/<cluster>/ffsims) instead of the saved paths')
+
+
+def load_run(run_directory, *, physical_draw_indices=None, catalogs=None, ffsims_dir=None):
     import jax
     jax.config.update('jax_enable_x64', True)
     import numpy as np
@@ -16,7 +48,7 @@ def load_run(run_directory, *, physical_draw_indices=None):
     from kappaccino.core.state import build_state, with_member_classes
     run = Path(run_directory).resolve()
     init, final = run / 'init/artifacts', run / 'final'
-    config = artifacts.load_config(final / 'artifacts')
+    config = with_ffsims_dir(with_catalogs(artifacts.load_config(final / 'artifacts'), catalogs), ffsims_dir)
     classes = json.loads((init / artifacts.CLASSIFICATION_FILE).read_text())
     state = build_state(config, drop_member_ids=classes.get('dropped_members', ()))
     centered = set(classes.get('centered_members', []))

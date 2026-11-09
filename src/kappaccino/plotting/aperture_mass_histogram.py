@@ -24,31 +24,18 @@ NORMALIZATION_KPC = 8.
 
 
 def conditional_grf(evaluator, physical, z_source):
-    """Mean field at the physical median, preserving its physical source positions."""
-    if not (getattr(evaluator,'gp_knee',False) and evaluator.state.gp_blocks=='all'
-            and evaluator.gp_sigma_alpha_index>=0 and evaluator.gp_knee_spectrum=='knee'):
-        return None, 1.
-    from ..core.model import convert_theta_to_latent
+    """Mean field at the physical median, preserving its physical source positions; the shared field of the run, or
+    its all-block twin for a system-block run."""
     from ..lens.cosmology import dpie_sigma0_factor_from_config
-    evaluator=evaluator._padded_evaluator()
-    state=evaluator.state
-    theta=convert_theta_to_latent(physical,state.parameter_specs)
-    ix=np.asarray(state.images.source_x_param_index);iy=np.asarray(state.images.source_y_param_index)
-    theta[np.r_[ix,iy]]=0
-    whitening=jax.jit(lambda t:evaluator.statistics(t)['whitening'])(theta)
-    layout=evaluator.gp;mask=np.asarray(layout['knot_mask']);family=np.asarray(layout['knot_family'])
-    sources=np.stack((physical[ix],physical[iy]),-1)
-    target=np.where(mask[...,None],sources[np.where(mask,family,0)],0).reshape(mask.shape[0],-1)
-    offset=np.linalg.solve(np.asarray(whitening['cholesky']),
-        (target-np.asarray(whitening['centroid']))[...,None])[...,0].reshape(*mask.shape,2)
-    real=offset[np.asarray(layout['real_block']),np.asarray(layout['real_knot'])]
-    real_family=np.asarray(layout['real_family'])
-    theta[ix[real_family]]=real[:,0];theta[iy[real_family]]=real[:,1]
-    np.testing.assert_allclose(jax.jit(evaluator.reported_physical)(theta),physical,rtol=1e-10,atol=1e-10)
-    correction=evaluator.gp_deflection_correction(theta)
-    reference=float(dpie_sigma0_factor_from_config(state.z_lens,state.gp_reference_redshift,state.cosmo_config))
-    target=float(dpie_sigma0_factor_from_config(state.z_lens,z_source,state.cosmo_config))
-    return correction,target/reference/float(evaluator.gp_weights_per_family[0])
+    from ..likelihood.grf_fields import latent_from_physical, shared_field_evaluator
+    twin = shared_field_evaluator(evaluator)
+    if twin is None:
+        return None, 1.
+    state = twin.state
+    correction = twin.gp_deflection_correction(latent_from_physical(twin, physical))
+    reference = float(dpie_sigma0_factor_from_config(state.z_lens, state.gp_reference_redshift, state.cosmo_config))
+    target = float(dpie_sigma0_factor_from_config(state.z_lens, z_source, state.cosmo_config))
+    return correction, target/reference/float(twin.gp_weights_per_family[0])
 
 
 def inside_image_footprint(centers, images):

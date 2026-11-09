@@ -11,6 +11,8 @@ def main():
     parser.add_argument('run_directory')
     parser.add_argument('--imaging', choices=('saved', 'jwst'), default='saved')
     parser.add_argument('--recompute', action='store_true', help='Recompute fold geometry instead of reusing saved diagnostics')
+    from _covariance_plot_cli import add_catalogs_argument
+    add_catalogs_argument(parser)
     args = parser.parse_args()
     from kappaccino.imaging.cutouts import imaging_variants, load_cluster_imaging
     from kappaccino.io.hdf5 import load_arrays
@@ -27,7 +29,8 @@ def main():
     if data is not None:
         # A rendering operation must not reinterpret saved latent source coordinates.
         # The cache already contains image positions, sources, curves and bands.
-        config = artifacts.load_config(final/'artifacts')
+        from _covariance_plot_cli import with_ffsims_dir
+        config = with_ffsims_dir(artifacts.load_config(final/'artifacts'), args.ffsims_dir)
         posterior = load_arrays(final/'artifacts/posterior.h5')
         best = int(np.nanargmax(posterior['log_prob']))
         count = len(posterior['samples'])
@@ -37,7 +40,7 @@ def main():
         state = SimpleNamespace(reference=(reference.reference, reference.ra0_deg, reference.dec0_deg))
         log(f'[outputs] rendering saved fold cache: {len(data["draw_indices"])} draws; gp_blocks={config.likelihood.gp_blocks}')
     else:
-        config, state, evaluator, posterior, paths = load_run(args.run_directory)
+        config, state, evaluator, posterior, paths = load_run(args.run_directory, catalogs=args.catalogs, ffsims_dir=args.ffsims_dir)
         data = compute_fold_diagnostics(config, state, evaluator, posterior, log=log)
         save_fold_data(data, paths.tables)
     for image_config in imaging_variants(config, overview_only=True):

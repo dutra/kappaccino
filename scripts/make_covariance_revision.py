@@ -114,7 +114,7 @@ def blocks():
             ax.tick_params(which='minor',bottom=False,top=False,left=False,right=False)
             ax.set_xlabel(f'({chr(97+4*row+i)}) '+names[i])
         cb=fig.colorbar(im,cax=fig.add_axes([.92,.57 if row==0 else .12,.013,.31]))
-        cb.set_label(r'$C_{ia,jb}/\sigma_\alpha^2$' if row==0 else r'$C_{ia,jb}/\sqrt{C_{ia,ia}C_{jb,jb}}$')
+        cb.set_label(r'$C_{ia,jb}/\sigma_{\rm GRF}^2$' if row==0 else r'$C_{ia,jb}/\sqrt{C_{ia,ia}C_{jb,jb}}$')
     fig.subplots_adjust(left=.045,right=.89,bottom=.09,top=.99,wspace=.27,hspace=.40)
     return fig,C
 

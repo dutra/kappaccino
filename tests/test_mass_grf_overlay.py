@@ -17,6 +17,8 @@ def test_shared_grf_redshift_scaling_and_chunk_padding(monkeypatch):
     np.testing.assert_allclose(result,2*(x+y))
 
 
-def test_no_shared_map_for_system_blocks():
-    e=SimpleNamespace(gp_knee=True,state=SimpleNamespace(gp_blocks='system'))
-    assert shared_grf_convergence(e,None,None,2.) is None
+def test_no_shared_map_without_a_mass_field():
+    for blocks in ('all','system'):
+        e=SimpleNamespace(gp_knee=True,gp_sigma_alpha_index=-1,state=SimpleNamespace(gp_blocks=blocks))
+        assert shared_grf_convergence(e,None,None,2.) is None
+    assert shared_grf_convergence(SimpleNamespace(gp_knee=False,state=SimpleNamespace(gp_blocks='all')),None,None,2.) is None

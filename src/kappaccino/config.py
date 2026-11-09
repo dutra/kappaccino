@@ -553,20 +553,15 @@ class MemberPopulationConfig:
 class ImageConstraintsConfig:
     """The multiple-image catalog that constrains the lens.
 
-    Families without a positive redshift and families with a single image are dropped when the model is built.
+    Families without a positive redshift and families with a single image are dropped when the model is built.  The
+    catalog carries no positional errors: the independent measurement scatter of every image is the sampled
+    ``images.sigma_meas`` (``LikelihoodConfig.sigma_meas_prior``).
 
     Parameters
     ----------
     catalog_path : str or pathlib.Path
         YAML image catalog (see ``kappaccino.io.image_catalog``); convert Lenstool files with
         ``scripts/convert_lenstool_catalog.py``.  Must exist.
-    sigma_inst_arcsec : float, optional
-        Astrometric error :math:`\\sigma_{inst}`, in arcsec, of images whose catalog entry (and the catalog's
-        ``defaults``) gives none.  Must be finite and positive.  ``LikelihoodConfig.sigma_inst_arcsec`` overrides every
-        image's error.  Default ``0.1``.
-    sigma_floor_arcsec : float, optional
-        Floor on every image's astrometric error, in arcsec: smaller errors are raised to it.  Must be finite and
-        nonnegative; ``0.0`` applies no floor.  Default ``0.0``.
     trusted_prior_min : float, optional
         Images whose catalog ``prior`` (the prior probability that the image belongs to its system) is below this are
         not trusted: they leave their families, and with a :class:`PartitionConfig` without ``catalog_path`` they are
@@ -574,8 +569,6 @@ class ImageConstraintsConfig:
         image trusted).
     """
     catalog_path: str | Path
-    sigma_inst_arcsec: float = 0.1
-    sigma_floor_arcsec: float = 0.0
     trusted_prior_min: float = 0.0
 
 
@@ -1084,7 +1077,7 @@ class LikelihoodConfig:
     In the ``"smoothed"`` mode (the model of the paper) each image contributes a local image-plane term with the
     source-plane positional covariance :math:`C = \\sigma_{meas}^2 A A^T + \\sigma_{def}^2 I + \\sigma_{sel}^2 R`
     (the paper's Eq. position_covariance), where :math:`A` is the lens Jacobian at the image,
-    :math:`\\sigma_{meas}^2 = \\sigma_{inst}^2 + \\sigma_{extra}^2` and
+    :math:`\\sigma_{meas}` is the sampled independent measurement scatter of every image and
     :math:`R = (I + A A^T/\\lambda_{sel}^2)^{-1}` (Eq. selection_weight).  The ``"gp_image_plane"`` mode replaces the
     floors by correlated errors within blocks of images, with an image-plane kernel (``gp_kernel="image_plane"``) or a
     mass field with a knee spectrum plus an image-plane GP (``gp_kernel="knee"``).  Fields prefixed ``gp_`` apply to the
@@ -1099,28 +1092,24 @@ class LikelihoodConfig:
         Gaussian source-plane term with covariance :math:`C`, without the determinant factor) and
         ``"source-isotropic"`` (a source-plane Gaussian of variance :math:`\\sigma_{def}^2 + \\sigma_{meas}^2` per image,
         without the Jacobian).  Default ``"smoothed"``.
-    sigma_inst_arcsec : float or None, optional
-        Astrometric error :math:`\\sigma_{inst}`, in arcsec, that replaces every image's error, the catalog's included
-        (``ImageConstraintsConfig.sigma_floor_arcsec`` still applies).  Positive.  None keeps the catalog values.
-        Default None.
-    sigma_shared_prior : numpyro distribution, optional
+    sigma_gp_prior : numpyro distribution, optional
         ``gp_kernel="image_plane"``: prior of the shared (correlated) image-plane displacement amplitude
         :math:`\\sigma_{shared}`, in arcsec.  The family covariance is
-        :math:`S = \\sigma_{shared}^2 (K \\otimes I) + (\\sigma_{inst,i}^2 + \\sigma_{white}^2) I` with the Gaussian kernel
+        :math:`S = \\sigma_{shared}^2 (K \\otimes I) + \\sigma_{meas}^2 I` with the Gaussian kernel
         :math:`K_{ij} = \\exp(-|\\theta_i - \\theta_j|^2 / 2\\ell^2)`, and the source-plane covariance
         :math:`C = B S B^T + \\sigma_{fl}^2 I` with :math:`B` = blockdiag(:math:`A_i`); :math:`\\sigma_{shared}` and
-        :math:`\\sigma_{white}` replace :math:`\\sigma_{extra}`, :math:`\\sigma_{def}` and :math:`\\sigma_{sel}`.
+        :math:`\\sigma_{meas}` replace :math:`\\sigma_{def}` and :math:`\\sigma_{sel}`.
         Default: median 0.15 arcsec, ln-width 0.5, truncated at 1 arcsec.
-    sigma_white_prior : numpyro distribution, optional
-        ``gp_kernel="image_plane"``: prior of the white (uncorrelated) image-plane scatter :math:`\\sigma_{white}`, in
-        arcsec.  Log-normal so the white scatter is learned and kept away from zero when :math:`\\sigma_{inst}` is
-        small; ``dist.TruncatedNormal(0.0, 0.05, low=0.0)`` is the half-normal alternative.  Default: median 0.015
+    gp_sigma_meas_prior : numpyro distribution, optional
+        ``gp_kernel="image_plane"``: prior of the independent measurement scatter :math:`\\sigma_{meas}` of every image,
+        in arcsec, the only measurement error (no fixed instrumental error).  Log-normal so that it is learned and kept
+        away from zero; ``dist.TruncatedNormal(0.0, 0.05, low=0.0)`` is the half-normal alternative.  Default: median 0.015
         arcsec, ln-width 0.5, truncated at 0.1 arcsec.
-    sigma_shared_start_arcsec : float, optional
+    sigma_gp_start_arcsec : float, optional
         ``gp_kernel="image_plane"``: start of :math:`\\sigma_{shared}` in the search, in arcsec.  Positive.  Default
         ``0.168``.
-    sigma_white_start_arcsec : float, optional
-        ``gp_kernel="image_plane"``: start of :math:`\\sigma_{white}`, in arcsec.  Positive.  Default ``0.02``.
+    gp_sigma_meas_start_arcsec : float, optional
+        ``gp_kernel="image_plane"``: start of :math:`\\sigma_{meas}`, in arcsec.  Positive.  Default ``0.02``.
     gp_correlation_length_arcsec : float, optional
         ``gp_kernel="image_plane"``: the correlation length :math:`\\ell`, in arcsec: its fixed value when
         ``gp_correlation_length_prior`` is None, else its start.  Positive.  Default ``7.0``.
@@ -1157,7 +1146,7 @@ class LikelihoodConfig:
         least 2 intervals.  Default ``0.25``.
     gp_knee_scales_arcsec : tuple of float, optional
         Knee kernel: (shortest, longest) wavelength of the mass field, in arcsec: from the smallest image separation
-        resolved to the scale of the cluster halos.  ``0 < min < max``; the upper bound of ``gp_knee_prior`` must not
+        resolved to the scale of the cluster halos.  ``0 < min < max``; the upper bound of ``lambda_b_prior`` must not
         exceed the longest.  Default ``(0.2, 30.0)``.
     gp_knee_project_modes : tuple of str, optional
         Knee kernel: low-order modes removed from the mass field over the images, any of ``"translation"``,
@@ -1167,39 +1156,39 @@ class LikelihoodConfig:
         ``()``.
     gp_knee_lambda_grid : tuple of (float, float, int), optional
         Knee kernel: tabulated knee wavelengths (min, max in arcsec, count), log-spaced; the sampled
-        :math:`\\ln\\lambda_t` is clamped to the grid.  ``0 < min < max`` and count at least 8.  Default
+        :math:`\\ln\\lambda_b` is clamped to the grid.  ``0 < min < max`` and count at least 8.  Default
         ``(0.5, 80.0, 64)``.
     gp_knee_r_step_arcsec : float, optional
         Knee kernel: separation step of the kernel tables, in arcsec.  Positive.  Default ``0.02``.
-    gp_sigma_alpha_prior : numpyro distribution or None, optional
+    sigma_grf_prior : numpyro distribution or None, optional
         Knee kernel: prior of the mass field's rms deflection error per component at :math:`z_{ref}`, in arcsec.  The
         upper truncation keeps the error model from replacing the lens: a deflection error above 0.3 arcsec is a
         missing cluster component, not substructure.  None drops the mass field (only the image-plane GP remains).
         Default: median 0.08 arcsec, ln-width 0.7, truncated at 0.3 arcsec.
-    gp_sigma_alpha_start_arcsec : float, optional
+    sigma_grf_start_arcsec : float, optional
         Start of the rms deflection error, in arcsec.  Positive.  Default ``0.08``.
-    gp_knee_prior : numpyro distribution, optional
-        Knee kernel: prior of the knee wavelength :math:`\\lambda_t = 2\\pi/k_t`, in arcsec.  Its upper bound must not
+    lambda_b_prior : numpyro distribution, optional
+        Knee kernel: prior of the break scale :math:`\\lambda_b = 2\\pi/k_t`, in arcsec.  Its upper bound must not
         exceed ``gp_knee_scales_arcsec[1]`` (a knee above it is the scale of the cluster halos and the external shear)
         nor the largest tabulated wavelength.  Default: median 6 arcsec, ln-width 0.5, truncated at 30 arcsec.
-    gp_knee_start_arcsec : float, optional
-        Start of the knee wavelength, in arcsec, strictly inside the bounds of ``gp_knee_prior``.  Default ``6.0``.
-    gp_knee_sigma_shared_prior : numpyro distribution, optional
+    lambda_b_start_arcsec : float, optional
+        Start of the knee wavelength, in arcsec, strictly inside the bounds of ``lambda_b_prior``.  Default ``6.0``.
+    gp_knee_sigma_gp_prior : numpyro distribution, optional
         Knee kernel: prior of the image-plane GP amplitude :math:`\\sigma_{shared}`, in arcsec; an image-plane
         displacement above 0.3 arcsec is lensing, not astrometry or feature selection.  Default: median 0.10 arcsec,
         ln-width 0.7, truncated at 0.3 arcsec.
-    gp_knee_sigma_shared_start_arcsec : float, optional
+    gp_knee_sigma_gp_start_arcsec : float, optional
         Start of that amplitude, in arcsec.  Positive.  Default ``0.10``.
-    gp_knee_ell_prior : numpyro distribution, optional
+    gp_knee_ell_gp_prior : numpyro distribution, optional
         Knee kernel: prior of the image-plane GP correlation length, in arcsec; coherence over more than 5 arcsec is
         lensing.  Default: median 2 arcsec, ln-width 0.5, truncated at 5 arcsec.
-    gp_knee_ell_start_arcsec : float, optional
+    gp_knee_ell_gp_start_arcsec : float, optional
         Start of that correlation length, in arcsec.  Positive.  Default ``2.0``.
     gp_knee_spectrum : str, optional
         Knee kernel: shape of the mass-field spectrum (``scripts/compare_grf_spectra.py`` compares them):
         ``"knee"`` (:math:`P = 1/(1 + (k/k_t)^{\\gamma})`, the one-halo term of one population of truncated halos);
         ``"two_knee"`` (a second, independent knee field with the same slope, for a second population; the upper bound
-        of ``gp_knee2_prior`` must not exceed the lower bound of ``gp_knee_prior``, so the two cannot swap);
+        of ``lambda_b2_prior`` must not exceed the lower bound of ``lambda_b_prior``, so the two cannot swap);
         ``"broken_power_law"`` (:math:`P = x^{-\\beta_{low}} (1 + x^{\\gamma})^{-(\\gamma - \\beta_{low})/\\gamma}`,
         :math:`x = k/k_b`, with :math:`\\beta_{low}` sampled on ``gp_knee_beta_low_prior`` and :math:`\\gamma` fixed;
         :math:`\\beta_{low} = 0` is the knee); ``"power_law"`` (:math:`P = k^{-\\gamma}` between the cutoffs, no knee,
@@ -1207,18 +1196,18 @@ class LikelihoodConfig:
         plane at ``gp_knee2_plane_redshift`` behind the cluster, weighted by :math:`D_{ps}/D_s`, zero for sources in
         front of it; to first order, without the plane's coupling to the cluster deflection); ``"knee_foreground"``
         (a second knee field with redshift weight 1 for every source, for mass well in front of the cluster).  The
-        spectra other than ``"knee"`` need the mass field (``gp_sigma_alpha_prior``).  The image solver's
+        spectra other than ``"knee"`` need the mass field (``sigma_grf_prior``).  The image solver's
         mean-deflection correction is implemented for ``"knee"`` only.  Default ``"knee"``.
-    gp_knee2_sigma_alpha_prior : numpyro distribution, optional
+    gp_knee2_sigma_grf_prior : numpyro distribution, optional
         Second-field spectra: prior of the second field's rms deflection error, in arcsec.  Default: median 0.05
         arcsec, ln-width 0.7, truncated at 0.3 arcsec.
-    gp_knee2_sigma_alpha_start_arcsec : float, optional
+    gp_knee2_sigma_grf_start_arcsec : float, optional
         Start of that rms deflection error, in arcsec.  Positive.  Default ``0.05``.
-    gp_knee2_prior : numpyro distribution, optional
+    lambda_b2_prior : numpyro distribution, optional
         Second-field spectra: prior of the second knee wavelength, in arcsec; bounded above by at most the largest
         tabulated wavelength.  Default: median 3 arcsec, ln-width 0.5, truncated at 10 arcsec.
-    gp_knee2_start_arcsec : float, optional
-        Start of the second knee wavelength, in arcsec, strictly inside the bounds of ``gp_knee2_prior``.  Default
+    lambda_b2_start_arcsec : float, optional
+        Start of the second knee wavelength, in arcsec, strictly inside the bounds of ``lambda_b2_prior``.  Default
         ``3.0``.
     gp_knee2_plane_redshift : float, optional
         ``"knee_background"``: redshift of the background mass plane; must exceed the cluster redshift.  Default
@@ -1231,23 +1220,23 @@ class LikelihoodConfig:
         Default ``0.25``.
     gp_knee_beta_low_start : float, optional
         Start of :math:`\\beta_{low}`, inside its prior's bounds.  Default ``0.0``.
-    gp_knee_fixed_arcsec : float or None, optional
+    lambda_b_fixed_arcsec : float or None, optional
         Fixed knee wavelength of the mass field, in arcsec (no sampled knee); must lie inside the knee tables and
         ``gp_knee_scales_arcsec``; not with ``"power_law"``.  None samples it.  Default None.
-    gp_knee_ell_fixed_arcsec : float or None, optional
+    gp_knee_ell_gp_fixed_arcsec : float or None, optional
         Fixed correlation length of the knee kernel's image-plane GP, in arcsec (no sampled length).  Positive.  None
         samples it.  Default None.
-    gp_knee_sigma_white_prior : numpyro distribution, optional
-        Knee kernel: prior of the white image-plane scatter :math:`\\sigma_{white}`, in arcsec; log-normal rather than
-        half-normal (``dist.TruncatedNormal(0.0, 0.03, low=0.0)``), so the white scatter is inferred and kept away from
-        zero when :math:`\\sigma_{inst}` is small.  Default: median 0.015 arcsec, ln-width 0.5, truncated at 0.1
+    gp_knee_sigma_meas_prior : numpyro distribution, optional
+        Knee kernel: prior of the independent measurement scatter :math:`\\sigma_{meas}` of every image, in arcsec;
+        log-normal rather than half-normal (``dist.TruncatedNormal(0.0, 0.03, low=0.0)``), so that it is inferred and
+        kept away from zero.  Default: median 0.015 arcsec, ln-width 0.5, truncated at 0.1
         arcsec.
-    gp_knee_sigma_white_start_arcsec : float, optional
-        Start of that white scatter, in arcsec.  Positive.  Default ``0.012``.
-    sigma_extra_prior : numpyro distribution or None, optional
-        ``"smoothed"`` and source-plane modes: prior of the extra measurement scatter :math:`\\sigma_{extra}`, in
-        arcsec, added in quadrature to :math:`\\sigma_{inst}` (image registration, feature centering, manual marking).
-        None fixes the measurement error at the catalog value.  Default: median 0.05 arcsec, ln-width 1.0, truncated at
+    gp_knee_sigma_meas_start_arcsec : float, optional
+        Start of that measurement scatter, in arcsec.  Positive.  Default ``0.012``.
+    sigma_meas_prior : numpyro distribution, optional
+        ``"smoothed"`` and source-plane modes: prior of the independent measurement scatter :math:`\\sigma_{meas}` of
+        every image, in arcsec (astrometry, image registration, feature centering, manual marking), the only
+        measurement error.  Always sampled; cannot be None.  Default: median 0.05 arcsec, ln-width 1.0, truncated at
         1 arcsec.
     sigma_def_prior : numpyro distribution, optional
         ``"smoothed"`` and source-plane modes: prior of the residual deflection error :math:`\\sigma_{def}`, isotropic
@@ -1273,13 +1262,12 @@ class LikelihoodConfig:
         integrator's accuracy, hence the acceptance rate, can suffer.  Default False.
     """
     likelihood_mode: str = "smoothed"
-    sigma_inst_arcsec: float | None = None
-    # sigma_shared prior truncated at 1": the untruncated prior puts 7e-5 of its mass there, and a 32" value carried a
+    # sigma_gp prior truncated at 1": the untruncated prior puts 7e-5 of its mass there, and a 32" value carried a
     # spurious init mode.
-    sigma_shared_prior: Any = field(default_factory=lambda: _error_scale_prior(0.15, 0.5, 1.0))
-    sigma_white_prior: Any = field(default_factory=lambda: _error_scale_prior(0.015, 0.5, 0.1))
-    sigma_shared_start_arcsec: float = 0.168      # the sigma_img posterior median of the oct31a M0416 run
-    sigma_white_start_arcsec: float = 0.02
+    sigma_gp_prior: Any = field(default_factory=lambda: _error_scale_prior(0.15, 0.5, 1.0))
+    gp_sigma_meas_prior: Any = field(default_factory=lambda: _error_scale_prior(0.015, 0.5, 0.1))
+    sigma_gp_start_arcsec: float = 0.168      # the sigma_img posterior median of the oct31a M0416 run
+    gp_sigma_meas_start_arcsec: float = 0.02
     gp_correlation_length_arcsec: float = 7.0
     # ell prior: only the ~40 same-family pairs separated by 3" to 15" constrain ell (M0416).
     gp_correlation_length_prior: Any | None = field(default_factory=lambda: _error_scale_prior(7.0, 0.5, 30.0))
@@ -1287,43 +1275,44 @@ class LikelihoodConfig:
     gp_kernel: str = "image_plane"
     gp_reference_redshift: float = 2.0
     # Knee kernel: gp_knee.py, .agents/gp-knee-plan.md.  gp_blocks "system" is run.xsh --fast; "family" is for
-    # regression.  Sites: images.gp_sigma_alpha, images.gp_knee (lambda_t), images.gp_knee_gamma, images.sigma_shared,
-    # images.gp_ell, images.sigma_white.
+    # regression.  Sites: images.sigma_grf, images.lambda_b (lambda_t), images.gp_knee_gamma, images.sigma_gp,
+    # images.ell_gp, images.sigma_meas.
     gp_blocks: str = "all"
     gp_knee_gamma: float = 4.0
     # run.xsh uses dist.TruncatedNormal(4, 0.5, low=2, high=6): the slope of an NFW-like cusp, within a quarter of n.
     gp_knee_gamma_prior: Any | None = field(default_factory=lambda: dist.Uniform(2.0, 6.0))
     gp_knee_gamma_step: float = 0.25
-    # With the long end at 100" and the halos free (all-image blocks), the field took the halo-scale misfit: sigma_alpha
+    # With the long end at 100" and the halos free (all-image blocks), the field took the halo-scale misfit: sigma_grf
     # and the knee at their caps (0.28", 25"), the external shear down to 0.02 (lens-free test, 2026-11-02).  Truncated at
     # 30" the halos and the shear carry those scales and the field is left with the structure below them.
     gp_knee_scales_arcsec: tuple[float, float] = (0.2, 30.0)
     gp_knee_project_modes: tuple[str, ...] = ()
     gp_knee_lambda_grid: tuple[float, float, int] = (0.5, 80.0, 64)
     gp_knee_r_step_arcsec: float = 0.02
-    gp_sigma_alpha_prior: Any | None = field(default_factory=lambda: _error_scale_prior(0.08, 0.7, 0.3))
-    gp_sigma_alpha_start_arcsec: float = 0.08
-    gp_knee_prior: Any = field(default_factory=lambda: _error_scale_prior(6.0, 0.5, 30.0))
-    gp_knee_start_arcsec: float = 6.0
-    gp_knee_sigma_shared_prior: Any = field(default_factory=lambda: _error_scale_prior(0.10, 0.7, 0.3))
-    gp_knee_sigma_shared_start_arcsec: float = 0.10
-    gp_knee_ell_prior: Any = field(default_factory=lambda: _error_scale_prior(2.0, 0.5, 5.0))
-    gp_knee_ell_start_arcsec: float = 2.0
+    sigma_grf_prior: Any | None = field(default_factory=lambda: _error_scale_prior(0.08, 0.7, 0.3))
+    sigma_grf_start_arcsec: float = 0.08
+    lambda_b_prior: Any = field(default_factory=lambda: _error_scale_prior(6.0, 0.5, 30.0))
+    lambda_b_start_arcsec: float = 6.0
+    gp_knee_sigma_gp_prior: Any = field(default_factory=lambda: _error_scale_prior(0.10, 0.7, 0.3))
+    gp_knee_sigma_gp_start_arcsec: float = 0.10
+    gp_knee_ell_gp_prior: Any = field(default_factory=lambda: _error_scale_prior(2.0, 0.5, 5.0))
+    gp_knee_ell_gp_start_arcsec: float = 2.0
     gp_knee_spectrum: str = "knee"
-    gp_knee2_sigma_alpha_prior: Any = field(default_factory=lambda: _error_scale_prior(0.05, 0.7, 0.3))
-    gp_knee2_sigma_alpha_start_arcsec: float = 0.05
-    gp_knee2_prior: Any = field(default_factory=lambda: _error_scale_prior(3.0, 0.5, 10.0))
-    gp_knee2_start_arcsec: float = 3.0
+    gp_knee2_sigma_grf_prior: Any = field(default_factory=lambda: _error_scale_prior(0.05, 0.7, 0.3))
+    gp_knee2_sigma_grf_start_arcsec: float = 0.05
+    lambda_b2_prior: Any = field(default_factory=lambda: _error_scale_prior(3.0, 0.5, 10.0))
+    lambda_b2_start_arcsec: float = 3.0
     gp_knee2_plane_redshift: float = 0.7
     gp_knee_beta_low_prior: Any = field(default_factory=lambda: dist.Uniform(-1.0, 3.5))
     gp_knee_beta_low_step: float = 0.25
     gp_knee_beta_low_start: float = 0.0
-    gp_knee_fixed_arcsec: float | None = None
-    gp_knee_ell_fixed_arcsec: float | None = None
-    # gp_knee_sigma_white log-normal: the fits put it at 0.006-0.02" (2026-11-05).
-    gp_knee_sigma_white_prior: Any = field(default_factory=lambda: _error_scale_prior(0.015, 0.5, 0.1))
-    gp_knee_sigma_white_start_arcsec: float = 0.012
-    sigma_extra_prior: Any | None = field(default_factory=lambda: _error_scale_prior(0.05, 1.0, 1.0))
+    lambda_b_fixed_arcsec: float | None = None
+    gp_knee_ell_gp_fixed_arcsec: float | None = None
+    # gp_knee_sigma_meas log-normal: the fits put it at 0.006-0.02" (2026-11-05).
+    gp_knee_sigma_meas_prior: Any = field(default_factory=lambda: _error_scale_prior(0.015, 0.5, 0.1))
+    gp_knee_sigma_meas_start_arcsec: float = 0.012
+    # smoothed and source-plane modes: the independent measurement scatter of every image, always sampled.
+    sigma_meas_prior: Any = field(default_factory=lambda: _error_scale_prior(0.05, 1.0, 1.0))
     sigma_def_prior: Any = field(default_factory=lambda: _error_scale_prior(0.1, 1.0, 1.0))
     sigma_sel_prior: Any | None = field(default_factory=lambda: _error_scale_prior(0.04, 1.0, 1.0))
     lambda_sel_prior: Any = field(default_factory=lambda: dist.LogNormal(math.log(0.7), 1.0))
@@ -1550,9 +1539,8 @@ class PartitionConfig:
     Parameters
     ----------
     catalog_path : str or pathlib.Path or None, optional
-        CSV table of the uncertain images: ``image_label``, ``ra``, ``dec`` (degrees); optional ``sigma_arcsec``
-        (astrometric error), ``parity`` (-1, 0, +1), redshifts (``zspec_best``, ``catalog_z``, ``zphot_best`` with
-        ``catalog_z_sigma`` or ``pagul_zpdf_low``/``pagul_zpdf_high``), ``mag_<band>`` and ``mag_err_<band>``, and the
+        CSV table of the uncertain images: ``image_label``, ``ra``, ``dec`` (degrees); optional ``parity`` (-1, 0,
+        +1), redshifts (``zspec_best``, ``catalog_z``, ``zphot_best`` with ``catalog_z_sigma`` or ``pagul_zpdf_low``/``pagul_zpdf_high``), ``mag_<band>`` and ``mag_err_<band>``, and the
         claimed association: ``claimed_family`` with ``association_prior``.  Must exist.  None (default) takes the
         uncertain images from the image catalog: every image the run does not trust (``ImageConstraintsConfig.
         trusted_prior_min``, a family without a positive redshift, a family left with one image), claimed by its own
@@ -1572,8 +1560,6 @@ class PartitionConfig:
     source_prior_sigma_arcsec : float or None, optional
         Width per axis of the Gaussian prior on a new or unrelated source's position: the evidence cost of a source.
         None uses ``likelihood.source_position_prior_sigma_arcsec``.  Default None.
-    sigma_inst_arcsec : float, optional
-        Astrometric error of images without ``sigma_arcsec``.  Default 0.1.
     color_scatter : float or None, optional
         Same-source color scatter in mag; None fits it on the trusted families.  Default None.
     outlier_fraction, outlier_scatter : float, optional
@@ -1595,7 +1581,6 @@ class PartitionConfig:
     bands: tuple[str, ...] | None = None
     redshift_grid: tuple[float, float, int] | None = None
     source_prior_sigma_arcsec: float | None = None
-    sigma_inst_arcsec: float = 0.1
     color_scatter: float | None = None
     outlier_fraction: float = 0.05
     outlier_scatter: float = 1.0
@@ -1909,10 +1894,12 @@ def validate_config(config: LensClusterSolverConfig) -> None:
         raise ValueError("members.classification_prior_quantile must lie in (0.5, 1).")
     if config.likelihood.likelihood_mode not in LIKELIHOOD_MODES:
         raise ValueError(f"likelihood.likelihood_mode must be one of {sorted(LIKELIHOOD_MODES)}.")
+    if config.likelihood.likelihood_mode != "gp_image_plane" and config.likelihood.sigma_meas_prior is None:
+        raise ValueError("likelihood.sigma_meas_prior is required: sigma_meas is the only measurement error of the images.")
     _positive("likelihood.gp_correlation_length_arcsec", config.likelihood.gp_correlation_length_arcsec)
     _positive("likelihood.gp_floor_arcsec", config.likelihood.gp_floor_arcsec, allow_zero=True)
-    _positive("likelihood.sigma_shared_start_arcsec", config.likelihood.sigma_shared_start_arcsec)
-    _positive("likelihood.sigma_white_start_arcsec", config.likelihood.sigma_white_start_arcsec)
+    _positive("likelihood.sigma_gp_start_arcsec", config.likelihood.sigma_gp_start_arcsec)
+    _positive("likelihood.gp_sigma_meas_start_arcsec", config.likelihood.gp_sigma_meas_start_arcsec)
     if config.likelihood.gp_kernel not in {"image_plane", "knee"}:
         raise ValueError("likelihood.gp_kernel must be 'image_plane' or 'knee'.")
     if config.likelihood.gp_blocks not in {"all", "system", "family"}:
@@ -1941,8 +1928,8 @@ def validate_config(config: LensClusterSolverConfig) -> None:
         raise ValueError("likelihood.gp_knee_spectrum must be 'knee', 'two_knee', 'broken_power_law', 'power_law', 'knee_foreground' "
                          "or 'knee_background'.")
     if config.likelihood.gp_kernel == "knee" and spectrum != "knee":
-        if config.likelihood.gp_sigma_alpha_prior is None:
-            raise ValueError(f"likelihood.gp_knee_spectrum {spectrum!r} needs the mass field (gp_sigma_alpha_prior).")
+        if config.likelihood.sigma_grf_prior is None:
+            raise ValueError(f"likelihood.gp_knee_spectrum {spectrum!r} needs the mass field (sigma_grf_prior).")
         if spectrum == "power_law" and config.likelihood.gp_knee_gamma_prior is None:
             raise ValueError("likelihood.gp_knee_spectrum 'power_law' samples the slope: set gp_knee_gamma_prior.")
         if spectrum == "broken_power_law":
@@ -1955,48 +1942,48 @@ def validate_config(config: LensClusterSolverConfig) -> None:
             if config.likelihood.gp_knee_gamma_prior is not None:
                 raise ValueError("likelihood.gp_knee_spectrum 'broken_power_law' fixes the high-k slope: set gp_knee_gamma_prior to None.")
         if spectrum in {"two_knee", "knee_foreground", "knee_background"}:
-            upper2 = physical_bounds(config.likelihood.gp_knee2_prior)[1]
+            upper2 = physical_bounds(config.likelihood.lambda_b2_prior)[1]
             if float(upper2) > float(config.likelihood.gp_knee_lambda_grid[1]) * (1.0 + 1.0e-12):
-                raise ValueError("likelihood.gp_knee2_prior must be bounded above by at most the largest tabulated knee wavelength.")
-            if spectrum == "two_knee" and float(upper2) > physical_bounds(config.likelihood.gp_knee_prior)[0] * (1.0 + 1.0e-12):
-                raise ValueError("likelihood.gp_knee_spectrum 'two_knee': the upper bound of gp_knee2_prior must not exceed the lower "
-                                 "bound of gp_knee_prior, so the small and the large knee cannot swap.")
+                raise ValueError("likelihood.lambda_b2_prior must be bounded above by at most the largest tabulated knee wavelength.")
+            if spectrum == "two_knee" and float(upper2) > physical_bounds(config.likelihood.lambda_b_prior)[0] * (1.0 + 1.0e-12):
+                raise ValueError("likelihood.gp_knee_spectrum 'two_knee': the upper bound of lambda_b2_prior must not exceed the lower "
+                                 "bound of lambda_b_prior, so the small and the large knee cannot swap.")
             if spectrum in {"knee_foreground", "knee_background"} and config.likelihood.gp_knee_project_modes:
                 raise ValueError(f"likelihood.gp_knee_project_modes assume one redshift weighting; not with {spectrum!r}.")
             if spectrum == "knee_background" and not float(config.likelihood.gp_knee2_plane_redshift) > float(config.model.large_halos[0].z_lens):
                 raise ValueError("likelihood.gp_knee2_plane_redshift must lie behind the cluster.")
-            for name in ("gp_knee2_sigma_alpha_start_arcsec", "gp_knee2_start_arcsec"):
+            for name in ("gp_knee2_sigma_grf_start_arcsec", "lambda_b2_start_arcsec"):
                 _positive(f"likelihood.{name}", getattr(config.likelihood, name))
-    for start, prior, label in ((config.likelihood.gp_knee_start_arcsec, config.likelihood.gp_knee_prior, "gp_knee"),
-                                (config.likelihood.gp_knee2_start_arcsec, config.likelihood.gp_knee2_prior, "gp_knee2")):
+    for start, prior, label in ((config.likelihood.lambda_b_start_arcsec, config.likelihood.lambda_b_prior, "lambda_b"),
+                                (config.likelihood.lambda_b2_start_arcsec, config.likelihood.lambda_b2_prior, "lambda_b2")):
         low, high = physical_bounds(prior)
         if not low < float(start) < high:
             raise ValueError(f"likelihood.{label}_start_arcsec ({float(start):g}\") must lie inside the bounds of {label}_prior.")
-    if config.likelihood.gp_knee_fixed_arcsec is not None:
-        fixed = float(config.likelihood.gp_knee_fixed_arcsec)
+    if config.likelihood.lambda_b_fixed_arcsec is not None:
+        fixed = float(config.likelihood.lambda_b_fixed_arcsec)
         if spectrum == "power_law" or not (float(lam_lo) <= fixed <= min(float(lam_hi), float(hi))):
-            raise ValueError("likelihood.gp_knee_fixed_arcsec must lie inside the knee tables and the band, and a power law has no knee.")
-    if config.likelihood.gp_knee_ell_fixed_arcsec is not None:
-        _positive("likelihood.gp_knee_ell_fixed_arcsec", config.likelihood.gp_knee_ell_fixed_arcsec)
-    knee_upper = physical_bounds(config.likelihood.gp_knee_prior)[1]
+            raise ValueError("likelihood.lambda_b_fixed_arcsec must lie inside the knee tables and the band, and a power law has no knee.")
+    if config.likelihood.gp_knee_ell_gp_fixed_arcsec is not None:
+        _positive("likelihood.gp_knee_ell_gp_fixed_arcsec", config.likelihood.gp_knee_ell_gp_fixed_arcsec)
+    knee_upper = physical_bounds(config.likelihood.lambda_b_prior)[1]
     # Bounds come back from the log coordinate (exp(ln 30) = 30.000000000000004): compare with a relative tolerance.
     exceeds = lambda value, limit: float(value) > float(limit) * (1.0 + 1.0e-12)
     if config.likelihood.gp_kernel == "knee" and math.isfinite(knee_upper) and exceeds(knee_upper, hi):
-        raise ValueError(f"the upper bound of likelihood.gp_knee_prior ({float(knee_upper):g}\") must not exceed the longest GRF "
+        raise ValueError(f"the upper bound of likelihood.lambda_b_prior ({float(knee_upper):g}\") must not exceed the longest GRF "
                          f"wavelength gp_knee_scales_arcsec[1] ({float(hi):g}\"): beyond it the spectrum is flat and the knee has no meaning.")
     if config.likelihood.gp_kernel == "knee" and exceeds(knee_upper, lam_hi):
-        raise ValueError("likelihood.gp_knee_prior must be bounded above by at most the largest tabulated knee wavelength "
+        raise ValueError("likelihood.lambda_b_prior must be bounded above by at most the largest tabulated knee wavelength "
                          f"({float(lam_hi):g}\"): beyond the tables the knee is clamped and only the prior moves it.")
-    for name in ("gp_knee_r_step_arcsec", "gp_sigma_alpha_start_arcsec", "gp_knee_start_arcsec", "gp_knee_sigma_shared_start_arcsec",
-                 "gp_knee_ell_start_arcsec", "gp_knee_sigma_white_start_arcsec"):
+    for name in ("gp_knee_r_step_arcsec", "sigma_grf_start_arcsec", "lambda_b_start_arcsec", "gp_knee_sigma_gp_start_arcsec",
+                 "gp_knee_ell_gp_start_arcsec", "gp_knee_sigma_meas_start_arcsec"):
         _positive(f"likelihood.{name}", getattr(config.likelihood, name))
     _positive("likelihood.gp_reference_redshift", config.likelihood.gp_reference_redshift)
-    for name in ("sigma_def_prior", "gp_sigma_alpha_prior", "gp_knee_prior", "gp_knee2_sigma_alpha_prior", "gp_knee2_prior",
-                 "gp_knee_sigma_shared_prior", "gp_knee_ell_prior", "gp_knee_sigma_white_prior", "sigma_white_prior", "sigma_extra_prior",
-                 "sigma_sel_prior", "lambda_sel_prior", "sigma_shared_prior", "gp_correlation_length_prior"):
+    for name in ("sigma_def_prior", "sigma_grf_prior", "lambda_b_prior", "gp_knee2_sigma_grf_prior", "lambda_b2_prior",
+                 "gp_knee_sigma_gp_prior", "gp_knee_ell_gp_prior", "gp_knee_sigma_meas_prior", "gp_sigma_meas_prior", "sigma_meas_prior",
+                 "sigma_sel_prior", "lambda_sel_prior", "sigma_gp_prior", "gp_correlation_length_prior"):
         _positive_prior(f"likelihood.{name}", getattr(config.likelihood, name))
-    for name in ("sigma_white_prior", "gp_knee_sigma_white_prior", "sigma_shared_prior", "gp_knee_sigma_shared_prior", "sigma_def_prior",
-                 "lambda_sel_prior", "gp_knee_prior", "gp_knee_ell_prior"):
+    for name in ("gp_sigma_meas_prior", "gp_knee_sigma_meas_prior", "sigma_gp_prior", "gp_knee_sigma_gp_prior", "sigma_def_prior",
+                 "lambda_sel_prior", "lambda_b_prior", "gp_knee_ell_gp_prior"):
         if getattr(config.likelihood, name) is None:
             raise ValueError(f"likelihood.{name} is always sampled and needs a prior (e.g. dist.TruncatedNormal(0.0, 0.05, low=0.0) for a "
                              "half-normal).")
@@ -2041,8 +2028,6 @@ def validate_config(config: LensClusterSolverConfig) -> None:
     if len(mean) != 2 or not all(math.isfinite(float(v)) for v in mean):
         raise ValueError("source_position_prior_mean_arcsec requires two finite coordinates.")
     _positive("source_position_prior_sigma_arcsec", likelihood.source_position_prior_sigma_arcsec)
-    if likelihood.sigma_inst_arcsec is not None:
-        _positive("sigma_inst_arcsec", likelihood.sigma_inst_arcsec)
     diagnostics = config.image_diagnostics
     count = diagnostics.posterior_diagnostic_draws
     if isinstance(count, bool) or not isinstance(count, Integral) or count < 0:
@@ -2080,7 +2065,6 @@ def _validate_partition_config(partition: PartitionConfig, config: LensClusterSo
     for label in ("source_prior_sigma_arcsec", "color_scatter"):
         if getattr(partition, label) is not None:
             _positive(f"partition.{label}", getattr(partition, label))
-    _positive("partition.sigma_inst_arcsec", partition.sigma_inst_arcsec)
     _positive("partition.outlier_scatter", partition.outlier_scatter)
     if not 0.0 <= float(partition.outlier_fraction) < 1.0:
         raise ValueError("partition.outlier_fraction must be in [0, 1).")
@@ -2179,9 +2163,5 @@ def _validate_model_config(model: LensModelConfig | None) -> None:
     constraints = model.image_constraints
     if not Path(constraints.catalog_path).is_file():
         raise ValueError(f"image constraint catalog does not exist: {constraints.catalog_path}")
-    if not math.isfinite(float(constraints.sigma_inst_arcsec)) or constraints.sigma_inst_arcsec <= 0.0:
-        raise ValueError("image_constraints.sigma_inst_arcsec must be finite and positive.")
-    if not math.isfinite(float(constraints.sigma_floor_arcsec)) or constraints.sigma_floor_arcsec < 0.0:
-        raise ValueError("image_constraints.sigma_floor_arcsec must be finite and nonnegative.")
     if not 0.0 <= float(constraints.trusted_prior_min) <= 1.0:
         raise ValueError("image_constraints.trusted_prior_min must be in [0, 1].")

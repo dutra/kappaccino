@@ -8,7 +8,7 @@ def spec(name, family='large', field='v_disp', log=False):
 
 
 def test_blocks_and_joint_source_alignment(tmp_path):
-    specs=[spec('halo.v_disp'),spec('bcg_1.v_disp'),spec('images.gp_knee','error_scale'),
+    specs=[spec('halo.v_disp'),spec('bcg_1.v_disp'),spec('images.lambda_b','error_scale'),
            spec('potfile.sigma','scaling'),spec('member.z','member_scatter_offset')]
     for family in ['01','02']:
         specs.extend([spec(f'source.{family}.beta_{axis}','source_position',f'beta_{axis}') for axis in ['x','y']])

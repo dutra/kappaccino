@@ -18,8 +18,8 @@ def main():
     parser.add_argument('run_directory')
     parser.add_argument('--ell', type=float, default=None, help='kernel correlation length (arcsec)')
     parser.add_argument('--floor', type=float, default=None, help='sigma_fl (arcsec)')
-    parser.add_argument('--sigma-shared', type=float, default=0.15, help='sigma_shared assumed for the depth error (arcsec)')
-    parser.add_argument('--sigma-white', type=float, default=0.02, help='sigma_white assumed for the depth error (arcsec)')
+    parser.add_argument('--sigma-shared', type=float, default=0.15, help='sigma_gp assumed for the depth error (arcsec)')
+    parser.add_argument('--sigma-meas', type=float, default=0.02, help='sigma_meas assumed for the depth error (arcsec)')
     parser.add_argument('--max-separation', type=float, default=3.0, help='pairs closer than this (arcsec)')
     parser.add_argument('--output', default=None, help='JSON table; default final/tables/shallow_fold_pairs.json')
     args = parser.parse_args()
@@ -31,11 +31,11 @@ def main():
     state = replace(state, gp_correlation_length_arcsec=float(ell), gp_floor_arcsec=float(floor))
     best = int(np.nanargmax(posterior.log_prob))
     rows = shallow_fold_pairs(state, evaluator, posterior.samples[best], max_separation_arcsec=args.max_separation,
-                              sigma_shared_arcsec=args.sigma_shared, sigma_white_arcsec=args.sigma_white)
-    print(shallow_fold_pair_report(rows, float(floor), args.sigma_shared, args.sigma_white), flush=True)
+                              sigma_gp_arcsec=args.sigma_gp, sigma_meas_arcsec=args.sigma_meas)
+    print(shallow_fold_pair_report(rows, float(floor), args.sigma_gp, args.sigma_meas), flush=True)
     output = args.output or paths.tables / 'shallow_fold_pairs.json'
     with open(output, 'w') as handle:
-        json.dump(dict(pairs=rows, model=f'best posterior draw {best}', sigma_shared_arcsec=args.sigma_shared, sigma_white_arcsec=args.sigma_white, ell_arcsec=ell,
+        json.dump(dict(pairs=rows, model=f'best posterior draw {best}', sigma_gp_arcsec=args.sigma_gp, sigma_meas_arcsec=args.sigma_meas, ell_arcsec=ell,
                        floor_arcsec=floor, max_separation_arcsec=args.max_separation), handle, indent=2)
     print(f'wrote {output}')
 

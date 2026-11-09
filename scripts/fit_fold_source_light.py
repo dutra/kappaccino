@@ -140,7 +140,7 @@ def gp_coordinate_correction(evaluator,state,theta,points):
     def inputs(theta):
         stats=e.statistics(theta);scales=e.error_scales(stats['physical'])
         residual=stats['fields']['backprojected']-stats['source_by_family'][jnp.asarray(state.images.family_index_per_image)]
-        return stats['fields']['jacobian'],stats['family_cholesky'][0],residual,scales['sigma_shared'],scales['gp_ell']
+        return stats['fields']['jacobian'],stats['family_cholesky'][0],residual,scales['sigma_gp'],scales['ell_gp']
     jac,chol,residual,sigma,ell=map(np.asarray,inputs(jnp.asarray(theta)))
     observed=np.c_[state.images.x_obs,state.images.y_obs]
     np.testing.assert_array_equal(np.asarray(e.gp['slots'])[0],np.arange(len(observed)))
@@ -330,9 +330,7 @@ def main():
     from kappaccino.io.image_catalog import load_image_catalog
     from kappaccino.io.hdf5 import load_arrays, save_arrays
     config, state, evaluator, posterior, _ = load_run(args.run_directory)
-    catalog = load_image_catalog(config.model.image_constraints.catalog_path,
-        sigma_inst_arcsec=config.model.image_constraints.sigma_inst_arcsec,
-        sigma_floor_arcsec=config.model.image_constraints.sigma_floor_arcsec)
+    catalog = load_image_catalog(config.model.image_constraints.catalog_path)
     rows = catalog[catalog.system_id.eq(args.system) & catalog.image_id.isin(args.images)]
     rows = rows[rows.image_label.isin(list(map(str, state.images.image_labels)))]
     if rows.empty or not set(args.images).issubset(set(rows.image_id)):

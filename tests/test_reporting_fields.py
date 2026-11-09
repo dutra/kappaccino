@@ -48,12 +48,12 @@ def test_total_magnification_uses_total_jacobian_once(monkeypatch):
 def test_no_field_and_empty_points(monkeypatch):
     e=evaluator(monkeypatch)
     assert shared_grf_fields(e,None,4.,np.empty((0,2)))[0].shape==(0,2)
-    e.gp_sigma_alpha_index=-1                  # no mass field: nothing to add, whatever the blocks
+    e.sigma_grf_index=-1                  # no mass field: nothing to add, whatever the blocks
     for blocks in ['all','family','system']:
         e.state.gp_blocks=blocks
         a,u=shared_grf_fields(e,None,4.,[[1.,2.]])
         assert not a.any() and not u.any()
-    e.gp_sigma_alpha_index=0
+    e.sigma_grf_index=0
     e.state.gp_blocks='all'
     e.gp_deflection_correction=lambda theta:None
     assert not shared_grf_fields(e,None,4.,[[1.,2.]])[1].any()

@@ -15,7 +15,7 @@ def test_image_and_knot_priors(tmp_path):
             "a": {"prior": 0.5, "knots": {"A": [10.002, 1.0], "B": {"ra": 10.003, "dec": 1.0, "prior": 0.2}}},
             "b": {"knots": {"A": [10.004, 1.0], "B": [10.005, 1.0]}}}},
     }, defaults={"prior": 0.9})
-    table = load_image_catalog(path, sigma_inst_arcsec=0.1).set_index("image_label")
+    table = load_image_catalog(path).set_index("image_label")
     assert table.loc["1.a", "association_prior"] == 0.9                     # defaults
     assert table.loc["1.b", "association_prior"] == 0.3
     assert table.loc["2A.a", "association_prior"] == 0.5                    # the image's prior for its knots
@@ -28,7 +28,7 @@ def test_prior_out_of_range(tmp_path):
     path.write_text("format: lenscluster-images/1\nsystems:\n  '1':\n    z: 2.0\n    images:\n"
                     "      a: {ra: 10.0, dec: 1.0, prior: 1.5}\n      b: {ra: 10.1, dec: 1.0}\n")
     with pytest.raises(CatalogError, match="prior"):
-        load_image_catalog(path, sigma_inst_arcsec=0.1)
+        load_image_catalog(path)
 
 
 def test_association_weights():

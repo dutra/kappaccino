@@ -91,8 +91,8 @@ FAR_FIELD_THRESHOLD_GRID = (2.0, 3.0, 4.0, 5.0, 10.0)
 
 def member_field_terms(state: ModelState, evaluator: Evaluator, physical: np.ndarray) -> dict[str, np.ndarray]:
     """Per member and image at this model: the exact (elliptical) deflection, the circular far-field series, their
-    difference whitened by the source-plane covariance C of the likelihood (at the catalog measurement error), the precision
-    and the separation."""
+    difference whitened by the per-image source-plane covariance C of the likelihood at this model, the precision and the
+    separation."""
     members = state.members
     physical_jax = jnp.asarray(physical, dtype=jnp.float64)
     packed, _ = evaluator.packed_state(physical_jax)
@@ -104,9 +104,8 @@ def member_field_terms(state: ModelState, evaluator: Evaluator, physical: np.nda
         jnp.take(packed.Rs, components))[0])                             # (M, N, 2) circular series
     a = np.asarray(fields["jacobian"])
     scales = evaluator.error_scales(physical_jax)
-    # The catalog measurement error, not the sampled extra scatter; under gp_image_plane the diagonal block of the family
-    # covariance, whose measurement scale includes sigma_img.
-    sigma_meas = np.asarray(scales["sigma_meas"]) if evaluator.gp_mode else np.asarray(state.images.sigma_inst_per_image)
+    # The image-plane scale of each image's diagonal block: sigma_meas, plus sigma_gp under gp_image_plane.
+    sigma_meas = np.broadcast_to(np.asarray(scales["sigma_img"]), (a.shape[0],))
     # sigma_def is per image under the knee kernel (w_i^2 (sigma_S^2 + sigma_L^2) + sigma_fl^2); source_covariance broadcasts it.
     covariance = np.asarray(sl.source_covariance(a, sigma_meas, np.asarray(scales["sigma_def"]), float(scales["sigma_sel"]), float(scales["lambda_sel"]))["covariance"])
     precision = np.linalg.inv(covariance)

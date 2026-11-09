@@ -1,7 +1,7 @@
 """Correlated image-plane displacements per family: the gp_image_plane position likelihood.
 
 Within a family the image-plane displacement d of the N images has covariance
-S = sigma_shared^2 (K kron I_2) + blockdiag((sigma_inst,i^2 + sigma_white^2) I_2) with the Gaussian kernel
+S = sigma_gp^2 (K kron I_2) + sigma_meas^2 I with the Gaussian kernel
 K_ij = exp(-|theta_i - theta_j|^2 / 2 ell^2).  Mapped to the source plane through B = blockdiag(A_i) and floored, C = B S B^T + sigma_fl^2 I is
 the covariance of the stacked residuals F_i = b_i - beta.  One Cholesky factor of C per family gives the quadratic form,
 the log determinant and the conditional N(beta_bar, S_beta) of the source.  Families are padded to a common size; a
@@ -49,11 +49,10 @@ def displacement_kernel(x, y, slots, mask, ell: float):
 
 def precompute(images, ell: float, weights=None) -> dict:
     """Everything that depends on the data only: slots, mask, counts, separations (vectors, squares and outer products),
-    the kernel at the fixed (or starting) ``ell``, the padded instrumental variances and the padded redshift weights
+    the kernel at the fixed (or starting) ``ell`` and the padded redshift weights
     (``weights`` per image, default 1; see ``redshift_weights``)."""
     layout = family_slots(images.family_index_per_image, images.n_families)
     slots, mask = jnp.asarray(layout["slots"]), jnp.asarray(layout["mask"])
-    sigma_inst2 = jnp.where(mask, jnp.square(jnp.asarray(images.sigma_inst_per_image))[slots], 0.0)
     xy = jnp.stack((jnp.asarray(images.x_obs), jnp.asarray(images.y_obs)), -1)[slots]                 # (F, M, 2)
     separations = xy[:, :, None, :] - xy[:, None, :, :]                                              # (F, M, M, 2)
     d2 = jnp.sum(separations ** 2, axis=-1)
@@ -61,29 +60,29 @@ def precompute(images, ell: float, weights=None) -> dict:
     w = jnp.ones(len(np.asarray(images.x_obs)), dtype=jnp.float64) if weights is None else jnp.asarray(weights, dtype=jnp.float64)
     return dict(slots=slots, mask=mask, counts=jnp.asarray(layout["counts"], dtype=jnp.float64), size=layout["size"],
                 squared_separations=d2, separations=separations, outer=outer, kernel=kernel_from_separations(d2, mask, float(ell)),
-                sigma_inst2=sigma_inst2, weights=jnp.where(mask, w[slots], 0.0))
+                weights=jnp.where(mask, w[slots], 0.0))
 
 
 def redshift_weights(efficiency_per_image, efficiency_reference):
     """w_i = (D_ds / D_s)(z_i) / (D_ds / D_s)(z_ref): a potential error at the cluster plane scales every family's deflection
-    error by w.  Exact for mass at the lens plane; line-of-sight structure scales differently and is left to sigma_extra."""
+    error by w.  Exact for mass at the lens plane; line-of-sight structure scales differently and is left to the image-plane terms."""
     return jnp.asarray(efficiency_per_image, dtype=jnp.float64) / jnp.asarray(efficiency_reference, dtype=jnp.float64)
 
 
-def family_covariance(jacobian, kernel, sigma_inst2, mask, sigma_shared2, sigma_white2, sigma_fl2, extra=None):
+def family_covariance(jacobian, kernel, mask, sigma_gp2, sigma_meas2, sigma_fl2, extra=None):
     """C = B S B^T + sigma_fl^2 I (+ extra) per family as (F, 2M, 2M), with identity blocks at padded slots, and its
     Cholesky factor.  ``extra`` (F, M, M, 2, 2) is a further source-plane covariance (uncertain membership), zero at pads.
 
-    ``jacobian`` is (F, M, 2, 2) in slot order.  Positive definiteness follows from sigma_inst^2 + sigma_white^2 > 0 or
+    ``jacobian`` is (F, M, 2, 2) in slot order.  Positive definiteness follows from sigma_meas > 0 or
     sigma_fl > 0 together with nonsingular Jacobians; no jitter is added, so a NaN factor points at an input error."""
     jacobian, kernel, mask = jnp.asarray(jacobian), jnp.asarray(kernel), jnp.asarray(mask)
     n_families, size = mask.shape
     eye2 = jnp.eye(2, dtype=jacobian.dtype)
     eye_m = jnp.eye(size, dtype=jacobian.dtype)
     a = jnp.where(mask[..., None, None], jacobian, 0.0)
-    # S_ij = sigma_shared^2 K_ij I_2 + delta_ij (sigma_inst,i^2 + sigma_white^2) I_2, as (F, M, M, 2, 2).
-    white = jnp.where(mask, jnp.asarray(sigma_inst2) + sigma_white2, 0.0)
-    s = (sigma_shared2 * kernel + eye_m[None] * white[:, :, None])[..., None, None] * eye2
+    # S_ij = sigma_gp^2 K_ij I_2 + delta_ij sigma_meas^2 I_2, as (F, M, M, 2, 2).
+    white = jnp.where(mask, sigma_meas2, 0.0)
+    s = (sigma_gp2 * kernel + eye_m[None] * white[:, :, None])[..., None, None] * eye2
     c = jnp.einsum("fiab,fijbc,fjdc->fijad", a, s, a)
     diagonal = jnp.where(mask, sigma_fl2, 1.0)                                                 # floor on real slots, identity on pads
     c = c + (eye_m[None] * diagonal[:, :, None])[..., None, None] * eye2
@@ -136,11 +135,11 @@ def tangential_eigenpair(a):
     return float(values[k]), vectors[:, k]
 
 
-def shallow_fold_pairs(state, evaluator, theta, *, max_separation_arcsec: float = 3.0, sigma_shared_arcsec: float = 0.15,
-                       sigma_white_arcsec: float = 0.02) -> list[dict]:
+def shallow_fold_pairs(state, evaluator, theta, *, max_separation_arcsec: float = 3.0, sigma_gp_arcsec: float = 0.15,
+                       sigma_meas_arcsec: float = 0.02) -> list[dict]:
     """Own depth y_p = c Delta^2 / 8 and depth error of every mutual-nearest opposite-parity pair closer than
     ``max_separation_arcsec``, at this lens model.  c is the derivative of lambda_t along e_t at the pair midpoint; the depth
-    error is sqrt((c Delta sigma_Delta / 4)^2 + sigma_fl^2 / 2) with sigma_Delta^2 = 2 sigma_shared^2 (1 - k(Delta)) + 2 sigma_white^2.
+    error is sqrt((c Delta sigma_Delta / 4)^2 + sigma_fl^2 / 2) with sigma_Delta^2 = 2 sigma_gp^2 (1 - k(Delta)) + 2 sigma_meas^2.
     Half the squared ratio is roughly the penalty in nats for losing the pair.
     Under gp_kernel="knee" the hyperparameters are read from ``theta`` itself and the errors are source-plane
     quantities from the 4 x 4 covariance of the pair: the depth error is the common mode
@@ -187,7 +186,7 @@ def shallow_fold_pairs(state, evaluator, theta, *, max_separation_arcsec: float 
             depth_error = float(np.sqrt(e_t @ common @ e_t))
         else:
             k = np.exp(-separation ** 2 / (2.0 * ell ** 2))
-            sigma_delta = float(np.sqrt(2.0 * sigma_shared_arcsec ** 2 * (1.0 - k) + 2.0 * sigma_white_arcsec ** 2))
+            sigma_delta = float(np.sqrt(2.0 * sigma_gp_arcsec ** 2 * (1.0 - k) + 2.0 * sigma_meas_arcsec ** 2))
             depth_error = float(np.sqrt((c * separation * sigma_delta / 4.0) ** 2 + floor ** 2 / 2.0))
         ratio = depth / depth_error if depth_error > 0 else np.inf
         rows.append(dict(labels=[str(labels[i]), str(labels[j])], family_id=family_id, separation_arcsec=separation, e_t=[float(v) for v in e_t],
@@ -198,12 +197,12 @@ def shallow_fold_pairs(state, evaluator, theta, *, max_separation_arcsec: float 
     return rows
 
 
-def shallow_fold_pair_report(rows: list[dict], floor_arcsec: float, sigma_shared_arcsec: float = 0.15, sigma_white_arcsec: float = 0.02,
+def shallow_fold_pair_report(rows: list[dict], floor_arcsec: float, sigma_gp_arcsec: float = 0.15, sigma_meas_arcsec: float = 0.02,
                              header: str | None = None, knee: bool = False) -> str:
     """One line per pair and the recommendations.  ``header`` replaces the image-plane scale description (the knee
     kernel prints its own hyperparameters).  With ``knee`` the floor recommendations are replaced: the depth error is
     then the common-mode deflection error set by the short-scale amplitude, and sigma_fl plays no part in it."""
-    scales = header if header is not None else f"sigma_shared {sigma_shared_arcsec:.3f}\", sigma_white {sigma_white_arcsec:.3f}\""
+    scales = header if header is not None else f"sigma_gp {sigma_gp_arcsec:.3f}\", sigma_meas {sigma_meas_arcsec:.3f}\""
     lines = [f"[gp] shallow fold pairs (own depth at this model, {scales}, sigma_fl {1e3 * floor_arcsec:.2f} mas): {len(rows)}"]
     for row in rows:
         lines.append(f"[gp]   {row['labels'][0]}/{row['labels'][1]}: separation {row['separation_arcsec']:.3f}\", lambda_t "
@@ -213,7 +212,7 @@ def shallow_fold_pair_report(rows: list[dict], floor_arcsec: float, sigma_shared
         shallow = [f"{row['labels'][0]}/{row['labels'][1]}" for row in rows if row["depth_arcsec"] < row["depth_error_arcsec"]]
         if shallow:
             lines.append(f"[gp] depth below its common-mode error for {', '.join(shallow)}: these pairs do not fix the caustic at their depth; "
-                         "the mass-field amplitude sigma_alpha sets this error, not sigma_fl, so leave the floor alone and check the sigma_alpha prior")
+                         "the mass-field amplitude sigma_grf sets this error, not sigma_fl, so leave the floor alone and check the sigma_grf prior")
         return "\n".join(lines)
     if any(row["depth_below_2_mas"] for row in rows):
         lines.append("[gp] a pair has depth below 2 mas: use sigma_fl = 0.5 mas and expect to need the second-order fold root")

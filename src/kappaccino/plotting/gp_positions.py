@@ -68,7 +68,7 @@ def add_gp_position_diagnostics(state,evaluator,posterior,data,*,log=print):
         jac=stats['fields']['jacobian']
         residual=(stats['fields']['backprojected']
                   -stats['source_by_family'][jnp.asarray(state.images.family_index_per_image)])
-        return jac,stats['family_cholesky'][0],residual,scales['sigma_shared'],scales['gp_ell']
+        return jac,stats['family_cholesky'][0],residual,scales['sigma_gp'],scales['ell_gp']
     for system in systems:
         shape=system['positions'].shape
         system['gp_displacement_mean']=np.full(shape,np.nan)

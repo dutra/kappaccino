@@ -58,7 +58,7 @@ def _mock(config, root: Path, *, counterimage: bool = False):
     x = table["x"] + rng.normal(0.0, 0.03, len(table))
     y = table["y"] + rng.normal(0.0, 0.03, len(table))
     out = pd.DataFrame({"image_label": [f"u{k}" for k in range(len(table))], "ra": ra0 - x / (np.cos(np.radians(dec0)) * 3600.0),
-                        "dec": dec0 + y / 3600.0, "sigma_arcsec": 0.05, "parity": table["parity"],
+                        "dec": dec0 + y / 3600.0, "parity": table["parity"],
                         "zphot_best": table["z"] + rng.normal(0.0, 0.15, len(table)), "catalog_z_sigma": 0.2})
     for b, band in enumerate(BANDS):
         out[f"mag_{band}"] = [COLORS[c][b] + rng.normal(0.0, 0.05) for c in table["colors"]]
@@ -78,7 +78,7 @@ def test_redshift_scaling_of_the_reference_fields_is_exact(synthetic_config):
     physical = evaluator.physical(jnp.asarray(state.initial_theta))
     xy = np.asarray([[3.2, 10.6], [-9.2, -1.2], [7.7, -10.4], [0.4, 0.2]])
     z_grid = np.asarray([1.5, 2.5, 4.0])
-    images = le.lens_images(state, xy, np.full(4, 0.05), np.zeros(4, dtype=int), z_grid)
+    images = le.lens_images(state, xy, np.zeros(4, dtype=int), z_grid)
     fields = le.grid_fields(le.reference_fields(evaluator, physical, images), images)
     for g, z in enumerate(z_grid):
         alpha, u = evaluator.total_fields_at(xy, evaluator.packed_state_for_z(physical, float(z)))
@@ -91,7 +91,7 @@ def test_closed_form_source_integral_matches_quadrature(synthetic_config):
     evaluator = Evaluator(state)
     physical = evaluator.physical(jnp.asarray(state.initial_theta))
     xy = np.asarray([[3.27, 11.25], [4.56, -10.1], [10.65, -2.58]])
-    images = le.lens_images(state, xy, np.full(3, 0.05), np.zeros(3, dtype=int), np.asarray([3.0]), prior_sigma=20.0)
+    images = le.lens_images(state, xy, np.zeros(3, dtype=int), np.asarray([3.0]), prior_sigma=20.0)
     scales = le.error_scales(evaluator, physical, images, images.ratio)
     terms = le.image_terms(le.grid_fields(le.reference_fields(evaluator, physical, images), images), scales, images)
     out = le.family_lens_evidence(terms, images, jnp.asarray([[0, 1, 2]]), jnp.ones((1, 3), dtype=bool))

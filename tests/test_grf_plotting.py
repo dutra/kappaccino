@@ -73,7 +73,7 @@ def test_wide_plot_extends_tables_without_changing_conditioning():
     layout=dict(xy=jnp.zeros((1,1,2)),mask=jnp.ones((1,1),bool),
                 weights=jnp.ones((1,1)),block_of_family=jnp.array([0]))
     coefficients=jnp.array([[[.2,-.1]]])
-    evaluator=SimpleNamespace(gp_knee=True,gp_knee_spectrum='knee',gp_sigma_alpha_index=0,
+    evaluator=SimpleNamespace(gp_knee=True,gp_knee_spectrum='knee',sigma_grf_index=0,
         gp_groups=None,gp=layout,gp_tables=tables,gp_weights_per_family=np.ones(1),
         gp_knee_gamma_index=-1,_knee_mean_inputs=lambda theta:(coefficients,jnp.array([.7,2.])))
     field=plot_deflection_correction(evaluator,np.zeros(1),max_separation=4.)

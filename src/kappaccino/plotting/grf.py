@@ -15,7 +15,7 @@ PLOT_FIELD_VERSION = 'potential-consistent-hermite-v2-shared-field'   # v2: syst
 
 
 class SmoothPlotDeflection:
-    def __init__(self, layout, tables, coefficients, lam, sigma_alpha2, weights_per_family,
+    def __init__(self, layout, tables, coefficients, lam, sigma_grf2, weights_per_family,
                  gamma=None, modes=()):
         cl, ct = map(np.asarray, gp_knee.knee_curves(tables, jnp.asarray(lam), None if gamma is None else jnp.asarray(gamma)))
         self.r = np.asarray(tables['r_grid'])
@@ -32,7 +32,7 @@ class SmoothPlotDeflection:
         self.mask = np.asarray(layout['mask'], bool)
         self.blocks = np.asarray(layout['block_of_family'], int)
         self.weights = np.asarray(weights_per_family)
-        self.amplitude = float(sigma_alpha2)
+        self.amplitude = float(sigma_grf2)
         n_blocks, size = self.mask.shape
         u = (np.asarray(coefficients)*(self.mask*np.asarray(layout['weights']))[...,None]).reshape(n_blocks,2*size)
         self.affine_offset = np.zeros((n_blocks,2))
@@ -90,7 +90,7 @@ def plot_deflection_correction(evaluator,theta, *, max_separation=None):
     """Opt-in display evaluator; never used by the likelihood or sampler."""
     if not (getattr(evaluator,'gp_knee',False) and hasattr(evaluator,'_knee_mean_inputs')):
         return evaluator.gp_deflection_correction(theta)
-    if evaluator.gp_knee_spectrum != 'knee' or evaluator.gp_sigma_alpha_index < 0:
+    if evaluator.gp_knee_spectrum != 'knee' or evaluator.sigma_grf_index < 0:
         return evaluator.gp_deflection_correction(theta)
     base=evaluator._padded_evaluator() if evaluator.gp_groups is not None else evaluator
     if not hasattr(base,'_plot_mean_inputs_jit'):

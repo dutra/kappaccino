@@ -403,7 +403,7 @@ def config_from_lenstool_par(path: str | Path, *, image_catalog: str | Path | No
             raise ValueError(f"{path}: the solver reads YAML image catalogs; convert {candidate or 'the multfile'} with "
                              "scripts/convert_lenstool_catalog.py and pass image_catalog=.")
         image_catalog = candidate
-    sigma_inst = float(image_block["sigposArcsec"][0]) if "sigposArcsec" in image_block else ImageConstraintsConfig.sigma_inst_arcsec
+    # sigposArcsec is not read: the measurement error of every image is the sampled images.sigma_meas.
 
     populations, scaling_fields = (), {}
     potfiles = [data for name, _, data in blocks if name == "potfile"]
@@ -421,7 +421,7 @@ def config_from_lenstool_par(path: str | Path, *, image_catalog: str | Path | No
         populations = (population,)
 
     model = LensModelConfig(reference=reference, cosmology=cosmology, large_halos=tuple(halos), member_populations=populations,
-                            image_constraints=ImageConstraintsConfig(catalog_path=str(image_catalog), sigma_inst_arcsec=sigma_inst))
+                            image_constraints=ImageConstraintsConfig(catalog_path=str(image_catalog)))
     config = LensClusterSolverConfig(model=model, paths=RunPathsConfig(output_dir=output_dir, run_name=run_name or path.stem,
                                                                        figure_prefix=path.stem))
     if scaling_fields:

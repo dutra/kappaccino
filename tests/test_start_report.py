@@ -17,14 +17,14 @@ def test_report_groups_the_parameters_shows_priors_and_flags_a_bound(tmp_path):
     evaluator = Evaluator(state, "gp_image_plane")
     names = [s.name for s in state.parameter_specs]
     theta = np.array(state.initial_theta, dtype=float)
-    i = names.index("images.gp_sigma_alpha")
+    i = names.index("images.sigma_grf")
     spec = state.parameter_specs[i]
     from kappaccino import priors
     lower, upper = priors.bounds(spec.latent_prior)
     theta[i] = upper - 0.001 * (upper - lower)                                 # inside the 2% margin of the upper bound
     text = start_parameter_report(state, theta, np.asarray(evaluator.physical(jnp.asarray(theta))))
     assert "Error model (GRF + GP) at the start" in text
-    line = next(l for l in text.splitlines() if "gp_sigma_alpha" in l)
+    line = next(l for l in text.splitlines() if "sigma_grf" in l)
     assert "AT UPPER BOUND" in line and "log-normal(median" in line and line.rstrip(" │").endswith("red")
     assert "source positions:" in text and "\x1b[" not in text              # plain text for the log file
     colored = start_parameter_report(state, theta, np.asarray(evaluator.physical(jnp.asarray(theta))), color=True)

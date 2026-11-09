@@ -76,7 +76,7 @@ def main(argv=None) -> int:
     text = args.catalog.read_text(encoding="utf-8")
     document = yaml.safe_load(text)
     header_in = "".join(line[2:] + "\n" for line in text.splitlines() if line.startswith("# "))
-    flat = load_image_catalog(args.catalog, sigma_inst_arcsec=1.0)
+    flat = load_image_catalog(args.catalog)
     systems = document["systems"]
     groups, log = group(systems, args.max_separation)
 
@@ -101,7 +101,7 @@ def main(argv=None) -> int:
         "scripts/make_knot_cutouts.py.\nSystem + knot reproduces each Bergamini family id (012 + 2 = 0122).")
     write_image_catalog(args.output, out, defaults=document.get("defaults"), header=header)
 
-    grouped = load_image_catalog(args.output, sigma_inst_arcsec=1.0)
+    grouped = load_image_catalog(args.output)
     key = ["image_label", "family_id", "ra", "dec", "catalog_z", "catalog_a", "catalog_b", "catalog_theta", "catalog_mag", "family_reliability"]
     a = flat.loc[:, key].sort_values("image_label").reset_index(drop=True)
     b = grouped.loc[:, key].sort_values("image_label").reset_index(drop=True)

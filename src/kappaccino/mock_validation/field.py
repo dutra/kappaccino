@@ -2,10 +2,10 @@
 
 Mass field.  A realization of the solver's knee field (gp_knee.knee_tables): a curl-free deflection on the lens plane with
 convergence spectrum P_kappa(k) = 1 / (1 + (k / k_t)^gamma) between 2 pi / scale_max and 2 pi / scale_min, k_t = 2 pi /
-knee, rms deflection sigma_alpha per component for a source at the reference redshift.  It is a sum of N plane waves in
+knee, rms deflection sigma_grf per component for a source at the reference redshift.  It is a sum of N plane waves in
 the potential,
 
-    psi(theta) = sum_n (a / k_n) cos(k_n . theta + phi_n),   a = 2 sigma_alpha / sqrt(N),
+    psi(theta) = sum_n (a / k_n) cos(k_n . theta + phi_n),   a = 2 sigma_grf / sqrt(N),
 
 with |k_n| drawn in ln k with weight P_kappa dln k (the weights of knee_tables), uniform directions and phases: each mode
 gives alpha = -a sin(.) k_hat (variance a^2 / 4 per component) and Hessian -a |k| k_hat k_hat^T cos(.), exact and smooth
@@ -33,10 +33,10 @@ def _log_uniform(rng: np.random.Generator, bounds) -> float:
 
 
 def draw_mass_field(rng: np.random.Generator, config) -> dict[str, Any] | None:
-    """The field's hyperparameters (sigma_alpha, knee log-uniform, gamma uniform in their ranges) and its modes, or None."""
-    if config.field_sigma_alpha_range_arcsec is None:
+    """The field's hyperparameters (sigma_grf, knee log-uniform, gamma uniform in their ranges) and its modes, or None."""
+    if config.field_sigma_grf_range_arcsec is None:
         return None
-    sigma = _log_uniform(rng, config.field_sigma_alpha_range_arcsec)
+    sigma = _log_uniform(rng, config.field_sigma_grf_range_arcsec)
     knee = _log_uniform(rng, config.field_knee_range_arcsec)
     gamma = float(rng.uniform(*config.field_gamma_range))
     scale_min, scale_max = (float(s) for s in config.field_scales_arcsec)
@@ -46,7 +46,7 @@ def draw_mass_field(rng: np.random.Generator, config) -> dict[str, Any] | None:
     cdf = np.concatenate([[0.0], np.cumsum(0.5 * (weight[1:] + weight[:-1]) * np.diff(ln_k))])
     k = np.exp(np.interp(rng.uniform(0.0, cdf[-1], n), cdf, ln_k))
     direction, phase = rng.uniform(0.0, 2.0 * math.pi, n), rng.uniform(0.0, 2.0 * math.pi, n)
-    return {"sigma_alpha_arcsec": sigma, "knee_arcsec": knee, "gamma": gamma, "scales_arcsec": [scale_min, scale_max],
+    return {"sigma_grf_arcsec": sigma, "knee_arcsec": knee, "gamma": gamma, "scales_arcsec": [scale_min, scale_max],
             "reference_redshift": float(config.field_reference_redshift), "n_modes": n, "amplitude": 2.0 * sigma / math.sqrt(n),
             "kx": (k * np.cos(direction)).tolist(), "ky": (k * np.sin(direction)).tolist(), "phase": phase.tolist()}
 

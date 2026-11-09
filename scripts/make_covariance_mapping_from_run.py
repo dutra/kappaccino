@@ -21,8 +21,8 @@ def main():
     assert bool(direction.direction_defined)
     src=widths[(widths.plane=='source')&(widths.direction=='arc')].iloc[0]
     floor=float(lk['gp_floor_arcsec']);effective=float(src.model_arcsec)
-    alpha=values['images.gp_sigma_alpha'];sa=np.sqrt(effective**2-floor**2);w=sa/alpha
-    sm=np.hypot(float(image.sigma_inst_arcsec),values['images.sigma_white']);sh=values['images.sigma_shared']
+    alpha=values['images.sigma_grf'];sa=np.sqrt(effective**2-floor**2);w=sa/alpha
+    sm=values['images.sigma_meas'];sh=values['images.sigma_gp']
     lt=float(direction.s_arc);lr=float(direction.s_perp);angle=float(np.degrees(np.arctan2(direction.e_arc_y,direction.e_arc_x)))
     errors=[]
     for _,row in widths.iterrows():
@@ -33,10 +33,10 @@ def main():
     fig=m.mapping(sm=sm,sa=sa,sh=sh,lt=lt,lr=lr,angle_deg=angle,floor=floor)
     fig.savefig(m.OUT/'covariance_local_mapping.pdf');m.plt.close(fig)
     provenance=dict(run=str(run),draw=best,selection='maximum saved log_prob',image=args.image,z_source=float(image.z_source),
-        sigma_inst=float(image.sigma_inst_arcsec),sigma_white=values['images.sigma_white'],sigma_meas=sm,sigma_shared=sh,
-        sigma_alpha_reference=alpha,redshift_weight_inferred_from_saved_diagonal=w,sigma_alpha_at_image=sa,source_floor=floor,
+        sigma_meas=sm,sigma_gp=sh,
+        sigma_grf_reference=alpha,redshift_weight_inferred_from_saved_diagonal=w,sigma_grf_at_image=sa,source_floor=floor,
         deflection_plus_floor=effective,lambda_t_abs=lt,lambda_r_abs=lr,angle_deg=angle,
-        gp_knee=values['images.gp_knee'],gp_ell=values['images.gp_ell'],max_saved_total_width_error=max(errors),
+        lambda_b=values['images.lambda_b'],ell_gp=values['images.ell_gp'],max_saved_total_width_error=max(errors),
         posterior_sha256=hashlib.sha256((final/'artifacts/posterior.h5').read_bytes()).hexdigest())
     (m.OUT/'latest_run_provenance.json').write_text(json.dumps(provenance,indent=2));print(json.dumps(provenance,indent=2))
     (m.OUT/'latest_run_caption.txt').write_text(

@@ -33,9 +33,9 @@ def set_scale(state, theta, name, value):
 
 
 def set_image_scales(state, theta, sigma_img, shared2=SHARED2, white2=WHITE2):
-    """sigma_shared^2 = shared2 sigma_img^2 and sigma_white^2 = white2 sigma_img^2."""
-    theta = set_scale(state, theta, "images.sigma_shared", np.sqrt(shared2) * sigma_img)
-    return set_scale(state, theta, "images.sigma_white", np.sqrt(white2) * sigma_img)
+    """sigma_gp^2 = shared2 sigma_img^2 and sigma_meas^2 = white2 sigma_img^2."""
+    theta = set_scale(state, theta, "images.sigma_gp", np.sqrt(shared2) * sigma_img)
+    return set_scale(state, theta, "images.sigma_meas", np.sqrt(white2) * sigma_img)
 
 
 # ----------------------------------------------------------------------------- the fold of the synthetic lens
@@ -97,30 +97,22 @@ def fold_config(tmp_path: Path, depth: float = 0.01, extra_offset: float | None 
 
 # ----------------------------------------------------------------------------- 1. the existing model is untouched
 BASELINE = {
-    "init": (-872.0390336318344,
-             [6.3828442167327974, 4.5855598294114515, 2.2594962448735196, -1.8971199848858813, 0.27, 0.65, -2.3025850929940455, -1.2039728043259361,
-              0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -2.3025850929940455, -2.995732273553991, -3.2188758248682006, -0.35667494393873245, 0.0, 0.0, 0.0, 0.0],
-             [-9010.025819880258, -82.77412373742811, -39.43229521488714, -0.12545565682903617, 13.440384269714643, 5.820419712677817, 0.0, 0.0,
-              -6.816875291277276, -1.4654993579333893, 0.004329324609624853, 0.0006329508582267723, -9.969600706483137, -1.9050771599980973,
-              0.00640638879185415, 0.000946216174526195, 974.1258645285537, 126.37147778684704, 78.72055741262074, 35.95984468382649,
-              -0.002530780534922646, -0.006295381349949845, -0.10590429465191872, 0.08211008181790769]),
-    "perturbed": (-956.8690869432104,
-                  [6.389130727787467, 4.578954586246886, 2.291517377395684, -1.8918749790282292, 0.24321653134194446, 0.6680797527454743,
-                   -2.2373850907375386, -1.156618756169474, -0.03518676179034963, -0.06327107355230263, -0.03116372312686761, 0.00206629896736218,
-                   -0.11625153873194172, -0.010939583196627287, -0.06229554736265326, -0.03661336773517258, -2.329798042136911, -3.0115472813724486,
-                   -3.1982942980494937, -0.30454927546659855, -0.006426733147201713, 0.0683231735274843, -0.03325973367433068, 0.017575503504650987],
-                  [-10003.71074104369, -87.3990960159081, -42.505683325618314, -0.15202484666530847, 15.610915495042015, 6.761689538561891,
-                   0.37930288790369276, 1.316038727039001, -7.51807377546797, -1.8162060833694946, 0.004771015274097208, 0.0007698576426837218,
-                   -11.106407738413754, -2.3195482009964405, 0.006930846967878674, 0.0011305147911845966, 1046.249019016055, 138.60868183887956,
-                   97.41553443173167, 42.81011119976618, -0.0028386518844669066, -0.0065057418576004306, -0.10940074695355131, 0.08489125723795038]),
+    "init": (-1243.3108433918426,
+             [6.3828442167327974, 4.5855598294114515, 2.2594962448735196, -1.8971199848858813, 0.27, 0.65, -2.3025850929940455, -1.2039728043259361, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -2.3025850929940455, -2.995732273553991, -3.2188758248682006, -0.35667494393873245, 0.0, 0.0, 0.0, 0.0],
+             [-12937.966890701173, -161.08096500962276, -55.790018560618, 0.4656418646180206, 17.7178487367277, 7.562141334576358, 0.0, 0.0, -14.182919144437188, -1.9311430499659046, 0.005222507372933826, 0.0007431860678785895, -14.131943965028237, -2.4742064158614743, 0.007726445070963771, 0.0011109270187523136, 2002.5115867780914, 272.8039666147446, 155.43014909057032, 76.53419455978037, 5.212217311100667e-05, -0.00039632133212970356, -0.02914471368835544, 0.030439949415397415]),
+    "perturbed": (-1382.0796363588997,
+             [6.389130727787467, 4.578954586246886, 2.291517377395684, -1.8918749790282292, 0.24321653134194446, 0.6680797527454743, -2.2373850907375386, -1.156618756169474, -0.03518676179034963, -0.06327107355230263, -0.03116372312686761, 0.00206629896736218, -0.11625153873194172, -0.010939583196627287, -0.06229554736265326, -0.03661336773517258, -2.329798042136911, -3.0115472813724486, -3.1982942980494937, -0.30454927546659855, -0.006426733147201713, 0.0683231735274843, -0.03325973367433068, 0.017575503504650987],
+             [-14576.137966364797, -175.10706642895497, -61.13379023596778, 0.482893545275018, 21.569709277748196, 9.104646997870617, 0.7281409631180066, 1.8896333813463737, -16.189016220073185, -2.5078048471051675, 0.005500182733571639, 0.0008745094769437096, -15.965663602048545, -3.1212202958963347, 0.007984785683959583, 0.0012840057726720509, 2204.0551094687225, 306.2830589628186, 198.00093741018918, 93.3486463127785, 2.9951584073455682e-05, -0.0003770191606872614, -0.032547435864390434, 0.03522360298846909]),
 }
 
 
 def test_existing_model_unchanged(synthetic_config):
-    """Log-target and gradient of the default model at two points, recorded before gp_image_plane existed."""
+    """Log-target and gradient of the default (smoothed) model at two points; re-recorded 2026-11-08 when the fixed 0.1"
+    instrumental error was removed and the sampled sigma_meas became the only measurement error."""
     state = build_state(synthetic_config)
     evaluator = Evaluator(state)
-    assert state.sigma_shared_param_index == -1 and not any(s.name in ("images.sigma_shared", "images.sigma_white") for s in state.parameter_specs)
+    assert state.sigma_gp_param_index == -1 and not any(s.name == "images.sigma_gp" for s in state.parameter_specs)
+    assert state.parameter_specs[state.sigma_meas_param_index].name == "images.sigma_meas"
     for value, theta, grad in BASELINE.values():
         v, g = evaluator.value_and_grad(jnp.asarray(theta))
         np.testing.assert_allclose(float(v), value, rtol=1e-12, atol=0.0)
@@ -129,15 +121,15 @@ def test_existing_model_unchanged(synthetic_config):
 
 # ----------------------------------------------------------------------------- 2. the independent limit
 def test_independent_limit_matches_per_image_model(synthetic_config):
-    """sigma_shared -> 0 and sigma_fl = 0: the family likelihood and the source conditional are those of independent images
-    with sigma_meas^2 = sigma_inst^2 + sigma_white^2 and no source-plane floor."""
+    """sigma_gp -> 0 and sigma_fl = 0: the family likelihood and the source conditional are those of independent images
+    with their sampled sigma_meas and no source-plane floor."""
     config = gp_config(synthetic_config, gp_floor_arcsec=0.0)
     state = build_state(config)
     evaluator = Evaluator(state, "gp_image_plane")
-    theta = set_scale(state, set_scale(state, state.initial_theta, "images.sigma_white", 0.07), "images.sigma_shared", 1e-9)
+    theta = set_scale(state, set_scale(state, state.initial_theta, "images.sigma_meas", 0.07), "images.sigma_gp", 1e-9)
     stats = evaluator.statistics(theta)
     images, fields = state.images, stats["fields"]
-    sigma_meas = np.sqrt(np.asarray(images.sigma_inst_per_image) ** 2 + 0.07 ** 2)
+    sigma_meas = np.full(images.n_images, 0.07)
     old = sl.statistics(fields["backprojected"], stats["source_by_family"][images.family_index_per_image], fields["jacobian"],
                         fields["determinant_gradient"], sigma_meas, 0.0, 0.0, 1.0, parity=images.parity)
     family_index = np.asarray(images.family_index_per_image)
@@ -168,8 +160,7 @@ def test_family_covariance_positive_definite_and_padding_neutral(synthetic_confi
     slots = jnp.concatenate([layout["slots"], jnp.zeros((layout["slots"].shape[0], 1), dtype=layout["slots"].dtype)], axis=1)
     mask = pad(layout["mask"], False)
     kernel = jnp.pad(layout["kernel"], ((0, 0), (0, 1), (0, 1)))
-    _, chol = gp.family_covariance(jacobian[slots], kernel, pad(layout["sigma_inst2"], 0.0), mask, jnp.square(stats["sigma_shared"]),
-                                   jnp.square(stats["sigma_white"]), FLOOR ** 2)
+    _, chol = gp.family_covariance(jacobian[slots], kernel, mask, jnp.square(stats["sigma_gp"]), jnp.square(stats["sigma_meas"]), FLOOR ** 2)
     whitening = gp.family_source_whitening(chol, backprojected[slots], mask)
     source = stats["source_by_family"]
     loglike, _, _ = gp.family_gaussian_loglike(chol, backprojected[slots] - source[:, None, :], mask, layout["counts"])
@@ -193,8 +184,8 @@ def test_gradient_matches_finite_differences_near_critical(tmp_path):
     assert max(abs(l) for l in lambda_t) < 0.05            # the exact pair of a 10 mas source: |lambda_t| about 0.02
     value, grad = evaluator.value_and_grad(jnp.asarray(theta))
     assert np.isfinite(float(value))
-    for name, step in (("halo.v_disp", 1e-6), ("members.sigma", 1e-6), ("members.g1.velocity_offset", 1e-5), ("images.sigma_shared", 1e-5),
-                       ("images.sigma_white", 1e-6), ("source.1.beta_x", 1e-5)):
+    for name, step in (("halo.v_disp", 1e-6), ("members.sigma", 1e-6), ("members.g1.velocity_offset", 1e-5), ("images.sigma_gp", 1e-5),
+                       ("images.sigma_meas", 1e-6), ("source.1.beta_x", 1e-5)):
         i = names.index(name)
         plus, minus = theta.copy(), theta.copy()
         plus[i] += step
@@ -223,12 +214,12 @@ def test_source_offsets_are_standard_normal_at_fixed_lens(synthetic_config):
 
 
 # ----------------------------------------------------------------------------- 6. the fold pair
-def family_loglike_at(fold, depth, floor, sigma_img=0.3, sigma_inst=0.05):
+def family_loglike_at(fold, depth, floor, sigma_img=0.3, sigma_meas0=0.05):
     """Gaussian family log-likelihood of the exact pair as a function of the source offset along the fold normal."""
     beta, images, jacobian = fold["images"](depth)
     mask = np.ones((1, 2), dtype=bool)
     kernel = gp.displacement_kernel(images[:, 0], images[:, 1], np.array([[0, 1]]), mask, ELL)
-    _, chol = gp.family_covariance(jacobian[None], kernel, np.full((1, 2), sigma_inst ** 2), mask, SHARED2 * sigma_img ** 2, WHITE2 * sigma_img ** 2, floor ** 2)
+    _, chol = gp.family_covariance(jacobian[None], kernel, mask, SHARED2 * sigma_img ** 2, WHITE2 * sigma_img ** 2 + sigma_meas0 ** 2, floor ** 2)
     assert np.all(np.isfinite(np.asarray(chol)))
 
     def value(shift):
@@ -236,7 +227,7 @@ def family_loglike_at(fold, depth, floor, sigma_img=0.3, sigma_inst=0.05):
         return float(gp.family_gaussian_loglike(chol, residual, mask, np.array([2.0]))[0][0])
 
     def old(shift, sigma_def=0.012, sigma_meas=0.17, sigma_sel=0.0, lambda_sel=1.0):
-        """The per-image model at the floors fitted to M0416 (oct29a: sigma_def 12 mas, sigma_extra 0.14" over sigma_inst 0.1")."""
+        """The per-image model at the floors fitted to M0416 (oct29a: sigma_def 12 mas, measurement scatter 0.17")."""
         residual = np.broadcast_to(shift * fold["normal"], (2, 2))
         stats = sl.statistics(beta + residual, beta, jacobian, np.zeros((2, 2)), sigma_meas, sigma_def, sigma_sel, lambda_sel)
         return float(np.sum(np.asarray(stats["gaussian_loglike"])))
@@ -291,12 +282,12 @@ def test_stress_values_and_gradients_finite(tmp_path):
 
 # ----------------------------------------------------------------------------- the earlier one-scale model
 def test_two_scales_reproduce_the_rho_model(synthetic_config):
-    """sigma_shared^2 = 0.99 sigma^2 and sigma_white^2 = 0.01 sigma^2 is the earlier rho = 0.99 model at sigma_img = sigma:
-    S = sigma^2 (rho K + (1 - rho) I) kron I_2 + sigma_inst^2 I.  The log-target agrees to 1e-10.  ell is fixed so that
-    the precomputed kernel is the one the likelihood reads.  The half-normal sigma_white prior, so that sigma_white = 0
-    (the old model) is a point of the parameter space."""
+    """sigma_gp^2 = 0.99 sigma^2 and sigma_meas^2 = 0.01 sigma^2 is the earlier rho = 0.99 model at sigma_img = sigma:
+    S = sigma^2 (rho K + (1 - rho) I) kron I_2.  The log-target agrees to 1e-10.  ell is fixed so that the precomputed
+    kernel is the one the likelihood reads.  The half-normal sigma_meas prior, so that sigma_meas = 0 (the old model) is a
+    point of the parameter space."""
     import numpyro.distributions as dist
-    state = build_state(gp_config(synthetic_config, gp_correlation_length_prior=None, sigma_white_prior=dist.TruncatedNormal(0.0, 0.05, low=0.0)))
+    state = build_state(gp_config(synthetic_config, gp_correlation_length_prior=None, gp_sigma_meas_prior=dist.TruncatedNormal(0.0, 0.05, low=0.0)))
     evaluator = Evaluator(state, "gp_image_plane")
     sigma = 0.23
     theta = set_image_scales(state, state.initial_theta, sigma)
@@ -308,8 +299,8 @@ def test_two_scales_reproduce_the_rho_model(synthetic_config):
     original = dict(layout)
     try:
         layout["kernel"] = rho_kernel
-        old_theta = set_scale(state, set_scale(state, state.initial_theta, "images.sigma_shared", sigma), "images.sigma_white", 0.0)
-        stats = evaluator.statistics(old_theta)                      # sigma_white = 0 bypasses the positivity check of log_likelihood
+        old_theta = set_scale(state, set_scale(state, state.initial_theta, "images.sigma_gp", sigma), "images.sigma_meas", 0.0)
+        stats = evaluator.statistics(old_theta)                      # sigma_meas = 0 bypasses the positivity check of log_likelihood
         old_value = float(jnp.sum(stats["loglike"]) + stats["source_correction"] + evaluator.far_field_log_barrier(stats["fields"]["far_cut_radii"]))
     finally:
         layout.update(original)
@@ -358,19 +349,19 @@ def test_sampled_ell_matches_the_fixed_kernel_and_has_a_gradient(synthetic_confi
     from kappaccino import priors
     sampled_state = build_state(gp_config(synthetic_config))
     fixed_state = build_state(gp_config(synthetic_config, gp_correlation_length_prior=None, gp_correlation_length_arcsec=3.0))
-    assert fixed_state.gp_ell_param_index == -1 and not any(s.name == "images.gp_ell" for s in fixed_state.parameter_specs)
-    spec = sampled_state.parameter_specs[sampled_state.gp_ell_param_index]
-    assert spec.name == "images.gp_ell" and spec.log and np.isclose(priors.physical_bounds(spec.prior)[1], 30.0)
-    assert np.isclose(np.exp(sampled_state.initial_theta[sampled_state.gp_ell_param_index]), 7.0)
+    assert fixed_state.ell_gp_param_index == -1 and not any(s.name == "images.ell_gp" for s in fixed_state.parameter_specs)
+    spec = sampled_state.parameter_specs[sampled_state.ell_gp_param_index]
+    assert spec.name == "images.ell_gp" and spec.log and np.isclose(priors.physical_bounds(spec.prior)[1], 30.0)
+    assert np.isclose(np.exp(sampled_state.initial_theta[sampled_state.ell_gp_param_index]), 7.0)
     sampled, fixed = Evaluator(sampled_state, "gp_image_plane"), Evaluator(fixed_state, "gp_image_plane")
-    theta = set_scale(sampled_state, sampled_state.initial_theta, "images.gp_ell", 3.0)
+    theta = set_scale(sampled_state, sampled_state.initial_theta, "images.ell_gp", 3.0)
     names = [s.name for s in sampled_state.parameter_specs]
     fixed_theta = jnp.asarray([float(theta[names.index(s.name)]) for s in fixed_state.parameter_specs])
     assert np.isclose(float(sampled.log_likelihood(theta)), float(fixed.log_likelihood(fixed_theta)), rtol=0, atol=1e-9)
     # The kernel changes the likelihood, and the gradient with respect to ln ell matches central differences.
-    other = set_scale(sampled_state, theta, "images.gp_ell", 12.0)
+    other = set_scale(sampled_state, theta, "images.ell_gp", 12.0)
     assert abs(float(sampled.log_likelihood(other)) - float(sampled.log_likelihood(theta))) > 1e-3
-    index = sampled_state.gp_ell_param_index
+    index = sampled_state.ell_gp_param_index
     gradient = float(jax.grad(sampled.log_likelihood)(theta)[index])
     h = 1e-5
     plus, minus = theta.at[index].add(h), theta.at[index].add(-h)

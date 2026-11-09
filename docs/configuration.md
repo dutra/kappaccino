@@ -98,7 +98,7 @@ The sampled fields are the ones the model has: the shape as its Cartesian pair (
 Lenstool ellipticity and angle limits into a box), the shear as (`gamma1`, `gamma2`; `shear_box`), and the dPIE cut
 radius as `cut_excess_kpc`, its excess above the effective core $\sqrt{r_\mathrm{core}^2 + s^2}$
 (`cut_excess_from_moments` gives the prior of a cut radius of a given mean and width). Error scales and GP
-hyperparameters take log-normal priors in the same way, e.g. `LikelihoodConfig(gp_knee_prior=truncated_lognormal(6.0, 0.6,
+hyperparameters take log-normal priors in the same way, e.g. `LikelihoodConfig(lambda_b_prior=truncated_lognormal(6.0, 0.6,
 low=2.5, high=8.0))`.
 
 Priors that start JAX (any `exp`-transformed one) need `configure_cpu_runtime` first (see {doc}`quickstart`).
@@ -306,7 +306,7 @@ What it reads:
 | `limit` | the halo's `priors` |
 | `potfile` (`mag0`, `core`/`corekpc`, `sigma`, `cut`/`cutkpc`, `type`, `z_lens`) | `MemberPopulationConfig` |
 | `potfile` `vdslope`, `slope` | relation exponents $\alpha = 1/\mathrm{vdslope}$, $\beta = 2/\mathrm{slope}$ |
-| `image` `sigposArcsec` | `ImageConstraintsConfig.sigma_inst_arcsec` |
+| `image` `sigposArcsec` | not read: the measurement error of every image is the sampled $\sigma_\mathrm{meas}$ |
 
 Limits become numpyro priors by their Lenstool flag (0 fixed, 1 uniform `lower upper step`, 3 normal `mean std`,
 9 truncated normal `mean std lower [upper]`), in the coordinate the solver samples:

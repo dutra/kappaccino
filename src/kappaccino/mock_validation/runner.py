@@ -50,12 +50,12 @@ def seed_dir(root: Path, seed: int) -> Path:
 
 def generate_mock(root: Path, config, seed: int, *, log=None) -> MockPaths:
     """Draw the truth for ``seed``, lens it, and write the realization under ``root``."""
-    if config.sigma_inst_range_arcsec is not None:
-        # The astrometric noise of this realization, from its own stream (the other draws are unchanged).
-        lo, hi = (math.log(float(v)) for v in config.sigma_inst_range_arcsec)
-        config = config.with_updates(sigma_inst_arcsec=float(math.exp(np.random.default_rng([int(seed), 13]).uniform(lo, hi))))
+    if config.measurement_noise_range_arcsec is not None:
+        # The measurement noise of this realization, from its own stream (the other draws are unchanged).
+        lo, hi = (math.log(float(v)) for v in config.measurement_noise_range_arcsec)
+        config = config.with_updates(measurement_noise_arcsec=float(math.exp(np.random.default_rng([int(seed), 13]).uniform(lo, hi))))
         if log:
-            log(f"[mock] injected astrometric noise {config.sigma_inst_arcsec:.4f}\" per axis (the truth of sigma_white)")
+            log(f"[mock] injected measurement noise {config.measurement_noise_arcsec:.4f}\" per axis (the truth of sigma_meas)")
     truth = draw_truth(config, seed)
     sources, images = generate_images(truth, config, np.random.default_rng(int(seed) + 1_000_003), log=log)
     return write_mock(root, truth, sources, images, config.with_updates(seed=int(seed)).to_json_dict(),
@@ -383,9 +383,9 @@ def fisher_precheck(config: MockValidationConfig, *, log=print) -> pd.DataFrame:
     """Generate (or reuse) every realization's mock and forecast how well the GP hyperparameters are constrained,
     without running the solver.
 
-    For each seed the restricted Fisher matrix of the solver's GP error-model hyperparameters (``sigma_alpha``,
-    ``knee`` and ``gamma`` of the mass field when injected, ``sigma_shared`` and ``ell`` of the image-plane GP when
-    injected, and ``sigma_white``) is evaluated at the truth with the lens held at the truth, so it is an upper bound on
+    For each seed the restricted Fisher matrix of the solver's GP error-model hyperparameters (``sigma_grf``,
+    ``knee`` and ``gamma`` of the mass field when injected, ``sigma_gp`` and ``ell`` of the image-plane GP when
+    injected, and ``sigma_meas``) is evaluated at the truth with the lens held at the truth, so it is an upper bound on
     what the data constrain (see ``kappaccino.mock_validation.fisher``).  A mock is reused when ``runtime.resume`` is
     True and it is complete, otherwise generated.  Seeds whose solver likelihood is not the knee GP
     (``likelihood_mode="gp_image_plane"`` with ``gp_kernel="knee"``) are skipped with a log message.

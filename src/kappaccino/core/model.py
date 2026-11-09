@@ -43,9 +43,9 @@ class ParameterSpec:
     ``log10_m200`` :math:`\\log_{10}(M_{200}/M_\\odot)`; ``alpha_sigma``, ``beta_radius`` dimensionless slopes;
     ``velocity_log_scatter``, ``radius_log_scatter`` dimensionless scatters in :math:`\\ln\\sigma` and :math:`\\ln r`;
     ``velocity_offset``, ``radius_offset``, ``shape_e1_offset``, ``shape_e2_offset`` and the source ``beta_x``,
-    ``beta_y`` dimensionless unit offsets; the error-model scales (``sigma_def``, ``sigma_extra``, ``sigma_sel``,
-    ``lambda_sel``, ``sigma_shared``, ``sigma_white``, ``gp_ell``, ``gp_sigma_alpha``, ``gp_knee``, ``gp_sigma_alpha2``,
-    ``gp_knee2``) arcsec, except ``lambda_sel``, ``gp_knee_gamma`` and ``gp_knee_beta_low``, which are dimensionless.
+    ``beta_y`` dimensionless unit offsets; the error-model scales (``sigma_def``, ``sigma_meas``, ``sigma_sel``,
+    ``lambda_sel``, ``sigma_gp``, ``ell_gp``, ``sigma_grf``, ``lambda_b``, ``sigma_grf2``,
+    ``lambda_b2``) arcsec, except ``lambda_sel``, ``gp_knee_gamma`` and ``gp_knee_beta_low``, which are dimensionless.
 
     Attributes
     ----------
@@ -234,9 +234,6 @@ class FamilyData:
         Family identifier from the image catalog.
     z_source : float
         Source redshift of the family (one value for all its images).
-    sigma_inst_arcsec : float
-        Default astrometric (instrumental) uncertainty of the images in arcsec; a per-image ``sigma_inst_arcsec``
-        catalog column overrides it in ``ImageData.sigma_inst_per_image``.
     image_labels : list of str
         Image labels, shape (image,).
     x_obs : numpy.ndarray
@@ -248,7 +245,6 @@ class FamilyData:
     """
     family_id: str
     z_source: float
-    sigma_inst_arcsec: float
     image_labels: list[str]
     x_obs: np.ndarray
     y_obs: np.ndarray
@@ -306,8 +302,6 @@ class ImageData:
         Observed image x positions in arcsec (positive west), shape (image,).
     y_obs : jax.numpy.ndarray
         Observed image y positions in arcsec (positive north), shape (image,).
-    sigma_inst_per_image : jax.numpy.ndarray
-        Astrometric (instrumental) uncertainty of each image in arcsec, shape (image,).
     parity : jax.numpy.ndarray
         Catalog image parity, -1, +1, or 0 when unknown, int32 of shape (image,).
     z_index_per_image : jax.numpy.ndarray
@@ -332,7 +326,6 @@ class ImageData:
     n_families: int
     x_obs: jnp.ndarray
     y_obs: jnp.ndarray
-    sigma_inst_per_image: jnp.ndarray
     parity: jnp.ndarray
     z_index_per_image: jnp.ndarray
     family_index_per_image: jnp.ndarray
@@ -479,31 +472,29 @@ class ModelState:
         -1 when the model does not sample the parameter.
     sigma_def_param_index : int, optional
         ``smoothed`` likelihood: the source-plane deflection scatter :math:`\\sigma_\\mathrm{def}` (arcsec).
-    sigma_extra_param_index : int, optional
-        ``smoothed``: the extra measurement scatter added in quadrature to :math:`\\sigma_\\mathrm{inst}`
-        (arcsec).
+    sigma_meas_param_index : int, optional
+        Every mode: the sampled independent measurement scatter :math:`\\sigma_\\mathrm{meas}` of every image, the
+        only measurement error (arcsec).
     sigma_sel_param_index : int, optional
         ``smoothed``: the feature-selection scatter :math:`\\sigma_\\mathrm{sel}` (arcsec).
     lambda_sel_param_index : int, optional
         ``smoothed``: the stretching scale :math:`\\lambda_\\mathrm{sel}` of the selection weight :math:`R = (I
         + A A^T / \\lambda_\\mathrm{sel}^2)^{-1}` (dimensionless).
-    sigma_shared_param_index : int, optional
+    sigma_gp_param_index : int, optional
         ``gp_image_plane``: the correlated image-plane scale :math:`\\sigma_\\mathrm{shared}` (arcsec).
-    sigma_white_param_index : int, optional
-        ``gp_image_plane``: the independent image-plane scale :math:`\\sigma_\\mathrm{white}` (arcsec).
-    gp_ell_param_index : int, optional
+    ell_gp_param_index : int, optional
         ``gp_image_plane``: the correlation length :math:`\\ell` (arcsec); -1 when it is fixed.
-    gp_sigma_alpha_param_index : int, optional
+    sigma_grf_param_index : int, optional
         Knee kernel: the mass-field deflection amplitude :math:`\\sigma_\\alpha` (arcsec); -1 without the mass
         field.
-    gp_knee_param_index : int, optional
-        Knee kernel: the knee :math:`\\lambda_t` (arcsec).
+    lambda_b_param_index : int, optional
+        Knee kernel: the break scale :math:`\\lambda_b` (arcsec).
     gp_knee_gamma_param_index : int, optional
         Knee kernel: the sampled spectral slope :math:`\\gamma` (dimensionless); -1 when fixed.
-    gp_sigma_alpha2_param_index : int, optional
+    sigma_grf2_param_index : int, optional
         Knee kernel, ``two_knee`` / ``knee_foreground`` / ``knee_background`` spectra: the second field's
         amplitude (arcsec).
-    gp_knee2_param_index : int, optional
+    lambda_b2_param_index : int, optional
         Knee kernel: the second field's knee (arcsec).
     gp_knee_beta_low_param_index : int, optional
         Knee kernel, ``broken_power_law`` spectrum: the low-k slope (dimensionless).
@@ -553,23 +544,22 @@ class ModelState:
     dpie_sigma0_factor_by_z: dict[float, float]
     softening_length_param_index: int = -1
     sigma_def_param_index: int = -1              # residual deflection scatter, isotropic in the source plane
-    sigma_extra_param_index: int = -1            # extra measurement scatter added in quadrature to sigma_inst; -1 when absent
     sigma_sel_param_index: int = -1              # feature-selection scatter; -1 when the term is disabled
     lambda_sel_param_index: int = -1             # stretching scale of the selection weight R = (I + A A^T / lambda_sel^2)^-1; -1 with the term
-    sigma_shared_param_index: int = -1           # gp_image_plane: the correlated image-plane scale; -1 under the other likelihoods
-    sigma_white_param_index: int = -1            # gp_image_plane: the independent image-plane scale
-    gp_ell_param_index: int = -1                 # gp_image_plane: the sampled correlation length; -1 when ell is fixed
+    sigma_gp_param_index: int = -1           # gp_image_plane: the correlated image-plane scale; -1 under the other likelihoods
+    sigma_meas_param_index: int = -1            # the sampled independent measurement scatter of every image (all modes)
+    ell_gp_param_index: int = -1                 # gp_image_plane: the sampled correlation length; -1 when ell is fixed
     gp_correlation_length_arcsec: float = 7.0    # gp_image_plane: ell (fixed value or start) and sigma_fl (LikelihoodConfig)
     gp_floor_arcsec: float = 0.0015
     gp_kernel: str = "image_plane"               # gp_image_plane: "image_plane" (B S B^T) or "knee" (mass field + B S B^T, see LikelihoodConfig)
     gp_reference_redshift: float = 2.0           # knee kernel: z_ref of the redshift weights
     gp_blocks: str = "all"                       # knee kernel: "all" | "system" | "family" covariance blocks
     gp_knee: dict[str, Any] = field(default_factory=dict)   # knee kernel: gamma, scales, lambda grid, r step
-    gp_sigma_alpha_param_index: int = -1         # knee kernel: sigma_alpha; -1 when the mass field is dropped
-    gp_knee_param_index: int = -1                # knee kernel: lambda_t
+    sigma_grf_param_index: int = -1         # knee kernel: sigma_grf; -1 when the mass field is dropped
+    lambda_b_param_index: int = -1                # knee kernel: the break scale lambda_b
     gp_knee_gamma_param_index: int = -1          # knee kernel: the sampled slope gamma; -1 when fixed
-    gp_sigma_alpha2_param_index: int = -1        # knee kernel, two_knee / knee_foreground spectra: the second field's sigma_alpha
-    gp_knee2_param_index: int = -1               # ... and its knee
+    sigma_grf2_param_index: int = -1        # knee kernel, two_knee / knee_foreground spectra: the second field's sigma_grf
+    lambda_b2_param_index: int = -1               # ... and its knee
     gp_knee_beta_low_param_index: int = -1       # knee kernel, broken_power_law spectrum: the low-k slope
     freeze_determinant_gradient: bool = False    # hold grad det A fixed in the backward pass (LikelihoodConfig)
     dropped_member_ids: tuple[str, ...] = ()  # catalog members removed from the lens model (members.min_deflection_arcsec)

@@ -32,9 +32,7 @@ def main():
     config,state,e,post,paths=load_run(args.run_directory)
     best=int(np.nanargmax(post.log_prob));theta=post.samples[best]
     physical=e.physical(theta);correction=e.gp_deflection_correction(theta)
-    cat=load_image_catalog(config.model.image_constraints.catalog_path,
-        sigma_inst_arcsec=config.model.image_constraints.sigma_inst_arcsec,
-        sigma_floor_arcsec=config.model.image_constraints.sigma_floor_arcsec).set_index('image_label')
+    cat=load_image_catalog(config.model.image_constraints.catalog_path).set_index('image_label')
     cache=load_arrays(paths.tables/'posterior_overview_positions.h5')
     labels=list(map(str,cache['image_labels']));positions=cache['recovered']
     if best not in cache['draw_indices']:raise ValueError('Position cache does not contain the current best draw')

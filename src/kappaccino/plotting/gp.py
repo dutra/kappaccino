@@ -50,12 +50,11 @@ def plot_kernel_sky(state, evaluator, posterior, output):
     xy=np.column_stack([state.images.x_obs,state.images.y_obs])
     slots,mask=(np.asarray(evaluator.gp[k]) for k in ('slots','mask'))
     names=[p.name for p in state.parameter_specs]
-    shared=float(np.median(posterior.physical[:,names.index('images.sigma_shared')]))
-    white=float(np.median(posterior.physical[:,names.index('images.sigma_white')]))
-    inst=np.asarray(state.images.sigma_inst_per_image)
-    variance=shared**2+white**2+inst**2
-    ell=(float(np.median(posterior.physical[:,names.index('images.gp_ell')]))
-         if 'images.gp_ell' in names else state.gp_correlation_length_arcsec)
+    shared=float(np.median(posterior.physical[:,names.index('images.sigma_gp')]))
+    white=float(np.median(posterior.physical[:,names.index('images.sigma_meas')]))
+    variance=np.full(len(xy),shared**2+white**2)
+    ell=(float(np.median(posterior.physical[:,names.index('images.ell_gp')]))
+         if 'images.ell_gp' in names else state.gp_correlation_length_arcsec)
     point_correlations=np.zeros(len(xy))
     segments=[]; correlations=[];separations=[]
     for f in range(len(slots)):
@@ -82,12 +81,12 @@ def plot_kernel_sky(state, evaluator, posterior, output):
     d=np.geomspace(.1,max(separations.max()*1.05,30),500)
     k=np.exp(-d**2/(2*ell**2))
     curve.plot(d,k,color='.5',ls='--',lw=2,label='Shared component alone')
-    curve.plot(d,shared**2*k/variance.mean(),color=GP_COLOR,lw=2.4,label='Including white + instrumental noise')
+    curve.plot(d,shared**2*k/variance.mean(),color=GP_COLOR,lw=2.4,label='Including the measurement scatter')
     curve.scatter(separations,correlations,s=24,color=GP_COLOR,alpha=.4,linewidths=0)
     curve.set(xscale='log',xlim=(.1,d.max()),ylim=(-.03,1.16),
               xlabel='Same-family image separation (arcsec)',ylabel='Image-plane displacement correlation')
     curve.legend(loc='lower left',bbox_to_anchor=(.015,.12),fontsize=12)
-    curve.text(.04,.95,rf'Correlation length $\ell={ell:.2g}$ arcsec'+(' (median)' if 'images.gp_ell' in names else ' (fixed)'),transform=curve.transAxes,va='top')
+    curve.text(.04,.95,rf'Correlation length $\ell={ell:.2g}$ arcsec'+(' (median)' if 'images.ell_gp' in names else ' (fixed)'),transform=curve.transAxes,va='top')
     fig.text(.5,.025,r'Colors: pair correlation on links; strongest same-family correlation at each point. Links require $\rho\geq0.2$.',ha='center',fontsize=12)
     fig.tight_layout(rect=(0,.06,1,1),w_pad=3)
     return save(fig,output)
@@ -113,11 +112,10 @@ def pick_family(state, evaluator, min_images=3, closest=1.5, widest=10.0):
 
 def plot_shared_vs_white(state, evaluator, posterior, output):
     names=[p.name for p in state.parameter_specs]
-    shared=float(np.median(posterior.physical[:,names.index('images.sigma_shared')]))
-    white=float(np.median(posterior.physical[:,names.index('images.sigma_white')]))
-    ell=(float(np.median(posterior.physical[:,names.index('images.gp_ell')]))
-         if 'images.gp_ell' in names else state.gp_correlation_length_arcsec)
-    inst=np.asarray(state.images.sigma_inst_per_image)
+    shared=float(np.median(posterior.physical[:,names.index('images.sigma_gp')]))
+    white=float(np.median(posterior.physical[:,names.index('images.sigma_meas')]))
+    ell=(float(np.median(posterior.physical[:,names.index('images.ell_gp')]))
+         if 'images.ell_gp' in names else state.gp_correlation_length_arcsec)
     labels=list(state.images.image_labels)
     if '1.b' in labels and '1.c' in labels:
         i,j=labels.index('1.b'),labels.index('1.c')
@@ -125,19 +123,19 @@ def plot_shared_vs_white(state, evaluator, posterior, output):
         _,rows=pick_family(state,evaluator)
         i,j=rows[:2]
     xy=np.column_stack([state.images.x_obs,state.images.y_obs])
-    sep=np.linalg.norm(xy[i]-xy[j]);inst_pair=np.sqrt((inst[i]**2+inst[j]**2)/2)
+    sep=np.linalg.norm(xy[i]-xy[j])
     d=np.linspace(0,25,500);k=np.exp(-d**2/(2*ell**2))
-    terms=[shared*np.sqrt(2*(1-k)),np.full_like(d,np.sqrt(2)*white),np.full_like(d,np.sqrt(2)*inst_pair)]
+    terms=[shared*np.sqrt(2*(1-k)),np.full_like(d,np.sqrt(2)*white)]
     fig,axes=plt.subplots(1,2,figsize=(14,7))
     ax=axes[0]
-    for values,color,style,label in zip(terms,[GP_COLOR,WHITE_COLOR,'.5'],['--',':','-.'],['Shared contribution','White contribution','Instrumental contribution']):
+    for values,color,style,label in zip(terms,[GP_COLOR,WHITE_COLOR],['--',':'],['Shared contribution','Measurement contribution']):
         ax.plot(d,1e3*values,color=color,ls=style,lw=2,label=label)
     ax.plot(d,1e3*np.sqrt(sum(v*v for v in terms)),color=INK,lw=2.4,label='Combined in quadrature')
     ax.set(xlim=(0,25),ylim=(0,300),xlabel='Image-pair separation (arcsec)',
            ylabel=r'Uncertainty in relative displacement $d_i-d_j$ (mas)')
     ax.legend(loc='upper left',fontsize=12)
     ax=axes[1]
-    va=shared**2+white**2+inst[i]**2;vb=shared**2+white**2+inst[j]**2
+    va=vb=shared**2+white**2
     rho=shared**2*np.exp(-sep**2/(2*ell**2))/np.sqrt(va*vb)
     for probability,ls in [(.954499736,'--'),(.682689492,'-')]:
         radius=np.sqrt(-2*np.log(1-probability))
@@ -156,14 +154,14 @@ def plot_shared_vs_white(state, evaluator, posterior, output):
     return save(fig,output)
 
 
-DEFAULT_SCALE_SITES = (('images.sigma_shared', 'Shared displacement scale', r'$\sigma_{\rm shared}$', 1e3, 'mas'),
-                       ('images.sigma_white', 'Independent displacement scale', r'$\sigma_{\rm white}$', 1e3, 'mas'))
-KNEE_SCALE_SITES = (('images.gp_sigma_alpha', 'Mass-field deflection error', r'$\sigma_{\rm GRF}$', 1e3, 'mas'),
-                    ('images.gp_knee', 'Knee wavelength', r'$\ell_{\rm knee}$', 1.0, 'arcsec'),
+DEFAULT_SCALE_SITES = (('images.sigma_gp', 'Shared displacement scale', r'$\sigma_{\rm GP}$', 1e3, 'mas'),
+                       ('images.sigma_meas', 'Independent displacement scale', r'$\sigma_{\rm white}$', 1e3, 'mas'))
+KNEE_SCALE_SITES = (('images.sigma_grf', 'Mass-field deflection error', r'$\sigma_{\rm GRF}$', 1e3, 'mas'),
+                    ('images.lambda_b', 'Knee wavelength', r'$\lambda_{\rm b}$', 1.0, 'arcsec'),
                     ('images.gp_knee_gamma', 'Spectral slope beyond the knee', r'$\gamma_{\rm GRF}$', 1.0, ''),
-                    ('images.sigma_shared', 'Image-plane GP amplitude', r'$\sigma_{\rm shared}$', 1e3, 'mas'),
-                    ('images.gp_ell', 'Image-plane GP length', r'$\ell$', 1.0, 'arcsec'),
-                    ('images.sigma_white', 'Independent position scatter', r'$\sigma_{\rm white}$', 1e3, 'mas'))
+                    ('images.sigma_gp', 'Image-plane GP amplitude', r'$\sigma_{\rm GP}$', 1e3, 'mas'),
+                    ('images.ell_gp', 'Image-plane GP length', r'$\ell_{\rm GP}$', 1.0, 'arcsec'),
+                    ('images.sigma_meas', 'Independent position scatter', r'$\sigma_{\rm white}$', 1e3, 'mas'))
 
 
 def plot_scale_posteriors(state, posterior, output, sites=DEFAULT_SCALE_SITES):
@@ -204,7 +202,7 @@ def plot_knee_kernel(state, evaluator, posterior, output):
     from ..likelihood.gp_knee import knee_curves
     names=[p.name for p in state.parameter_specs]
     med=lambda n: float(np.median(posterior.physical[:,names.index(n)])) if n in names else None
-    lam, ell, slope = med('images.gp_knee'), med('images.gp_ell'), med('images.gp_knee_gamma')
+    lam, ell, slope = med('images.lambda_b'), med('images.ell_gp'), med('images.gp_knee_gamma')
     tables=evaluator.gp_tables; r=np.asarray(tables['r_grid'])
     fig,ax=plt.subplots(figsize=(7,7))
     if lam is not None:

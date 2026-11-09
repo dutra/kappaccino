@@ -1,5 +1,5 @@
 """Fisher pre-check of a mock's image configuration: how well the solver's GP likelihood can constrain its error-model
-hyperparameters (sigma_alpha and knee of the mass field, sigma_shared and ell of the image-plane GP, sigma_white) at
+hyperparameters (sigma_grf and knee of the mass field, sigma_gp and ell of the image-plane GP, sigma_meas) at
 the truth, before any sampling.
 
 The covariance is the solver's own (Evaluator.gp_kernel_blocks and gp_knee.block_covariance, knee kernel, the configured
@@ -8,8 +8,8 @@ positions are free, so the Fisher matrix is the restricted (REML) one, with each
 
     I_ab = 1/2 sum_blocks tr(P dC/da P dC/db),   P = C^-1 - C^-1 J (J^T C^-1 J)^-1 J^T C^-1,
 
-where J is the block's source indicator.  Hyperparameters are in ln units (sigma_alpha, knee, sigma_shared, ell,
-sigma_white; the slope gamma linear).  The lens is held at the truth, so the result is an upper bound on what the data
+where J is the block's source indicator.  Hyperparameters are in ln units (sigma_grf, knee, sigma_gp, ell,
+sigma_meas; the slope gamma linear).  The lens is held at the truth, so the result is an upper bound on what the data
 can say about the hyperparameters: in a real fit the lens model absorbs part of the field.  The forecast adds the
 solver's prior widths as Gaussian precision in the same units and ignores the truncations.
 """
@@ -35,22 +35,22 @@ from .truth import truth_from_json
 
 # Solver scale name -> (truth key, LikelihoodConfig prior field, log units).
 HYPERPARAMETERS = {
-    "gp_sigma_alpha": ("field_sigma_alpha", "gp_sigma_alpha_prior", True),
-    "gp_knee": ("field_knee", "gp_knee_prior", True),
+    "sigma_grf": ("field_sigma_grf", "sigma_grf_prior", True),
+    "lambda_b": ("field_knee", "lambda_b_prior", True),
     "gp_knee_gamma": ("field_gamma", "gp_knee_gamma_prior", False),
-    "sigma_shared": ("image_plane_sigma", "gp_knee_sigma_shared_prior", True),
-    "gp_ell": ("image_plane_ell", "gp_knee_ell_prior", True),
-    "sigma_white": ("white", "gp_knee_sigma_white_prior", True),
+    "sigma_gp": ("image_plane_sigma", "gp_knee_sigma_gp_prior", True),
+    "ell_gp": ("image_plane_ell", "gp_knee_ell_gp_prior", True),
+    "sigma_meas": ("measurement_noise", "gp_knee_sigma_meas_prior", True),
 }
 SEPARATION_BINS_ARCSEC = (0.0, 0.5, 1.0, 2.0, 5.0, 15.0, 40.0, math.inf)
 
 
 def _truth_hyperparameters(truth: dict[str, Any]) -> dict[str, float]:
     """The injected hyperparameters in the solver's units; an error component that was not injected is left out."""
-    values = {"white": float(truth["config"]["sigma_inst_arcsec"])}
+    values = {"measurement_noise": float(truth["config"]["measurement_noise_arcsec"])}
     field, image_plane = truth.get("field"), truth.get("image_plane_error")
     if field:
-        values.update(field_sigma_alpha=float(field["sigma_alpha_arcsec"]), field_knee=float(field["knee_arcsec"]),
+        values.update(field_sigma_grf=float(field["sigma_grf_arcsec"]), field_knee=float(field["knee_arcsec"]),
                       field_gamma=float(field["gamma"]))
     if image_plane:
         values.update(image_plane_sigma=float(image_plane["sigma_arcsec"]), image_plane_ell=float(image_plane["ell_arcsec"]))
@@ -105,18 +105,18 @@ def hyperparameter_fisher(solver_config: LensClusterSolverConfig, truth: dict[st
 
     # The hyperparameters the solver samples and that were injected.
     injected = _truth_hyperparameters(truth)
-    sampled = {"gp_sigma_alpha": evaluator.gp_sigma_alpha_index, "gp_knee": evaluator.gp_knee_index,
-               "gp_knee_gamma": evaluator.gp_knee_gamma_index, "sigma_shared": evaluator.sigma_shared_index,
-               "gp_ell": evaluator.gp_ell_index, "sigma_white": evaluator.sigma_white_index}
+    sampled = {"sigma_grf": evaluator.sigma_grf_index, "lambda_b": evaluator.lambda_b_index,
+               "gp_knee_gamma": evaluator.gp_knee_gamma_index, "sigma_gp": evaluator.sigma_gp_index,
+               "ell_gp": evaluator.ell_gp_index, "sigma_meas": evaluator.sigma_meas_index}
     names = [n for n, (key, _, _) in HYPERPARAMETERS.items() if sampled[n] >= 0 and key in injected]
     if not names:
         raise ValueError("no injected error component matches a sampled hyperparameter")
     base = evaluator.error_scales(evaluator.physical(jnp.asarray(state.initial_theta, dtype=jnp.float64)))
     base = dict(base)
-    if "field_sigma_alpha" not in injected:
-        base["gp_sigma_alpha"] = jnp.asarray(0.0)                    # no field injected: the truth has none
+    if "field_sigma_grf" not in injected:
+        base["sigma_grf"] = jnp.asarray(0.0)                    # no field injected: the truth has none
     if "image_plane_sigma" not in injected:
-        base["sigma_shared"] = jnp.asarray(0.0)
+        base["sigma_gp"] = jnp.asarray(0.0)
     log_units = [HYPERPARAMETERS[n][2] for n in names]
     v0 = jnp.asarray([math.log(injected[HYPERPARAMETERS[n][0]]) if log_units[i] else injected[HYPERPARAMETERS[n][0]]
                       for i, n in enumerate(names)], dtype=jnp.float64)

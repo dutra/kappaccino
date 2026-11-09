@@ -258,20 +258,22 @@ def population_log_density(population: GaussianMixture, x: jnp.ndarray) -> jnp.n
 
 
 # ------------------------------------------------------------------ inputs
-def load_uncertain_images(path, state: ModelState, *, sigma_inst_arcsec: float) -> pd.DataFrame:
-    """The uncertain-image table with ``x_obs``/``y_obs`` in the state frame (arcsec, x positive west),
-    ``sigma_inst_arcsec`` and ``parity``; ``path`` is a CSV file or a table already read."""
+def load_uncertain_images(path, state: ModelState) -> pd.DataFrame:
+    """The uncertain-image table with ``x_obs``/``y_obs`` in the state frame (arcsec, x positive west) and ``parity``;
+    ``path`` is a CSV file or a table already read.  The table carries no positional errors: uncertain images take the
+    sampled error model of the trusted ones."""
     table = path if isinstance(path, pd.DataFrame) else pd.read_csv(Path(path))
     missing = {"image_label", "ra", "dec"} - set(table.columns)
     if missing:
         raise ValueError(f"{path if not isinstance(path, pd.DataFrame) else 'uncertain images'}: missing columns {sorted(missing)}")
+    if "sigma_arcsec" in table:
+        raise ValueError("uncertain images: sigma_arcsec is not used; the measurement error of every image is the sampled "
+                         "images.sigma_meas.  Drop the column.")
     from ..io.sky import radec_to_offsets_arcsec
     _, ra0, dec0 = state.reference
     table = table.copy()
     table["x_obs"], table["y_obs"] = radec_to_offsets_arcsec(table["ra"].to_numpy(dtype=float), table["dec"].to_numpy(dtype=float),
                                                              float(ra0), float(dec0))
-    sigma = pd.to_numeric(table["sigma_arcsec"], errors="coerce").to_numpy(dtype=float) if "sigma_arcsec" in table else np.full(len(table), np.nan)
-    table["sigma_inst_arcsec"] = np.where(np.isfinite(sigma) & (sigma > 0.0), sigma, float(sigma_inst_arcsec))
     parity = pd.to_numeric(table["parity"], errors="coerce").fillna(0).to_numpy(dtype=int) if "parity" in table else np.zeros(len(table), dtype=int)
     table["parity"] = parity
     table["image_label"] = table["image_label"].astype(str)
@@ -282,8 +284,7 @@ def trusted_catalog_table(config, state: ModelState) -> pd.DataFrame:
     """The trusted images (families present in the state) with their catalog photometry and secure redshifts."""
     from ..io.image_catalog import load_image_catalog
     constraints = config.model.image_constraints
-    table = load_image_catalog(constraints.catalog_path, sigma_inst_arcsec=constraints.sigma_inst_arcsec,
-                               sigma_floor_arcsec=constraints.sigma_floor_arcsec)
+    table = load_image_catalog(constraints.catalog_path)
     table = table[table["image_label"].astype(str).isin(set(state.images.image_labels))].copy()
     table["catalog_z_sigma"] = TRUSTED_Z_SIGMA
     return table.reset_index(drop=True)
@@ -294,10 +295,8 @@ def catalog_uncertain_images(config, state: ModelState) -> pd.DataFrame:
     positive redshift or left with one image), as an uncertain-image table claimed by their own families."""
     from ..io.image_catalog import load_image_catalog
     constraints = config.model.image_constraints
-    table = load_image_catalog(constraints.catalog_path, sigma_inst_arcsec=constraints.sigma_inst_arcsec,
-                               sigma_floor_arcsec=constraints.sigma_floor_arcsec)
+    table = load_image_catalog(constraints.catalog_path)
     table = table[~table["image_label"].astype(str).isin(set(state.images.image_labels))].copy()
-    table["sigma_arcsec"] = table["sigma_inst_arcsec"]
     table["catalog_z"] = table["catalog_z"].where(table["catalog_z"] > 0.0)
     table["catalog_z_sigma"] = table["catalog_z_err"]
     table["claimed_family"] = table["family_id"].astype(str)
@@ -407,7 +406,7 @@ def add_slots(config, state: ModelState, evaluator, theta: np.ndarray, *, log=pr
     from ..likelihood.evaluator import Evaluator
     partition = config.partition
     source = partition.catalog_path if partition.catalog_path is not None else catalog_uncertain_images(config, state)
-    table = load_uncertain_images(source, state, sigma_inst_arcsec=partition.sigma_inst_arcsec)
+    table = load_uncertain_images(source, state)
     trusted = trusted_catalog_table(config, state)
     z_lens = float(state.z_lens)
     z_grid = (np.linspace(*partition.redshift_grid[:2], int(partition.redshift_grid[2])) if partition.redshift_grid is not None
@@ -435,8 +434,7 @@ def add_slots(config, state: ModelState, evaluator, theta: np.ndarray, *, log=pr
         alone = catalog_log_evidence(data, members[None], np.ones((1, members.size), dtype=bool), z_family, population, **settings)[0, 0] if members.size else 0.0
         trusted_catalog[:, k] = joint - alone
 
-    images = lens_images(state, table[["x_obs", "y_obs"]].to_numpy(dtype=float), table["sigma_inst_arcsec"].to_numpy(dtype=float),
-                         table["parity"].to_numpy(dtype=int), z_grid, prior_sigma=partition.source_prior_sigma_arcsec)
+    images = lens_images(state, table[["x_obs", "y_obs"]].to_numpy(dtype=float), table["parity"].to_numpy(dtype=int), z_grid, prior_sigma=partition.source_prior_sigma_arcsec)
     trusted_ratio = np.asarray([state.dpie_sigma0_factor_by_z[z_by_family[f]] for f in state.images.family_ids]) / images.factor_reference
     z_table = np.linspace(z_lens + 0.01, max(float(z_grid[-1]) + 3.0, 12.0), 1024)
     factor_table = efficiency_factor_table(state, z_table)

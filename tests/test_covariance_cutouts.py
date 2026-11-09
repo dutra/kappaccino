@@ -63,7 +63,7 @@ def test_small_catalog_pdf_and_style(synthetic_config, tmp_path, monkeypatch):
     assert [r['lambda_abs'] for r in rows]==sorted(r['lambda_abs'] for r in rows)
     assert {r['z_source'] for r in rows}=={2.,3.}
     assert all(r['z_source'] == {'1': 2., '2': 3.}[r['family_id']] for r in rows)
-    assert all(r['sigma_meas']>=.1 for r in rows)
+    assert all(r['sigma_meas']>0 for r in rows)
     assert all(r['sampled_max_exact_map_error'] is not None for r in rows)
 
 

@@ -71,7 +71,7 @@ def build():
     header = ('AS1063 JWST: Diego et al., arXiv:2601.11704v2, Table 1.\n'
               'Observed rank A positions plus spectroscopic system 60; no model-predicted positions.\n'
               'System/knot grouping is curated; original labels and selection are in image_mapping.json.\n'
-              'No published astrometric errors or photometry supplied: use configured sigma_inst_arcsec.\n'
+              'No published astrometric errors or photometry supplied.\n'
               'Coordinates unchanged, J2000 degrees. See README.md for provenance and limitations.')
     write_image_catalog(DEST / 'images.yaml', systems, header=header)
     (DEST / 'image_mapping.json').write_text(json.dumps(dict(groups=GROUPS, included=mapping, excluded=excluded), indent=2)+'\n')
@@ -102,7 +102,7 @@ def build():
                          'Fitted pixel axes converted to arcsec using the released image WCS (0.06 arcsec/pixel).\n'
                          'Angles transformed to west/north coordinates. Individual redshifts are absent in this FITS.\n'
                          'No lens-model SIGMA_FITBEST, stellar masses or fitted radii used as kinematic measurements.')
-    loaded = load_image_catalog(DEST / 'images.yaml', sigma_inst_arcsec=0.01)
+    loaded = load_image_catalog(DEST / 'images.yaml')
     member_table = load_member_catalog(DEST / 'members.yaml', (0, 0., 0.))
     # Compare the loader results, rather than the intermediate dictionaries, to the input data.
     source = {r['label']: r for r in rows}

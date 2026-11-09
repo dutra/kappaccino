@@ -16,7 +16,7 @@ from kappaccino.io.hdf5 import load_arrays
 out=ROOT/'plots/paper/grf_power_spectrum';meta=json.loads((out/'provenance.json').read_text())
 state=json.loads((Path(meta['run'])/'init/artifacts/state.json').read_text());scale=state['kpc_per_arcsec']
 d = load_arrays(out/'spectrum_draws.h5')
-k=d['k'];P=d['power'];knee=d['knee'];sigma=d['sigma_alpha']
+k=d['k'];P=d['power'];knee=d['knee'];sigma=d['sigma_grf']
 best=meta['draw'];x=(2*np.pi/k*scale)[::-1];lnx=np.log(x)
 def products(p):
  p=np.atleast_2d(p)
@@ -61,6 +61,6 @@ report=dict(run=meta['run'],best_draw=best,break_wavelength_kpc=break_kpc,
  'panel_b':'P_kappa/k_theta^2; total vector deflection power is four times this',
  'panel_c':'P_kappa/pi; variance contribution per positive logarithmic wavelength interval, per deflection coordinate',
  'panel_d':'Integral from shortest included wavelength up to lambda, computed separately for every draw before quantiles'},
- comparison='gamma=2,6 are not refitted; all comparison spectra share best-fit sigma_alpha, break and band',
+ comparison='gamma=2,6 are not refitted; all comparison spectra share best-fit sigma_grf, break and band',
  uncertainty='Saved-draw bands remain preliminary because of incomplete convergence; amplitude at source reference redshift 2; source floor and image-plane GP excluded')
 (out/'deflection_variance_provenance.json').write_text(json.dumps(report,indent=2));print(json.dumps(report,indent=2))

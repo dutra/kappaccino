@@ -40,7 +40,7 @@ def synthetic_cluster_config(root: Path) -> LensClusterSolverConfig:
                                                        cutkpc=10.0, z_lens=0.3,
                                                        sigma_prior=lognormal_from_moments(100.0, 20.0, low=50.0, high=200.0),
                                                        cutkpc_prior=lognormal_from_moments(10.0, 3.0, low=1.0, high=50.0)),),
-            image_constraints=ImageConstraintsConfig(catalog_path=str(images), sigma_inst_arcsec=0.1)),
+            image_constraints=ImageConstraintsConfig(catalog_path=str(images))),
         search=SearchConfig(), sampling=SamplingConfig(),
         paths=RunPathsConfig(output_dir=str(root / "output"), run_name="toy"))
 

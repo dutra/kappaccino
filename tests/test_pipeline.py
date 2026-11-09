@@ -133,14 +133,14 @@ def test_far_field_barrier_is_finite_smooth_and_pushes_back(synthetic_config):
 
 
 def test_gp_image_plane_model(synthetic_config):
-    """The gp likelihood: sigma_shared and sigma_white are its error scales, and the sources are the family
+    """The gp likelihood: sigma_gp and sigma_meas are its error scales, and the sources are the family
     conditional."""
     from kappaccino.config import LikelihoodConfig
     state = build_state(replace(synthetic_config, likelihood=LikelihoodConfig(likelihood_mode="gp_image_plane")).validate())
     evaluator = Evaluator(state, "gp_image_plane")
     names = [s.name for s in state.parameter_specs]
-    assert "images.sigma_shared" in names and "images.sigma_white" in names
-    assert not any(n in names for n in ("images.sigma_def", "images.sigma_extra", "images.sigma_sel", "images.sigma_img"))
+    assert "images.sigma_gp" in names and "images.sigma_meas" in names
+    assert not any(n in names for n in ("images.sigma_def", "images.sigma_sel", "images.sigma_img"))
     assert evaluator.gp_mode
     rng = np.random.default_rng(0)
     theta = np.asarray(state.initial_theta, dtype=float).copy()

@@ -1,10 +1,11 @@
-"""The sampled error scales: sigma_extra in quadrature with sigma_inst, the caps, and the optional sigma_sel."""
+"""The sampled error scales: sigma_meas as the only measurement error, the caps, and the optional sigma_sel."""
 from __future__ import annotations
 
 from dataclasses import replace
 
 import jax.numpy as jnp
 import numpy as np
+import pytest
 
 import numpyro.distributions as dist
 
@@ -13,49 +14,36 @@ from kappaccino.likelihood.evaluator import Evaluator
 from kappaccino.core.state import build_state
 
 
-def test_sigma_extra_adds_in_quadrature_to_sigma_inst(synthetic_config):
-    likelihood = replace(synthetic_config.likelihood, sigma_extra_prior=dist.LogNormal(np.log(0.05), 1.0))
+def test_sigma_meas_is_the_sampled_measurement_error(synthetic_config):
+    likelihood = replace(synthetic_config.likelihood, sigma_meas_prior=dist.LogNormal(np.log(0.05), 1.0))
     config = replace(synthetic_config, likelihood=likelihood).validate()
-    assert build_state(replace(synthetic_config, likelihood=replace(likelihood, sigma_extra_prior=None))).sigma_extra_param_index == -1
+    with pytest.raises(ValueError, match="sigma_meas_prior is required"):
+        replace(synthetic_config, likelihood=replace(likelihood, sigma_meas_prior=None)).validate()
     state = build_state(config)
     names = [s.name for s in state.parameter_specs]
-    index = names.index("images.sigma_extra")
-    assert state.sigma_extra_param_index == index
+    index = names.index("images.sigma_meas")
+    assert state.sigma_meas_param_index == index
     spec = state.parameter_specs[index]
     assert spec.log and priors.family(spec.latent_prior) == "Normal" and np.isclose(priors.center(spec.latent_prior), np.log(0.05))   # no cap
-    capped = build_state(replace(config, likelihood=replace(likelihood, sigma_extra_prior=priors.truncated_lognormal(0.05, 1.0, high=1.0))))
-    cap = capped.parameter_specs[[s.name for s in capped.parameter_specs].index("images.sigma_extra")]
+    capped = build_state(replace(config, likelihood=replace(likelihood, sigma_meas_prior=priors.truncated_lognormal(0.05, 1.0, high=1.0))))
+    cap = capped.parameter_specs[[s.name for s in capped.parameter_specs].index("images.sigma_meas")]
     assert cap.log and priors.family(cap.latent_prior) == "TruncatedNormal" and np.isclose(priors.physical_bounds(cap.prior)[1], 1.0)
     src = capped.parameter_specs[[s.name for s in capped.parameter_specs].index("images.sigma_def")]
     assert np.allclose(priors.physical_bounds(src.prior), (1.0e-4, 1.0))                                                  # the library default caps sigma_def at 1"
     evaluator = Evaluator(state)
     theta = np.asarray(state.initial_theta).copy()
 
-    sigma_catalog = float(state.images.sigma_inst_per_image[0])
-    doubling = np.sqrt(3.0) * sigma_catalog                      # sqrt(sigma^2 + s^2) = 2 sigma
-
     def at(scatter):
         t = theta.copy(); t[index] = np.log(scatter); return jnp.asarray(t)
 
-    stats = evaluator.statistics(at(doubling))
-    np.testing.assert_allclose(np.asarray(stats["sigma_meas"]), 2.0 * np.asarray(state.images.sigma_inst_per_image))
-    assert np.all(np.asarray(evaluator.statistics(at(1e-6))["sigma_meas"]) >= np.asarray(state.images.sigma_inst_per_image))   # the instrumental error is a floor
+    # No fixed instrumental error: the measurement scale of every image is the sampled value itself.
+    for value in (1e-3, 0.05, 0.2):
+        stats = evaluator.statistics(at(value))
+        np.testing.assert_allclose(np.asarray(stats["sigma_meas"]), value)
+        np.testing.assert_allclose(np.asarray(evaluator.error_scales(evaluator.physical(at(value)))["sigma_img"]), value)
     value, grad = evaluator.value_and_grad(at(0.05))
     assert np.isfinite(float(value)) and np.all(np.isfinite(np.asarray(grad))) and float(grad[index]) != 0.0
-    # Scale 2 is exactly the fixed-error model with the catalog errors doubled.
-    import dataclasses
-    fixed_state = build_state(replace(synthetic_config, likelihood=replace(synthetic_config.likelihood, sigma_extra_prior=None)))
-    images = fixed_state.images
-    doubled = images._replace(sigma_inst_per_image=2.0 * images.sigma_inst_per_image) if hasattr(images, "_replace") else dataclasses.replace(images, sigma_inst_per_image=2.0 * images.sigma_inst_per_image)
-    fixed_state = dataclasses.replace(fixed_state, images=doubled)
-    fixed = Evaluator(fixed_state)
-    fixed_names = [s.name for s in fixed_state.parameter_specs]
-    fixed_theta = np.asarray(fixed_state.initial_theta).copy()
-    for i, name in enumerate(names):
-        if name != "images.sigma_extra":
-            fixed_theta[fixed_names.index(name)] = theta[i]
-    np.testing.assert_allclose(float(evaluator.loglike(at(doubling))), float(fixed.loglike(jnp.asarray(fixed_theta))), rtol=1e-12)
-    assert abs(float(evaluator.loglike(at(doubling))) - float(evaluator.loglike(at(0.05)))) > 1.0
+    assert abs(float(evaluator.loglike(at(0.1))) - float(evaluator.loglike(at(0.05)))) > 1.0
 
 
 def test_sigma_sel_is_sampled_by_default_and_absent_when_disabled(synthetic_config):

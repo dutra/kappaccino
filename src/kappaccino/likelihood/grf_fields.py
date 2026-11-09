@@ -33,7 +33,7 @@ def shared_field_evaluator(evaluator):
 
     An all-block run returns itself.  Otherwise a cached all-block twin with the same parameter vector; its latent
     source coordinates are whitened differently, so convert draws with ``shared_theta``."""
-    if not (getattr(evaluator, 'gp_knee', False) and getattr(evaluator, 'gp_sigma_alpha_index', 0) >= 0
+    if not (getattr(evaluator, 'gp_knee', False) and getattr(evaluator, 'sigma_grf_index', 0) >= 0
             and getattr(evaluator, 'gp_knee_spectrum', 'knee') == 'knee'):
         return None
     if str(evaluator.state.gp_blocks) == 'all':

@@ -16,7 +16,7 @@ def test_extra_assignment_tolerance_and_empty():
 
 
 def test_catalog_matching_precedes_extra_tracking(synthetic_config,monkeypatch):
-    family=FamilyData('a',2.,.1,['a1','a2'],np.array([0.,1.]),np.zeros(2),np.ones(2))
+    family=FamilyData('a',2.,['a1','a2'],np.array([0.,1.]),np.zeros(2),np.ones(2))
     state=SimpleNamespace(images=SimpleNamespace(image_labels=('a1','a2'),family_ids=('a',),x_obs=family.x_obs,y_obs=family.y_obs,family_index_per_image=np.zeros(2,int)),
                           family_data=[family],dpie_sigma0_factor_by_z={2.:.3})
     evaluator=SimpleNamespace(n_components=1,physical=lambda t:t,source_positions=lambda t:jnp.zeros((1,2)),packed_state=lambda p,f:(f,None))

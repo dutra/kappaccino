@@ -23,7 +23,7 @@ alpha_shear(x) with r = f(z) / f_ref, and one field evaluation per image (deflec
 derivative at f_ref) serves the whole redshift grid.  Every member is evaluated with its exact kernel at the uncertain
 images (no far-field series).  Under ``gp_image_plane`` an uncertain image gets the diagonal block of the family
 covariance and no correlation with other images; with the knee kernel its deflection floor carries the GRF amplitudes
-weighted by the lensing efficiency at its source redshift, sigma_def^2 = w^2 sigma_alpha^2 + w_2^2 sigma_alpha2^2 +
+weighted by the lensing efficiency at its source redshift, sigma_def^2 = w^2 sigma_grf^2 + w_2^2 sigma_grf2^2 +
 sigma_fl^2 (the ``knee_background`` spectrum is not supported).
 """
 from __future__ import annotations
@@ -49,8 +49,6 @@ class LensImages:
     ----------
     xy : jax.numpy.ndarray
         Positions in arcsec offsets from the state's reference (x positive west), shape (image, 2).
-    sigma_inst : jax.numpy.ndarray
-        Astrometric uncertainty in arcsec, shape (image,).
     parity : jax.numpy.ndarray
         Catalog parity, -1, +1 or 0 when unknown, int32 of shape (image,).
     z_grid : numpy.ndarray
@@ -67,7 +65,6 @@ class LensImages:
         The lensing-efficiency factor at the knee kernel's reference redshift (its GRF weights are relative to it).
     """
     xy: jnp.ndarray
-    sigma_inst: jnp.ndarray
     parity: jnp.ndarray
     z_grid: np.ndarray
     ratio: jnp.ndarray
@@ -81,7 +78,7 @@ class LensImages:
         return int(self.xy.shape[0])
 
 
-def lens_images(state, xy, sigma_inst, parity, z_grid, *, prior_mean=None, prior_sigma: float | None = None) -> LensImages:
+def lens_images(state, xy, parity, z_grid, *, prior_mean=None, prior_sigma: float | None = None) -> LensImages:
     """``LensImages`` for a model state; the source prior defaults to the trusted families' prior."""
     from ..lens.cosmology import dpie_sigma0_factor_from_config
     z_grid = np.asarray(z_grid, dtype=float)
@@ -91,7 +88,7 @@ def lens_images(state, xy, sigma_inst, parity, z_grid, *, prior_mean=None, prior
     reference = float(factors[len(factors) // 2])
     gp_reference = dpie_sigma0_factor_from_config(state.z_lens, float(getattr(state, "gp_reference_redshift", 2.0)), state.cosmo_config)
     members = state.members
-    return LensImages(xy=jnp.asarray(xy, dtype=jnp.float64).reshape(-1, 2), sigma_inst=jnp.asarray(sigma_inst, dtype=jnp.float64),
+    return LensImages(xy=jnp.asarray(xy, dtype=jnp.float64).reshape(-1, 2),
                       parity=jnp.asarray(parity, dtype=jnp.int32), z_grid=z_grid, ratio=jnp.asarray(factors / reference),
                       factor_reference=reference,
                       prior_mean=jnp.asarray(members.source_prior_mean if prior_mean is None else prior_mean, dtype=jnp.float64),
@@ -128,21 +125,22 @@ def grid_fields(reference: dict[str, jnp.ndarray], images: LensImages, ratio: jn
 
 def error_scales(evaluator, physical: jnp.ndarray, images: LensImages, ratio: jnp.ndarray) -> dict[str, jnp.ndarray]:
     """The error-model scales of the trusted images applied to the uncertain ones at the redshifts of ``ratio`` (their
-    lensing efficiency over ``factor_reference``): sigma_meas per image, sigma_def per (redshift, image), sigma_sel and
+    lensing efficiency over ``factor_reference``): the image-plane scale sigma_img per image (the sampled sigma_meas,
+    with sigma_gp under gp_image_plane; no fixed astrometric error), sigma_def per (redshift, image), sigma_sel and
     lambda_sel."""
     scales = evaluator.error_scales(physical)
-    sigma_meas = jnp.sqrt(jnp.square(images.sigma_inst) + jnp.square(scales["sigma_extra"]))
+    sigma_img = jnp.broadcast_to(scales["sigma_img"], (images.n_images,))
     shape = (jnp.shape(ratio)[0], images.n_images)
     if getattr(evaluator, "gp_knee", False):
         if evaluator.gp_knee_spectrum == "knee_background":
             raise NotImplementedError("uncertain images do not support the knee_background spectrum")
         w = jnp.asarray(ratio) * images.factor_reference / images.gp_reference_factor
         w2 = jnp.ones_like(w) if evaluator.gp_knee_spectrum == "knee_foreground" else w
-        sigma_def = jnp.sqrt(jnp.square(w * scales["gp_sigma_alpha"]) + jnp.square(w2 * scales["gp_sigma_alpha2"]) + evaluator.gp_floor ** 2)
+        sigma_def = jnp.sqrt(jnp.square(w * scales["sigma_grf"]) + jnp.square(w2 * scales["sigma_grf2"]) + evaluator.gp_floor ** 2)
         sigma_def = jnp.broadcast_to(sigma_def[:, None], shape)
     else:
         sigma_def = jnp.broadcast_to(scales["sigma_def"], shape)
-    return dict(sigma_meas=sigma_meas, sigma_def=sigma_def, sigma_sel=scales["sigma_sel"], lambda_sel=scales["lambda_sel"])
+    return dict(sigma_img=sigma_img, sigma_def=sigma_def, sigma_sel=scales["sigma_sel"], lambda_sel=scales["lambda_sel"])
 
 
 def image_terms(fields: dict[str, jnp.ndarray], scales: dict[str, jnp.ndarray], images: LensImages) -> dict[str, jnp.ndarray]:
@@ -155,7 +153,7 @@ def image_terms(fields: dict[str, jnp.ndarray], scales: dict[str, jnp.ndarray], 
     n_grid, n_image = fields["beta"].shape[:2]
     flat = lambda x: x.reshape((n_grid * n_image,) + x.shape[2:])
     a, g = flat(fields["jacobian"]), flat(fields["determinant_gradient"])
-    meas = jnp.broadcast_to(scales["sigma_meas"][None], (n_grid, n_image)).reshape(-1)
+    meas = jnp.broadcast_to(scales["sigma_img"][None], (n_grid, n_image)).reshape(-1)
     result = sl.source_covariance(a, meas, jnp.broadcast_to(scales["sigma_def"], (n_grid, n_image)).reshape(-1), scales["sigma_sel"],
                                   scales["lambda_sel"])
     covariance = result["covariance"]

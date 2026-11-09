@@ -828,6 +828,16 @@ class SamplingConfig:
         After sampling, find the stiffest direction at each chain's last state with its adapted mass (power iteration on
         Hessian-vector products, about 30 per chain), the step size it allows and the parameters in it
         (``sampling.stiffness_diagnostic``).  Default True.
+    wbic : bool, optional
+        After the main NUTS run, run NUTS again on the tempered posterior (the data likelihood raised to
+        :math:`\\beta = 1/\\ln n`) and report WBIC, an estimate of :math:`-2 \\ln Z` for model comparison, in
+        ``final/artifacts/model_comparison.json`` (see :mod:`kappaccino.inference.model_comparison` and the "Model
+        comparison" page of the documentation).  Roughly doubles the sampling time.  Turning ``wbic`` on for a finished run
+        under the same run name adds the WBIC run without sampling the posterior again.  Default False.
+    wbic_warmup : int or None, optional
+        Warmup iterations per chain of the WBIC run.  None uses ``warmup``.  Default None.
+    wbic_samples : int or None, optional
+        Post-warmup iterations per chain of the WBIC run.  None uses ``samples``.  Default None.
     """
     warmup: int = 250
     samples: int = 200
@@ -845,6 +855,9 @@ class SamplingConfig:
     dense_offset_members: str = "centered"
     far_field_offsets: str = "sample"
     stiffness_diagnostic: bool = True
+    wbic: bool = False
+    wbic_warmup: int | None = None
+    wbic_samples: int | None = None
 
 
 @dataclass(frozen=True)
@@ -1854,6 +1867,9 @@ def validate_config(config: LensClusterSolverConfig) -> None:
     sampling = config.sampling
     for name in ("warmup", "samples", "max_tree_depth", "thin"):
         _positive_int(f"sampling.{name}", getattr(sampling, name))
+    for name in ("wbic_warmup", "wbic_samples"):
+        if getattr(sampling, name) is not None:
+            _positive_int(f"sampling.{name}", getattr(sampling, name))
     if not 0.0 < sampling.target_accept < 1.0:
         raise ValueError("sampling.target_accept must lie between 0 and 1.")
     _positive("sampling.initial_step_size", sampling.initial_step_size)

@@ -534,12 +534,13 @@ def run_nuts(state: ModelState, evaluator: Evaluator, starts: np.ndarray, *, war
              chain_method: str, max_tree_depth: int, target_accept: float, initial_step_size: float, seed: int,
              thin: int = 1, print_summary: bool = False, mass_matrix: str = "hessian", dense_member_offsets: bool = False,
              dense_offset_members: str = "all", far_field_offsets: str = "sample",
-             stiffness: bool = True, log=print) -> PosteriorResults:
-    """Run NUTS from one latent start per chain (starts has shape (chains, n_params))."""
+             stiffness: bool = True, log_likelihood: Callable[[jnp.ndarray], jnp.ndarray] | None = None, log=print) -> PosteriorResults:
+    """Run NUTS from one latent start per chain (starts has shape (chains, n_params)).  ``log_likelihood`` replaces
+    ``evaluator.log_likelihood`` as the target's likelihood factor (the WBIC run passes the tempered one)."""
     starts = np.asarray(starts, dtype=float).reshape(chains, -1)
     specs, starts = split_offset_sites(state.parameter_specs, starts, state, dense_offset_members=dense_offset_members,
                                        far_field_offsets=far_field_offsets, log=log)
-    model = posterior_model(specs, evaluator.log_likelihood)
+    model = posterior_model(specs, evaluator.log_likelihood if log_likelihood is None else log_likelihood)
     dense_families = ("member_scatter_offset",) if dense_member_offsets else ()
     dense_mass, inverse_mass, mass_diagnostics = block_mass_seed(model, specs, starts[0], dense_families=dense_families)
     if mass_matrix == "hessian":

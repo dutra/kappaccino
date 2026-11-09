@@ -24,6 +24,7 @@ import numpy as np
 import pandas as pd
 
 from .io import artifacts
+from .io.hdf5 import save_arrays
 from .diagnostics.audit import audit_posterior
 from .core.classification import (
     classify_members, far_field_threshold_rows, conservative_cut_radii_arcsec, impact_cut, member_cut_radii_arcsec,
@@ -38,6 +39,7 @@ from .reporting.outputs import write_outputs
 from .reporting.text import (
     audit_report, classification_report, far_field_threshold_table, run_summary_table, start_parameter_report,
 )
+from .inference import model_comparison
 from .inference.sampling import run_nuts
 from .inference.search import chain_starts
 from .inference.search_split import split_map
@@ -600,6 +602,57 @@ def init_verdict(search: dict[str, Any], *, fit: dict[str, Any] | None) -> str:
     return f"verdict: robust{tag} ({in_basin} of {n_starts} starts reach the best basin within the margin){invalid}{rms}"
 
 
+def write_init_bic(state: ModelState, evaluator: Evaluator, theta: np.ndarray, directory: Path, *, log) -> dict[str, Any]:
+    """BIC at the init stage's best fit, written to ``init/artifacts/model_comparison.json``
+    (:mod:`kappaccino.inference.model_comparison`).  With enumerated uncertain members, where BIC is not defined, the
+    record holds ``bic: None`` and the reason."""
+    try:
+        record = {"bic": model_comparison.bic(state, evaluator, theta)}
+        b = record["bic"]
+        log(f"[init] BIC {b['bic']:.2f} at the best fit: ln L {b['log_likelihood']:.2f}, k={b['k']} parameters, n={b['n']} data values")
+    except NotImplementedError as error:
+        record = {"bic": None, "bic_note": str(error)}
+        log(f"[init] no BIC: {error}")
+    artifacts.write_json(directory / model_comparison.MODEL_COMPARISON_FILE, record)
+    return record
+
+
+def _without_wbic(payload: dict[str, Any]) -> dict[str, Any]:
+    """A configuration dictionary without the WBIC settings, which may change between a finished run and its resume."""
+    payload = dict(payload)
+    payload["sampling"] = {k: v for k, v in payload.get("sampling", {}).items() if k not in ("wbic", "wbic_warmup", "wbic_samples")}
+    return payload
+
+
+def write_final_model_comparison(config: LensClusterSolverConfig, state: ModelState, evaluator: Evaluator, posterior: PosteriorResults,
+                                 init: InitResult, directory: Path, *, log) -> dict[str, Any]:
+    """The final stage's ``model_comparison.json``: the init stage's BIC and, with ``sampling.wbic``, WBIC from a
+    tempered NUTS run, whose ln L and draws go to ``wbic_draws.h5``.  BIC is left out with uncertain images, because
+    BIC is not defined for the uncertain-image mixture.  A saved WBIC is kept."""
+    path = directory / model_comparison.MODEL_COMPARISON_FILE
+    saved = json.loads(path.read_text()) if path.is_file() else {}
+    record: dict[str, Any] = {"run": config.paths.run_name}
+    init_file = init.paths.artifacts / model_comparison.MODEL_COMPARISON_FILE
+    if state.slots is not None:
+        record.update(bic=None, bic_note="BIC is not defined for the uncertain-image mixture (a singular model). Use WBIC.")
+    elif init_file.is_file():
+        init_record = json.loads(init_file.read_text())
+        record["bic"] = init_record.get("bic")
+        if init_record.get("bic_note"):
+            record["bic_note"] = init_record["bic_note"]
+    if saved.get("wbic") is not None:
+        record["wbic"] = saved["wbic"]
+    elif config.sampling.wbic:
+        try:
+            record["wbic"], arrays = model_comparison.run_wbic(state, evaluator, posterior, config, log=log)
+            save_arrays(directory / model_comparison.WBIC_DRAWS_FILE, **arrays)
+        except NotImplementedError as error:
+            record.update(wbic=None, wbic_note=str(error))
+            log(f"[wbic] no WBIC: {error}")
+    artifacts.write_json(path, record)
+    return record
+
+
 def run_init(config: LensClusterSolverConfig) -> InitResult:
     """Run (or resume) the init stage and save the chain start.
 
@@ -671,6 +724,8 @@ def _run_init(config: LensClusterSolverConfig) -> InitResult:
             theta = artifacts.load_start(paths.artifacts)
             state.initial_theta = theta
             evaluator, search = Evaluator(state, config.likelihood.likelihood_mode), artifacts.load_search(paths.artifacts)
+            if not (paths.artifacts / model_comparison.MODEL_COMPARISON_FILE).is_file():
+                write_init_bic(state, evaluator, theta, paths.artifacts, log=log)
             if not config.runtime.skip_plots and not (paths.figures / "init_fit.pdf").exists() and not any(paths.figures.glob("*init_fit.pdf")):
                 write_init_plots(state, evaluator, search, theta, paths.figures, margin=config.search.mode_margin,
                                  prefix=config.paths.figure_prefix, z_source=float(config.truth.caustic_source_redshift), log=log)
@@ -783,6 +838,7 @@ def _run_init(config: LensClusterSolverConfig) -> InitResult:
         verdict = init_verdict(search, fit=None)
         log(f"[init] {verdict}")
         summary["verdict"] = verdict
+        summary["model_comparison"] = write_init_bic(state, evaluator, theta, paths.artifacts, log=log)
         if not config.runtime.skip_plots:
             summary["fit_at_start"] = write_init_plots(state, evaluator, search, theta, paths.figures, margin=config.search.mode_margin,
                                                        prefix=config.paths.figure_prefix, z_source=float(config.truth.caustic_source_redshift), log=log)
@@ -848,10 +904,18 @@ def run_final(config: LensClusterSolverConfig, init: InitResult) -> RunResult:
             state, evaluator = add_slots(config, state, evaluator, init.theta, log=log)
         if runtime.resume and artifacts.is_final_complete(stage.artifacts):
             saved = artifacts.load_config(stage.artifacts)
-            if saved.to_json_dict() != config.to_json_dict():
+            if _without_wbic(saved.to_json_dict()) != _without_wbic(config.to_json_dict()):
                 raise ValueError("The saved final stage was made with a different configuration; use a new run name.")
             log("[final] complete posterior found; loading artifacts")
             posterior = artifacts.load_posterior(stage.artifacts)
+            comparison_file = stage.artifacts / model_comparison.MODEL_COMPARISON_FILE
+            wbic_missing = config.sampling.wbic and (not comparison_file.is_file() or json.loads(comparison_file.read_text()).get("wbic") is None)
+            if wbic_missing or not comparison_file.is_file():
+                wbic_started = time.perf_counter()
+                write_final_model_comparison(config, state, evaluator, posterior, init, stage.artifacts, log=log)
+                if wbic_missing:
+                    artifacts.save_config(stage.artifacts, config)          # the saved configuration now records the WBIC run
+                log(f"[final] model comparison written ({time.perf_counter() - wbic_started:.0f}s)")
             audit = json.loads((stage.artifacts / artifacts.AUDIT_FILE).read_text())
             write_membership_table(state, evaluator, posterior.samples, stage.tables, log=log)
             outputs_started = time.perf_counter()
@@ -889,6 +953,10 @@ def run_final(config: LensClusterSolverConfig, init: InitResult) -> RunResult:
             from .partition.slots import write_slot_outputs
             write_slot_outputs(state, evaluator, posterior, stage, draws=config.partition.posterior_draws, seed=runtime.seed, log=log)
 
+        comparison_started = time.perf_counter()
+        comparison = write_final_model_comparison(config, state, evaluator, posterior, init, stage.artifacts, log=log)
+        comparison_seconds = time.perf_counter() - comparison_started
+
         audit = audit_posterior(state, evaluator, posterior.samples, tolerance=config.members.template_tolerance,
                                 guard_cut_radii=config.members.far_field_cut_radii)
         audit["reclassification_at_median"] = reclassification_at_median(state, evaluator, posterior.samples, config)
@@ -905,11 +973,11 @@ def run_final(config: LensClusterSolverConfig, init: InitResult) -> RunResult:
                    "families": state.images.n_families, "members": len(state.members.member_ids),
                    "exact_members": int(len(state.members.exact_positions)), "nuts": posterior.diagnostics,
                    "divergences": int(posterior.diverging.sum()), "mean_steps": float(posterior.num_steps.mean()),
-                   "audit": audit["approximation_validation"]}
+                   "audit": audit["approximation_validation"], "model_comparison": comparison}
         artifacts.write_json(stage.artifacts / artifacts.SUMMARY_FILE, summary)
         outputs_started = time.perf_counter()
         outputs = write_outputs(config, state, evaluator, posterior, audit, stage, log=log) if not runtime.skip_plots else {}
-        timing = {"sampling": sampling_seconds, "outputs": time.perf_counter() - outputs_started}
+        timing = {"sampling": sampling_seconds, "model_comparison": comparison_seconds, "outputs": time.perf_counter() - outputs_started}
         return RunResult(paths, init, state, evaluator, posterior, audit, resumed=False, summary=outputs, timing=timing)
     finally:
         log.close()

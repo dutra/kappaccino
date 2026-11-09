@@ -80,6 +80,21 @@ def test_single_stage_end_to_end(synthetic_config, monkeypatch):
     # The init stage alone resumes too; a changed sampling setting under the same run name is refused
     # rather than silently overwriting the saved posterior.
     assert pipeline.run(config, stage="init").resumed
+
+    # Model comparison: the init stage writes BIC, the final stage copies it.  Turning on WBIC for the finished run adds
+    # only the tempered NUTS run; the posterior is not sampled again.
+    init_record = json.loads((init_dir / "model_comparison.json").read_text())
+    assert np.isfinite(init_record["bic"]["bic"]) and init_record["bic"]["n"] == 2 * state.images.n_images
+    final_file = result.paths.final.artifacts / "model_comparison.json"
+    assert json.loads(final_file.read_text())["bic"] == init_record["bic"] and "wbic" not in json.loads(final_file.read_text())
+    with_wbic = pipeline.run(replace(config, sampling=replace(config.sampling, wbic=True)))
+    np.testing.assert_array_equal(with_wbic.posterior.samples, posterior.samples)
+    record = json.loads(final_file.read_text())
+    assert record["bic"] == init_record["bic"] and np.isfinite(record["wbic"]["wbic"]) and record["wbic"]["draws"] == 20
+    assert record["wbic"]["beta"] == pytest.approx(1.0 / np.log(record["wbic"]["n"]))
+    assert (result.paths.final.artifacts / "wbic_draws.h5").is_file()
+    from kappaccino.inference.model_comparison import compare
+    assert compare([result.paths.root])["delta_wbic"].tolist() == [0.0]
     table = (result.paths.final.tables / "run_summary.txt").read_text()
     assert "Run summary" in table and "recovered / observed" in table and "total" in table
     assert "step size per chain" in table and "E-BFMI per chain" in table and "tree-depth cap" in table

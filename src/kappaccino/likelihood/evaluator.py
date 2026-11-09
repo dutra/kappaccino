@@ -1179,6 +1179,26 @@ class Evaluator:
             Scalar float64 log-likelihood; ``BAD_LOG_LIKE`` (-1e30) for an invalid lens model or non-finite
             ``params``, -inf for invalid error scales or an invalid likelihood evaluation.
         """
+        t = self._likelihood_terms(params, source_jacobian=source_jacobian)
+        value = t["images"] + t["source_correction"]
+        if not source_jacobian:
+            value = value - t["source_jacobian"]
+        if t["slots"] is not None:
+            value = value + t["slots"]
+        value = value + t["kinematics"]
+        value = value + t["far_field_barrier"] + t["ellipticity_cap"]
+        return self._guarded(value, t)
+
+    def _likelihood_terms(self, params: jnp.ndarray, *, source_jacobian: bool = True) -> dict[str, Any]:
+        """The separate terms that ``log_likelihood`` adds, at ``params`` or (when ``params`` is rejected) at the initial
+        model, plus the validity flags that ``_guarded`` applies.
+
+        Data terms: ``images`` (the image-position terms), ``slots`` (the uncertain-image mixture, None without slots)
+        and ``kinematics``.  Prior-side terms: ``source_correction`` and ``source_jacobian`` (the source transport, see
+        ``log_likelihood``), ``far_field_barrier`` and ``ellipticity_cap``.  With enumerated uncertain members the
+        image terms are a log-sum over the member configurations that already holds the source correction, the slots
+        and the configuration prior: ``images`` is that log-sum, the other two are zero and ``separable`` is False.
+        """
         reference = jnp.asarray(self.state.initial_theta, dtype=jnp.float64)
         physical = self.physical(params)
         packed, validity = self.packed_state(physical)
@@ -1188,26 +1208,80 @@ class Evaluator:
         ok = ok_model & ok_scales
         safe_params = jnp.where(ok, params, reference)
         safe_physical = self.physical(safe_params)
+        zero = jnp.asarray(0.0, dtype=jnp.float64)
         if len(self.membership_enumerated_positions):
             log_weight, valid = self._membership_configuration_terms(safe_params, source_jacobian=source_jacobian)
-            value = jax.scipy.special.logsumexp(log_weight)
+            images, correction, jacobian, slots = jax.scipy.special.logsumexp(log_weight), zero, zero, None
             far_cut_radii = None
             if len(self.far_positions):
                 far_cut_radii = jnp.take(self.packed_state(safe_physical)[0].Rs, jnp.asarray(self.far_components))
         else:
             stats = self.statistics(safe_params)
-            value = jnp.sum(stats["loglike"]) + stats["source_correction"]
-            if not source_jacobian:
-                value = value - stats["source_jacobian"]
-            if self.state.slots is not None:
-                value = value + self.state.slots.log_likelihood(self, safe_params, stats)
+            images, correction, jacobian = jnp.sum(stats["loglike"]), stats["source_correction"], stats["source_jacobian"]
+            slots = self.state.slots.log_likelihood(self, safe_params, stats) if self.state.slots is not None else None
             valid = jnp.all(stats["valid"]) & jnp.all(stats["transport_valid"])
             far_cut_radii = stats["fields"]["far_cut_radii"]
-        value = value + self.kinematics_log_likelihood(safe_physical)
-        value = value + self.far_field_log_barrier(far_cut_radii) + self.ellipticity_log_prior(packed)
-        valid = valid & ~jnp.isnan(value)
+        return dict(images=images, source_correction=correction, source_jacobian=jacobian, slots=slots,
+                    kinematics=self.kinematics_log_likelihood(safe_physical), far_field_barrier=self.far_field_log_barrier(far_cut_radii),
+                    ellipticity_cap=self.ellipticity_log_prior(packed), valid=valid, ok_model=ok_model, ok_scales=ok_scales,
+                    separable=not len(self.membership_enumerated_positions))
+
+    @staticmethod
+    def _guarded(value: jnp.ndarray, terms: dict[str, Any]) -> jnp.ndarray:
+        """``value`` where the terms are valid, -inf for an invalid evaluation or error scales, BAD_LOG_LIKE for an
+        invalid lens model (the rejection convention of ``log_likelihood``)."""
+        valid = terms["valid"] & ~jnp.isnan(value)
         value = jnp.where(valid, value, -jnp.inf)
-        return jnp.where(ok_model, jnp.where(ok_scales, value, -jnp.inf), jnp.asarray(BAD_LOG_LIKE, dtype=jnp.float64))
+        return jnp.where(terms["ok_model"], jnp.where(terms["ok_scales"], value, -jnp.inf), jnp.asarray(BAD_LOG_LIKE, dtype=jnp.float64))
+
+    def _require_separable(self) -> None:
+        if len(self.membership_enumerated_positions):
+            raise NotImplementedError(
+                "The data log-likelihood (BIC, WBIC) cannot be separated from the prior-side terms with enumerated uncertain members: "
+                "their configuration sum holds the source-transport terms.  Use MemberConfig.membership_max_enumerated=0 so the "
+                "uncertain members enter by their expected mass, or fixed membership.")
+
+    def data_log_likelihood(self, params: jnp.ndarray) -> jnp.ndarray:
+        """The log-likelihood of the data alone: the image-position terms, the uncertain-image mixture and the member
+        kinematics, without the source-transport correction, the far-field barrier and the ellipticity caps (which
+        belong to the prior side of the target).  This is the :math:`\\ln L` of BIC and WBIC
+        (:mod:`kappaccino.inference.model_comparison`).
+
+        Parameters
+        ----------
+        params : jax.numpy.ndarray
+            Latent vector, shape (parameter,).
+
+        Returns
+        -------
+        jax.numpy.ndarray
+            Scalar float64, with the rejection values of ``log_likelihood``.
+
+        Raises
+        ------
+        NotImplementedError
+            With enumerated uncertain members, whose configuration sum mixes data and prior-side terms.
+        """
+        self._require_separable()
+        t = self._likelihood_terms(params)
+        value = t["images"] + (t["slots"] if t["slots"] is not None else 0.0) + t["kinematics"]
+        return self._guarded(value, t)
+
+    def tempered_log_likelihood(self, params: jnp.ndarray, beta: float) -> jnp.ndarray:
+        """``log_likelihood`` with the data terms (``data_log_likelihood``) multiplied by ``beta`` and the prior-side
+        terms unchanged: the target of the WBIC run, :math:`\\beta \\ln L + \\ln \\pi`.  ``beta=1`` gives
+        ``log_likelihood`` up to the order of the additions.
+
+        Raises
+        ------
+        NotImplementedError
+            With enumerated uncertain members (see ``data_log_likelihood``).
+        """
+        self._require_separable()
+        t = self._likelihood_terms(params)
+        data = t["images"] + (t["slots"] if t["slots"] is not None else 0.0) + t["kinematics"]
+        value = beta * data + t["source_correction"] + t["far_field_barrier"] + t["ellipticity_cap"]
+        return self._guarded(value, t)
 
     # ------------------------------------------------------------------ reporting
     def reported_physical(self, params: jnp.ndarray) -> jnp.ndarray:

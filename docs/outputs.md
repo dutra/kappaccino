@@ -10,14 +10,15 @@ A run writes everything under its run root, `<output_dir>/<run_name>/` from
 
 `init/artifacts/`
 : `config.json`, `init_signature.json`, `state.json`, `classification.json`, `search.h5` and `modes.json`,
-  `start.json`, `summary.json`.
+  `start.json`, `summary.json`, `model_comparison.json` (BIC, see {doc}`model-comparison`).
 
 `init/tables/`
 : `classification_report.txt`, `shallow_fold_pairs.json`.
 
 `final/artifacts/`
 : `config.json`, `posterior.h5`, `audit.json`, `summary.json`, and with uncertain images `slots.h5` (see
-  {doc}`likelihoods`).
+  {doc}`likelihoods`), `model_comparison.json` (BIC and, with `SamplingConfig.wbic`, WBIC) and with WBIC
+  `wbic_draws.h5` (see {doc}`model-comparison`).
 
 Arrays are saved as HDF5 (`.h5`, one dataset per array; read them with `kappaccino.io.hdf5.load_arrays` or `h5py`) and
 everything else as JSON or CSV. `config.json` restores the run configuration exactly

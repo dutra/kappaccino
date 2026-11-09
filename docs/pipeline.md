@@ -39,6 +39,8 @@ The init stage finds the start of the final inference. It takes about a minute o
 4. **Final classification** at the best mode, and the classification report.
 5. **Chain start**: every kept mode is optimized on the exact NUTS target, and the modes within `mode_margin` of the
    best seed the chains.
+6. **BIC** at the best fit, for screening model variants, in `init/artifacts/model_comparison.json` (see
+   {doc}`model-comparison`).
 
 `SearchConfig.halo_method` and `member_method` choose the optimizer: scipy L-BFGS-B per start (`"lbfgs"`, default,
 the fastest on CPU by a factor of four or more), vmapped optax L-BFGS (`"optax-lbfgs"`, for GPUs), Adam or mean-field
@@ -76,17 +78,20 @@ still run. Parameters the old run lacks start at the configured model.
 1. **NUTS** from the chain-start mode(s), with a dense mass matrix for the global block seeded by the Hessian, and the
    member offsets chosen by `dense_offset_members` in that block. Source and other member coordinates use a diagonal
    mass.
-2. **Posterior audit** of the far-field approximation, including whether reclassifying at the posterior median would
+2. **WBIC run** (with `SamplingConfig.wbic`): NUTS again on the tempered posterior, for model comparison. The init
+   stage's BIC and the WBIC go to `final/artifacts/model_comparison.json` (see {doc}`model-comparison`).
+3. **Posterior audit** of the far-field approximation, including whether reclassifying at the posterior median would
    change the exact set. The result is in `final/artifacts/audit.json`.
-3. **Outputs**: tables, figures and FITS maps under `final/` (see {doc}`outputs`).
+4. **Outputs**: tables, figures and FITS maps under `final/` (see {doc}`outputs`).
 
 ## Resuming
 
 `RuntimeConfig.resume` (on by default) reuses work in the run directory:
 
 - A completed init is reused by any later final run whose model, likelihood, member and search configuration match.
-- A completed final stage is reloaded when the whole configuration matches. A run with a different configuration under
-  the same run name is refused rather than overwriting the saved posterior.
+- A completed final stage is reloaded when the whole configuration matches, apart from the WBIC settings. Turning on
+  `SamplingConfig.wbic` for a finished run adds the WBIC run without sampling the posterior again. A run with any other
+  change under the same run name is refused rather than overwriting the saved posterior.
 
 Use a new run label for each changed configuration.
 

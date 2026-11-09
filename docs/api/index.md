@@ -14,7 +14,7 @@ The package is organized as:
 | `kappaccino.core` | the model: parameter specifications, the model state, inputs and member classification |
 | `kappaccino.lens` | lens physics in JAX: profiles, deflections and Jacobians, cosmology, the far-field series |
 | `kappaccino.likelihood` | the evaluator and the position likelihoods (smoothed, image-plane GP, GRF) |
-| `kappaccino.inference` | the multi-start MAP search and NUTS |
+| `kappaccino.inference` | the multi-start MAP search, NUTS and model comparison (BIC, WBIC) |
 | `kappaccino.io` | catalogs, Lenstool parameter files, sky coordinates, run artifacts and HDF5 arrays |
 | `kappaccino.imaging` | HST and JWST images: cutouts, RGB display, photometry |
 | `kappaccino.diagnostics` | numerical diagnostics: image recovery, exact images, members, priors, truth recovery |
@@ -29,6 +29,7 @@ The package is organized as:
 config
 priors
 pipeline
+model_comparison
 results
 catalogs
 lenstool

@@ -83,7 +83,7 @@ def write_outputs(config: LensClusterSolverConfig, state: ModelState, evaluator:
     for name, frame in recovery.items():
         frame.to_csv(tables / f"{name}.csv", index=False)
     image_df = recovery["image_fit_quality"]
-    summary["fit"] = fit_summary(state, image_df, recovery["image_count_recovery"])
+    summary["fit"] = fit_summary(state, image_df, recovery["image_count_recovery"], recovery.get("image_fit_quality_lens_only"))
     log(f"[outputs] recovered {summary['fit'].get('recovered_image_count')}/{summary['fit']['observed_image_count']} images at the best fit, "
         f"rms={summary['fit'].get('image_rms_arcsec')}")
     if not image_df.empty:
@@ -123,6 +123,11 @@ def write_outputs(config: LensClusterSolverConfig, state: ModelState, evaluator:
                                           plots.figure_path(figures, "truth_recovery_m2d_aperture_ratio.pdf", prefix))
             ratio = truth["profile"]
             summary["truth"] = {"m2d_ratio_at_max_radius": float(ratio["m2d_ratio_median"].iloc[-1]), "n_radii": int(len(ratio))}
+    # The headline numbers and the results macros are written here and again at the end: the imaging products below
+    # (overview, fold cutouts, RGB critical curves) are the slowest and most failure-prone stage, and the Ares run of
+    # 2026-11-08 ended inside it with no run_summary.json and "not available" macros.
+    (tables / "run_summary.json").write_text(json.dumps(summary, indent=2, default=float))
+    write_run_results(paths.root, name=prefix)
     if config.image_catalog.image_dir and not image_df.empty:
         from ..imaging.cutouts import imaging_variants, load_cluster_imaging
         from ..plotting.mass_figure import render_cluster_mass_figure

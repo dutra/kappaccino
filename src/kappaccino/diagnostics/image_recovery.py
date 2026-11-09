@@ -16,8 +16,10 @@ from ..core.utils import progress
 
 
 def predictions_at(solver: ExactImageSolver, state: ModelState, evaluator: Evaluator, theta: np.ndarray, *,
-                   adaptive: bool | None = None) -> dict[str, Any]:
-    """Per-image model positions, residuals and magnifications for one latent vector."""
+                   adaptive: bool | None = None, include_field: bool = True) -> dict[str, Any]:
+    """Per-image model positions, residuals and magnifications for one latent vector.  Under the knee kernel the lens
+    carries the GRF conditional-mean deflection of the draw; ``include_field=False`` solves with the parametric lens alone
+    (the lens-only residual, which shows how much of the misfit the field takes)."""
     theta = np.asarray(theta, dtype=float)
     physical = evaluator.physical(jnp.asarray(theta))
     sources = evaluator.source_positions(jnp.asarray(theta))
@@ -25,7 +27,7 @@ def predictions_at(solver: ExactImageSolver, state: ModelState, evaluator: Evalu
     family_by_id = {f.family_id: f for f in state.family_data}
     families = [family_by_id[family_id] for family_id in images.family_ids]
     # Potential kernel: the draw's source scatters by the deflection error, so the lens gets the GP's mean deflection.
-    correction = evaluator.gp_deflection_correction(theta) if getattr(evaluator, "gp_knee", False) else None
+    correction = evaluator.gp_deflection_correction(theta) if include_field and getattr(evaluator, "gp_knee", False) else None
     extra_kwargs = {} if correction is None else dict(correction=correction)
     if adaptive is False:        # posterior draws: all families in one batched local solve
         batched = solver.predict_all_local(images, families, evaluator.packed_state(physical)[0], np.asarray(sources), **extra_kwargs)
@@ -79,6 +81,32 @@ def _quantiles(values: list[float]) -> tuple[float, float, float]:
     return tuple(float(v) for v in np.percentile(array, [16, 50, 84]))
 
 
+LENS_ONLY_COLUMNS = ["family_id", "image_label", "x_obs_arcsec", "y_obs_arcsec", "image_recovery_status",
+                     "x_model_arcsec", "y_model_arcsec", "image_residual_arcsec"]
+
+
+def lens_only_table(solver: ExactImageSolver, state: ModelState, evaluator: Evaluator, theta: np.ndarray) -> pd.DataFrame | None:
+    """Best-fit image positions of the parametric lens alone, with the same image finder as the best fit; None when the
+    run has no GRF conditional mean (the quoted residuals are then already lens-only)."""
+    if not (getattr(evaluator, "gp_knee", False) and evaluator.gp_deflection_correction(theta) is not None):
+        return None
+    rows = predictions_at(solver, state, evaluator, theta, include_field=False)["image_rows"]
+    frame = pd.DataFrame(rows)
+    return frame[[c for c in LENS_ONLY_COLUMNS if c in frame.columns]]
+
+
+def lens_only_summary(frame: pd.DataFrame | None) -> dict[str, Any]:
+    """Headline numbers of the lens-only table, for run_summary.json and the results macros."""
+    if frame is None or frame.empty:
+        return {}
+    recovered = (frame["image_recovery_status"].astype(str) == "recovered").to_numpy()
+    residual = pd.to_numeric(frame["image_residual_arcsec"], errors="coerce").to_numpy(dtype=float)
+    valid = recovered & np.isfinite(residual)
+    return {"lens_only_recovered_image_count": int(valid.sum()),
+            "lens_only_image_rms_arcsec": float(np.sqrt(np.mean(residual[valid] ** 2))) if valid.any() else None,
+            "lens_only_image_median_residual_arcsec": float(np.median(residual[valid])) if valid.any() else None}
+
+
 def image_recovery_tables(state: ModelState, evaluator: Evaluator, posterior: PosteriorResults, config: ImageDiagnosticsConfig,
                           best_theta: np.ndarray, *, log=print) -> dict[str, pd.DataFrame]:
     """image_fit_quality, image_count_recovery, model_magnification, extra images and family tables."""
@@ -126,12 +154,15 @@ def image_recovery_tables(state: ModelState, evaluator: Evaluator, posterior: Po
                              "magnification_model_at_model_position_q50", "magnification_model_at_model_position_q84"]
     magnification_df = image_df[[c for c in magnification_columns if c in image_df.columns]].copy() if not image_df.empty else pd.DataFrame()
     count_df = pd.DataFrame(best["count_rows"])
-    return {"image_fit_quality": image_df, "image_count_recovery": count_df, "model_magnification": magnification_df,
+    lens_only = lens_only_table(solver, state, evaluator, best_theta)
+    extra_tables = {} if lens_only is None else {"image_fit_quality_lens_only": lens_only}
+    return {**extra_tables, "image_fit_quality": image_df, "image_count_recovery": count_df, "model_magnification": magnification_df,
             "image_recovery_extra_images": pd.DataFrame(best["extra_rows"]), "posterior_image_rms": pd.DataFrame(rms_rows),
             "posterior_image_residual_draws": pd.DataFrame(draw_rows)}
 
 
-def fit_summary(state: ModelState, image_df: pd.DataFrame, count_df: pd.DataFrame) -> dict[str, Any]:
+def fit_summary(state: ModelState, image_df: pd.DataFrame, count_df: pd.DataFrame,
+                lens_only_df: pd.DataFrame | None = None) -> dict[str, Any]:
     """Headline chi-square and recovery numbers from the best-fit image table.  The degrees of freedom follow the
     lenstool convention, 2 N_images - 2 N_families - N_global, where the global parameters are the halo, relation and
     error-model parameters: the member deviations are prior-dominated and add nothing to the effective count."""
@@ -154,4 +185,5 @@ def fit_summary(state: ModelState, image_df: pd.DataFrame, count_df: pd.DataFram
                image_max_residual_arcsec=float(np.max(residual[valid])) if valid.any() else None,
                chi_square=chi2, n_data=n_data, dof=int(n_data - k), reduced_chi_square=chi2 / (n_data - k) if n_data > k else None,
                families_fully_recovered=int((~count_df["multiplicity_failed"].astype(bool)).sum()) if not count_df.empty else 0)
+    out.update(lens_only_summary(lens_only_df))
     return out

@@ -228,6 +228,10 @@ def write_run_results(final_dir: str | Path, *, name: str | None = None) -> Path
     metrics['NFarFieldMembers'] = number(members-exact if members is not None and exact is not None else None, 0)
     metrics['RMS'] = number(fit.get('image_rms_arcsec'))
     metrics['MedianResidual'] = number(fit.get('image_median_residual_arcsec'))
+    # The same best-fit lens solved without the GRF conditional mean (knee-GP runs; "not available" otherwise).
+    metrics['LensOnlyRMS'] = number(fit.get('lens_only_image_rms_arcsec'))
+    metrics['LensOnlyMedianResidual'] = number(fit.get('lens_only_image_median_residual_arcsec'))
+    metrics['NLensOnlyRecovered'] = number(fit.get('lens_only_recovered_image_count'), 0)
     # Keep the median individual residual distinct from the median of draw RMSs.
     import numpy as np
     import pandas as pd
@@ -301,6 +305,7 @@ def write_run_results(final_dir: str | Path, *, name: str | None = None) -> Path
     return _write(final / 'figures' / f'{filename}_results.tex', command_prefix(name), metrics,
                   ['Best-fit image recovery; no reduced chi-square exported.',
                    'RMS and MedianResidual describe the best-fit recovered images.',
+                   'LensOnlyRMS and LensOnlyMedianResidual: the same best-fit lens without the GRF conditional mean.',
                    'GP and GRF parameter macros are posterior medians; angular scales are in arcseconds.',
                    'ApertureMassRatio macros, when present: galaxy-distribution median and quartiles, not posterior intervals.',
                    'Apertures use twice the estimated effective radius; normalization is Re at F160W=20 in kpc.',

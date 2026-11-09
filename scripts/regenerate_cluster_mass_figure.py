@@ -13,6 +13,9 @@ def main():
     parser.add_argument("run_directory", type=Path, help="Directory containing init/ and final/")
     parser.add_argument("--imaging", choices=("saved", "hst", "jwst"), default="saved",
                         help="Imaging for the background: the run's saved configuration, the HST (BUFFALO) mosaics, or the JWST NIRCam mosaics (suffix _jwst)")
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from _covariance_plot_cli import add_catalogs_argument, with_catalogs, with_ffsims_dir
+    add_catalogs_argument(parser)
     args = parser.parse_args()
     import jax
     jax.config.update("jax_enable_x64", True)
@@ -30,7 +33,7 @@ def main():
 
     run = args.run_directory.resolve()
     init, final = run / "init" / "artifacts", run / "final"
-    config = artifacts.load_config(final / "artifacts")
+    config = with_ffsims_dir(with_catalogs(artifacts.load_config(final / "artifacts"), args.catalogs), args.ffsims_dir)
     if args.imaging != "saved":
         from dataclasses import replace
         from kappaccino.imaging.rgb import DEFAULT_HFF_RGB_BANDS, DEFAULT_JWST_RGB_BANDS
@@ -80,6 +83,15 @@ def main():
         z_source=float(config.truth.caustic_source_redshift), kappa_true_fits=config.truth.kappa_true_fits,
         figure_path=output, tables_dir=final / "tables", fits_dir=final / "fits", artifact_suffix=config.image_catalog.figure_suffix, position_contours=position_contours, posterior=posterior)
     print(json.dumps(provenance["arc_directions"], indent=2))
+    # The RGB critical-curve overview, as in write_outputs: the simulated HST frames of Hera and Ares, or the JWST mosaics of M0416.
+    cluster_name = imaging[3].lower()
+    simulated_hst = cluster_name in {"hera", "ares"} and config.image_catalog.figure_suffix != "_jwst"
+    if simulated_hst or (config.image_catalog.figure_suffix == "_jwst" and cluster_name == "m0416"):
+        from kappaccino.plotting.jwst_rgb import render_rgb_critical
+        critical_name = "hst_rgb_critical_z9.pdf" if simulated_hst else "jwst_rgb_critical_z9.pdf"
+        render_rgb_critical(config, state, evaluator, theta, catalog, extra, imaging,
+                            plots.figure_path(final / "figures", critical_name, config.paths.figure_prefix), final / "tables",
+                            best_index=best_index, posterior=posterior, log=lambda x: print(x, flush=True))
 
 
 if __name__ == "__main__":

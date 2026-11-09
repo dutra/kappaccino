@@ -735,20 +735,15 @@ def deviation_constraint_ratio(state: ModelState, evaluator, theta: np.ndarray, 
     Above one the data constrain the deviation more tightly than the population prior at scatter ``s``: such a
     member should sample its deviation directly (centered); below one a unit offset is the better coordinate.
     """
-    import jax
-    import jax.numpy as jnp
+    from ..inference.sampling import hessian_columns
     theta = np.asarray(theta, dtype=float)
     offsets = np.asarray(state.members.offset_param_index)
     if offsets.size == 0:
         return np.zeros(0)
     centered = np.asarray(state.members.centered, dtype=bool)
     scatter_now = np.exp(theta[np.asarray(state.members.scatter_param_index)])
-    grad = jax.grad(evaluator.log_likelihood)
-
-    def curvature(i):
-        direction = jnp.zeros(theta.size).at[i].set(1.0)
-        return -jax.jvp(grad, (jnp.asarray(theta),), (direction,))[1][i]
-
-    h = np.asarray(jax.jit(jax.vmap(curvature))(jnp.asarray(offsets)))
+    # The diagonal entries at the offsets, a few directions at a time (all at once runs out of memory with hundreds
+    # of exact members).
+    h = -hessian_columns(evaluator.log_likelihood, theta, offsets)[offsets, np.arange(offsets.size)]
     h_delta = np.where(centered, h, h / scatter_now ** 2)            # unit-offset coordinates carry a factor s^2
     return np.maximum(h_delta, 0.0) * float(scatter) ** 2

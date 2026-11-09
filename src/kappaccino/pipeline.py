@@ -512,7 +512,7 @@ def chain_start_conditioning(state: ModelState, evaluator: Evaluator, search: di
     one line, and a WARNING when the decrement exceeds START_DECREMENT_WARNING or the negative eigenvalues exceed
     sampling.HESSIAN_NEGATIVE_FRACTION_WARNING of the dimension.  Returns ``search`` with ``start_conditioning`` added."""
     import jax
-    from .inference.sampling import HESSIAN_NEGATIVE_FRACTION_WARNING
+    from .inference.sampling import HESSIAN_NEGATIVE_FRACTION_WARNING, hessian_columns
     from .inference.search import Objective
     started = time.perf_counter()
     theta = np.asarray(search["theta"], dtype=float)
@@ -520,7 +520,7 @@ def chain_start_conditioning(state: ModelState, evaluator: Evaluator, search: di
     x = jnp.asarray(objective.flatten(theta)[np.asarray(objective.global_index)])
     value = -float(objective.reduced(x))
     gradient = np.asarray(jax.grad(objective.reduced)(x), dtype=float)
-    hessian = np.asarray(jax.jacfwd(jax.grad(objective.reduced))(x), dtype=float)
+    hessian = hessian_columns(objective.reduced, x)            # in chunks: a full jacfwd runs out of memory on large models
     hessian = 0.5 * (hessian + hessian.T)
     if not (np.isfinite(value) and np.all(np.isfinite(gradient)) and np.all(np.isfinite(hessian))):
         warning = (f"WARNING: the chain start is not a finite point of the NUTS target (log posterior {value:.2f}, "

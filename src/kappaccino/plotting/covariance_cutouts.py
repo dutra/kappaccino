@@ -44,7 +44,8 @@ def best_geometry(state, evaluator, theta):
         p = evaluator.physical(t)
         f = evaluator.fields(p, force_exact=True, derivative=True)
         c = evaluator.per_image_covariance(p, f['jacobian'])['covariance']
-        return p, f['backprojected'], f['jacobian'], f['jacobian_spatial_derivative'], c, evaluator.error_scales(p)['sigma_meas']
+        meas = jnp.broadcast_to(evaluator.error_scales(p)['sigma_img'], f['jacobian'].shape[:1])     # the diagonal block's image-plane scale
+        return p, f['backprojected'], f['jacobian'], f['jacobian_spatial_derivative'], c, meas
     p, beta, a, b, c, meas = map(np.asarray, evaluate(jnp.asarray(theta)))
     _, singular, vh = np.linalg.svd(a)
     directions = vh[:, ::-1, :].transpose(0, 2, 1)

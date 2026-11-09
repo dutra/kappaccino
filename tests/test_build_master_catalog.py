@@ -72,7 +72,7 @@ def _cluster(tmp_path: Path, decisions: list | None = None) -> Path:
 
 def _load(master: Path):
     crossmatch = yaml.safe_load((master / "crossmatch.yaml").read_text())
-    return crossmatch, load_image_catalog(master / "images.yaml", sigma_inst_arcsec=0.05)
+    return crossmatch, load_image_catalog(master / "images.yaml")
 
 
 def test_nothing_dropped_and_tiers(tmp_path):

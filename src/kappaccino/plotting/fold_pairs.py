@@ -517,9 +517,7 @@ def add_system_knots(config, state, evaluator, posterior, data, *, log=print):
     if not data['pairs']:
         data['systems'] = []
         return data
-    catalog = load_image_catalog(config.model.image_constraints.catalog_path,
-        sigma_inst_arcsec=config.model.image_constraints.sigma_inst_arcsec,
-        sigma_floor_arcsec=config.model.image_constraints.sigma_floor_arcsec).set_index('image_label')
+    catalog = load_image_catalog(config.model.image_constraints.catalog_path).set_index('image_label')
     labels = list(map(str, state.images.image_labels))
     if not set(labels).issubset(catalog.index):
         raise ValueError('Saved fold labels do not match the system/knot catalog')

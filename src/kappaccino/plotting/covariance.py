@@ -27,8 +27,10 @@ def plot_covariance_errors(config, state, evaluator, posterior, paths, *, draws=
         p = evaluator.physical(theta)
         a = evaluator.fields(p, force_exact=True, derivative=False)['jacobian']
         scales = evaluator.error_scales(p)
-        sel, lam, model, meas = scales['sigma_sel'], scales['lambda_sel'], scales['sigma_def'], scales['sigma_meas']
+        sel, lam, model = scales['sigma_sel'], scales['lambda_sel'], scales['sigma_def']
         u, s, _ = jnp.linalg.svd(a)
+        # The image-plane scale of each image's diagonal block: sigma_meas, plus sigma_shared under gp_image_plane.
+        meas = jnp.broadcast_to(scales['sigma_img'], s.shape[:1])
         # Ascending singular values: maximum image stretch first.
         s, u = s[:, ::-1], u[:, :, ::-1]
         measurement = meas[:, None] * s
@@ -117,10 +119,10 @@ def plot_covariance_errors(config, state, evaluator, posterior, paths, *, draws=
 def plot_covariance_corner(config, state, posterior, paths):
     """Covariance hyperparameters in the common prior-overlaid corner style."""
     from .corner import plot_parameter_corner
-    fields = ['sigma_extra', 'sigma_def', 'sigma_sel', 'lambda_sel', 'sigma_shared', 'sigma_white', 'gp_ell',
+    fields = ['sigma_meas', 'sigma_def', 'sigma_sel', 'lambda_sel', 'sigma_shared', 'gp_ell',
               'gp_sigma_alpha', 'gp_knee', 'gp_knee_gamma']
-    symbols = [r'$\sigma_{\rm extra}$', r'$\sigma_{\rm def}$',
-               r'$\sigma_{\rm sel}$', r'$\lambda_{\rm sel}$', r'$\sigma_{\rm shared}$', r'$\sigma_{\rm white}$', r'$\ell$',
+    symbols = [r'$\sigma_{\rm meas}$', r'$\sigma_{\rm def}$',
+               r'$\sigma_{\rm sel}$', r'$\lambda_{\rm sel}$', r'$\sigma_{\rm GP}$', r'$\ell_{\rm GP}$',
                r'$\sigma_{\rm GRF}$', r'$\ell_{\rm knee}$', r'$\gamma_{\rm GRF}$']
     selection = [(i, spec, label) for field, label in zip(fields, symbols)
                  for i, spec in enumerate(state.parameter_specs) if spec.name == 'images.'+field]

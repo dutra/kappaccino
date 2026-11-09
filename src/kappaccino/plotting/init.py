@@ -144,7 +144,7 @@ def plot_fit_at_start(state: ModelState, evaluator: Evaluator, theta: np.ndarray
     summary = {"whitened_residual_rms": float(np.sqrt(np.mean(whitened ** 2))), "whitened_residual_max": float(whitened.max()),
                "worst_image": str(images.image_labels[int(np.argmax(whitened))]), "loglike_min": float(loglike.min()),
                "worst_loglike_image": str(images.image_labels[int(np.argmin(loglike))]), "sigma_def": float(np.median(np.asarray(stats["sigma_def"]))),
-               "sigma_extra": float(stats["sigma_extra"])}
+               "sigma_meas": float(stats["sigma_meas"])}
     if "sigma_img" in stats:
         summary["sigma_img"] = float(stats["sigma_img"])
     return path, summary
@@ -228,7 +228,7 @@ def write_init_plots(state: ModelState, evaluator: Evaluator, search: dict[str, 
     log(f"[init] fit at the start: whitened residual rms {fit['whitened_residual_rms']:.2f} (expected ~1.4), max {fit['whitened_residual_max']:.2f} "
         f"({fit['worst_image']}), " + (f"sigma_img {fit['sigma_img']:.3f}\" (median source-plane sigma_def {fit['sigma_def']:.4f}\": the floor under "
                                         f"the image-plane GP, the mass field's error under the knee kernel)" if "sigma_img" in fit
-                                        else f"sigma_def {fit['sigma_def']:.3f}\", sigma_extra {fit['sigma_extra']:.3f}\""))
+                                        else f"sigma_def {fit['sigma_def']:.3f}\", sigma_meas {fit['sigma_meas']:.3f}\""))
     if scaling:
         log(f"[init] members at the start: scatter {scaling['scatter']:.3f}, unit deviation rms {scaling['offset_rms']:.2f} (prior 1), "
             f"max |deviation| {scaling['offset_max_abs']:.2f} ({scaling['largest_deviation_member']}), "

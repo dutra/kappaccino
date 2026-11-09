@@ -39,7 +39,7 @@ sys.path.insert(0, str(ROOT / "src"))
 VARIANTS = ("knee", "two_knee", "broken_power_law", "power_law", "knee_foreground", "fixed")
 NESTED = {"two_knee", "broken_power_law", "knee_foreground"}               # contain the knee
 GRF_SITES = ("images.gp_sigma_alpha", "images.gp_knee", "images.gp_knee_gamma", "images.gp_sigma_alpha2", "images.gp_knee2",
-             "images.gp_knee_beta_low", "images.sigma_shared", "images.gp_ell", "images.sigma_white", "shear.gamma1", "shear.gamma2")
+             "images.gp_knee_beta_low", "images.sigma_shared", "images.gp_ell", "images.sigma_meas", "shear.gamma1", "shear.gamma2")
 NULL_START = {"images.gp_sigma_alpha2": math.log(1.0e-3), "images.gp_knee_beta_low": 0.0}      # the added parameters' null values
 ISOTHERMAL_KNEE_PER_RT = 6.38          # lambda_t / r_t of the gamma = 2 knee fitted to (1 - exp(-k r_t))^2 / k^2
 

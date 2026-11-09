@@ -1,5 +1,5 @@
 """Fisher pre-check of a mock's image configuration: how well the solver's GP likelihood can constrain its error-model
-hyperparameters (sigma_alpha and knee of the mass field, sigma_shared and ell of the image-plane GP, sigma_white) at
+hyperparameters (sigma_alpha and knee of the mass field, sigma_shared and ell of the image-plane GP, sigma_meas) at
 the truth, before any sampling.
 
 The covariance is the solver's own (Evaluator.gp_kernel_blocks and gp_knee.block_covariance, knee kernel, the configured
@@ -9,7 +9,7 @@ positions are free, so the Fisher matrix is the restricted (REML) one, with each
     I_ab = 1/2 sum_blocks tr(P dC/da P dC/db),   P = C^-1 - C^-1 J (J^T C^-1 J)^-1 J^T C^-1,
 
 where J is the block's source indicator.  Hyperparameters are in ln units (sigma_alpha, knee, sigma_shared, ell,
-sigma_white; the slope gamma linear).  The lens is held at the truth, so the result is an upper bound on what the data
+sigma_meas; the slope gamma linear).  The lens is held at the truth, so the result is an upper bound on what the data
 can say about the hyperparameters: in a real fit the lens model absorbs part of the field.  The forecast adds the
 solver's prior widths as Gaussian precision in the same units and ignores the truncations.
 """
@@ -40,14 +40,14 @@ HYPERPARAMETERS = {
     "gp_knee_gamma": ("field_gamma", "gp_knee_gamma_prior", False),
     "sigma_shared": ("image_plane_sigma", "gp_knee_sigma_shared_prior", True),
     "gp_ell": ("image_plane_ell", "gp_knee_ell_prior", True),
-    "sigma_white": ("white", "gp_knee_sigma_white_prior", True),
+    "sigma_meas": ("measurement_noise", "gp_knee_sigma_meas_prior", True),
 }
 SEPARATION_BINS_ARCSEC = (0.0, 0.5, 1.0, 2.0, 5.0, 15.0, 40.0, math.inf)
 
 
 def _truth_hyperparameters(truth: dict[str, Any]) -> dict[str, float]:
     """The injected hyperparameters in the solver's units; an error component that was not injected is left out."""
-    values = {"white": float(truth["config"]["sigma_inst_arcsec"])}
+    values = {"measurement_noise": float(truth["config"]["measurement_noise_arcsec"])}
     field, image_plane = truth.get("field"), truth.get("image_plane_error")
     if field:
         values.update(field_sigma_alpha=float(field["sigma_alpha_arcsec"]), field_knee=float(field["knee_arcsec"]),
@@ -107,7 +107,7 @@ def hyperparameter_fisher(solver_config: LensClusterSolverConfig, truth: dict[st
     injected = _truth_hyperparameters(truth)
     sampled = {"gp_sigma_alpha": evaluator.gp_sigma_alpha_index, "gp_knee": evaluator.gp_knee_index,
                "gp_knee_gamma": evaluator.gp_knee_gamma_index, "sigma_shared": evaluator.sigma_shared_index,
-               "gp_ell": evaluator.gp_ell_index, "sigma_white": evaluator.sigma_white_index}
+               "gp_ell": evaluator.gp_ell_index, "sigma_meas": evaluator.sigma_meas_index}
     names = [n for n, (key, _, _) in HYPERPARAMETERS.items() if sampled[n] >= 0 and key in injected]
     if not names:
         raise ValueError("no injected error component matches a sampled hyperparameter")

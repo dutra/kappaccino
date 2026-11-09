@@ -119,9 +119,9 @@ class Evaluator:
         self.far_field_barrier_width = float(members.far_field_barrier_width)
         self.far_field_barrier_strength = float(members.far_field_barrier_strength)
         self._setup_membership()
-        self.sigma_def_index, self.sigma_extra_index, self.sigma_sel_index = int(state.sigma_def_param_index), int(state.sigma_extra_param_index), int(state.sigma_sel_param_index)
+        self.sigma_def_index, self.sigma_meas_index, self.sigma_sel_index = int(state.sigma_def_param_index), int(state.sigma_meas_param_index), int(state.sigma_sel_param_index)
         self.lambda_sel_index = int(state.lambda_sel_param_index)
-        self.sigma_shared_index, self.sigma_white_index = int(state.sigma_shared_param_index), int(state.sigma_white_param_index)
+        self.sigma_shared_index = int(state.sigma_shared_param_index)
         self.gp_ell_index = int(getattr(state, "gp_ell_param_index", -1))
         self.gp_sigma_alpha_index = int(getattr(state, "gp_sigma_alpha_param_index", -1))
         self.gp_knee_index = int(getattr(state, "gp_knee_param_index", -1))
@@ -133,12 +133,12 @@ class Evaluator:
         self.freeze_determinant_gradient = bool(state.freeze_determinant_gradient)
         self.scale_indices = jnp.asarray(sorted({int(i) for i in np.asarray(members.scatter_param_index) if i >= 0}
                                                 | {int(i) for i in np.asarray(members.radius_scatter_param_index) if i >= 0}
-                                                | {i for i in (self.sigma_def_index, self.sigma_extra_index, self.sigma_sel_index, self.lambda_sel_index,
-                                                               self.sigma_shared_index, self.sigma_white_index, self.gp_ell_index,
+                                                | {i for i in (self.sigma_def_index, self.sigma_meas_index, self.sigma_sel_index, self.lambda_sel_index,
+                                                               self.sigma_shared_index, self.gp_ell_index,
                                                                self.gp_sigma_alpha_index, self.gp_knee_index, self.gp_sigma_alpha2_index,
                                                                self.gp_knee2_index) if i >= 0}), dtype=jnp.int32)
         if self.gp_mode:
-            # Data-only quantities of the family covariance: slots, separations, instrumental variances, redshift weights and
+            # Data-only quantities of the family covariance: slots, separations, redshift weights and
             # the kernel at the fixed ell (recomputed from the separations at every evaluation when ell is sampled).
             self.gp_floor = float(state.gp_floor_arcsec)
             self.gp_ell_fixed = float(state.gp_correlation_length_arcsec)
@@ -804,13 +804,13 @@ class Evaluator:
     def error_scales(self, physical: jnp.ndarray) -> dict[str, Any]:
         """The scales of the per-image source-plane covariance at this model.
 
-        :math:`C_i = \\sigma_\\mathrm{meas}^2 A A^T + \\sigma_\\mathrm{def}^2 I + \\sigma_\\mathrm{sel}^2 R`.  Under
-        ``gp_image_plane`` :math:`C_i` is the diagonal block of the family covariance:
-        :math:`\\sigma_\\mathrm{meas}^2 = \\sigma_\\mathrm{inst}^2 + \\sigma_\\mathrm{white}^2 + \\sigma_\\mathrm{shared}^2`,
+        :math:`C_i = \\sigma_\\mathrm{img}^2 A A^T + \\sigma_\\mathrm{def}^2 I + \\sigma_\\mathrm{sel}^2 R`, where
+        :math:`\\sigma_\\mathrm{meas}` is the sampled independent measurement scatter of every image (no fixed
+        instrumental error).  Under ``gp_image_plane`` :math:`C_i` is the diagonal block of the family covariance:
+        :math:`\\sigma_\\mathrm{img}^2 = \\sigma_\\mathrm{meas}^2 + \\sigma_\\mathrm{shared}^2`,
         :math:`\\sigma_\\mathrm{def} = \\sigma_\\mathrm{fl}` (knee kernel: with the redshift-weighted mass-field
-        amplitudes added in quadrature) and no selection term;
-        :math:`\\sigma_\\mathrm{img} = \\sqrt{\\sigma_\\mathrm{shared}^2 + \\sigma_\\mathrm{white}^2}` is the total
-        image-plane scale.
+        amplitudes added in quadrature) and no selection term; otherwise
+        :math:`\\sigma_\\mathrm{img} = \\sigma_\\mathrm{meas}`.
 
         Parameters
         ----------
@@ -821,17 +821,16 @@ class Evaluator:
         -------
         dict
             Always ``sigma_def`` (source-plane arcsec; scalar, or shape (image,) under the knee kernel),
-            ``sigma_extra`` (arcsec; :math:`\\sigma_\\mathrm{img}` under ``gp_image_plane``), ``sigma_sel`` (arcsec),
-            ``lambda_sel`` (dimensionless) and ``sigma_meas`` (image-plane arcsec, shape (image,)).  Under
-            ``gp_image_plane`` also ``sigma_img``, ``sigma_shared``, ``sigma_white`` and ``gp_ell`` (arcsec); with
-            the knee kernel also ``gp_sigma_alpha``, ``gp_knee``, ``gp_sigma_alpha2``, ``gp_knee2`` (arcsec),
-            ``gp_knee_gamma`` and ``gp_knee_beta_low`` (dimensionless; NaN when not part of the model).  Absent
-            scales are 0 (``lambda_sel`` 1).
+            ``sigma_sel`` (arcsec), ``lambda_sel`` (dimensionless), ``sigma_meas`` (the sampled measurement scatter,
+            image-plane arcsec) and ``sigma_img`` (the total image-plane scale, arcsec).  Under ``gp_image_plane``
+            also ``sigma_shared`` and ``gp_ell`` (arcsec); with the knee kernel also ``gp_sigma_alpha``, ``gp_knee``,
+            ``gp_sigma_alpha2``, ``gp_knee2`` (arcsec), ``gp_knee_gamma`` and ``gp_knee_beta_low`` (dimensionless;
+            NaN when not part of the model).  Absent scales are 0 (``lambda_sel`` 1).
         """
         images = self.state.images
         zero, one = jnp.asarray(0.0, dtype=jnp.float64), jnp.asarray(1.0, dtype=jnp.float64)
         if self.gp_knee:
-            # Knee kernel: C_ii = (w_i^2 sigma_alpha^2 + sigma_fl^2) I + (sigma_inst^2 + sigma_white^2 + sigma_shared^2) A A^T.
+            # Knee kernel: C_ii = (w_i^2 sigma_alpha^2 + sigma_fl^2) I + (sigma_meas^2 + sigma_shared^2) A A^T.
             nan = jnp.asarray(float("nan"), dtype=jnp.float64)
             sigma_alpha = physical[self.gp_sigma_alpha_index] if self.gp_sigma_alpha_index >= 0 else zero
             knee = (physical[self.gp_knee_index] if self.gp_knee_index >= 0
@@ -841,35 +840,32 @@ class Evaluator:
             sigma_alpha2 = physical[self.gp_sigma_alpha2_index] if self.gp_sigma_alpha2_index >= 0 else zero
             knee2 = physical[self.gp_knee2_index] if self.gp_knee2_index >= 0 else nan
             beta_low = physical[self.gp_knee_beta_low_index] if self.gp_knee_beta_low_index >= 0 else nan
-            sigma_shared, sigma_white = physical[self.sigma_shared_index], physical[self.sigma_white_index]
+            sigma_shared, sigma_meas = physical[self.sigma_shared_index], physical[self.sigma_meas_index]
             gp_ell = (physical[self.gp_ell_index] if self.gp_ell_index >= 0
                       else jnp.asarray(getattr(self, "gp_knee_ell_fixed", None) or float("nan"), dtype=jnp.float64))
-            sigma_img = jnp.sqrt(jnp.square(sigma_shared) + jnp.square(sigma_white))
+            sigma_img = jnp.sqrt(jnp.square(sigma_shared) + jnp.square(sigma_meas))
             w = self.gp_weights_per_image
             w2 = getattr(self, "gp_weights2_per_image", w)
             sigma_def = jnp.sqrt(jnp.square(w) * jnp.square(sigma_alpha) + jnp.square(w2) * jnp.square(sigma_alpha2) + jnp.square(self.gp_floor))
-            return dict(sigma_def=sigma_def, sigma_extra=sigma_img, sigma_sel=zero, lambda_sel=one,
-                        sigma_meas=jnp.sqrt(jnp.square(images.sigma_inst_per_image) + jnp.square(sigma_img)), sigma_img=sigma_img,
-                        sigma_shared=sigma_shared, sigma_white=sigma_white, gp_ell=gp_ell, gp_sigma_alpha=sigma_alpha, gp_knee=knee,
+            return dict(sigma_def=sigma_def, sigma_sel=zero, lambda_sel=one, sigma_meas=sigma_meas, sigma_img=sigma_img,
+                        sigma_shared=sigma_shared, gp_ell=gp_ell, gp_sigma_alpha=sigma_alpha, gp_knee=knee,
                         gp_knee_gamma=knee_gamma, gp_sigma_alpha2=sigma_alpha2, gp_knee2=knee2, gp_knee_beta_low=beta_low)
         if self.gp_mode:
-            sigma_shared, sigma_white = physical[self.sigma_shared_index], physical[self.sigma_white_index]
-            sigma_img = jnp.sqrt(jnp.square(sigma_shared) + jnp.square(sigma_white))
+            sigma_shared, sigma_meas = physical[self.sigma_shared_index], physical[self.sigma_meas_index]
+            sigma_img = jnp.sqrt(jnp.square(sigma_shared) + jnp.square(sigma_meas))
             gp_ell = physical[self.gp_ell_index] if self.gp_ell_index >= 0 else jnp.asarray(self.gp_ell_fixed, dtype=jnp.float64)
-            return dict(sigma_def=jnp.asarray(self.gp_floor, dtype=jnp.float64), sigma_extra=sigma_img, sigma_sel=zero, lambda_sel=one,
-                        sigma_meas=jnp.sqrt(jnp.square(images.sigma_inst_per_image) + jnp.square(sigma_img)), sigma_img=sigma_img,
-                        sigma_shared=sigma_shared, sigma_white=sigma_white, gp_ell=gp_ell)
+            return dict(sigma_def=jnp.asarray(self.gp_floor, dtype=jnp.float64), sigma_sel=zero, lambda_sel=one,
+                        sigma_meas=sigma_meas, sigma_img=sigma_img, sigma_shared=sigma_shared, gp_ell=gp_ell)
         sigma_def = physical[self.sigma_def_index]
-        sigma_extra = physical[self.sigma_extra_index] if self.sigma_extra_index >= 0 else zero
         sigma_sel = physical[self.sigma_sel_index] if self.sigma_sel_index >= 0 else zero
         lambda_sel = physical[self.lambda_sel_index] if self.lambda_sel_index >= 0 else one
-        sigma_meas = jnp.sqrt(jnp.square(images.sigma_inst_per_image) + jnp.square(sigma_extra))   # the instrumental error is the floor
-        return dict(sigma_def=sigma_def, sigma_extra=sigma_extra, sigma_sel=sigma_sel, lambda_sel=lambda_sel, sigma_meas=sigma_meas)
+        sigma_meas = physical[self.sigma_meas_index]
+        return dict(sigma_def=sigma_def, sigma_sel=sigma_sel, lambda_sel=lambda_sel, sigma_meas=sigma_meas, sigma_img=sigma_meas)
 
     def per_image_covariance(self, physical: jnp.ndarray, jacobian: jnp.ndarray) -> dict[str, Any]:
         """``smoothed_likelihood.source_covariance`` at this model's scales (the diagonal blocks under gp_image_plane)."""
         scales = self.error_scales(physical)
-        return sl.source_covariance(jacobian, scales["sigma_meas"], scales["sigma_def"], scales["sigma_sel"], scales["lambda_sel"])
+        return sl.source_covariance(jacobian, scales["sigma_img"], scales["sigma_def"], scales["sigma_sel"], scales["lambda_sel"])
 
     def statistics(self, params: jnp.ndarray, *, force_exact: bool = False, membership: jnp.ndarray | None = None) -> dict[str, Any]:
         """Per-image likelihood terms and their diagnostics at a latent vector.
@@ -914,7 +910,7 @@ class Evaluator:
         if self.gp_mode:
             return self._gp_statistics(params, physical, fields, terms)
         scales = self.error_scales(physical)
-        sigma_def, sigma_extra, sigma_sel, lambda_sel, sigma_meas = (scales[k] for k in ("sigma_def", "sigma_extra", "sigma_sel", "lambda_sel", "sigma_meas"))
+        sigma_def, sigma_sel, lambda_sel, sigma_meas = (scales[k] for k in ("sigma_def", "sigma_sel", "lambda_sel", "sigma_meas"))
         jacobian = jnp.zeros_like(fields["jacobian"]) if isotropic else fields["jacobian"]
         extra = self.membership_image_covariance(terms)
         cov = sl.source_covariance(jacobian, sigma_meas, sigma_def, sigma_sel, lambda_sel, extra_covariance=extra)
@@ -932,14 +928,14 @@ class Evaluator:
             stats["valid"] = cov["valid"] & jnp.all(jnp.isfinite(stats["residual"]), axis=-1)
         stats.update(source_by_family=source, source_correction=transported["log_correction"], source_jacobian=jnp.sum(transported["log_jacobian"]),
                      whitening=whitening,
-                     transport_valid=transported["valid"], sigma_def=sigma_def, sigma_extra=sigma_extra, sigma_meas=sigma_meas, sigma_sel=sigma_sel,
+                     transport_valid=transported["valid"], sigma_def=sigma_def, sigma_meas=sigma_meas, sigma_sel=sigma_sel,
                      lambda_sel=lambda_sel,
                      fields=fields, physical=physical)
         return stats
 
     def gp_kernel_blocks(self, physical: jnp.ndarray, scales: dict[str, Any] | None = None, layout: dict | None = None) -> dict[str, Any]:
         """Knee kernel: the deflection covariance blocks W K_alpha W (S, M, M, 2, 2) in slot order, ``k_img``, the image-plane
-        GP covariance sigma_shared^2 K_img (S, M, M) that B S B^T adds between images, ``white`` = sigma_inst^2 + sigma_white^2
+        GP covariance sigma_shared^2 K_img (S, M, M) that B S B^T adds between images, ``white`` = sigma_meas^2
         and the padded image-plane variances sigma_meas^2 (S, M).  ``layout`` is one group of ``self.gp_groups``; the full
         layout by default."""
         if not self.gp_knee:
@@ -971,7 +967,7 @@ class Evaluator:
         else:
             k_alpha = jnp.zeros(layout["nn"].shape, dtype=jnp.float64)
         k_img = jnp.square(scales["sigma_shared"]) * jnp.exp(-layout["squared_separations"] / (2.0 * jnp.square(scales["gp_ell"]))) * pair_mask
-        white = jnp.where(mask, layout["sigma_inst2"] + jnp.square(scales["sigma_white"]), 0.0)
+        white = jnp.where(mask, jnp.square(scales["sigma_meas"]), 0.0)
         return dict(k_alpha=k_alpha, k_img=k_img, white=white, sigma_meas2=white + jnp.where(mask, jnp.square(scales["sigma_shared"]), 0.0))
 
     def freeze_gp_kernels(self, params) -> None:
@@ -1035,7 +1031,7 @@ class Evaluator:
             variance = jnp.zeros(images.n_images, dtype=jnp.float64).at[layout["slots"][0]].set(0.5 * (diagonal[:, 0, 0] + diagonal[:, 1, 1]))
             sigma_def = jnp.sqrt(variance + jnp.square(sigma_fl))
         stats = sl.statistics(backprojected, source[images.family_index_per_image], jacobian, determinant_gradient,
-                              scales["sigma_meas"], sigma_def, 0.0, 1.0, parity=images.parity,
+                              scales["sigma_img"], sigma_def, 0.0, 1.0, parity=images.parity,
                               extra_covariance=self.membership_image_covariance(membership_terms))
         log_h = sl.log_expected_absolute_normal(stats["determinant_mean"], jnp.maximum(stats["determinant_variance"], 1e-16), images.parity)
         block_of_image = self.gp_block_position[layout["block_of_family"][images.family_index_per_image]]
@@ -1116,8 +1112,8 @@ class Evaluator:
         if self.gp_knee:
             return self._knee_statistics(params, physical, fields, scales, membership_terms)
         kernel = layout["kernel"] if self.gp_ell_index < 0 else gp.kernel_from_separations(layout["squared_separations"], mask, scales["gp_ell"])
-        family_covariance, family_cholesky = gp.family_covariance(jacobian[slots], kernel, layout["sigma_inst2"], mask,
-                                                                  jnp.square(scales["sigma_shared"]), jnp.square(scales["sigma_white"]), jnp.square(sigma_fl),
+        family_covariance, family_cholesky = gp.family_covariance(jacobian[slots], kernel, mask, jnp.square(scales["sigma_shared"]),
+                                                                  jnp.square(scales["sigma_meas"]), jnp.square(sigma_fl),
                                                                   extra=self.membership_slot_covariance(membership_terms, slots, mask))
         padded_backprojected = backprojected[slots]
         whitening = gp.family_source_whitening(family_cholesky, padded_backprojected, mask)
@@ -1128,10 +1124,10 @@ class Evaluator:
         determinant_gradient = fields["determinant_gradient"]
         if self.freeze_determinant_gradient:
             determinant_gradient = jax.lax.stop_gradient(determinant_gradient)
-        # Per image: the diagonal block C_ii = (sigma_inst^2 + sigma_white^2 + sigma_shared^2) A A^T + sigma_fl^2 I (k_ii = 1)
+        # Per image: the diagonal block C_ii = (sigma_meas^2 + sigma_shared^2) A A^T + sigma_fl^2 I (k_ii = 1)
         # and the smoothed determinant on it.
         stats = sl.statistics(backprojected, source[images.family_index_per_image], jacobian, determinant_gradient,
-                              scales["sigma_meas"], scales["sigma_def"], 0.0, 1.0, parity=images.parity,
+                              scales["sigma_img"], scales["sigma_def"], 0.0, 1.0, parity=images.parity,
                               extra_covariance=self.membership_image_covariance(membership_terms))
         log_h = sl.log_expected_absolute_normal(stats["determinant_mean"], jnp.maximum(stats["determinant_variance"], 1e-16), images.parity)
         family_of = images.family_index_per_image

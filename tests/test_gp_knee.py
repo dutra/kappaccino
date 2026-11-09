@@ -173,7 +173,7 @@ def test_without_the_mass_field_the_knee_path_is_the_image_plane_gp(synthetic_co
     state_ip = build_state(replace(synthetic_config, likelihood=replace(synthetic_config.likelihood, likelihood_mode="gp_image_plane")).validate())
     state_k = build_state(knee_config(synthetic_config, "family", gp_sigma_alpha_prior=None))
     assert state_k.gp_sigma_alpha_param_index == -1 and "images.gp_knee" not in [p.name for p in state_k.parameter_specs]
-    values = dict(sigma_shared=0.15, sigma_white=0.03, gp_ell=5.0)
+    values = dict(sigma_shared=0.15, sigma_meas=0.03, gp_ell=5.0)
     a = float(Evaluator(state_ip, "gp_image_plane").loglike(jnp.asarray(set_sites(state_ip, state_ip.initial_theta, **values))))
     b = float(Evaluator(state_k, "gp_image_plane").loglike(jnp.asarray(set_sites(state_k, state_k.initial_theta, **values))))
     np.testing.assert_allclose(a, b, rtol=1e-12)
@@ -233,7 +233,7 @@ def test_gradients_match_finite_differences(tmp_path, blocks):
     value, grad = evaluator.value_and_grad(jnp.asarray(theta))
     assert np.isfinite(float(value)) and bool(jnp.all(jnp.isfinite(grad)))
     for name, step in (("images.gp_sigma_alpha", 1e-5), ("images.gp_knee", 1e-5), ("images.sigma_shared", 1e-5), ("images.gp_ell", 1e-5),
-                       ("images.sigma_white", 1e-6), ("images.gp_knee_gamma", 1e-5), ("halo.v_disp", 1e-6), ("source.1.beta_x", 1e-5)):
+                       ("images.sigma_meas", 1e-6), ("images.gp_knee_gamma", 1e-5), ("halo.v_disp", 1e-6), ("source.1.beta_x", 1e-5)):
         i = names.index(name)
         plus, minus = theta.copy(), theta.copy()
         plus[i] += step
@@ -287,7 +287,7 @@ def test_fold_pair_in_a_two_knot_system_survives_a_displaced_source(tmp_path):
     pair = list(state.images.family_ids).index("1A")
     # The solver corrects the mass field's mean deflection only; an image-plane displacement d is not applied to the
     # recovered positions (as for the image-plane GP today), so keep the image-plane terms small here.
-    start = set_sites(state, state.initial_theta, sigma_shared=1e-3, sigma_white=1e-3)
+    start = set_sites(state, state.initial_theta, sigma_shared=1e-3, sigma_meas=0.1)   # the 0.1" measurement error this test was written with
     kept = 0
     for ux, uy in ((4, 4), (4, -4), (-4, 4), (-4, -4)):
         theta = np.array(start, dtype=float)

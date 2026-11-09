@@ -143,12 +143,11 @@ Names `images.<field>`, family `error_scale`. Every scale is sampled as ln of it
 | field | likelihood | unit (`physical`) | sampled as | definition |
 |---|---|---|---|---|
 | `sigma_def` | `smoothed` | arcsec (source plane) | ln(arcsec) | Isotropic deflection error per image. |
-| `sigma_extra` | `smoothed` | arcsec (image plane) | ln(arcsec) | Measurement scatter added in quadrature to each image's catalog error $\sigma_\mathrm{inst}$. |
+| `sigma_meas` | every mode | arcsec (image plane) | ln(arcsec) | Independent measurement scatter of every image, the only measurement error. |
 | `sigma_sel` | `smoothed` | arcsec (source plane) | ln(arcsec) | Feature-selection scatter, weighted by the image's stretching. |
 | `lambda_sel` | `smoothed` | dimensionless (Jacobian eigenvalue) | ln of the value | Stretching scale of that weight: the selection variance is halved where an absolute eigenvalue of the lensing Jacobian equals it. |
 | `sigma_shared` | `gp_image_plane` | arcsec (image plane) | ln(arcsec) | Amplitude of the correlated image-plane displacement (the image-plane GP). |
 | `gp_ell` | `gp_image_plane` | arcsec | ln(arcsec) | Correlation length of that GP (absent when fixed). |
-| `sigma_white` | `gp_image_plane` | arcsec (image plane) | ln(arcsec) | Independent image-plane scatter in quadrature with $\sigma_\mathrm{inst}$. |
 | `gp_sigma_alpha` | knee kernel | arcsec (deflection) | ln(arcsec) | RMS deflection error per component of the unmodeled-mass field, for a source at `gp_reference_redshift`. |
 | `gp_knee` | knee kernel | arcsec | ln(arcsec) | Knee wavelength $\lambda_t = 2\pi/k_t$ of the convergence spectrum (absent when fixed or for a power law). |
 | `gp_knee_gamma` | knee kernel | dimensionless | dimensionless | High-$k$ slope $\gamma$ of the convergence spectrum (when sampled). |

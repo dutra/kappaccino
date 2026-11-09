@@ -158,14 +158,14 @@ def image_gp_offsets(evaluator, physical, theta, obs, obs_family, z_source, fami
     sources = np.asarray(evaluator.source_positions(theta))[obs_family]
     eps = np.einsum("nij,nj->ni", np.linalg.inv(a), (obs - alpha) - sources)
     phys = np.asarray(physical)
-    sigma_shared, sigma_white = float(phys[evaluator.sigma_shared_index]), float(phys[evaluator.sigma_white_index])
+    sigma_shared, sigma_meas = float(phys[evaluator.sigma_shared_index]), float(phys[evaluator.sigma_meas_index])
     ell = float(phys[evaluator.gp_ell_index]) if evaluator.gp_ell_index >= 0 else float(evaluator.gp_ell_fixed)
-    return eps, sigma_shared, sigma_white, ell
+    return eps, sigma_shared, sigma_meas, ell
 
 
 def beta_maps(evaluator, state, samples, draws, xy, z_source, family_index, cache: Path, rebuild: bool, image_gp=None):
     """Source-plane coordinates (draws, N, 2) of the supersampled image-plane points xy: lens + field mean, per draw.
-    With ``image_gp`` = (obs, obs_family, sigma_inst) the image-plane GP's conditional mean offset is interpolated from the
+    With ``image_gp`` = (obs, obs_family) the image-plane GP's conditional mean offset is interpolated from the
     system's catalog images and the lens is evaluated at the corrected positions, beta(x) -= A(x) delta(x)."""
     if cache.exists() and not rebuild:
         f = load_arrays(cache)
@@ -188,10 +188,10 @@ def beta_maps(evaluator, state, samples, draws, xy, z_source, family_index, cach
         beta[k] = xy - alpha
         note = ""
         if image_gp is not None:
-            obs, obs_family, sigma_inst = image_gp
-            eps, sigma_shared, sigma_white, ell = image_gp_offsets(evaluator, physical, theta, obs, obs_family, z_source, family_index)
+            obs, obs_family = image_gp
+            eps, sigma_shared, sigma_meas, ell = image_gp_offsets(evaluator, physical, theta, obs, obs_family, z_source, family_index)
             k_obs = sigma_shared ** 2 * np.exp(-np.sum((obs[:, None] - obs[None]) ** 2, -1) / (2 * ell ** 2))
-            weights = np.linalg.solve(k_obs + (sigma_white ** 2 + sigma_inst ** 2) * np.eye(len(obs)), eps)       # (M, 2)
+            weights = np.linalg.solve(k_obs + sigma_meas ** 2 * np.eye(len(obs)), eps)                            # (M, 2)
             k_grid = sigma_shared ** 2 * np.exp(-np.sum((xy[:, None] - obs[None]) ** 2, -1) / (2 * ell ** 2))     # (N, M)
             delta = k_grid @ weights
             beta[k] = beta[k] - np.einsum("nij,nj->ni", a, delta)
@@ -1522,7 +1522,7 @@ def main():
     if args.image_gp_mean:
         if evaluator.sigma_shared_index < 0:
             raise SystemExit("--image-gp-mean needs a gp_image_plane run (no sigma_shared parameter)")
-        image_gp = (obs_xy, fam[sel], float(np.asarray(images.sigma_inst_per_image)[sel].mean()))
+        image_gp = (obs_xy, fam[sel])
     setup = dict(state=state, evaluator=evaluator, samples=samples, draws=draws, obs_xy=obs_xy, centre=centre,
                  z_source=z_source, family_index=family_index, image_gp=image_gp)
     if args.bands:

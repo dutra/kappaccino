@@ -45,7 +45,7 @@ def test_images_are_exact_and_noise_is_injected():
     rows = images[images.family_id == central[0]["family_id"]]
     assert np.hypot(rows.x_true_arcsec - truth.bcg.x_centre, rows.y_true_arcsec - truth.bcg.y_centre).min() <= SMALL.central_radius_arcsec
     offsets = np.hypot(images.x_obs_arcsec - images.x_true_arcsec, images.y_obs_arcsec - images.y_true_arcsec)
-    assert 0.5 * SMALL.sigma_inst_arcsec < np.median(offsets) < 4 * SMALL.sigma_inst_arcsec       # astrometric noise plus source scatter
+    assert 0.5 * SMALL.measurement_noise_arcsec < np.median(offsets) < 4 * SMALL.measurement_noise_arcsec       # measurement noise plus source scatter
 
 
 @pytest.mark.parametrize("mode", ["production", "idealized"])
@@ -79,10 +79,9 @@ def test_solver_model_from_truth_contains_the_truth(tmp_path, mode):
     profiles = aperture_profiles(np.asarray(APERTURE_RADII_KPC), truth_groups(truth), centre_kpc=(truth["halo"]["x_centre"] * truth["kpc_per_arcsec"], truth["halo"]["y_centre"] * truth["kpc_per_arcsec"]))
     np.testing.assert_allclose(profiles["total"], profiles["halo"] + profiles["bcg"] + profiles["members"], rtol=1e-10)
     assert values["images.sigma_def"] == pytest.approx(0.03) and values["potfile.velocity_log_scatter"] == pytest.approx(0.10)
-    # The solver assumes only the 1 mas floor; the injected astrometric noise is the truth of the white image-plane scatter.
-    assert solver.model.image_constraints.sigma_inst_arcsec == pytest.approx(config.solver_sigma_inst_arcsec) == pytest.approx(0.001)
-    assert solver.likelihood.sigma_inst_arcsec == pytest.approx(0.001)
-    assert values["images.sigma_white"] == values["images.sigma_extra"] == pytest.approx(config.sigma_inst_arcsec)
+    # The solver assumes no astrometric error; the injected measurement noise is the truth of the sampled sigma_meas.
+    assert not hasattr(solver.model.image_constraints, "sigma_inst_arcsec") and not hasattr(solver.likelihood, "sigma_inst_arcsec")
+    assert values["images.sigma_meas"] == pytest.approx(config.measurement_noise_arcsec)
 
 
 @pytest.mark.slow
@@ -102,7 +101,7 @@ def test_campaign_end_to_end_scores_only_parameters_with_a_truth(tmp_path):
     assert scored and all(np.isfinite(r["truth"]) for r in scored)
     assert not any(r["scored"] for r in rows if r["parameter"] == "potfile.radius_log_scatter")   # injected as zero
     # The injected astrometric noise is the truth of the white image-plane scatter above the solver's 1 mas floor.
-    assert all(r["scored"] and r["truth"] == pytest.approx(0.10) for r in rows if r["parameter"] in {"images.sigma_extra", "images.sigma_white"})
+    assert all(r["scored"] and r["truth"] == pytest.approx(0.10) for r in rows if r["parameter"] in {"images.sigma_meas", "images.sigma_meas"})
     assert 0.0 <= payload["coverage_68"] <= 1.0 and payload["scored_parameters"] == len(scored)
     assert isinstance(payload["converged"], bool) and isinstance(payload["convergence_reasons"], list)
     magnification = pd.DataFrame(payload["magnification"])
@@ -128,7 +127,7 @@ def test_map_search_from_the_prior_recovers_the_truth(tmp_path):
     from kappaccino.likelihood.evaluator import Evaluator
     from kappaccino.inference.search import multistart_map, prior_starts
     config = MockConfig(seed=11, n_members=4, n_primary_families=3, n_member_families=0, mode="idealized",
-                        sigma_inst_arcsec=0.01, sigma_def_arcsec=0.0)
+                        measurement_noise_arcsec=0.01, sigma_def_arcsec=0.0)
     paths = generate_mock(tmp_path / "mock", config, 11)
     truth = json.loads(paths.truth.read_text())
     solver = solver_config_for_mock(MockValidationConfig(mock=config, solver=LensClusterSolverConfig()), truth,
@@ -196,32 +195,32 @@ def test_knotted_families_are_systems_whose_knots_follow_the_main_images(tmp_pat
     assert set(plain_images.knot_id) == {""}
 
 
-def test_injected_noise_is_drawn_per_realization_and_is_the_white_scatter_truth(tmp_path):
-    config = replace(SMALL, sigma_def_arcsec=0.0, sigma_inst_range_arcsec=(0.005, 0.045))
+def test_injected_noise_is_drawn_per_realization_and_is_the_sigma_meas_truth(tmp_path):
+    config = replace(SMALL, sigma_def_arcsec=0.0, measurement_noise_range_arcsec=(0.005, 0.045))
     drawn = []
     for seed in (7, 8):
         truth = json.loads(generate_mock(tmp_path / f"mock{seed}", config, seed).truth.read_text())
-        value = truth["config"]["sigma_inst_arcsec"]
+        value = truth["config"]["measurement_noise_arcsec"]
         assert 0.005 <= value <= 0.045
-        assert {r["sigma_inst_arcsec"] for r in truth["images"]} == {value}
-        assert parameter_truth(truth)["images.sigma_white"] == pytest.approx(value)
+        assert {r["measurement_noise_arcsec"] for r in truth["images"]} == {value}
+        assert parameter_truth(truth)["images.sigma_meas"] == pytest.approx(value)
         drawn.append(value)
     assert drawn[0] != drawn[1]
 
 
 def test_fisher_precheck_matches_the_white_noise_closed_form(tmp_path):
-    """With white noise alone, the restricted Fisher information on ln sigma_white is about 2 per degree of freedom left
-    after the source positions (I = 2 (n - p), up to the 1 mas and 1.5 mas floors)."""
+    """With white noise alone, the restricted Fisher information on ln sigma_meas is about 2 per degree of freedom left
+    after the source positions (I = 2 (n - p), up to the 1.5 mas source-plane floor)."""
     from kappaccino.config import LikelihoodConfig
     from kappaccino.mock_validation.fisher import hyperparameter_fisher
-    config = replace(SMALL, sigma_def_arcsec=0.0, n_knotted_families=1, sigma_inst_arcsec=0.1)
+    config = replace(SMALL, sigma_def_arcsec=0.0, n_knotted_families=1, measurement_noise_arcsec=0.1)
     paths = generate_mock(tmp_path / "mock", config, 7)
     truth = json.loads(paths.truth.read_text())
     template = LensClusterSolverConfig(likelihood=LikelihoodConfig(likelihood_mode="gp_image_plane", gp_kernel="knee", gp_blocks="system", sigma_sel_prior=None))
     solver = solver_config_for_mock(MockValidationConfig(mock=config, solver=template), truth, image_catalog=paths.image_catalog,
                                     member_catalog=paths.member_catalog, seed=7, output_dir=tmp_path / "run")
     result = hyperparameter_fisher(solver, truth)
-    row = result["table"].set_index("parameter").loc["images.sigma_white"]
-    assert result["names"] == ["sigma_white"] and result["dof"] == 2 * result["n_images"] - 2 * result["n_families"]
+    row = result["table"].set_index("parameter").loc["images.sigma_meas"]
+    assert result["names"] == ["sigma_meas"] and result["dof"] == 2 * result["n_images"] - 2 * result["n_families"]
     assert row["fisher_sigma"] == pytest.approx(1.0 / np.sqrt(2.0 * result["dof"]), rel=0.03)
     assert 0.0 < row["prior_contraction"] < 1.0

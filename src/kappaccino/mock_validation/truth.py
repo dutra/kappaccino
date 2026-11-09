@@ -203,10 +203,8 @@ def parameter_truth(truth: dict[str, Any], *, solver_pivot_magnitude: float | No
                    "potfile.log10_mass_msun": float(log10_dpie_mass_msun(sigma, cut)),
                    "potfile.velocity_log_scatter": float(r["sigma_scatter_ln"]), "potfile.radius_log_scatter": float(r["cut_scatter_ln"]),
                    "images.sigma_def": float(truth.get("sigma_def_arcsec", 0.0)),
-                   # The injected astrometric noise is the truth of the white image-plane scatter (sigma_white under the GP
-                   # likelihoods, sigma_extra under the smoothed one): the solver's own floor is 1 mas (solver_sigma_inst_arcsec).
-                   "images.sigma_white": float(truth.get("config", {}).get("sigma_inst_arcsec", 0.0)),
-                   "images.sigma_extra": float(truth.get("config", {}).get("sigma_inst_arcsec", 0.0))})
+                   # The injected measurement noise is the truth of the sampled sigma_meas, in every likelihood.
+                   "images.sigma_meas": float(truth.get("config", {}).get("measurement_noise_arcsec", 0.0))})
     # The injected correlated errors, in the solver's own definitions (gp_knee: sigma_alpha at the reference redshift,
     # knee wavelength, slope; image-plane GP: sigma_shared, ell); zero when not injected (reported, not scored).
     field, image_plane = truth["field"], truth["image_plane_error"]

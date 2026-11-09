@@ -239,7 +239,7 @@ def write_run_results(final_dir: str | Path, *, name: str | None = None) -> Path
     parameters = pd.read_csv(parameter_path).set_index('parameter') if parameter_path.exists() else pd.DataFrame()
     for suffix, parameter, decimals in [
         ('GPSigmaShared', 'images.sigma_shared', 3),
-        ('GPSigmaWhite', 'images.sigma_white', 3),
+        ('GPSigmaWhite', 'images.sigma_meas', 3),
         ('GPCorrelationLength', 'images.gp_ell', 1),
         ('GRFDeflectionAmplitude', 'images.gp_sigma_alpha', 2),
         ('GRFTurnoverScale', 'images.gp_knee', 1),

@@ -92,14 +92,14 @@ def parameter_counts(state) -> dict[str, int]:
 
 
 def data_fingerprint(state) -> str:
-    """A hash of the data a run fits: the trusted image positions, errors, families and redshifts, the uncertain image
+    """A hash of the data a run fits: the trusted image positions, families and redshifts, the uncertain image
     labels and the measured dispersions.  Runs with the same fingerprint fit the same data and can be compared."""
     images = state.images
     z = np.asarray(state.z_source_values, dtype=float)[np.asarray(images.z_index_per_image)]
     payload: dict[str, Any] = dict(
         labels=list(images.image_labels), family=np.asarray(images.family_index_per_image).tolist(),
         x=np.round(np.asarray(images.x_obs, dtype=float), 9).tolist(), y=np.round(np.asarray(images.y_obs, dtype=float), 9).tolist(),
-        sigma=np.round(np.asarray(images.sigma_inst_per_image, dtype=float), 9).tolist(), z=np.round(z, 9).tolist())
+        z=np.round(z, 9).tolist())
     if getattr(state, "slots", None) is not None:
         payload["uncertain"] = list(state.slots.labels)
     kinematics = getattr(state, "member_kinematics", None) or {}

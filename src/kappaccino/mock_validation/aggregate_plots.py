@@ -33,7 +33,7 @@ PAPER_PARAMETERS = (
     "bcg.log10_mass_msun", "bcg.x_centre", "bcg.y_centre", "bcg.v_disp", "bcg.core_radius_kpc", "bcg.cut_radius_kpc",
     "images.gp_sigma_alpha", "images.gp_knee", "images.gp_knee_gamma",
     "images.gp_sigma_alpha2", "images.gp_knee2", "images.gp_knee_beta_low",
-    "images.sigma_shared", "images.gp_ell", "images.sigma_white",
+    "images.sigma_shared", "images.gp_ell", "images.sigma_meas",
     "potfile.log10_mass_msun", "potfile.sigma", "potfile.cutkpc", "potfile.alpha_sigma", "potfile.beta_radius", "potfile.gamma_ml",
 )
 PARAMETER_LABELS = {
@@ -41,7 +41,7 @@ PARAMETER_LABELS = {
     "gp_knee_gamma": r"$\gamma_{\rm GRF}$", "gp_sigma_alpha2": r"$\sigma_{\alpha,2}$",
     "gp_knee2": r"$\ell_{\rm knee,2}$", "gp_knee_beta_low": r"$\beta_{\rm low}$",
     "sigma_shared": r"$\sigma_{\rm shared}$", "gp_ell": r"$\ell$",
-    "sigma_white": r"$\sigma_{\rm white}$",
+    "sigma_meas": r"$\sigma_{\rm meas}$",
     "log10_aperture_mass_msun": r"$\log_{10} M_{\rm ap}$",
     "log10_mass_msun": r"$\log_{10} M_{\rm tot}$", "x_centre": r"$x$", "y_centre": r"$y$", "v_disp": r"$\sigma$", "core_radius_kpc": r"$r_{\rm core}$",
     "cut_radius_kpc": r"$r_{\rm cut}$", "sigma": r"$\sigma^\star$", "cutkpc": r"$r_{\rm cut}^\star$", "alpha_sigma": r"$\alpha$",
@@ -50,7 +50,7 @@ PARAMETER_LABELS = {
 PARAMETER_UNITS = {"x_centre": "arcsec", "y_centre": "arcsec", "v_disp": "km/s", "core_radius_kpc": "kpc", "cut_radius_kpc": "kpc",
                    "sigma": "km/s", "cutkpc": "kpc", "log10_mass_msun": r"$M_\odot$"}
 PARAMETER_UNITS.update({field: "arcsec" for field in (
-    "gp_sigma_alpha", "gp_knee", "gp_sigma_alpha2", "gp_knee2", "sigma_shared", "gp_ell", "sigma_white")})
+    "gp_sigma_alpha", "gp_knee", "gp_sigma_alpha2", "gp_knee2", "sigma_shared", "gp_ell", "sigma_meas")})
 COMPONENT_NAMES = {"halo": "Halo", "bcg": "BCG", "potfile": "Members",
                    "grf": "GRF", "gp": "Image-plane GP", "images": "Independent scatter"}
 

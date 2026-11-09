@@ -11,20 +11,18 @@ from pathlib import Path
 cores = 4  # NUTS chains; one JAX CPU device per chain (same budget as run.xsh).
 seed_default = 12345
 output_dir_default = "validation_runs"
-# What the mock injects.  The astrometric noise is the truth of the white image-plane scatter (sigma_white under the GP
-# likelihoods, sigma_extra under --likelihood smoothed); the solver assumes only the 1 mas floor of run.xsh and infers the
-# rest.  The source-plane scatter is the truth of sigma_def (smoothed likelihood only; under the GP likelihoods it is
+# What the mock injects.  The measurement noise is the truth of the sampled independent scatter images.sigma_meas (every
+# likelihood); the solver assumes no fixed astrometric error.  The source-plane scatter is the truth of sigma_def (smoothed likelihood only; under the GP likelihoods it is
 # unmodelled scatter that the image-plane terms must absorb); the member scatters are the truths of the two population
 # scatters (0.10 is the median of the solver's dispersion-scatter prior).  Unmodelled members are subhalos present in the
 # truth but missing from the catalog, the misspecification experiment.
 # 0.015" per axis: the scatter between the CANUCS (JWST) and Bergamini et al. (HST) positions of M0416, 0.014-0.015" per
-# axis over 207 matched images, and the sigma_white the M0416 fit settles at (0.012-0.015").
-sigma_inst_arcsec = 0.015
+# axis over 207 matched images, and the measurement scatter the M0416 fit settles at (0.012-0.015").
+measurement_noise_arcsec = 0.015
 # The injected white scatter varies between realizations (2026-11-06): log-uniform over 5-20 mas, JWST centroids of
-# compact knots, inside the solver's sigma_white prior (run.xsh: median 0.015", log-width 0.5, cap 0.1"); None injects
-# sigma_inst_arcsec everywhere.
-sigma_inst_range_arcsec = (0.005, 0.02)
-SOLVER_SIGMA_INST_ARCSEC = 0.001   # as SIGMA_INST_ARCSEC in run.xsh
+# compact knots, inside the solver's sigma_meas prior (median 0.015", log-width 0.5, cap 0.1"); None injects
+# measurement_noise_arcsec everywhere.
+measurement_noise_range_arcsec = (0.005, 0.02)
 sigma_def_arcsec = 0.0           # astrometric error only (2026-11-05); 0.05 adds source-plane scatter the GP likelihoods do not model
 scatter_ln = 0.10
 cut_scatter_ln = 0.0
@@ -89,7 +87,7 @@ def _usage() -> str:
             "  --mode production: the solver uses the same priors as the real clusters (halo on the BCG light, Bergamini et al. 2019 member relation);\n"
             "  --mode idealized: priors centred on each realization's truth, which isolates the sampler and the likelihood\n"
             "  --likelihood: grf_gp (default; the mass-field GRF with a knee spectrum plus the image-plane GP, as run.xsh), gp_image_plane\n"
-            "          (the image-plane GP alone, per family) or smoothed (the per-image source-plane floors sigma_def, sigma_extra)\n"
+            "          (the image-plane GP alone, per family) or smoothed (the per-image source-plane floor sigma_def and sigma_meas)\n"
             "  --gp-blocks: grf_gp only: all (default: one shared field with translation, convergence and shear projected out, as\n"
             "          full run.xsh runs), system (an independent field per system, no projection; the --fast default) or family\n"
             "  --knotted-families N: primary families that are galaxies with knots (default 5 for production, 1 for smoke)\n"
@@ -182,7 +180,7 @@ def _likelihood(likelihood: str, gp_blocks: str) -> LikelihoodConfig:
     translation, convergence and shear projected out on all blocks (system blocks, the --fast default, have no projection)."""
     return LikelihoodConfig(
         likelihood_mode=LIKELIHOODS[likelihood][0], sigma_sel_prior=None, gp_kernel=LIKELIHOODS[likelihood][1],
-        gp_blocks=gp_blocks, sigma_inst_arcsec=SOLVER_SIGMA_INST_ARCSEC,
+        gp_blocks=gp_blocks,
         gp_knee_project_modes=(("translation", "convergence", "shear") if likelihood == "grf_gp" and gp_blocks == "all" else ()),
         gp_knee_gamma_prior=(2.0, 6.0), gp_knee_gamma=4.0,     # sampled: the injected field varies the slope
         gp_knee_scales_arcsec=(0.2, 100.0),
@@ -250,9 +248,8 @@ def build_config(preset: str, *, seed: int, realizations: int, campaign_name: st
         n_members=150 if production else 10,   # Hera has 332 members, AS1063 222; far-field approximation for the distant ones (library default)
         n_primary_families=15 if production else 4,
         n_member_families=5 if production else 1,   # galaxy-galaxy families are what constrain sigma* and r_cut*
-        sigma_inst_arcsec=sigma_inst_arcsec,
-        sigma_inst_range_arcsec=sigma_inst_range_arcsec,
-        solver_sigma_inst_arcsec=SOLVER_SIGMA_INST_ARCSEC,
+        measurement_noise_arcsec=measurement_noise_arcsec,
+        measurement_noise_range_arcsec=measurement_noise_range_arcsec,
         n_knotted_families=knotted_families[preset] if knotted is None else int(knotted),
         knots_per_family=knots_per_family,
         knot_offset_range_arcsec=knot_offset_range_arcsec,
@@ -321,7 +318,7 @@ def main(argv=None):
     if options["fast"]:
         _fast_mode_warning(config.solver)
     print(f"[config] preset={options['preset']} mode={options['mode']} fast={options['fast']} seed={options['seed']} realizations={options['realizations']} "
-          f"scatter_ln={scatter_ln} injected_noise_arcsec={sigma_inst_range_arcsec or sigma_inst_arcsec} knotted_families={config.mock.n_knotted_families} solver_sigma_inst_arcsec={SOLVER_SIGMA_INST_ARCSEC} sigma_def_arcsec={sigma_def_arcsec} members={config.mock.n_members} "
+          f"scatter_ln={scatter_ln} injected_noise_arcsec={measurement_noise_range_arcsec or measurement_noise_arcsec} knotted_families={config.mock.n_knotted_families} sigma_def_arcsec={sigma_def_arcsec} members={config.mock.n_members} "
           f"n_starts={config.solver.search.n_starts} warmup={config.solver.sampling.warmup} samples={config.solver.sampling.samples} "
           f"likelihood={options['likelihood']}"
           + {"grf_gp": f" (GRF of unmodelled mass with a knee spectrum + image-plane GP) gp_blocks={config.solver.likelihood.gp_blocks}",

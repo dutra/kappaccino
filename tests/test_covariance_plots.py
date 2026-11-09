@@ -19,7 +19,7 @@ def test_covariance_outputs_and_best_only(synthetic_config, tmp_path, selection)
     config = replace(synthetic_config,
                      image_diagnostics=replace(synthetic_config.image_diagnostics, posterior_diagnostic_draws=0))
     if not selection:
-        config = replace(config, likelihood=replace(config.likelihood, sigma_sel_prior=None, sigma_extra_prior=None))
+        config = replace(config, likelihood=replace(config.likelihood, sigma_sel_prior=None))
     state = build_state(config)
     evaluator = Evaluator(state)
     samples = np.asarray(state.initial_theta)[None] + np.random.default_rng(42).normal(0, .03, (40, state.n_parameters))

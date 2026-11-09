@@ -4,7 +4,7 @@ Lenstool rows are ``label x y a b theta z mag [reliability [mag_err]]`` after a 
 ``FAMILY.image``.  Each family becomes one system without knots (merging families into one system with knots is an
 edit made by hand afterwards).  ``a b theta`` are kept as the image shape; values shared by every row go to
 ``defaults``.  Optional per-image tables: the band magnitudes (columns image_label, mag_<band>, mag_err_<band>,
-detected_<band>, use_for_catalog_<band>) and the measured astrometry (image_label, sigma_inst_arcsec, parity).
+detected_<band>, use_for_catalog_<band>) and the measured parities (image_label, parity).
 
 Example:
     python scripts/convert_lenstool_catalog.py catalogs/m0416/bergamini2023/source/obs_arcs.cat \\
@@ -79,7 +79,7 @@ def convert(path: Path, *, reference: tuple[float, float] | None, bands: Path | 
         raise SystemExit(f"{path}: #REFERENCE {kind} is not supported (0 = RA/Dec, 3 = offsets).")
 
     extra = {label: {} for label in labels}
-    for side_path, columns in ((bands, None), (astrometry, ("sigma_inst_arcsec", "parity"))):
+    for side_path, columns in ((bands, None), (astrometry, ("parity",))):
         if side_path is None:
             continue
         side = pd.read_csv(side_path, dtype={"image_label": str})
@@ -97,8 +97,6 @@ def convert(path: Path, *, reference: tuple[float, float] | None, bands: Path | 
                             target.setdefault("bands", OrderedDict()).setdefault(band, {})[key] = value
                             break
             else:
-                if pd.notna(row.get("sigma_inst_arcsec")) and str(row.get("sigma_inst_arcsec")).strip():
-                    target["sigma"] = float(row["sigma_inst_arcsec"])
                 if pd.notna(row.get("parity")) and str(row.get("parity")).strip() and int(float(row["parity"])) != 0:
                     target["parity"] = int(float(row["parity"]))
 
@@ -145,7 +143,7 @@ def main(argv=None) -> int:
     parser.add_argument("output", type=Path, help="YAML catalog to write (.yaml)")
     parser.add_argument("--reference", type=float, nargs=2, metavar=("RA0", "DEC0"), help="model reference point, for #REFERENCE 3 input")
     parser.add_argument("--bands", type=Path, help="per-image band magnitudes CSV (default: <catalog stem>_band_magnitudes.csv if present)")
-    parser.add_argument("--astrometry", type=Path, help="per-image CSV with sigma_inst_arcsec and/or parity")
+    parser.add_argument("--astrometry", type=Path, help="per-image CSV with the parity of each image")
     parser.add_argument("--note", default="", help="extra line for the file header")
     args = parser.parse_args(argv)
     if args.output.suffix.lower() not in {".yaml", ".yml"}:

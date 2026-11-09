@@ -91,11 +91,8 @@ def _bcg_cut_prior(median_kpc: float, uniform_bounds: tuple[float, float], core:
     mean = 1.227 * float(median_kpc)
     return _cut_normal(mean, 0.714 * mean, core)
 
-# Catalog astrometric error of every observed image (2026-11-05): a 1 mas floor instead of the 10 mas catalog value, so
-# the white image-plane scatter (images.sigma_white, log-normal) is inferred rather than assumed.  The library requires a
-# positive value; 1 mas is below any of the catalogs' astrometry.  The "chi-square (catalog errors)" line of the run
-# summary uses it and is meaningless at this value.
-SIGMA_INST_ARCSEC = 0.001
+# No fixed astrometric error (2026-11-08): the independent measurement scatter of every image is the sampled
+# images.sigma_meas (log-normal prior in LikelihoodConfig), for every cluster.
 
 # HFF display settings for observed clusters.
 HFF_RGB_BANDS = ["F435W", "F606W", "F814W", "F105W", "F125W", "F140W", "F160W"]
@@ -123,9 +120,9 @@ def _usage() -> str:
         "  --imaging jwst: draw the cluster mass figure on the NIRCam mosaics (file suffix _jwst) instead of the HST ones\n"
         "  --halo-search, --member-search: optimizer of the large-scale stage and of the member stage of the init (default lbfgs)\n"
         "  --likelihood: grf_gp (default; a Gaussian random field of unmodelled mass on the lens potential with a knee convergence\n"
-        "          spectrum, sigma_alpha, lambda_t and the slope (uniform 2-6), plus the image-plane GP sigma_shared, ell, sigma_white), gp_image_plane\n"
+        "          spectrum, sigma_alpha, lambda_t and the slope (uniform 2-6), plus the image-plane GP sigma_shared, ell, and sigma_meas), gp_image_plane\n"
         "          (the image-plane GP alone, per family) or\n"
-        "          smoothed (the per-image source-plane floors sigma_def, sigma_extra)\n"
+        "          smoothed (the per-image source-plane floor sigma_def and sigma_meas)\n"
         "  --warm-start RUN_DIR: start the init search from a previous run's saved start (parameters matched by name; the\n"
         "          256-start search is skipped; NUTS still requires that run's init to have been robust)\n"
         "  --gp-blocks: grf_gp only: all (default for full runs: one shared mass field over every image, with the\n"
@@ -399,8 +396,6 @@ def _hff_clusters():
             "scaling": ScalingModelConfig.neutral(),
             "independent_member_halos": (),
             "softening_length_kpc": 0.0,
-            # Instrumental astrometric error per image (HST WFC3/IR F160W): the measurement floor; the gp likelihood samples sigma_white above it.
-            "sigma_inst_arcsec": SIGMA_INST_ARCSEC,
             # Classify at the current model (reclassified at the MAP) rather than at the prior's 0.975 quantile, which for a
             # log-uniform cut radius is 90 kpc (198 of 222 exact).  The library defaults (guard 3, inflation 3) give the
             # sampled r_cut* a factor of three before any far-field member reaches the guard.
@@ -567,7 +562,7 @@ def _m0416_bergamini2023_cluster():
     )
     assert [h.id for h in halos[-4:]] == ["gas1", "gas2", "gas3", "gas4"]
 
-    def entry(key, *, reference, image_catalog, member_catalog, sigma_inst_arcsec, halos=halos, kinematics_sources=(), fit_member_core=True,
+    def entry(key, *, reference, image_catalog, member_catalog, halos=halos, kinematics_sources=(), fit_member_core=True,
               independent_member_halos=(), scaling=None):
         return {
             "cluster_key": key,
@@ -582,7 +577,6 @@ def _m0416_bergamini2023_cluster():
             "scaling": scaling if scaling is not None else ScalingModelConfig.neutral(fit_corekpc=fit_member_core),
             "independent_member_halos": tuple(independent_member_halos),
             "softening_length_kpc": 0.0,
-            "sigma_inst_arcsec": sigma_inst_arcsec,
             "classification_prior_quantile": None,
             # Far-field error at 2 r_cut is < 1 uas (oct28a); the default inflation 3 keeps the headroom.
             "far_field_cut_radii": 2.0,
@@ -596,7 +590,7 @@ def _m0416_bergamini2023_cluster():
         # HST + MUSE: 237 spectroscopic images in 88 families (Bergamini et al. 2023), HST astrometry; images.yaml groups
         # them into 60 systems, 12 with knots (scripts/group_bergamini_knots.py).
         "M0416_BERGAMINI2023": entry("m0416_bergamini2023", reference=(64.0381417, -24.0674722), image_catalog=f"{catalog_dir}/images.yaml",
-                                     member_catalog=f"{catalog_dir}/members.cat", sigma_inst_arcsec=SIGMA_INST_ARCSEC),
+                                     member_catalog=f"{catalog_dir}/members.cat"),
         # JWST + HST: the CANUCS gold catalog, 303 spectroscopic images in 83 systems, 15 with knots, 111 knot-families
         # (Rihtarsic et al. 2025; scripts/convert_canucs_catalog.py), NIRCam positions in the frame of their lens model; their
         # member catalog (+ galaxy 8971, on the relation), their independent halos and reference centre.  The members follow the
@@ -612,7 +606,7 @@ def _m0416_bergamini2023_cluster():
         # The slope alpha gets a Faber-Jackson prior (L ~ sigma^4): 0.25 +- 0.05 on 0.1-0.4; with 0.25 +- 0.10 on 0-0.5 two of
         # four chains sat at 0.45-0.49 in that run.
         "M0416_CANUCS2025": entry("m0416_canucs2025", reference=(64.03821668520617, -24.06750122335985), image_catalog=f"{canucs_dir}/images.yaml",
-                                  member_catalog=f"{canucs_dir}/members.yaml", sigma_inst_arcsec=SIGMA_INST_ARCSEC, halos=canucs_halos,
+                                  member_catalog=f"{canucs_dir}/members.yaml", halos=canucs_halos,
                                   kinematics_sources=(), fit_member_core=True,
                                   independent_member_halos=tuple(
                                       IndependentMemberHaloConfig(population_id="potfile_1", catalog_id=bcg, id=f"bcg_{bcg}", priors={
@@ -691,8 +685,7 @@ def build_config(
             large_halos=cluster_config["halos"],
             independent_member_halos=cluster_config["independent_member_halos"],
             member_populations=(cluster_config["member_population"],),
-            image_constraints=ImageConstraintsConfig(catalog_path=cluster_config["image_catalog"],
-                                                     sigma_inst_arcsec=float(cluster_config.get("sigma_inst_arcsec", ImageConstraintsConfig.sigma_inst_arcsec))),
+            image_constraints=ImageConstraintsConfig(catalog_path=cluster_config["image_catalog"]),
         ),
         # No selection term: in the oct28a M0416 run sigma_sel and sigma_def fit equally well and lambda_sel stayed at its prior.
         # Covariance blocks: all by default for full runs, system for --fast (2026-11-03); one shared mass field over every image with the field-wide
@@ -897,7 +890,7 @@ def main(argv=None):
         _fast_mode_warning(config)
     print(f"[config] cluster={cluster} run_name={config.paths.run_name} output_dir={config.paths.output_dir} "
           f"stage={options['stage']} chains={runtime.chains} search={config.search.halo_method}+{config.search.member_method} "
-          f"n_starts={config.search.n_starts} fast={options['fast']} sigma_inst_arcsec={config.model.image_constraints.sigma_inst_arcsec} "
+          f"n_starts={config.search.n_starts} fast={options['fast']} "
           f"likelihood={options['likelihood']}"
           + {"grf_gp": f" (GRF of unmodelled mass with a knee spectrum + image-plane GP) gp_blocks={config.likelihood.gp_blocks}",
              "gp_image_plane": " (image-plane GP per family)", "smoothed": " (per-image source-plane floors)"}[options["likelihood"]])
@@ -915,4 +908,3 @@ if __name__ == "__main__":
     raise SystemExit(main())
 
 # Nov 8 8:35PM
-

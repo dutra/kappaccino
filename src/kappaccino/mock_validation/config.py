@@ -192,18 +192,14 @@ class MockConfig:
         Smallest number of images a source must have to be accepted; at least 2.  Default ``3``.
     max_source_attempts : int, optional
         Number of source draws tried per family before the family is dropped.  Default ``400``.
-    sigma_inst_arcsec : float, optional
-        Standard deviation in arcsec, per axis, of the Gaussian astrometric noise added to every image position in the
-        image plane; the truth of the solver's white scatter ``sigma_white`` (``sigma_extra`` under the smoothed
-        likelihood).  Written as the images' ``sigma_inst_arcsec``.  Ignored when ``sigma_inst_range_arcsec`` is set.
-        Default ``0.10``.
-    solver_sigma_inst_arcsec : float, optional
-        The solver's instrumental astrometric floor in arcsec (image constraints and likelihood), 1 mas by default so
-        the white scatter is inferred, not assumed.  Default ``0.001``.
-    sigma_inst_range_arcsec : tuple of float or None, optional
-        (min, max) in arcsec from which each realization draws its injected astrometric noise log-uniformly (from its
-        own random stream, leaving the other draws unchanged); the drawn value replaces ``sigma_inst_arcsec`` in that
-        realization's ``truth.json`` and is the truth of ``sigma_white``.  None keeps ``sigma_inst_arcsec``.
+    measurement_noise_arcsec : float, optional
+        Standard deviation in arcsec, per axis, of the Gaussian measurement noise added to every image position in the
+        image plane; the truth of the solver's sampled ``sigma_meas``.  Ignored when
+        ``measurement_noise_range_arcsec`` is set.  Default ``0.10``.
+    measurement_noise_range_arcsec : tuple of float or None, optional
+        (min, max) in arcsec from which each realization draws its injected measurement noise log-uniformly (from its
+        own random stream, leaving the other draws unchanged); the drawn value replaces ``measurement_noise_arcsec`` in
+        that realization's ``truth.json`` and is the truth of ``sigma_meas``.  None keeps ``measurement_noise_arcsec``.
         Default ``None``.
     sigma_def_arcsec : float, optional
         Injected source-plane scatter in arcsec, per axis: each image is re-solved as the exact image of its own source
@@ -327,10 +323,10 @@ class MockConfig:
     knot_magnitude_offset_range: tuple[float, float] = (0.5, 1.5)
     min_images_per_family: int = 3
     max_source_attempts: int = 400
-    # Noise.  solver_sigma_inst_arcsec is 1 mas as in run.xsh.
-    sigma_inst_arcsec: float = 0.10
-    solver_sigma_inst_arcsec: float = 0.001
-    sigma_inst_range_arcsec: tuple[float, float] | None = None
+    # Noise: the independent image-plane noise injected per axis (the truth of images.sigma_meas), drawn per realization
+    # log-uniform in measurement_noise_range_arcsec when that is given.
+    measurement_noise_arcsec: float = 0.10
+    measurement_noise_range_arcsec: tuple[float, float] | None = None
     sigma_def_arcsec: float = 0.0
     # Correlated errors (mock_validation.field), drawn per realization; None leaves each out.
     field_sigma_alpha_range_arcsec: tuple[float, float] | None = None
@@ -402,10 +398,10 @@ class MockConfig:
             raise ValueError("source_placement must be 'image_plane' or 'caustic'")
         if self.n_central_families < 0 or self.central_radius_arcsec <= 0:
             raise ValueError("n_central_families must be >= 0 and central_radius_arcsec > 0")
-        if self.sigma_inst_range_arcsec is not None:
-            lo, hi = self.sigma_inst_range_arcsec
+        if self.measurement_noise_range_arcsec is not None:
+            lo, hi = self.measurement_noise_range_arcsec
             if not (0.0 < lo <= hi and math.isfinite(hi)):
-                raise ValueError("mock.sigma_inst_range_arcsec must be an ordered positive range.")
+                raise ValueError("mock.measurement_noise_range_arcsec must be an ordered positive range.")
         if not 0 <= self.n_knotted_families <= self.n_primary_families:
             raise ValueError("mock.n_knotted_families must lie between 0 and n_primary_families.")
         lo, hi = self.knots_per_family
@@ -416,7 +412,7 @@ class MockConfig:
             raise ValueError("mock.knot_offset_range_arcsec must be an ordered positive range.")
         if self.n_member_families > 0 and self.n_members == 0:
             raise ValueError("mock.n_member_families needs members.")
-        for name in ("sigma_inst_arcsec", "solver_sigma_inst_arcsec", "caustic_window_arcsec", "caustic_grid_arcsec", "seed_grid_pixel_arcsec", "search_window_arcsec", "image_precision_arcsec"):
+        for name in ("measurement_noise_arcsec", "caustic_window_arcsec", "caustic_grid_arcsec", "seed_grid_pixel_arcsec", "search_window_arcsec", "image_precision_arcsec"):
             if not (math.isfinite(getattr(self, name)) and getattr(self, name) > 0.0):
                 raise ValueError(f"mock.{name} must be positive.")
         for name in ("sigma_def_arcsec", "sigma_scatter_ln", "cut_scatter_ln", "bcg_offset_arcsec"):
@@ -508,8 +504,7 @@ class MockValidationConfig:
         Number of realizations, seeds, resuming and verbosity.  Default ``MockValidationRuntimeConfig()``.
     solver : LensClusterSolverConfig, optional
         Template of every realization's solver configuration (likelihood, sampler, scaling relation, ...).  Per
-        realization its lens model is replaced by the one built from the truth, its likelihood's ``sigma_inst_arcsec``
-        by ``mock.solver_sigma_inst_arcsec``, its paths by ``seed_<seed>/solver/``, and its runtime ``seed``,
+        realization its lens model is replaced by the one built from the truth, its paths by ``seed_<seed>/solver/``, and its runtime ``seed``,
         ``resume`` and ``quiet`` by the realization's; in ``"idealized"`` mode its scaling-relation slope priors are
         recentred on the truth.  Default ``LensClusterSolverConfig()``.
     """
@@ -632,7 +627,7 @@ def mock_lens_model_config(config: MockConfig, truth: dict[str, Any], *, image_c
     return LensModelConfig(
         reference=ReferenceFrameConfig(reference=3, ra0_deg=float(config.reference_ra_deg), dec0_deg=float(config.reference_dec_deg)),
         cosmology=config.cosmology, large_halos=halos, member_populations=members,
-        image_constraints=ImageConstraintsConfig(catalog_path=image_catalog, sigma_inst_arcsec=float(config.solver_sigma_inst_arcsec)))
+        image_constraints=ImageConstraintsConfig(catalog_path=image_catalog))
 
 
 def solver_config_for_mock(config: MockValidationConfig, truth: dict[str, Any], *, image_catalog: Path, member_catalog: Path | None,
@@ -647,7 +642,6 @@ def solver_config_for_mock(config: MockValidationConfig, truth: dict[str, Any], 
         recentred = lambda prior, loc, scale: dist.TruncatedNormal(loc, scale, low=physical_bounds(prior)[0], high=physical_bounds(prior)[1])
         scaling = replace(scaling, alpha_sigma_prior=recentred(scaling.alpha_sigma_prior, float(relation["alpha_sigma"]), 0.03),
                           beta_radius_prior=recentred(scaling.beta_radius_prior, float(relation["beta_radius"]), 0.08))
-    likelihood = replace(template.likelihood, sigma_inst_arcsec=float(config.mock.solver_sigma_inst_arcsec))
-    return replace(template, model=model, scaling=scaling, likelihood=likelihood,
+    return replace(template, model=model, scaling=scaling,
                    paths=RunPathsConfig(output_dir=output_dir, run_name="solver"),
                    runtime=replace(template.runtime, seed=int(seed), resume=bool(config.runtime.resume), quiet=bool(config.runtime.quiet)))

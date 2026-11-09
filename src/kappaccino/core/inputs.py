@@ -154,8 +154,7 @@ def declared_model_inputs(model_config: LensModelConfig, scaling: Any = None) ->
     if model_config.image_constraints is None:
         raise ValueError("model.image_constraints is required.")
     constraints = model_config.image_constraints
-    images_df = load_image_catalog(constraints.catalog_path, sigma_inst_arcsec=constraints.sigma_inst_arcsec,
-                                   sigma_floor_arcsec=constraints.sigma_floor_arcsec)
+    images_df = load_image_catalog(constraints.catalog_path)
     if images_df.empty:
         raise ValueError("No multiple-image constraints found in the image catalog.")
     # images below the trusted prior leave their families (the slot mixture can take them as uncertain images)

@@ -151,7 +151,7 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
     if args.output.suffix.lower() != ".pdf":
         raise SystemExit("the output must be a .pdf")
-    table = load_image_catalog(args.catalog, sigma_inst_arcsec=1.0)
+    table = load_image_catalog(args.catalog)
     sets = candidate_sets(table, args.dz)
     paths = find_rgb_band_paths(args.image_dir, cluster=args.cluster, bands=args.bands, image_scale="auto")
     images = load_band_images(paths, args.bands)

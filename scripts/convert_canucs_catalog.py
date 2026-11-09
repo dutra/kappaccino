@@ -146,7 +146,7 @@ def main(argv=None) -> int:
               "and of members.cat.\n"
               + ("Image numbers reconciled across knots by position: " + "; ".join(changes) + "." if changes else "No image renumbering was needed."))
     write_image_catalog(args.output, systems, header=header)
-    loaded = load_image_catalog(args.output, sigma_inst_arcsec=1.0)
+    loaded = load_image_catalog(args.output)
     n_knotted = sum(1 for s in systems.values() if "knots" in s)
     print(f"wrote {args.output}: {len(systems)} systems ({n_knotted} with knots), {loaded.family_id.nunique()} knot-families, {len(loaded)} images")
     for line in changes:

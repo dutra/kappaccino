@@ -10,7 +10,7 @@ A system is one background source at one redshift.  Each image of it has either 
         z: 3.238
         images:
           a: {ra: 64.0490842, dec: -24.0628619}
-          b: {ra: 64.0469592, dec: -24.0607969, sigma: 0.03, parity: -1}
+          b: {ra: 64.0469592, dec: -24.0607969, parity: -1}
       "D1":
         z: 0.9397
         knots: [A, B]
@@ -26,14 +26,14 @@ A system is one background source at one redshift.  Each image of it has either 
 
 Fields.  System: ``z`` (required; 0 when it is unknown, as in Lenstool), ``z_err`` (its 1-sigma uncertainty),
 ``reliability`` (0 to 1, default 1), ``knots`` (list of names), ``images``, ``notes``.  Image: ``ra``/``dec`` (degrees,
-ICRS) or ``knots``; ``parity`` (-1, 0 or +1, 0 = unknown); ``sigma`` (astrometric error in arcsec, the default for its
-knots); ``prior`` (the default for its knots); ``notes``.  Position (an image without knots, or one knot):
-``ra``, ``dec``, ``sigma``, ``shape`` ([a, b, theta]: semi-axes, of which the ratio b/a is used, and position angle in
-degrees), ``mag``, ``mag_err`` (mag), ``bands`` ({band: [mag, err]} or {band: {mag, err, detected, use}}), ``prior`` (0 to 1,
-default 1: the prior probability that this image belongs to its system; see ``ImageConstraintsConfig.trusted_prior_min``),
-``notes``.  A knot may also be written ``[ra, dec]`` or ``[ra, dec, sigma]``.
-``defaults`` sets ``sigma``, ``shape``, ``mag``, ``mag_err``, ``reliability`` and ``prior`` for every entry that omits them;
-an astrometric error missing everywhere takes the configured ``sigma_inst_arcsec``.
+ICRS) or ``knots``; ``parity`` (-1, 0 or +1, 0 = unknown); ``prior`` (the default for its knots); ``notes``.  Position
+(an image without knots, or one knot): ``ra``, ``dec``, ``shape`` ([a, b, theta]: semi-axes, of which the ratio b/a is
+used, and position angle in degrees), ``mag``, ``mag_err`` (mag), ``bands`` ({band: [mag, err]} or {band: {mag, err,
+detected, use}}), ``prior`` (0 to 1, default 1: the prior probability that this image belongs to its system; see
+``ImageConstraintsConfig.trusted_prior_min``), ``notes``.  A knot may also be written ``[ra, dec]``.
+``defaults`` sets ``shape``, ``mag``, ``mag_err``, ``reliability`` and ``prior`` for every entry that omits them.
+Catalogs carry no positional errors: the solver samples one independent measurement scatter, ``images.sigma_meas``, for
+every image.
 
 The solver sees one family per (system, knot): its id is the system name followed by the knot name (D1 + A = D1A), and
 each image label is ``<family>.<image>``.  System and knot names use capital letters and digits, image names lowercase
@@ -56,14 +56,14 @@ FORMAT = "lenscluster-images/1"
 NAME_RE = re.compile(r"^[A-Z0-9]+$")
 IMAGE_RE = re.compile(r"^[a-z]+$")
 TOP_KEYS = {"format", "defaults", "systems", "notes"}
-DEFAULT_KEYS = {"sigma", "shape", "mag", "mag_err", "reliability", "prior"}
+DEFAULT_KEYS = {"shape", "mag", "mag_err", "reliability", "prior"}
 SYSTEM_KEYS = {"z", "z_err", "reliability", "knots", "images", "notes"}
-POSITION_KEYS = {"ra", "dec", "sigma", "shape", "mag", "mag_err", "bands", "prior", "notes"}
+POSITION_KEYS = {"ra", "dec", "shape", "mag", "mag_err", "bands", "prior", "notes"}
 IMAGE_KEYS = POSITION_KEYS | {"parity", "knots"}
-KNOTTED_IMAGE_KEYS = {"parity", "sigma", "prior", "knots", "notes"}
+KNOTTED_IMAGE_KEYS = {"parity", "prior", "knots", "notes"}
 BAND_KEYS = {"mag", "err", "detected", "use"}
 COLUMNS = ["image_label", "family_id", "image_id", "system_id", "knot_id", "ra", "dec", "catalog_z", "catalog_z_err", "family_reliability",
-           "association_prior", "sigma_inst_arcsec", "parity", "catalog_a", "catalog_b", "catalog_theta", "catalog_mag", "catalog_mag_err",
+           "association_prior", "parity", "catalog_a", "catalog_b", "catalog_theta", "catalog_mag", "catalog_mag_err",
            "catalog_source"]
 
 
@@ -71,12 +71,12 @@ class CatalogError(ValueError):
     """A malformed image or member catalog.
 
     Subclass of ``ValueError``. The message names the file and the entry (for
-    example ``images.yaml: systems.1.images.a.sigma must be positive``).
+    example ``images.yaml: systems.1.images.a.ra must be a number; got None``).
     """
 
 
 # ----------------------------------------------------------------------------- reading
-def load_image_catalog(path: str | Path, *, sigma_inst_arcsec: float, sigma_floor_arcsec: float = 0.0) -> pd.DataFrame:
+def load_image_catalog(path: str | Path) -> pd.DataFrame:
     """Read a YAML multiple-image catalog into one row per (system, knot, image).
 
     Parameters
@@ -84,12 +84,6 @@ def load_image_catalog(path: str | Path, *, sigma_inst_arcsec: float, sigma_floo
     path : str or pathlib.Path
         The catalog file; must end in ``.yaml`` or ``.yml`` and follow the
         format in the module docstring.
-    sigma_inst_arcsec : float
-        Astrometric error in arcsec of every entry that gives none, either itself
-        or through ``defaults``; must be finite and positive.
-    sigma_floor_arcsec : float, optional
-        Lower limit in arcsec applied to every astrometric error after reading;
-        must be finite and nonnegative. Default 0.0 (no floor).
 
     Returns
     -------
@@ -104,8 +98,6 @@ def load_image_catalog(path: str | Path, *, sigma_inst_arcsec: float, sigma_floo
         * ``ra``, ``dec`` (degrees, ICRS);
         * ``catalog_z`` (source redshift), ``catalog_z_err`` (NaN when not given);
           ``family_reliability`` (0 to 1); ``association_prior`` (0 to 1, the image's ``prior``);
-        * ``sigma_inst_arcsec`` (astrometric error, arcsec, at least
-          ``sigma_floor_arcsec``);
         * ``parity`` (int: -1, +1, or 0 when unknown);
         * ``catalog_a``, ``catalog_b``, ``catalog_theta`` (shape semi-axes and
           position angle in degrees; NaN without a shape);
@@ -120,8 +112,7 @@ def load_image_catalog(path: str | Path, *, sigma_inst_arcsec: float, sigma_floo
     Raises
     ------
     CatalogError
-        If the path is not a YAML file, the sigma arguments are invalid, the
-        YAML does not parse, or an entry breaks the format (unknown keys, bad
+        If the path is not a YAML file, the YAML does not parse, or an entry breaks the format (unknown keys, bad
         names or numbers, undeclared or unused knots, colliding family names).
     OSError
         If the file cannot be read.
@@ -130,17 +121,12 @@ def load_image_catalog(path: str | Path, *, sigma_inst_arcsec: float, sigma_floo
     if path.suffix.lower() not in {".yaml", ".yml"}:
         raise CatalogError(f"{path}: image catalogs are YAML files (.yaml); convert a Lenstool catalog with "
                            f"scripts/convert_lenstool_catalog.py")
-    if not (math.isfinite(float(sigma_inst_arcsec)) and float(sigma_inst_arcsec) > 0.0):
-        raise CatalogError("sigma_inst_arcsec must be finite and positive.")
-    if not (math.isfinite(float(sigma_floor_arcsec)) and float(sigma_floor_arcsec) >= 0.0):
-        raise CatalogError("sigma_floor_arcsec must be finite and nonnegative.")
     try:
         document = yaml.safe_load(path.read_text(encoding="utf-8"))
     except yaml.YAMLError as exc:
         raise CatalogError(f"{path}: not valid YAML: {exc}") from exc
-    rows = _flatten(document, str(path), float(sigma_inst_arcsec))
+    rows = _flatten(document, str(path))
     table = pd.DataFrame(rows)
-    table["sigma_inst_arcsec"] = np.maximum(table["sigma_inst_arcsec"].to_numpy(float), float(sigma_floor_arcsec))
     bands = [c for c in table.columns if c.startswith(("mag_", "detected_", "use_for_catalog_")) and c not in COLUMNS]
     table["catalog_source"] = str(path)
     return table.loc[:, COLUMNS + sorted(bands)].reset_index(drop=True)
@@ -210,12 +196,12 @@ def _bands(value: Any, where: str) -> dict[str, float | bool]:
     return out
 
 
-def _position(entry: Any, where: str, *, sigma: float, defaults: dict) -> dict[str, Any]:
+def _position(entry: Any, where: str, *, defaults: dict) -> dict[str, Any]:
     """RA, Dec and the measured quantities of one image or knot."""
     if isinstance(entry, list):
-        if len(entry) not in (2, 3):
-            raise CatalogError(f"{where} must be [ra, dec], [ra, dec, sigma] or a mapping.")
-        entry = dict(zip(("ra", "dec", "sigma"), entry))
+        if len(entry) != 2:
+            raise CatalogError(f"{where} must be [ra, dec] or a mapping.")
+        entry = dict(zip(("ra", "dec"), entry))
     entry = _require_mapping(entry, where)
     _check_keys(entry, POSITION_KEYS, where)
     for key in ("ra", "dec"):
@@ -223,7 +209,6 @@ def _position(entry: Any, where: str, *, sigma: float, defaults: dict) -> dict[s
             raise CatalogError(f"{where}: missing {key}.")
     shape = _shape(entry["shape"], f"{where}.shape") if "shape" in entry else defaults.get("shape", (np.nan, np.nan, np.nan))
     row = {"ra": _number(entry["ra"], f"{where}.ra"), "dec": _number(entry["dec"], f"{where}.dec", lower=-90.0, upper=90.0),
-           "sigma_inst_arcsec": _number(entry["sigma"], f"{where}.sigma", positive=True) if "sigma" in entry else sigma,
            "catalog_a": shape[0], "catalog_b": shape[1], "catalog_theta": shape[2],
            "catalog_mag": _number(entry["mag"], f"{where}.mag") if "mag" in entry else defaults.get("mag", np.nan),
            "catalog_mag_err": _number(entry["mag_err"], f"{where}.mag_err", positive=True) if "mag_err" in entry else defaults.get("mag_err", np.nan),
@@ -234,12 +219,10 @@ def _position(entry: Any, where: str, *, sigma: float, defaults: dict) -> dict[s
     return row
 
 
-def _defaults(value: Any, where: str, sigma_inst_arcsec: float) -> dict[str, Any]:
+def _defaults(value: Any, where: str) -> dict[str, Any]:
     entry = _require_mapping(value, where)
     _check_keys(entry, DEFAULT_KEYS, where)
-    out: dict[str, Any] = {"sigma": sigma_inst_arcsec}
-    if "sigma" in entry:
-        out["sigma"] = _number(entry["sigma"], f"{where}.sigma", positive=True)
+    out: dict[str, Any] = {}
     if "shape" in entry:
         out["shape"] = _shape(entry["shape"], f"{where}.shape")
     if "mag" in entry:
@@ -253,12 +236,12 @@ def _defaults(value: Any, where: str, sigma_inst_arcsec: float) -> dict[str, Any
     return out
 
 
-def _flatten(document: Any, source: str, sigma_inst_arcsec: float) -> list[dict[str, Any]]:
+def _flatten(document: Any, source: str) -> list[dict[str, Any]]:
     top = _require_mapping(document, f"{source}: the file")
     _check_keys(top, TOP_KEYS, f"{source}: the file")
     if top.get("format") != FORMAT:
         raise CatalogError(f"{source}: format must be {FORMAT!r}; got {top.get('format')!r}.")
-    defaults = _defaults(top.get("defaults", {}), _where(source, "defaults"), sigma_inst_arcsec)
+    defaults = _defaults(top.get("defaults", {}), _where(source, "defaults"))
     systems = _require_mapping(top.get("systems"), _where(source, "systems"))
     if not systems:
         raise CatalogError(f"{source}: no systems.")
@@ -290,7 +273,7 @@ def _flatten(document: Any, source: str, sigma_inst_arcsec: float) -> list[dict[
             image_id = _name(image_key, IMAGE_RE, "image", f"{here}.images")
             where = f"{here}.images.{image_id}"
             if isinstance(image, list):
-                image = dict(zip(("ra", "dec", "sigma"), image)) if len(image) in (2, 3) else image
+                image = dict(zip(("ra", "dec"), image)) if len(image) == 2 else image
             image = _require_mapping(image, where)
             parity = image.get("parity", 0)
             if parity not in (-1, 0, 1) or isinstance(parity, bool):
@@ -299,7 +282,6 @@ def _flatten(document: Any, source: str, sigma_inst_arcsec: float) -> list[dict[
                 if declared is None:
                     raise CatalogError(f"{where} lists knots but {here} declares none; add knots: [...] to the system.")
                 _check_keys(image, KNOTTED_IMAGE_KEYS, where)
-                sigma = _number(image["sigma"], f"{where}.sigma", positive=True) if "sigma" in image else defaults["sigma"]
                 knot_defaults = ({**defaults, "prior": _number(image["prior"], f"{where}.prior", lower=0.0, upper=1.0)}
                                  if "prior" in image else defaults)
                 knots = _require_mapping(image["knots"], f"{where}.knots")
@@ -310,12 +292,12 @@ def _flatten(document: Any, source: str, sigma_inst_arcsec: float) -> list[dict[
                     knot_id = _name(knot_key, NAME_RE, "knot", f"{where}.knots")
                     if knot_id not in declared:
                         raise CatalogError(f"{where}.knots.{knot_id} is not declared in {here}.knots {declared}.")
-                    entries.append((knot_id, _position(knot, f"{where}.knots.{knot_id}", sigma=sigma, defaults=knot_defaults)))
+                    entries.append((knot_id, _position(knot, f"{where}.knots.{knot_id}", defaults=knot_defaults)))
             else:
                 if declared is not None:
                     raise CatalogError(f"{where} gives one position but {here} declares knots; list them under knots:.")
                 _check_keys(image, IMAGE_KEYS - {"knots"}, where)
-                entries = [("", _position({k: v for k, v in image.items() if k != "parity"}, where, sigma=defaults["sigma"], defaults=defaults))]
+                entries = [("", _position({k: v for k, v in image.items() if k != "parity"}, where, defaults=defaults))]
             for knot_id, measured in entries:
                 seen_knots.add(knot_id)
                 family_id = system_id + knot_id
@@ -382,10 +364,10 @@ def write_image_catalog(path: str | Path, systems: dict[str, dict], *, defaults:
     systems : dict
         ``{system name: {"z": ..., "images": {...}, ...}}``, the structure of
         the ``systems`` mapping described in the module docstring (positions in
-        degrees, ``sigma`` in arcsec, magnitudes in mag).
+        degrees, magnitudes in mag).
     defaults : dict or None, optional
-        The ``defaults`` mapping (keys ``sigma``, ``shape``, ``mag``,
-        ``mag_err``, ``reliability``). None or empty (default) writes none.
+        The ``defaults`` mapping (keys ``shape``, ``mag``, ``mag_err``,
+        ``reliability``, ``prior``). None or empty (default) writes none.
     header : str or None, optional
         Text written as ``#`` comment lines at the top of the file. None
         (default) writes no header.
@@ -409,13 +391,13 @@ def write_image_catalog(path: str | Path, systems: dict[str, dict], *, defaults:
     text = yaml.dump(document, Dumper=_Dumper, sort_keys=False, width=200, allow_unicode=True, default_flow_style=False)
     comment = "".join(f"# {line}".rstrip() + "\n" for line in (header or "").splitlines())
     path.write_text(comment + text, encoding="utf-8")
-    load_image_catalog(path, sigma_inst_arcsec=1.0)
+    load_image_catalog(path)
     return path
 
 
 def systems_from_offsets(rows, reference: tuple[float, float]) -> dict[str, dict]:
     """Systems without knots from rows of (system, image, x_arcsec, y_arcsec, z, extra) with offsets from ``reference``
-    (ra0, dec0); ``extra`` is a dict of image fields (sigma, mag, mag_err, parity, ...).  For mocks and tests."""
+    (ra0, dec0); ``extra`` is a dict of image fields (mag, mag_err, parity, ...).  For mocks and tests."""
     from .sky import offsets_to_radec
     systems: dict[str, dict] = {}
     for system, image, x, y, z, extra in rows:

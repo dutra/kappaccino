@@ -9,7 +9,7 @@ convergence power spectrum P_kappa(k) = P_0 / (1 + (k / k_t)^gamma) between fixe
 displacement with an isotropic Gaussian kernel; e_i the independent position error.  Covariance of the stacked F of a
 block (all its knots):
 
-    C = W K_alpha W + B [sigma_sh^2 K_img + diag(sigma_inst,i^2 + sigma_w^2)] B^T + sigma_fl^2 I
+    C = W K_alpha W + B [sigma_sh^2 K_img + sigma_meas^2 I] B^T + sigma_fl^2 I
 
     K_alpha,ab(d) = sigma_alpha^2 [c_T(r) delta_ab + (c_L(r) - c_T(r)) n_a n_b],   r = |d|,  n = d / r,
 
@@ -276,7 +276,7 @@ def block_layout(images, blocks: str, weights, tables: dict | None = None) -> di
     (S, K) the family index of each knot (-1 at pads) and knot_mask (S, K); J (S, 2M, 2K) the source indicator;
     block_of_family (F,) and slot_of_family... are not needed (sources are per family).  Pair geometry: separations
     (S, M, M, 2), r (S, M, M), nn (S, M, M, 2, 2) = n n^T (zero at r = 0), pair_mask (S, M, M), and the table positions
-    r_index, r_fraction when ``tables`` is given.  weights (S, M) are the redshift weights, sigma_inst2 (S, M)."""
+    r_index, r_fraction when ``tables`` is given.  weights (S, M) are the redshift weights."""
     family = np.asarray(images.family_index_per_image, dtype=int)
     if blocks == "family":
         group = family
@@ -329,7 +329,6 @@ def block_layout(images, blocks: str, weights, tables: dict | None = None) -> di
                real_block=jnp.asarray(real_block), real_knot=jnp.asarray(real_knot), real_family=jnp.asarray(knot_family[real_block, real_knot]),
                separations=jnp.asarray(separations), squared_separations=jnp.asarray(r ** 2), r=jnp.asarray(r), nn=jnp.asarray(nn),
                pair_mask=jnp.asarray(pair_mask), weights=jnp.asarray(np.where(mask, w[slots], 0.0)),
-               sigma_inst2=jnp.asarray(np.where(mask, np.asarray(images.sigma_inst_per_image, dtype=float)[slots] ** 2, 0.0)),
                xy=jnp.asarray(xy), weights_per_image=jnp.asarray(w))
     if tables is not None:
         out["r_index"], out["r_fraction"] = r_grid_position(tables, r)
@@ -337,7 +336,7 @@ def block_layout(images, blocks: str, weights, tables: dict | None = None) -> di
     return out
 
 
-_PER_BLOCK_IMAGE_KEYS = ("slots", "mask", "knot_of_slot", "weights", "sigma_inst2", "xy")
+_PER_BLOCK_IMAGE_KEYS = ("slots", "mask", "knot_of_slot", "weights", "xy")
 _PER_BLOCK_PAIR_KEYS = ("separations", "squared_separations", "r", "nn", "pair_mask", "r_index", "r_fraction", "r_local")
 
 

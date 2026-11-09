@@ -80,16 +80,15 @@ System
   names), `images`, `notes`.
 
 Image
-: `ra`/`dec` (degrees) or `knots`; `parity` (-1, 0 or +1; 0 means unknown); `sigma` (astrometric error in arcsec, also
-  the default for its knots); `notes`.
+: `ra`/`dec` (degrees) or `knots`; `parity` (-1, 0 or +1; 0 means unknown); `notes`.
 
 Position (an image without knots, or one knot)
-: `ra`, `dec`, `sigma`, `shape` (`[a, b, theta]`), `mag`, `mag_err`, `bands` (`{band: [mag, err]}` or
+: `ra`, `dec`, `shape` (`[a, b, theta]`), `mag`, `mag_err`, `bands` (`{band: [mag, err]}` or
   `{band: {mag, err, detected, use}}`), `prior` (0 to 1, default 1: the prior that the image belongs to its system;
-  a knotted image's `prior` is the default for its knots), `notes`. A knot may also be written `[ra, dec]` or `[ra, dec, sigma]`.
+  a knotted image's `prior` is the default for its knots), `notes`. A knot may also be written `[ra, dec]`.
 
-`defaults` sets `sigma`, `shape`, `mag`, `mag_err`, `reliability` and `prior` for every entry that omits them. An astrometric
-error given nowhere takes `ImageConstraintsConfig.sigma_inst_arcsec`.
+`defaults` sets `shape`, `mag`, `mag_err`, `reliability` and `prior` for every entry that omits them. Catalogs carry no
+positional errors: the solver samples one independent measurement scatter, $\sigma_{\mathrm{meas}}$, for every image.
 
 The solver sees one **family** per (system, knot). Its id is the system name followed by the knot name (`D1` + `A` =
 `D1A`), and each image label is `<family>.<image>`, for example `D1A.b`.

@@ -446,12 +446,12 @@ $d$
   $\sigma_{\mathrm{shared}}$ (for example, measurement systematics shared by nearby images).
 
 $e_i$
-: The independent position error, $\sigma_{\mathrm{inst},i}^2 + \sigma_{\mathrm{white}}^2$.
+: The independent measurement error $\sigma_{\mathrm{meas}}$, sampled and the same for every image.
 
 The covariance of the stacked residuals of a block of images is
 
 $$
-C = W K_\alpha W + B\,[\sigma_{\mathrm{sh}}^2 K_{\mathrm{img}} + \mathrm{diag}(\sigma_{\mathrm{inst},i}^2 + \sigma_w^2)]\,B^T + \sigma_{\mathrm{fl}}^2 I,
+C = W K_\alpha W + B\,[\sigma_{\mathrm{sh}}^2 K_{\mathrm{img}} + \sigma_{\mathrm{meas}}^2 I]\,B^T + \sigma_{\mathrm{fl}}^2 I,
 $$
 
 where $K_\alpha$ holds the longitudinal and transverse correlations of the deflection field (Hankel transforms of
@@ -477,7 +477,7 @@ The init search runs on system blocks either way; the chain-start step and NUTS 
 #### Hyperparameters
 
 The sampled hyperparameters are $\sigma_\alpha$, the knee $\lambda_t$, the image-plane $\ell$,
-$\sigma_{\mathrm{shared}}$ and $\sigma_{\mathrm{white}}$; the slope $\gamma$ is fixed at 4 unless
+$\sigma_{\mathrm{shared}}$ and $\sigma_{\mathrm{meas}}$; the slope $\gamma$ is fixed at 4 unless
 `gp_knee_gamma_prior` (a `dist.Uniform` or a two-sided `dist.TruncatedNormal`, whose bounds are also those of the
 tables) frees it. The production fits use these settings:
 
@@ -515,7 +515,7 @@ The image-plane GP alone, per family, with no source-plane floor. Within a famil
 correlated:
 
 $$
-S = \sigma_{\mathrm{shared}}^2 (K \otimes I) + (\sigma_{\mathrm{inst}}^2 + \sigma_{\mathrm{white}}^2) I, \qquad
+S = \sigma_{\mathrm{shared}}^2 (K \otimes I) + \sigma_{\mathrm{meas}}^2 I, \qquad
 K_{ij} = \exp\!\left(-\frac{|\theta_i - \theta_j|^2}{2\ell^2}\right),
 $$
 
@@ -523,7 +523,7 @@ and the stacked source-plane residuals have covariance $C = B S B^T + \sigma_{\m
 $B = \mathrm{blockdiag}(A_i)$. One Cholesky factor of $C$ per family gives the Gaussian term and the conditional
 source position.
 
-The sampled scales are $\sigma_{\mathrm{shared}}$ (log-normal, median 0.15", truncated at 1"), $\sigma_{\mathrm{white}}$
+The sampled scales are $\sigma_{\mathrm{shared}}$ (log-normal, median 0.15", truncated at 1"), $\sigma_{\mathrm{meas}}$
 and $\ell$ (`gp_correlation_length_prior`, log-normal, median 7", truncated at 30"). Set
 `gp_correlation_length_prior=None` to fix $\ell$ at `gp_correlation_length_arcsec`.
 
@@ -536,18 +536,17 @@ C_i = \sigma_{\mathrm{meas}}^2 A_i A_i^T + \sigma_{\mathrm{def}}^2 I + \sigma_{\
 R_i = (I + A_i A_i^T / \lambda_{\mathrm{sel}}^2)^{-1},
 $$
 
-the propagated measurement error with $\sigma_{\mathrm{meas}}^2 = \sigma_{\mathrm{inst}}^2 + \sigma_{\mathrm{extra}}^2$,
-an isotropic residual-deflection scatter $\sigma_{\mathrm{def}}$, and a feature-selection term with stretching weight
-$R_i$. $\sigma_{\mathrm{extra}}$, $\sigma_{\mathrm{def}}$, $\sigma_{\mathrm{sel}}$ and $\lambda_{\mathrm{sel}}$ are
-sampled. Set `sigma_sel_prior=None` to drop the selection term (as the production fits do) or `sigma_extra_prior=None` to drop
-$\sigma_{\mathrm{extra}}$.
+the propagated measurement error $\sigma_{\mathrm{meas}}$, an isotropic residual-deflection scatter
+$\sigma_{\mathrm{def}}$, and a feature-selection term with stretching weight $R_i$. $\sigma_{\mathrm{meas}}$,
+$\sigma_{\mathrm{def}}$, $\sigma_{\mathrm{sel}}$ and $\lambda_{\mathrm{sel}}$ are sampled. Set `sigma_sel_prior=None`
+to drop the selection term (as the production fits do).
 
-### Astrometric errors
+### Measurement errors
 
-$\sigma_{\mathrm{inst}}$ comes from each image's `sigma` in the catalog, otherwise from
-`ImageConstraintsConfig.sigma_inst_arcsec`. `LikelihoodConfig.sigma_inst_arcsec` overrides it for every image.
-The production fits set `ImageConstraintsConfig(sigma_inst_arcsec=0.001)`, a 1 mas floor, so that the white scatter $\sigma_{\mathrm{white}}$ is inferred rather than assumed; the
-"chi-square (catalog errors)" line of the run summary is not meaningful at that value.
+There is no fixed astrometric error. $\sigma_{\mathrm{meas}}$ is the only measurement error, the same for every image
+and always sampled: `sigma_meas_prior` (`smoothed` and source-plane modes), `gp_sigma_meas_prior`
+(`gp_kernel="image_plane"`) or `gp_knee_sigma_meas_prior` (knee kernel). Catalogs carry no per-image errors, and
+uncertain images take the same error model as the trusted ones.
 
 ## Uncertain membership
 

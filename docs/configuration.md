@@ -306,7 +306,7 @@ What it reads:
 | `limit` | the halo's `priors` |
 | `potfile` (`mag0`, `core`/`corekpc`, `sigma`, `cut`/`cutkpc`, `type`, `z_lens`) | `MemberPopulationConfig` |
 | `potfile` `vdslope`, `slope` | relation exponents $\alpha = 1/\mathrm{vdslope}$, $\beta = 2/\mathrm{slope}$ |
-| `image` `sigposArcsec` | `ImageConstraintsConfig.sigma_inst_arcsec` |
+| `image` `sigposArcsec` | not read: the measurement error of every image is the sampled $\sigma_\mathrm{meas}$ |
 
 Limits become numpyro priors by their Lenstool flag (0 fixed, 1 uniform `lower upper step`, 3 normal `mean std`,
 9 truncated normal `mean std lower [upper]`), in the coordinate the solver samples:

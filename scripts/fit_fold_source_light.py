@@ -330,9 +330,7 @@ def main():
     from kappaccino.io.image_catalog import load_image_catalog
     from kappaccino.io.hdf5 import load_arrays, save_arrays
     config, state, evaluator, posterior, _ = load_run(args.run_directory)
-    catalog = load_image_catalog(config.model.image_constraints.catalog_path,
-        sigma_inst_arcsec=config.model.image_constraints.sigma_inst_arcsec,
-        sigma_floor_arcsec=config.model.image_constraints.sigma_floor_arcsec)
+    catalog = load_image_catalog(config.model.image_constraints.catalog_path)
     rows = catalog[catalog.system_id.eq(args.system) & catalog.image_id.isin(args.images)]
     rows = rows[rows.image_label.isin(list(map(str, state.images.image_labels)))]
     if rows.empty or not set(args.images).issubset(set(rows.image_id)):

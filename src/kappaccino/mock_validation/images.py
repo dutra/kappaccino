@@ -288,8 +288,8 @@ def _observe(lens: TruthLens, source, x: np.ndarray, y: np.ndarray, config: Mock
                          iterations=config.image_refine_iterations, precision=config.image_precision_arcsec, keep_order=True)
         moved = np.isfinite(xs) & np.isfinite(ys)
         x_obs, y_obs = np.where(moved, xs, x), np.where(moved, ys, y)
-    x_obs = x_obs + rng.normal(0.0, config.sigma_inst_arcsec, x.size)
-    y_obs = y_obs + rng.normal(0.0, config.sigma_inst_arcsec, y.size)
+    x_obs = x_obs + rng.normal(0.0, config.measurement_noise_arcsec, x.size)
+    y_obs = y_obs + rng.normal(0.0, config.measurement_noise_arcsec, y.size)
     _, _, det_obs = jacobian(lens, x_obs, y_obs)
     if source_magnitude is None:
         source_magnitude = float(rng.uniform(*config.source_magnitude_range))
@@ -414,7 +414,7 @@ def generate_images(truth: MockTruth, config: MockConfig, rng: np.random.Generat
                              "x_obs_arcsec": float(obs["x_obs"][k]), "y_obs_arcsec": float(obs["y_obs"][k]),
                              "magnification_true": float(obs["mu_true"][k]), "magnification_true_at_obs": float(1.0 / obs["det_obs"][k]),
                              "image_magnitude_obs": float(obs["magnitude"][k]), "image_magnitude_err": float(config.image_magnitude_sigma),
-                             "sigma_inst_arcsec": float(config.sigma_inst_arcsec),
+                             "measurement_noise_arcsec": float(config.measurement_noise_arcsec),
                              "x_field_deflection_arcsec": float(obs["field_alpha"][k, 0]), "y_field_deflection_arcsec": float(obs["field_alpha"][k, 1])})
     if not sources:
         raise RuntimeError("the mock produced no multiply imaged family")

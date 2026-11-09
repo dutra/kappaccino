@@ -7,7 +7,7 @@
     knee_foreground   D: the knee plus a second knee field with redshift weight 1 (mass well in front of the cluster)
     fixed             the knee and the image-plane GP fixed at what we want them to model: unmodelled isothermal subhalos
                       truncated at --fixed-rt-kpc (gamma 2, lambda_t = 6.38 r_t, the knee of a population of truncated
-                      isothermal halos), and measurement errors correlated over --fixed-ell arcsec (sigma_shared <= 0.1")
+                      isothermal halos), and measurement errors correlated over --fixed-ell arcsec (sigma_gp <= 0.1")
 
 The knee is fitted first, from the saved init start of RUN_DIR (its member classes and dropped members); the other
 variants start from the knee's optimum, the parameters they add at the values that make them the knee (second field
@@ -16,7 +16,7 @@ init's chain-start step in rounds of --round-iter iterations (stop: a gain below
 restarted from its best point while a round gains more than --restart-gain, up to --max-iter iterations in all.
 
 Writes <out>/<variant>.json and <out>/<variant>_theta.h5 and the table <out>/summary.txt.  With --tight-gp the
-image-plane GP is held to measurement error (sigma_shared <= 0.1", ell <= 2") in every variant.  Run one variant at a time:
+image-plane GP is held to measurement error (sigma_gp <= 0.1", ell <= 2") in every variant.  Run one variant at a time:
 
     python scripts/compare_grf_spectra.py RUN_DIR --variants knee
     python scripts/compare_grf_spectra.py RUN_DIR --variants two_knee
@@ -38,9 +38,9 @@ sys.path.insert(0, str(ROOT / "src"))
 
 VARIANTS = ("knee", "two_knee", "broken_power_law", "power_law", "knee_foreground", "fixed")
 NESTED = {"two_knee", "broken_power_law", "knee_foreground"}               # contain the knee
-GRF_SITES = ("images.gp_sigma_alpha", "images.gp_knee", "images.gp_knee_gamma", "images.gp_sigma_alpha2", "images.gp_knee2",
-             "images.gp_knee_beta_low", "images.sigma_shared", "images.gp_ell", "images.sigma_meas", "shear.gamma1", "shear.gamma2")
-NULL_START = {"images.gp_sigma_alpha2": math.log(1.0e-3), "images.gp_knee_beta_low": 0.0}      # the added parameters' null values
+GRF_SITES = ("images.sigma_grf", "images.gp_knee", "images.gp_knee_gamma", "images.sigma_grf2", "images.gp_knee2",
+             "images.gp_knee_beta_low", "images.sigma_gp", "images.gp_ell", "images.sigma_meas", "shear.gamma1", "shear.gamma2")
+NULL_START = {"images.sigma_grf2": math.log(1.0e-3), "images.gp_knee_beta_low": 0.0}      # the added parameters' null values
 ISOTHERMAL_KNEE_PER_RT = 6.38          # lambda_t / r_t of the gamma = 2 knee fitted to (1 - exp(-k r_t))^2 / k^2
 
 
@@ -52,7 +52,7 @@ def variant_likelihood(likelihood, variant: str, tight_gp: bool, *, fixed_knee: 
 
     def LN(median, log_sigma, upper, lower=ERROR_SCALE_FLOOR_ARCSEC):
         return truncated_lognormal(median, log_sigma, low=lower, high=upper)
-    tight = dict(gp_knee_sigma_shared_prior=LN(median=0.03, log_sigma=0.7, upper=0.1), gp_knee_sigma_shared_start_arcsec=0.03,
+    tight = dict(gp_knee_sigma_gp_prior=LN(median=0.03, log_sigma=0.7, upper=0.1), gp_knee_sigma_gp_start_arcsec=0.03,
                  gp_knee_ell_prior=LN(median=1.0, log_sigma=0.5, upper=2.0), gp_knee_ell_start_arcsec=1.0)
     common = dict(gp_blocks="all", gp_knee_scales_arcsec=(0.2, 100.0), gp_knee_spectrum=variant, gp_knee_gamma=4.0,
                   gp_knee_gamma_prior=None, gp_knee_prior=LN(median=20.0, log_sigma=1.0, upper=80.0), gp_knee_start_arcsec=20.0,
@@ -61,11 +61,11 @@ def variant_likelihood(likelihood, variant: str, tight_gp: bool, *, fixed_knee: 
         "knee": {},
         "two_knee": dict(gp_knee_prior=LN(median=30.0, log_sigma=0.7, upper=80.0, lower=10.0), gp_knee_start_arcsec=30.0,
                          gp_knee2_prior=LN(median=3.0, log_sigma=0.5, upper=10.0), gp_knee2_start_arcsec=3.0,
-                         gp_knee2_sigma_alpha_prior=LN(median=0.05, log_sigma=0.7, upper=0.3), gp_knee2_sigma_alpha_start_arcsec=0.05),
+                         gp_knee2_sigma_grf_prior=LN(median=0.05, log_sigma=0.7, upper=0.3), gp_knee2_sigma_grf_start_arcsec=0.05),
         "broken_power_law": dict(gp_knee_beta_low_prior=dist.Uniform(-1.0, 3.5), gp_knee_beta_low_start=0.0),
         "power_law": dict(gp_knee_gamma_prior=dist.Uniform(0.5, 6.0), gp_knee_gamma=3.0),
         "knee_foreground": dict(gp_knee2_prior=LN(median=20.0, log_sigma=1.0, upper=80.0), gp_knee2_start_arcsec=20.0,
-                                gp_knee2_sigma_alpha_prior=LN(median=0.05, log_sigma=0.7, upper=0.3), gp_knee2_sigma_alpha_start_arcsec=0.05),
+                                gp_knee2_sigma_grf_prior=LN(median=0.05, log_sigma=0.7, upper=0.3), gp_knee2_sigma_grf_start_arcsec=0.05),
         "fixed": dict(gp_knee_spectrum="knee", gp_knee_gamma=2.0, gp_knee_fixed_arcsec=float(fixed_knee), gp_knee_ell_fixed_arcsec=float(fixed_ell),
                       **tight),
     }[variant]
@@ -210,7 +210,7 @@ def main() -> None:
     parser.add_argument("--tolerance", type=float, default=0.01, help="a round stops when it gains less than this over 50 iterations")
     parser.add_argument("--restart-gain", type=float, default=0.05, help="restart while a round gains more than this")
     parser.add_argument("--max-iter", type=int, default=20000)
-    parser.add_argument("--tight-gp", action="store_true", help="hold the image-plane GP to measurement error (sigma_shared <= 0.1\", ell <= 2\")")
+    parser.add_argument("--tight-gp", action="store_true", help="hold the image-plane GP to measurement error (sigma_gp <= 0.1\", ell <= 2\")")
     parser.add_argument("--fixed-rt-kpc", type=float, default=5.0, help="'fixed': truncation radius of the unmodelled subhalos (kpc)")
     parser.add_argument("--fixed-ell", type=float, default=1.0, help="'fixed': correlation length of the measurement errors (arcsec)")
     parser.add_argument("--drop-halos", nargs="*", default=[], help="halo ids to leave out of the model")

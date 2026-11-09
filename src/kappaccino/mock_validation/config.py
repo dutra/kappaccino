@@ -205,7 +205,7 @@ class MockConfig:
         Injected source-plane scatter in arcsec, per axis: each image is re-solved as the exact image of its own source
         position displaced by a Gaussian of this width (an image that no longer exists keeps its true position), before
         the astrometric noise.  The truth of ``images.sigma_def``.  ``0`` for none.  Default ``0.0``.
-    field_sigma_alpha_range_arcsec : tuple of float or None, optional
+    field_sigma_grf_range_arcsec : tuple of float or None, optional
         Correlated error from unmodelled mass: (min, max) in arcsec of the rms deflection per component of an injected
         mass field for a source at ``field_reference_redshift``, drawn log-uniformly per realization (from its own random
         stream).  The field is a sum of ``field_n_modes`` plane waves with the solver's knee convergence spectrum
@@ -223,12 +223,12 @@ class MockConfig:
     field_n_modes : int, optional
         Number of plane waves in the mass field; at least 100.  Default ``4000``.
     field_reference_redshift : float, optional
-        Source redshift (dimensionless) at which the mass field's rms deflection is ``sigma_alpha``.  Default ``2.0``.
+        Source redshift (dimensionless) at which the mass field's rms deflection is ``sigma_grf``.  Default ``2.0``.
     image_plane_sigma_range_arcsec : tuple of float or None, optional
         Correlated image-plane error: (min, max) in arcsec of the amplitude :math:`\\sigma` of a displacement drawn
         jointly over all images, per axis, with covariance :math:`\\sigma^2 \\exp(-r^2 / 2 \\ell^2)` (the solver's
         Gaussian image-plane kernel) at the true positions and added to the observed ones; drawn log-uniformly per
-        realization.  The truth of ``images.sigma_shared``.  None injects no displacement.  Default ``None``.
+        realization.  The truth of ``images.sigma_gp``.  None injects no displacement.  Default ``None``.
     image_plane_ell_range_arcsec : tuple of float, optional
         (min, max) correlation length :math:`\\ell` in arcsec of the image-plane displacement, drawn log-uniformly.
         Default ``(0.5, 2.0)``.
@@ -329,7 +329,7 @@ class MockConfig:
     measurement_noise_range_arcsec: tuple[float, float] | None = None
     sigma_def_arcsec: float = 0.0
     # Correlated errors (mock_validation.field), drawn per realization; None leaves each out.
-    field_sigma_alpha_range_arcsec: tuple[float, float] | None = None
+    field_sigma_grf_range_arcsec: tuple[float, float] | None = None
     field_knee_range_arcsec: tuple[float, float] = (3.0, 12.0)
     field_gamma_range: tuple[float, float] = (3.0, 5.0)
     field_scales_arcsec: tuple[float, float] = (0.2, 100.0)
@@ -420,7 +420,7 @@ class MockConfig:
                 raise ValueError(f"mock.{name} must be nonnegative.")
         if not (self.bcg_offset_width_arcsec > 0.0 and 0.0 < self.bcg_offset_max_arcsec and self.bcg_offset_arcsec <= self.bcg_offset_max_arcsec):
             raise ValueError("mock.bcg_offset_width_arcsec must be positive and bcg_offset_arcsec at most bcg_offset_max_arcsec.")
-        for name in ("field_sigma_alpha_range_arcsec", "field_knee_range_arcsec", "field_gamma_range", "field_scales_arcsec",
+        for name in ("field_sigma_grf_range_arcsec", "field_knee_range_arcsec", "field_gamma_range", "field_scales_arcsec",
                      "image_plane_sigma_range_arcsec", "image_plane_ell_range_arcsec"):
             bounds = getattr(self, name)
             if bounds is not None and not (len(bounds) == 2 and 0.0 < float(bounds[0]) <= float(bounds[1]) and math.isfinite(float(bounds[1]))):

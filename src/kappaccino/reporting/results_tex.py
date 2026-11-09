@@ -168,8 +168,8 @@ def write_run_results(final_dir: str | Path, *, name: str | None = None) -> Path
     ``RecoveredPercent``; ``PosteriorMedianRMS`` (arcsec, median of per-draw
     RMS); position coverage (``PositionCoverageXPercent``,
     ``PositionCoverageYPercent`` and their counts); likelihood-noise posterior
-    medians and intervals (``GPSigmaShared``, ``GPSigmaWhite``,
-    ``GPCorrelationLength``, ``GRFDeflectionAmplitude``, ``GRFTurnoverScale``;
+    medians and intervals (``SigmaGP``, ``SigmaMeas``,
+    ``GPCorrelationLength``, ``SigmaGRF``, ``GRFTurnoverScale``;
     angular scales in arcsec); convergence (``MaxRhat``, ``MinESS``); run time
     (``Runtime``, ``SamplingRuntime`` as h/min/s, plus ``...Seconds`` and
     ``...Hours``); and ``ApertureMassRatio...`` macros when the aperture
@@ -238,10 +238,10 @@ def write_run_results(final_dir: str | Path, *, name: str | None = None) -> Path
     parameter_path = final / 'tables/posterior_summary.csv'
     parameters = pd.read_csv(parameter_path).set_index('parameter') if parameter_path.exists() else pd.DataFrame()
     for suffix, parameter, decimals in [
-        ('GPSigmaShared', 'images.sigma_shared', 3),
-        ('GPSigmaWhite', 'images.sigma_meas', 3),
+        ('SigmaGP', 'images.sigma_gp', 3),
+        ('SigmaMeas', 'images.sigma_meas', 3),
         ('GPCorrelationLength', 'images.gp_ell', 1),
-        ('GRFDeflectionAmplitude', 'images.gp_sigma_alpha', 2),
+        ('SigmaGRF', 'images.sigma_grf', 2),
         ('GRFTurnoverScale', 'images.gp_knee', 1),
     ]:
         value = parameters.loc[parameter, 'median'] if parameter in parameters.index else None

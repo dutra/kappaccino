@@ -44,7 +44,7 @@ class ParameterSpec:
     ``velocity_log_scatter``, ``radius_log_scatter`` dimensionless scatters in :math:`\\ln\\sigma` and :math:`\\ln r`;
     ``velocity_offset``, ``radius_offset``, ``shape_e1_offset``, ``shape_e2_offset`` and the source ``beta_x``,
     ``beta_y`` dimensionless unit offsets; the error-model scales (``sigma_def``, ``sigma_meas``, ``sigma_sel``,
-    ``lambda_sel``, ``sigma_shared``, ``gp_ell``, ``gp_sigma_alpha``, ``gp_knee``, ``gp_sigma_alpha2``,
+    ``lambda_sel``, ``sigma_gp``, ``gp_ell``, ``sigma_grf``, ``gp_knee``, ``sigma_grf2``,
     ``gp_knee2``) arcsec, except ``lambda_sel``, ``gp_knee_gamma`` and ``gp_knee_beta_low``, which are dimensionless.
 
     Attributes
@@ -480,18 +480,18 @@ class ModelState:
     lambda_sel_param_index : int, optional
         ``smoothed``: the stretching scale :math:`\\lambda_\\mathrm{sel}` of the selection weight :math:`R = (I
         + A A^T / \\lambda_\\mathrm{sel}^2)^{-1}` (dimensionless).
-    sigma_shared_param_index : int, optional
+    sigma_gp_param_index : int, optional
         ``gp_image_plane``: the correlated image-plane scale :math:`\\sigma_\\mathrm{shared}` (arcsec).
     gp_ell_param_index : int, optional
         ``gp_image_plane``: the correlation length :math:`\\ell` (arcsec); -1 when it is fixed.
-    gp_sigma_alpha_param_index : int, optional
+    sigma_grf_param_index : int, optional
         Knee kernel: the mass-field deflection amplitude :math:`\\sigma_\\alpha` (arcsec); -1 without the mass
         field.
     gp_knee_param_index : int, optional
         Knee kernel: the knee :math:`\\lambda_t` (arcsec).
     gp_knee_gamma_param_index : int, optional
         Knee kernel: the sampled spectral slope :math:`\\gamma` (dimensionless); -1 when fixed.
-    gp_sigma_alpha2_param_index : int, optional
+    sigma_grf2_param_index : int, optional
         Knee kernel, ``two_knee`` / ``knee_foreground`` / ``knee_background`` spectra: the second field's
         amplitude (arcsec).
     gp_knee2_param_index : int, optional
@@ -546,7 +546,7 @@ class ModelState:
     sigma_def_param_index: int = -1              # residual deflection scatter, isotropic in the source plane
     sigma_sel_param_index: int = -1              # feature-selection scatter; -1 when the term is disabled
     lambda_sel_param_index: int = -1             # stretching scale of the selection weight R = (I + A A^T / lambda_sel^2)^-1; -1 with the term
-    sigma_shared_param_index: int = -1           # gp_image_plane: the correlated image-plane scale; -1 under the other likelihoods
+    sigma_gp_param_index: int = -1           # gp_image_plane: the correlated image-plane scale; -1 under the other likelihoods
     sigma_meas_param_index: int = -1            # the sampled independent measurement scatter of every image (all modes)
     gp_ell_param_index: int = -1                 # gp_image_plane: the sampled correlation length; -1 when ell is fixed
     gp_correlation_length_arcsec: float = 7.0    # gp_image_plane: ell (fixed value or start) and sigma_fl (LikelihoodConfig)
@@ -555,10 +555,10 @@ class ModelState:
     gp_reference_redshift: float = 2.0           # knee kernel: z_ref of the redshift weights
     gp_blocks: str = "all"                       # knee kernel: "all" | "system" | "family" covariance blocks
     gp_knee: dict[str, Any] = field(default_factory=dict)   # knee kernel: gamma, scales, lambda grid, r step
-    gp_sigma_alpha_param_index: int = -1         # knee kernel: sigma_alpha; -1 when the mass field is dropped
+    sigma_grf_param_index: int = -1         # knee kernel: sigma_grf; -1 when the mass field is dropped
     gp_knee_param_index: int = -1                # knee kernel: lambda_t
     gp_knee_gamma_param_index: int = -1          # knee kernel: the sampled slope gamma; -1 when fixed
-    gp_sigma_alpha2_param_index: int = -1        # knee kernel, two_knee / knee_foreground spectra: the second field's sigma_alpha
+    sigma_grf2_param_index: int = -1        # knee kernel, two_knee / knee_foreground spectra: the second field's sigma_grf
     gp_knee2_param_index: int = -1               # ... and its knee
     gp_knee_beta_low_param_index: int = -1       # knee kernel, broken_power_law spectrum: the low-k slope
     freeze_determinant_gradient: bool = False    # hold grad det A fixed in the backward pass (LikelihoodConfig)

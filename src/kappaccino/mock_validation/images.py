@@ -437,7 +437,7 @@ def generate_images(truth: MockTruth, config: MockConfig, rng: np.random.Generat
             f"rms {float(np.sqrt(np.mean(np.square(shift)))):.4f}\" per axis")
     if truth.field is not None:
         f = truth.field
-        log(f"[mock] mass field: sigma_alpha {f['sigma_alpha_arcsec']:.4f}\" at z {f['reference_redshift']:g}, knee {f['knee_arcsec']:.2f}\", gamma {f['gamma']:.2f}; "
+        log(f"[mock] mass field: sigma_grf {f['sigma_grf_arcsec']:.4f}\" at z {f['reference_redshift']:g}, knee {f['knee_arcsec']:.2f}\", gamma {f['gamma']:.2f}; "
             f"rms deflection at the images {float(np.sqrt(np.mean(np.square(images[['x_field_deflection_arcsec', 'y_field_deflection_arcsec']].to_numpy())))):.4f}\" per axis")
     images.attrs["dropped_families"] = dropped
     images.attrs["caustics_by_z"] = {f"{z:.6f}": [{"index": c.index, "kind": c.kind, "caustic_area_arcsec2": c.caustic_area, "critical_area_arcsec2": c.critical_area,

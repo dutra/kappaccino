@@ -103,8 +103,8 @@ def test_degenerate_modes_cannot_seed_chains(synthetic_config):
         assert any("rejected as degenerate" in line for line in lines)
 
 
-def test_sigma_shared_prior_is_truncated_at_one_arcsec(synthetic_config):
+def test_sigma_gp_prior_is_truncated_at_one_arcsec(synthetic_config):
     state = build_state(replace(synthetic_config, likelihood=replace(synthetic_config.likelihood, likelihood_mode="gp_image_plane")))
-    spec = state.parameter_specs[state.sigma_shared_param_index]
+    spec = state.parameter_specs[state.sigma_gp_param_index]
     from kappaccino import priors
     assert priors.family(spec.latent_prior) == "TruncatedNormal" and np.isclose(priors.physical_bounds(spec.prior)[1], 1.0)

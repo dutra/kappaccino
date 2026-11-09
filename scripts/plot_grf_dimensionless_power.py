@@ -36,9 +36,9 @@ ax.loglog(x,power[best,order],c='#D55E00',ls='--',label=r'$\gamma_\kappa=4$: bes
 comparison_checks={}
 for gamma,color,style in [(2,'#009E73','-.'),(6,'#CC79A7',':')]:
  shape=1/(1+(k*knee[best]/(2*np.pi))**gamma)
- spectrum=shape*np.pi*provenance['sigma_alpha_best']**2/simpson(shape,x=np.log(k))
+ spectrum=shape*np.pi*provenance['sigma_grf_best']**2/simpson(shape,x=np.log(k))
  recovered_variance=simpson(spectrum,x=np.log(k))/np.pi
- np.testing.assert_allclose(recovered_variance,provenance['sigma_alpha_best']**2,rtol=1e-13)
+ np.testing.assert_allclose(recovered_variance,provenance['sigma_grf_best']**2,rtol=1e-13)
  comparison_checks[str(gamma)]=float(recovered_variance)
  ax.loglog(x,(k**2*spectrum/(2*np.pi))[order],color=color,ls=style,
            label=rf'$\gamma_\kappa={gamma}$: comparison')
@@ -54,7 +54,7 @@ info=dict(run=str(run),lens_redshift=z,kpc_per_arcsec=scale,break_kpc_quantiles=
  interpretation='proper transverse wavelength at lens redshift, not a halo truncation radius; preliminary bands from incompletely converged saved draws',
  maximum_variance_integral_relative_error=float(np.max(abs(vl/vk-1))),
  comparison_slopes=[2,6],comparison_knee_arcsec=float(knee[best]),
- comparison_sigma_alpha_arcsec=provenance['sigma_alpha_best'],
+ comparison_sigma_grf_arcsec=provenance['sigma_grf_best'],
  comparison_definition='Not refitted; same best-fit break, per-coordinate deflection scatter, and wavelength cutoffs. Each spectrum renormalized to preserve deflection variance.',
  comparison_recovered_deflection_variances=comparison_checks)
 (out/'dimensionless_provenance.json').write_text(json.dumps(info,indent=2));print(json.dumps(info,indent=2))

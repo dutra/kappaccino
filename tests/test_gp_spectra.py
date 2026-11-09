@@ -70,11 +70,11 @@ def test_two_knees_with_a_vanishing_second_field_are_one_knee(tmp_path):
     one, two = build_state(_variant(config, "knee")), build_state(_variant(config, "two_knee"))
     e1, e2 = Evaluator(one, "gp_image_plane"), Evaluator(two, "gp_image_plane")
     t1 = _set(one, one.initial_theta, "images.gp_knee", 20.0)
-    t2 = _set(two, _set(two, two.initial_theta, "images.gp_knee", 20.0), "images.gp_sigma_alpha2", 1.0e-4)
+    t2 = _set(two, _set(two, two.initial_theta, "images.gp_knee", 20.0), "images.sigma_grf2", 1.0e-4)
     np.testing.assert_allclose(_kernel(e2, t2), _kernel(e1, t1), rtol=0, atol=2e-8)      # the second field's variance is 1e-8
     # with a real second amplitude the kernel is the sum of the two fields
-    t3 = _set(two, t2, "images.gp_sigma_alpha2", 0.05)
-    lone = _set(one, _set(one, one.initial_theta, "images.gp_knee", 3.0), "images.gp_sigma_alpha", 0.05)
+    t3 = _set(two, t2, "images.sigma_grf2", 0.05)
+    lone = _set(one, _set(one, one.initial_theta, "images.gp_knee", 3.0), "images.sigma_grf", 0.05)
     np.testing.assert_allclose(_kernel(e2, t3), _kernel(e1, t1) + _kernel(e1, lone), rtol=1e-6, atol=1e-12)
 
 
@@ -82,11 +82,11 @@ def test_the_foreground_field_has_redshift_weight_one(tmp_path):
     config, _ = two_knot_config(tmp_path)
     state = build_state(_variant(config, "knee_foreground"))
     evaluator = Evaluator(state, "gp_image_plane")
-    theta = _set(state, state.initial_theta, "images.gp_sigma_alpha", 1.0e-4)
+    theta = _set(state, state.initial_theta, "images.sigma_grf", 1.0e-4)
     k = _kernel(evaluator, theta)
     knee_only = Evaluator(build_state(_variant(config, "knee")), "gp_image_plane")
     reference = knee_only.state
-    alone = _set(reference, _set(reference, reference.initial_theta, "images.gp_knee", 3.0), "images.gp_sigma_alpha", 0.05)
+    alone = _set(reference, _set(reference, reference.initial_theta, "images.gp_knee", 3.0), "images.sigma_grf", 0.05)
     w = np.asarray(knee_only.gp["weights"])
     unweighted = _kernel(knee_only, alone) / (w[:, :, None] * w[:, None, :])[..., None, None]
     mask = np.asarray(knee_only.gp["pair_mask"])[..., None, None] > 0
@@ -100,7 +100,7 @@ def test_every_variant_gives_a_finite_likelihood_and_gradient(tmp_path, spectrum
     evaluator = Evaluator(state, "gp_image_plane")
     names = [s.name for s in state.parameter_specs]
     assert ("images.gp_knee" in names) == (spectrum != "power_law")
-    assert ("images.gp_sigma_alpha2" in names) == (spectrum in ("two_knee", "knee_foreground", "knee_background"))
+    assert ("images.sigma_grf2" in names) == (spectrum in ("two_knee", "knee_foreground", "knee_background"))
     assert ("images.gp_knee_beta_low" in names) == (spectrum == "broken_power_law")
     value, grad = jax.jit(jax.value_and_grad(evaluator.log_likelihood))(jnp.asarray(state.initial_theta))
     assert np.isfinite(float(value)) and bool(jnp.all(jnp.isfinite(grad)))

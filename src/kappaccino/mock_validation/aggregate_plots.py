@@ -31,16 +31,16 @@ COMPONENT_LABELS = {"halo": "Main halo", "bcg": "BCG", "members": "Members"}
 PAPER_PARAMETERS = (
     "halo.log10_mass_msun", "halo.log10_aperture_mass_msun", "halo.x_centre", "halo.y_centre", "halo.v_disp", "halo.core_radius_kpc", "halo.cut_radius_kpc",
     "bcg.log10_mass_msun", "bcg.x_centre", "bcg.y_centre", "bcg.v_disp", "bcg.core_radius_kpc", "bcg.cut_radius_kpc",
-    "images.gp_sigma_alpha", "images.gp_knee", "images.gp_knee_gamma",
-    "images.gp_sigma_alpha2", "images.gp_knee2", "images.gp_knee_beta_low",
-    "images.sigma_shared", "images.gp_ell", "images.sigma_meas",
+    "images.sigma_grf", "images.gp_knee", "images.gp_knee_gamma",
+    "images.sigma_grf2", "images.gp_knee2", "images.gp_knee_beta_low",
+    "images.sigma_gp", "images.gp_ell", "images.sigma_meas",
     "potfile.log10_mass_msun", "potfile.sigma", "potfile.cutkpc", "potfile.alpha_sigma", "potfile.beta_radius", "potfile.gamma_ml",
 )
 PARAMETER_LABELS = {
-    "gp_sigma_alpha": r"$\sigma_{\rm GRF}$", "gp_knee": r"$\ell_{\rm knee}$",
-    "gp_knee_gamma": r"$\gamma_{\rm GRF}$", "gp_sigma_alpha2": r"$\sigma_{\alpha,2}$",
+    "sigma_grf": r"$\sigma_{\rm GRF}$", "gp_knee": r"$\ell_{\rm knee}$",
+    "gp_knee_gamma": r"$\gamma_{\rm GRF}$", "sigma_grf2": r"$\sigma_{\alpha,2}$",
     "gp_knee2": r"$\ell_{\rm knee,2}$", "gp_knee_beta_low": r"$\beta_{\rm low}$",
-    "sigma_shared": r"$\sigma_{\rm shared}$", "gp_ell": r"$\ell$",
+    "sigma_gp": r"$\sigma_{\rm shared}$", "gp_ell": r"$\ell$",
     "sigma_meas": r"$\sigma_{\rm meas}$",
     "log10_aperture_mass_msun": r"$\log_{10} M_{\rm ap}$",
     "log10_mass_msun": r"$\log_{10} M_{\rm tot}$", "x_centre": r"$x$", "y_centre": r"$y$", "v_disp": r"$\sigma$", "core_radius_kpc": r"$r_{\rm core}$",
@@ -50,15 +50,15 @@ PARAMETER_LABELS = {
 PARAMETER_UNITS = {"x_centre": "arcsec", "y_centre": "arcsec", "v_disp": "km/s", "core_radius_kpc": "kpc", "cut_radius_kpc": "kpc",
                    "sigma": "km/s", "cutkpc": "kpc", "log10_mass_msun": r"$M_\odot$"}
 PARAMETER_UNITS.update({field: "arcsec" for field in (
-    "gp_sigma_alpha", "gp_knee", "gp_sigma_alpha2", "gp_knee2", "sigma_shared", "gp_ell", "sigma_meas")})
+    "sigma_grf", "gp_knee", "sigma_grf2", "gp_knee2", "sigma_gp", "gp_ell", "sigma_meas")})
 COMPONENT_NAMES = {"halo": "Halo", "bcg": "BCG", "potfile": "Members",
                    "grf": "GRF", "gp": "Image-plane GP", "images": "Independent scatter"}
 
 
 def _parameter_component(parameter):
-    if parameter.startswith("images.gp_") and parameter != "images.gp_ell":
+    if parameter.startswith(("images.sigma_grf", "images.gp_knee")):     # the field: sigma_GRF, its second knee, lambda_b, slope
         return "grf"
-    if parameter in ("images.sigma_shared", "images.gp_ell"):
+    if parameter in ("images.sigma_gp", "images.gp_ell"):
         return "gp"
     return parameter.split(".")[0]
 

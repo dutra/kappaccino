@@ -120,7 +120,7 @@ def _usage() -> str:
         "  --imaging jwst: draw the cluster mass figure on the NIRCam mosaics (file suffix _jwst) instead of the HST ones\n"
         "  --halo-search, --member-search: optimizer of the large-scale stage and of the member stage of the init (default lbfgs)\n"
         "  --likelihood: grf_gp (default; a Gaussian random field of unmodelled mass on the lens potential with a knee convergence\n"
-        "          spectrum, sigma_alpha, lambda_t and the slope (uniform 2-6), plus the image-plane GP sigma_shared, ell, and sigma_meas), gp_image_plane\n"
+        "          spectrum, sigma_grf, lambda_t and the slope (uniform 2-6), plus the image-plane GP sigma_gp, ell, and sigma_meas), gp_image_plane\n"
         "          (the image-plane GP alone, per family) or\n"
         "          smoothed (the per-image source-plane floor sigma_def and sigma_meas)\n"
         "  --warm-start RUN_DIR: start the init search from a previous run's saved start (parameters matched by name; the\n"
@@ -718,8 +718,8 @@ def build_config(
                                     # The rms deflection error of that substructure at z_ref: 0.08" median, 0.05-0.13" at 1 sigma,
                                     # truncated at 0.2" (galaxy-scale fits on 2026-11-02: 0.07-0.11"; at 0.2-0.3" it was carrying
                                     # the halo-scale misfit).
-                                    gp_sigma_alpha_prior=truncated_lognormal(0.08, 0.5, low=1.0e-4, high=0.5),
-                                    gp_sigma_alpha_start_arcsec=0.08,
+                                    sigma_grf_prior=truncated_lognormal(0.08, 0.5, low=1.0e-4, high=0.5),
+                                    sigma_grf_start_arcsec=0.08,
                                     # The image-plane GP's correlation length near the measurement scale (1", between 0.4"
                                     # and 3"): fitted free it went to 4.4" and did the mass field's work.
                                     gp_knee_ell_prior=truncated_lognormal(1.0, 0.4, low=0.4, high=3.0),

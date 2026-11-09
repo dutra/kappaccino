@@ -42,8 +42,8 @@ def test_correlated_error_parameters_in_aggregate_figures(tmp_path):
     from types import SimpleNamespace
     from kappaccino.mock_validation import aggregate_plots as plots
 
-    names = ['images.gp_sigma_alpha', 'images.gp_knee', 'images.gp_knee_gamma',
-             'images.sigma_shared', 'images.gp_ell', 'images.sigma_meas']
+    names = ['images.sigma_grf', 'images.gp_knee', 'images.gp_knee_gamma',
+             'images.sigma_gp', 'images.gp_ell', 'images.sigma_meas']
     rows = [dict(parameter=name, seed=seed, truth=value, median=value * 1.1,
                  q16=value * .8, q84=value * 1.3, covered_68=True, covered_95=True, scored=True)
             for name in names for seed, value in enumerate([.1, .2, .3])]

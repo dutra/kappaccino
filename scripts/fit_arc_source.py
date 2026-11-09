@@ -158,9 +158,9 @@ def image_gp_offsets(evaluator, physical, theta, obs, obs_family, z_source, fami
     sources = np.asarray(evaluator.source_positions(theta))[obs_family]
     eps = np.einsum("nij,nj->ni", np.linalg.inv(a), (obs - alpha) - sources)
     phys = np.asarray(physical)
-    sigma_shared, sigma_meas = float(phys[evaluator.sigma_shared_index]), float(phys[evaluator.sigma_meas_index])
+    sigma_gp, sigma_meas = float(phys[evaluator.sigma_gp_index]), float(phys[evaluator.sigma_meas_index])
     ell = float(phys[evaluator.gp_ell_index]) if evaluator.gp_ell_index >= 0 else float(evaluator.gp_ell_fixed)
-    return eps, sigma_shared, sigma_meas, ell
+    return eps, sigma_gp, sigma_meas, ell
 
 
 def beta_maps(evaluator, state, samples, draws, xy, z_source, family_index, cache: Path, rebuild: bool, image_gp=None):
@@ -189,13 +189,13 @@ def beta_maps(evaluator, state, samples, draws, xy, z_source, family_index, cach
         note = ""
         if image_gp is not None:
             obs, obs_family = image_gp
-            eps, sigma_shared, sigma_meas, ell = image_gp_offsets(evaluator, physical, theta, obs, obs_family, z_source, family_index)
-            k_obs = sigma_shared ** 2 * np.exp(-np.sum((obs[:, None] - obs[None]) ** 2, -1) / (2 * ell ** 2))
+            eps, sigma_gp, sigma_meas, ell = image_gp_offsets(evaluator, physical, theta, obs, obs_family, z_source, family_index)
+            k_obs = sigma_gp ** 2 * np.exp(-np.sum((obs[:, None] - obs[None]) ** 2, -1) / (2 * ell ** 2))
             weights = np.linalg.solve(k_obs + sigma_meas ** 2 * np.eye(len(obs)), eps)                            # (M, 2)
-            k_grid = sigma_shared ** 2 * np.exp(-np.sum((xy[:, None] - obs[None]) ** 2, -1) / (2 * ell ** 2))     # (N, M)
+            k_grid = sigma_gp ** 2 * np.exp(-np.sum((xy[:, None] - obs[None]) ** 2, -1) / (2 * ell ** 2))     # (N, M)
             delta = k_grid @ weights
             beta[k] = beta[k] - np.einsum("nij,nj->ni", a, delta)
-            note = (f", image GP: eps {np.round(eps * 1000).astype(int).tolist()} mas, sigma_shared {sigma_shared * 1000:.0f} mas, "
+            note = (f", image GP: eps {np.round(eps * 1000).astype(int).tolist()} mas, sigma_gp {sigma_gp * 1000:.0f} mas, "
                     f"ell {ell:.2f}\", |delta| on the grid up to {np.abs(delta).max() * 1000:.0f} mas")
         det[k] = a[:, 0, 0] * a[:, 1, 1] - a[:, 0, 1] * a[:, 1, 0]
         print(f"[lens] draw {d}: beta map in {time.time() - t0:.0f} s, field mean {'on' if mean is not None else 'off'}{note}", flush=True)
@@ -1520,8 +1520,8 @@ def main():
     obs_xy = obs_pts
     image_gp = None
     if args.image_gp_mean:
-        if evaluator.sigma_shared_index < 0:
-            raise SystemExit("--image-gp-mean needs a gp_image_plane run (no sigma_shared parameter)")
+        if evaluator.sigma_gp_index < 0:
+            raise SystemExit("--image-gp-mean needs a gp_image_plane run (no sigma_gp parameter)")
         image_gp = (obs_xy, fam[sel])
     setup = dict(state=state, evaluator=evaluator, samples=samples, draws=draws, obs_xy=obs_xy, centre=centre,
                  z_source=z_source, family_index=family_index, image_gp=image_gp)

@@ -28,14 +28,14 @@ scatter_ln = 0.10
 cut_scatter_ln = 0.0
 unmodelled_members = 0
 # Correlated errors, drawn per realization (mock_validation.field): the mass field of unmodelled mass and line-of-sight
-# structure with sigma_alpha 0.04-0.10" at z = 2 (the M0416 fits give 0.06-0.11"), knee 3-12" (log-uniform) and slope 3-5;
+# structure with sigma_grf 0.04-0.10" at z = 2 (the M0416 fits give 0.06-0.11"), knee 3-12" (log-uniform) and slope 3-5;
 # the image-plane displacement with sigma 0.02-0.06" and ell 0.5-2" (log-uniform).  Raised back from the JWST amplitudes
-# (sigma_alpha 0.02-0.05", sigma_shared 0.01-0.04", nov6b_correlated_v1) on 2026-11-06: at those the free lens absorbed a
-# quarter of the field (sigma_alpha 0.67-0.89x truth, 0/4 covered; .agents/nov6-mock-sigma-alpha-free-lens.md) and
-# ell was measurable in one seed of four (it needs sigma_shared well above the 5-20 mas white noise).  The solver samples
-# the slope (uniform 2-6) since the truth varies it, and its sigma_alpha and sigma_shared priors are centred on these
+# (sigma_grf 0.02-0.05", sigma_gp 0.01-0.04", nov6b_correlated_v1) on 2026-11-06: at those the free lens absorbed a
+# quarter of the field (sigma_grf 0.67-0.89x truth, 0/4 covered; .agents/nov6-mock-sigma-alpha-free-lens.md) and
+# ell was measurable in one seed of four (it needs sigma_gp well above the 5-20 mas white noise).  The solver samples
+# the slope (uniform 2-6) since the truth varies it, and its sigma_grf and sigma_gp priors are centred on these
 # ranges (_likelihood).
-field_sigma_alpha_range_arcsec = (0.04, 0.10)
+field_sigma_grf_range_arcsec = (0.04, 0.10)
 field_knee_range_arcsec = (3.0, 12.0)
 field_gamma_range = (3.0, 5.0)
 image_plane_sigma_range_arcsec = (0.02, 0.06)
@@ -176,7 +176,7 @@ def build_runtime(seed: int) -> RuntimeConfig:
 def _likelihood(likelihood: str, gp_blocks: str) -> LikelihoodConfig:
     """The likelihood of run.xsh build_config (keep the two in step): no selection term; the GRF of unmodelled mass with a
     knee spectrum (slope sampled on 2-6, knee 2.5-15" around 6") and the image-plane GP (ell 0.4-3" around 1"), with the
-    priors centred on the mock's injection ranges (sigma_alpha 0.06", sigma_shared 0.035" median); the shared field's
+    priors centred on the mock's injection ranges (sigma_grf 0.06", sigma_gp 0.035" median); the shared field's
     translation, convergence and shear projected out on all blocks (system blocks, the --fast default, have no projection)."""
     return LikelihoodConfig(
         likelihood_mode=LIKELIHOODS[likelihood][0], sigma_sel_prior=None, gp_kernel=LIKELIHOODS[likelihood][1],
@@ -186,12 +186,12 @@ def _likelihood(likelihood: str, gp_blocks: str) -> LikelihoodConfig:
         gp_knee_scales_arcsec=(0.2, 100.0),
         gp_knee_prior=truncated_lognormal(6.0, 0.6, low=2.5, high=15.0),
         gp_knee_start_arcsec=6.0,
-        # Mock only (run.xsh keeps median 0.08", cap 0.5", and the library sigma_shared prior, median 0.10", cap 0.3"): the
+        # Mock only (run.xsh keeps median 0.08", cap 0.5", and the library sigma_gp prior, median 0.10", cap 0.3"): the
         # geometric centres of the mock's injection ranges, each range inside about one prior width of the median.
-        gp_sigma_alpha_prior=truncated_lognormal(0.06, 0.5, high=0.3),
-        gp_sigma_alpha_start_arcsec=0.06,
-        gp_knee_sigma_shared_prior=truncated_lognormal(0.035, 0.6, high=0.15),
-        gp_knee_sigma_shared_start_arcsec=0.035,
+        sigma_grf_prior=truncated_lognormal(0.06, 0.5, high=0.3),
+        sigma_grf_start_arcsec=0.06,
+        gp_knee_sigma_gp_prior=truncated_lognormal(0.035, 0.6, high=0.15),
+        gp_knee_sigma_gp_start_arcsec=0.035,
         gp_knee_ell_prior=truncated_lognormal(1.0, 0.4, low=0.4, high=3.0),
         gp_knee_ell_start_arcsec=1.0,
     )
@@ -257,7 +257,7 @@ def build_config(preset: str, *, seed: int, realizations: int, campaign_name: st
         sigma_scatter_ln=scatter_ln,
         cut_scatter_ln=cut_scatter_ln,
         unmodelled_members=unmodelled_members,
-        field_sigma_alpha_range_arcsec=field_sigma_alpha_range_arcsec,
+        field_sigma_grf_range_arcsec=field_sigma_grf_range_arcsec,
         field_knee_range_arcsec=field_knee_range_arcsec,
         field_gamma_range=field_gamma_range,
         image_plane_sigma_range_arcsec=image_plane_sigma_range_arcsec,

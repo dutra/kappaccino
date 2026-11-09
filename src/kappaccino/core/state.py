@@ -472,22 +472,22 @@ def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.n
                                          f"{record['potfile_id']}_{record['catalog_id']}_{field_name}", str(record["potfile_id"]),
                                          field_name, dist.Normal(0.0, 1.0), "member_shape_offset", profile_type=DP_IE_PROFILE,
                                          sample_site_name=f"member_{field_name}", sample_site_index=site_index))
-    sigma_def_index = sigma_meas_index = sigma_sel_index = lambda_sel_index = sigma_shared_index = gp_ell_index = -1
-    gp_sigma_alpha_index = gp_knee_index = gp_knee_gamma_index = -1
-    gp_sigma_alpha2_index = gp_knee2_index = gp_knee_beta_low_index = -1
+    sigma_def_index = sigma_meas_index = sigma_sel_index = lambda_sel_index = sigma_gp_index = gp_ell_index = -1
+    sigma_grf_index = gp_knee_index = gp_knee_gamma_index = -1
+    sigma_grf2_index = gp_knee2_index = gp_knee_beta_low_index = -1
     likelihood = config.likelihood
     spectrum = str(getattr(likelihood, "gp_knee_spectrum", "knee"))
     if likelihood.likelihood_mode == "gp_image_plane" and likelihood.gp_kernel == "knee":
-        # Knee kernel: the mass field (sigma_alpha, lambda_t; optional), the image-plane GP (sigma_shared, ell) and sigma_meas.
-        if likelihood.gp_sigma_alpha_prior is not None:
-            gp_sigma_alpha_index = len(specs)
-            specs.append(_error_scale_spec("gp_sigma_alpha", likelihood.gp_sigma_alpha_prior))
+        # Knee kernel: the mass field (sigma_grf, lambda_t; optional), the image-plane GP (sigma_gp, ell) and sigma_meas.
+        if likelihood.sigma_grf_prior is not None:
+            sigma_grf_index = len(specs)
+            specs.append(_error_scale_spec("sigma_grf", likelihood.sigma_grf_prior))
             if spectrum != "power_law" and likelihood.gp_knee_fixed_arcsec is None:   # a power law has no knee; or it is fixed
                 gp_knee_index = len(specs)
                 specs.append(_error_scale_spec("gp_knee", likelihood.gp_knee_prior))
             if spectrum in ("two_knee", "knee_foreground", "knee_background"):
-                gp_sigma_alpha2_index = len(specs)
-                specs.append(_error_scale_spec("gp_sigma_alpha2", likelihood.gp_knee2_sigma_alpha_prior))
+                sigma_grf2_index = len(specs)
+                specs.append(_error_scale_spec("sigma_grf2", likelihood.gp_knee2_sigma_grf_prior))
                 gp_knee2_index = len(specs)
                 specs.append(_error_scale_spec("gp_knee2", likelihood.gp_knee2_prior))
             if spectrum == "broken_power_law":
@@ -496,8 +496,8 @@ def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.n
             if likelihood.gp_knee_gamma_prior is not None:
                 gp_knee_gamma_index = len(specs)
                 specs.append(_error_scale_spec("gp_knee_gamma", likelihood.gp_knee_gamma_prior))
-        sigma_shared_index = len(specs)
-        specs.append(_error_scale_spec("sigma_shared", likelihood.gp_knee_sigma_shared_prior))
+        sigma_gp_index = len(specs)
+        specs.append(_error_scale_spec("sigma_gp", likelihood.gp_knee_sigma_gp_prior))
         if likelihood.gp_knee_ell_fixed_arcsec is None:
             gp_ell_index = len(specs)
             specs.append(_error_scale_spec("gp_ell", likelihood.gp_knee_ell_prior))
@@ -505,8 +505,8 @@ def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.n
         specs.append(_error_scale_spec("sigma_meas", likelihood.gp_knee_sigma_meas_prior))
     elif likelihood.likelihood_mode == "gp_image_plane":
         # Two sampled image-plane scales; the source-plane floors and the selection term do not exist in this model.
-        sigma_shared_index = len(specs)
-        specs.append(_error_scale_spec("sigma_shared", config.likelihood.sigma_shared_prior))
+        sigma_gp_index = len(specs)
+        specs.append(_error_scale_spec("sigma_gp", config.likelihood.sigma_gp_prior))
         sigma_meas_index = len(specs)
         specs.append(_error_scale_spec("sigma_meas", likelihood.gp_sigma_meas_prior))
         if config.likelihood.gp_correlation_length_prior is not None:
@@ -601,7 +601,7 @@ def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.n
         members=members, z_source_values=z_values, dpie_sigma0_factor_by_z=factor_by_z,
         softening_length_param_index=int(softening_index), sigma_def_param_index=int(sigma_def_index),
         sigma_meas_param_index=int(sigma_meas_index), sigma_sel_param_index=int(sigma_sel_index),
-        lambda_sel_param_index=int(lambda_sel_index), sigma_shared_param_index=int(sigma_shared_index),
+        lambda_sel_param_index=int(lambda_sel_index), sigma_gp_param_index=int(sigma_gp_index),
         gp_ell_param_index=int(gp_ell_index), gp_correlation_length_arcsec=float(config.likelihood.gp_correlation_length_arcsec),
         gp_floor_arcsec=float(config.likelihood.gp_floor_arcsec),
         gp_kernel=str(config.likelihood.gp_kernel), gp_reference_redshift=float(config.likelihood.gp_reference_redshift),
@@ -614,21 +614,21 @@ def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.n
                      scales=tuple(float(v) for v in config.likelihood.gp_knee_scales_arcsec),
                      lambda_grid=(float(config.likelihood.gp_knee_lambda_grid[0]), float(config.likelihood.gp_knee_lambda_grid[1]),
                                   int(config.likelihood.gp_knee_lambda_grid[2])), r_step=float(config.likelihood.gp_knee_r_step_arcsec)),
-        gp_sigma_alpha_param_index=int(gp_sigma_alpha_index), gp_knee_param_index=int(gp_knee_index),
-        gp_knee_gamma_param_index=int(gp_knee_gamma_index), gp_sigma_alpha2_param_index=int(gp_sigma_alpha2_index),
+        sigma_grf_param_index=int(sigma_grf_index), gp_knee_param_index=int(gp_knee_index),
+        gp_knee_gamma_param_index=int(gp_knee_gamma_index), sigma_grf2_param_index=int(sigma_grf2_index),
         gp_knee2_param_index=int(gp_knee2_index), gp_knee_beta_low_param_index=int(gp_knee_beta_low_index),
         freeze_determinant_gradient=bool(config.likelihood.freeze_determinant_gradient),
         dropped_member_ids=dropped,
         member_kinematics=build_member_kinematics(records, model_config.member_populations))
     # Starts: the prior centres, and the configured starts of the error model (physical values).
     likelihood = config.likelihood
-    starts = {sigma_shared_index: likelihood.sigma_shared_start_arcsec, sigma_meas_index: likelihood.gp_sigma_meas_start_arcsec,
+    starts = {sigma_gp_index: likelihood.sigma_gp_start_arcsec, sigma_meas_index: likelihood.gp_sigma_meas_start_arcsec,
               gp_ell_index: likelihood.gp_correlation_length_arcsec}
     if likelihood.likelihood_mode == "gp_image_plane" and likelihood.gp_kernel == "knee":
-        starts = {gp_sigma_alpha_index: likelihood.gp_sigma_alpha_start_arcsec, gp_knee_index: likelihood.gp_knee_start_arcsec,
-                  gp_sigma_alpha2_index: likelihood.gp_knee2_sigma_alpha_start_arcsec, gp_knee2_index: likelihood.gp_knee2_start_arcsec,
+        starts = {sigma_grf_index: likelihood.sigma_grf_start_arcsec, gp_knee_index: likelihood.gp_knee_start_arcsec,
+                  sigma_grf2_index: likelihood.gp_knee2_sigma_grf_start_arcsec, gp_knee2_index: likelihood.gp_knee2_start_arcsec,
                   gp_knee_beta_low_index: likelihood.gp_knee_beta_low_start, gp_knee_gamma_index: likelihood.gp_knee_gamma,
-                  sigma_shared_index: likelihood.gp_knee_sigma_shared_start_arcsec, gp_ell_index: likelihood.gp_knee_ell_start_arcsec,
+                  sigma_gp_index: likelihood.gp_knee_sigma_gp_start_arcsec, gp_ell_index: likelihood.gp_knee_ell_start_arcsec,
                   sigma_meas_index: likelihood.gp_knee_sigma_meas_start_arcsec}
     state.initial_theta = default_theta(specs)
     for index, value in starts.items():

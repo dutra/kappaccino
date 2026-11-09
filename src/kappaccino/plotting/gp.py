@@ -50,7 +50,7 @@ def plot_kernel_sky(state, evaluator, posterior, output):
     xy=np.column_stack([state.images.x_obs,state.images.y_obs])
     slots,mask=(np.asarray(evaluator.gp[k]) for k in ('slots','mask'))
     names=[p.name for p in state.parameter_specs]
-    shared=float(np.median(posterior.physical[:,names.index('images.sigma_shared')]))
+    shared=float(np.median(posterior.physical[:,names.index('images.sigma_gp')]))
     white=float(np.median(posterior.physical[:,names.index('images.sigma_meas')]))
     variance=np.full(len(xy),shared**2+white**2)
     ell=(float(np.median(posterior.physical[:,names.index('images.gp_ell')]))
@@ -112,7 +112,7 @@ def pick_family(state, evaluator, min_images=3, closest=1.5, widest=10.0):
 
 def plot_shared_vs_white(state, evaluator, posterior, output):
     names=[p.name for p in state.parameter_specs]
-    shared=float(np.median(posterior.physical[:,names.index('images.sigma_shared')]))
+    shared=float(np.median(posterior.physical[:,names.index('images.sigma_gp')]))
     white=float(np.median(posterior.physical[:,names.index('images.sigma_meas')]))
     ell=(float(np.median(posterior.physical[:,names.index('images.gp_ell')]))
          if 'images.gp_ell' in names else state.gp_correlation_length_arcsec)
@@ -154,12 +154,12 @@ def plot_shared_vs_white(state, evaluator, posterior, output):
     return save(fig,output)
 
 
-DEFAULT_SCALE_SITES = (('images.sigma_shared', 'Shared displacement scale', r'$\sigma_{\rm shared}$', 1e3, 'mas'),
+DEFAULT_SCALE_SITES = (('images.sigma_gp', 'Shared displacement scale', r'$\sigma_{\rm shared}$', 1e3, 'mas'),
                        ('images.sigma_meas', 'Independent displacement scale', r'$\sigma_{\rm white}$', 1e3, 'mas'))
-KNEE_SCALE_SITES = (('images.gp_sigma_alpha', 'Mass-field deflection error', r'$\sigma_{\rm GRF}$', 1e3, 'mas'),
+KNEE_SCALE_SITES = (('images.sigma_grf', 'Mass-field deflection error', r'$\sigma_{\rm GRF}$', 1e3, 'mas'),
                     ('images.gp_knee', 'Knee wavelength', r'$\ell_{\rm knee}$', 1.0, 'arcsec'),
                     ('images.gp_knee_gamma', 'Spectral slope beyond the knee', r'$\gamma_{\rm GRF}$', 1.0, ''),
-                    ('images.sigma_shared', 'Image-plane GP amplitude', r'$\sigma_{\rm shared}$', 1e3, 'mas'),
+                    ('images.sigma_gp', 'Image-plane GP amplitude', r'$\sigma_{\rm shared}$', 1e3, 'mas'),
                     ('images.gp_ell', 'Image-plane GP length', r'$\ell$', 1.0, 'arcsec'),
                     ('images.sigma_meas', 'Independent position scatter', r'$\sigma_{\rm white}$', 1e3, 'mas'))
 

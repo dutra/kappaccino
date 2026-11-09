@@ -51,7 +51,7 @@ def pair():
 def field():
     axis=np.linspace(-15,15,101);x,y=np.meshgrid(axis,axis);r=np.hypot(x,y);cl,ct=corr(r.ravel());cl=cl.reshape(r.shape);ct=ct.reshape(r.shape)
     nx=np.divide(x,r,out=np.zeros_like(x),where=r>0);ny=np.divide(y,r,out=np.zeros_like(y),where=r>0)
-    # Conditional mean given delta alpha(0) = (sigma_alpha,0).
+    # Conditional mean given delta alpha(0) = (sigma_grf,0).
     vx=ct+(cl-ct)*nx*nx;vy=(cl-ct)*nx*ny
     fig,axes=plt.subplots(1,2,figsize=(8.6,3.7))
     for i,(ax,z,label) in enumerate(zip(axes,[vx,vy],[r'$\langle\delta\alpha_x\mid\delta\boldsymbol\alpha(0)=(\sigma_{\rm GRF},0)\rangle/\sigma_{\rm GRF}$',r'$\langle\delta\alpha_y\mid\delta\boldsymbol\alpha(0)=(\sigma_{\rm GRF},0)\rangle/\sigma_{\rm GRF}$'])):

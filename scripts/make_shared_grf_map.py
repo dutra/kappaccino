@@ -155,9 +155,9 @@ def main():
     rms = lambda a: float(np.sqrt(np.mean(np.square(a))))
     summary = dict(
         run=str(run), draw=args.draw, draw_index=index, project_modes=list(project), run_gp_blocks=config.likelihood.gp_blocks,
-        sigma_alpha_arcsec=get("images.gp_sigma_alpha"), knee_arcsec=get("images.gp_knee"),
+        sigma_grf_arcsec=get("images.sigma_grf"), knee_arcsec=get("images.gp_knee"),
         gamma=float(getattr(config.likelihood, "gp_knee_gamma", float("nan")) or float("nan")),
-        sigma_shared_arcsec=get("images.sigma_shared"), gp_ell_arcsec=get("images.gp_ell"), sigma_meas_arcsec=get("images.sigma_meas"),
+        sigma_gp_arcsec=get("images.sigma_gp"), gp_ell_arcsec=get("images.gp_ell"), sigma_meas_arcsec=get("images.sigma_meas"),
         log_likelihood=loglike,
         log_likelihood_shared_minus_system=loglike["shared"]["at_draw"] - loglike["system"]["at_draw"],
         images=dict(n=int(len(x_img)), shared_rms_mas=1e3 * rms(table.shared_amp), system_rms_mas=1e3 * rms(table.system_amp),

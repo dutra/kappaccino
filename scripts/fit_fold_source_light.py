@@ -140,7 +140,7 @@ def gp_coordinate_correction(evaluator,state,theta,points):
     def inputs(theta):
         stats=e.statistics(theta);scales=e.error_scales(stats['physical'])
         residual=stats['fields']['backprojected']-stats['source_by_family'][jnp.asarray(state.images.family_index_per_image)]
-        return stats['fields']['jacobian'],stats['family_cholesky'][0],residual,scales['sigma_shared'],scales['gp_ell']
+        return stats['fields']['jacobian'],stats['family_cholesky'][0],residual,scales['sigma_gp'],scales['gp_ell']
     jac,chol,residual,sigma,ell=map(np.asarray,inputs(jnp.asarray(theta)))
     observed=np.c_[state.images.x_obs,state.images.y_obs]
     np.testing.assert_array_equal(np.asarray(e.gp['slots'])[0],np.arange(len(observed)))

@@ -79,16 +79,16 @@ def test_field_parameter_medians(tmp_path):
     (tmp_path / 'tables').mkdir()
     (tmp_path / 'artifacts/summary.json').write_text('{}')
     (tmp_path / 'artifacts/config.json').write_text(json.dumps({'likelihood': {'gp_reference_redshift': 2}}))
-    pd.DataFrame({'parameter': ['images.sigma_shared', 'images.gp_knee'],
+    pd.DataFrame({'parameter': ['images.sigma_gp', 'images.gp_knee'],
                   'median': [.06805, 14.1126], 'best_fit': [.05, 13.6],
                   'p16': [.055, 13.4], 'p84': [.081, 14.6]}).to_csv(
         tmp_path / 'tables/posterior_summary.csv', index=False)
     text = write_run_results(tmp_path, name='m0416').read_text()
-    assert r'\MJZeroFourOneSixGPSigmaShared}{0.068}' in text
-    assert r'\MJZeroFourOneSixGPSigmaSharedInterval}{0.068_{-0.013}^{+0.013}}' in text
+    assert r'\MJZeroFourOneSixSigmaGP}{0.068}' in text
+    assert r'\MJZeroFourOneSixSigmaGPInterval}{0.068_{-0.013}^{+0.013}}' in text
     assert r'\MJZeroFourOneSixGRFTurnoverScale}{14.1}' in text
     assert r'\MJZeroFourOneSixGRFReferenceRedshift}{2.0}' in text
-    assert r'\MJZeroFourOneSixGPSigmaWhite}{\textnormal{not available}}' in text
+    assert r'\MJZeroFourOneSixSigmaMeas}{\textnormal{not available}}' in text
 
 
 def test_mock_export(tmp_path):

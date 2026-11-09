@@ -159,7 +159,7 @@ def compute_fields(config, state, evaluator, posterior, *, step=.3, chunk=384):
     v = cho_solve((np.asarray(st['family_cholesky'])[0], True), residual.ravel()).reshape(n, 2)
     jacobian = np.asarray(st['fields']['jacobian'])
     u = np.einsum('nji,nj->ni', jacobian, v)
-    sigma, ell = float(scales['sigma_shared']), float(scales['gp_ell'])
+    sigma, ell = float(scales['sigma_gp']), float(scales['gp_ell'])
     def kernel(points):
         return sigma**2*np.exp(-np.sum((points[:,None]-xy[None])**2, axis=-1)/(2*ell**2))
     np.testing.assert_allclose(kernel(xy), np.asarray(e.gp_kernel_blocks(st['physical'], scales)['k_img'])[0], atol=1e-12)
@@ -180,7 +180,7 @@ def compute_fields(config, state, evaluator, posterior, *, step=.3, chunk=384):
     packed = e.packed_state_for_z(st['physical'], zref)
     _, hessian = e.total_fields_at(points, packed, chunk=2048)
     param = np.trace(hessian, axis1=1, axis2=2).reshape(xx.shape)/2
-    knee, gamma, sig = (float(scales[k]) for k in ('gp_knee','gp_knee_gamma','gp_sigma_alpha'))
+    knee, gamma, sig = (float(scales[k]) for k in ('gp_knee','gp_knee_gamma','sigma_grf'))
     lo, hi = config.likelihood.gp_knee_scales_arcsec
     k = np.geomspace(2*np.pi/hi, 2*np.pi/lo, 12001)
     shape = 1/(1+(k*knee/(2*np.pi))**gamma)

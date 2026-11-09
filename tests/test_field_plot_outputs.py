@@ -24,7 +24,7 @@ def test_standard_gp_outputs_include_field_figures(monkeypatch, tmp_path):
 
 def test_no_mass_field_skips_the_shared_maps():
     config = SimpleNamespace(likelihood=SimpleNamespace(gp_blocks='all'))
-    evaluator = SimpleNamespace(gp_knee=True, gp_sigma_alpha_index=-1, gp_knee_spectrum='knee', state=SimpleNamespace(gp_blocks='all'))
+    evaluator = SimpleNamespace(gp_knee=True, sigma_grf_index=-1, gp_knee_spectrum='knee', state=SimpleNamespace(gp_blocks='all'))
     messages = []
     assert fields.write_field_plots(config, None, evaluator, None, None, log=messages.append) == []
     assert 'skipped' in messages[0]
@@ -33,8 +33,8 @@ def test_no_mass_field_skips_the_shared_maps():
 def test_system_blocks_render_through_the_shared_twin(monkeypatch):
     """A system-block run's maps come from its all-block twin, with the draws converted to the twin's coordinates."""
     from kappaccino.likelihood import grf_fields as reporting_fields
-    twin = SimpleNamespace(gp_knee=True, gp_sigma_alpha_index=0, gp_knee_spectrum='knee', state=SimpleNamespace(gp_blocks='all'))
-    run = SimpleNamespace(gp_knee=True, gp_sigma_alpha_index=0, gp_knee_spectrum='knee', state=SimpleNamespace(gp_blocks='system'),
+    twin = SimpleNamespace(gp_knee=True, sigma_grf_index=0, gp_knee_spectrum='knee', state=SimpleNamespace(gp_blocks='all'))
+    run = SimpleNamespace(gp_knee=True, sigma_grf_index=0, gp_knee_spectrum='knee', state=SimpleNamespace(gp_blocks='system'),
                           _shared_field_twin=twin)
     monkeypatch.setattr(reporting_fields, 'shared_posterior', lambda e, p: 'twin-posterior')
     seen = []

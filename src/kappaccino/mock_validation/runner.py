@@ -383,8 +383,8 @@ def fisher_precheck(config: MockValidationConfig, *, log=print) -> pd.DataFrame:
     """Generate (or reuse) every realization's mock and forecast how well the GP hyperparameters are constrained,
     without running the solver.
 
-    For each seed the restricted Fisher matrix of the solver's GP error-model hyperparameters (``sigma_alpha``,
-    ``knee`` and ``gamma`` of the mass field when injected, ``sigma_shared`` and ``ell`` of the image-plane GP when
+    For each seed the restricted Fisher matrix of the solver's GP error-model hyperparameters (``sigma_grf``,
+    ``knee`` and ``gamma`` of the mass field when injected, ``sigma_gp`` and ``ell`` of the image-plane GP when
     injected, and ``sigma_meas``) is evaluated at the truth with the lens held at the truth, so it is an upper bound on
     what the data constrain (see ``kappaccino.mock_validation.fisher``).  A mock is reused when ``runtime.resume`` is
     True and it is complete, otherwise generated.  Seeds whose solver likelihood is not the knee GP

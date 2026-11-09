@@ -33,8 +33,8 @@ def set_scale(state, theta, name, value):
 
 
 def set_image_scales(state, theta, sigma_img, shared2=SHARED2, white2=WHITE2):
-    """sigma_shared^2 = shared2 sigma_img^2 and sigma_meas^2 = white2 sigma_img^2."""
-    theta = set_scale(state, theta, "images.sigma_shared", np.sqrt(shared2) * sigma_img)
+    """sigma_gp^2 = shared2 sigma_img^2 and sigma_meas^2 = white2 sigma_img^2."""
+    theta = set_scale(state, theta, "images.sigma_gp", np.sqrt(shared2) * sigma_img)
     return set_scale(state, theta, "images.sigma_meas", np.sqrt(white2) * sigma_img)
 
 
@@ -111,7 +111,7 @@ def test_existing_model_unchanged(synthetic_config):
     instrumental error was removed and the sampled sigma_meas became the only measurement error."""
     state = build_state(synthetic_config)
     evaluator = Evaluator(state)
-    assert state.sigma_shared_param_index == -1 and not any(s.name == "images.sigma_shared" for s in state.parameter_specs)
+    assert state.sigma_gp_param_index == -1 and not any(s.name == "images.sigma_gp" for s in state.parameter_specs)
     assert state.parameter_specs[state.sigma_meas_param_index].name == "images.sigma_meas"
     for value, theta, grad in BASELINE.values():
         v, g = evaluator.value_and_grad(jnp.asarray(theta))
@@ -121,12 +121,12 @@ def test_existing_model_unchanged(synthetic_config):
 
 # ----------------------------------------------------------------------------- 2. the independent limit
 def test_independent_limit_matches_per_image_model(synthetic_config):
-    """sigma_shared -> 0 and sigma_fl = 0: the family likelihood and the source conditional are those of independent images
+    """sigma_gp -> 0 and sigma_fl = 0: the family likelihood and the source conditional are those of independent images
     with their sampled sigma_meas and no source-plane floor."""
     config = gp_config(synthetic_config, gp_floor_arcsec=0.0)
     state = build_state(config)
     evaluator = Evaluator(state, "gp_image_plane")
-    theta = set_scale(state, set_scale(state, state.initial_theta, "images.sigma_meas", 0.07), "images.sigma_shared", 1e-9)
+    theta = set_scale(state, set_scale(state, state.initial_theta, "images.sigma_meas", 0.07), "images.sigma_gp", 1e-9)
     stats = evaluator.statistics(theta)
     images, fields = state.images, stats["fields"]
     sigma_meas = np.full(images.n_images, 0.07)
@@ -160,7 +160,7 @@ def test_family_covariance_positive_definite_and_padding_neutral(synthetic_confi
     slots = jnp.concatenate([layout["slots"], jnp.zeros((layout["slots"].shape[0], 1), dtype=layout["slots"].dtype)], axis=1)
     mask = pad(layout["mask"], False)
     kernel = jnp.pad(layout["kernel"], ((0, 0), (0, 1), (0, 1)))
-    _, chol = gp.family_covariance(jacobian[slots], kernel, mask, jnp.square(stats["sigma_shared"]), jnp.square(stats["sigma_meas"]), FLOOR ** 2)
+    _, chol = gp.family_covariance(jacobian[slots], kernel, mask, jnp.square(stats["sigma_gp"]), jnp.square(stats["sigma_meas"]), FLOOR ** 2)
     whitening = gp.family_source_whitening(chol, backprojected[slots], mask)
     source = stats["source_by_family"]
     loglike, _, _ = gp.family_gaussian_loglike(chol, backprojected[slots] - source[:, None, :], mask, layout["counts"])
@@ -184,7 +184,7 @@ def test_gradient_matches_finite_differences_near_critical(tmp_path):
     assert max(abs(l) for l in lambda_t) < 0.05            # the exact pair of a 10 mas source: |lambda_t| about 0.02
     value, grad = evaluator.value_and_grad(jnp.asarray(theta))
     assert np.isfinite(float(value))
-    for name, step in (("halo.v_disp", 1e-6), ("members.sigma", 1e-6), ("members.g1.velocity_offset", 1e-5), ("images.sigma_shared", 1e-5),
+    for name, step in (("halo.v_disp", 1e-6), ("members.sigma", 1e-6), ("members.g1.velocity_offset", 1e-5), ("images.sigma_gp", 1e-5),
                        ("images.sigma_meas", 1e-6), ("source.1.beta_x", 1e-5)):
         i = names.index(name)
         plus, minus = theta.copy(), theta.copy()
@@ -282,7 +282,7 @@ def test_stress_values_and_gradients_finite(tmp_path):
 
 # ----------------------------------------------------------------------------- the earlier one-scale model
 def test_two_scales_reproduce_the_rho_model(synthetic_config):
-    """sigma_shared^2 = 0.99 sigma^2 and sigma_meas^2 = 0.01 sigma^2 is the earlier rho = 0.99 model at sigma_img = sigma:
+    """sigma_gp^2 = 0.99 sigma^2 and sigma_meas^2 = 0.01 sigma^2 is the earlier rho = 0.99 model at sigma_img = sigma:
     S = sigma^2 (rho K + (1 - rho) I) kron I_2.  The log-target agrees to 1e-10.  ell is fixed so that the precomputed
     kernel is the one the likelihood reads.  The half-normal sigma_meas prior, so that sigma_meas = 0 (the old model) is a
     point of the parameter space."""
@@ -299,7 +299,7 @@ def test_two_scales_reproduce_the_rho_model(synthetic_config):
     original = dict(layout)
     try:
         layout["kernel"] = rho_kernel
-        old_theta = set_scale(state, set_scale(state, state.initial_theta, "images.sigma_shared", sigma), "images.sigma_meas", 0.0)
+        old_theta = set_scale(state, set_scale(state, state.initial_theta, "images.sigma_gp", sigma), "images.sigma_meas", 0.0)
         stats = evaluator.statistics(old_theta)                      # sigma_meas = 0 bypasses the positivity check of log_likelihood
         old_value = float(jnp.sum(stats["loglike"]) + stats["source_correction"] + evaluator.far_field_log_barrier(stats["fields"]["far_cut_radii"]))
     finally:

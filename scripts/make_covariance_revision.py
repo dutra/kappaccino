@@ -151,7 +151,7 @@ def validate(C):
             for c,val in zip(parts,vals):maxerr=max(maxerr,abs(float(v@c@v)-val))
     assert maxerr<1e-12
     return {'quadrature_max_abs_error':error,'fold_projection_max_abs_error':maxerr,'matrix_min_eigenvalues':[float(e.min()) for e in eig],
-            'illustrative_parameters':{'sigma_meas':SM,'sigma_alpha':SA,'sigma_sh':SH,'ell':ELL,'lambda_b':KNEE,'gamma_kappa':4,'w':1,'wavelength_band':[.2,100]},'source_floor':0}
+            'illustrative_parameters':{'sigma_meas':SM,'sigma_grf':SA,'sigma_sh':SH,'ell':ELL,'lambda_b':KNEE,'gamma_kappa':4,'w':1,'wavelength_band':[.2,100]},'source_floor':0}
 
 def main():
     OUT.mkdir(parents=True,exist_ok=True)

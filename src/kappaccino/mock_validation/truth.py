@@ -205,13 +205,13 @@ def parameter_truth(truth: dict[str, Any], *, solver_pivot_magnitude: float | No
                    "images.sigma_def": float(truth.get("sigma_def_arcsec", 0.0)),
                    # The injected measurement noise is the truth of the sampled sigma_meas, in every likelihood.
                    "images.sigma_meas": float(truth.get("config", {}).get("measurement_noise_arcsec", 0.0))})
-    # The injected correlated errors, in the solver's own definitions (gp_knee: sigma_alpha at the reference redshift,
-    # knee wavelength, slope; image-plane GP: sigma_shared, ell); zero when not injected (reported, not scored).
+    # The injected correlated errors, in the solver's own definitions (gp_knee: sigma_grf at the reference redshift,
+    # knee wavelength, slope; image-plane GP: sigma_gp, ell); zero when not injected (reported, not scored).
     field, image_plane = truth["field"], truth["image_plane_error"]
-    values.update({"images.gp_sigma_alpha": float(field["sigma_alpha_arcsec"]) if field else 0.0,
+    values.update({"images.sigma_grf": float(field["sigma_grf_arcsec"]) if field else 0.0,
                    "images.gp_knee": float(field["knee_arcsec"]) if field else np.nan,
                    "images.gp_knee_gamma": float(field["gamma"]) if field else np.nan,
-                   "images.sigma_shared": float(image_plane["sigma_arcsec"]) if image_plane else 0.0,
+                   "images.sigma_gp": float(image_plane["sigma_arcsec"]) if image_plane else 0.0,
                    "images.gp_ell": float(image_plane["ell_arcsec"]) if image_plane else np.nan})
     for source in truth.get("sources", []):
         values[f"source.{source['family_id']}.beta_x"] = float(source["beta_x"])

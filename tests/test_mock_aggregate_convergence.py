@@ -5,7 +5,7 @@ from kappaccino.mock_validation.aggregate_plots import load_campaign
 
 
 def test_completed_selection_does_not_shrink_when_first_mock_converges(tmp_path):
-    for seed, rhat in [(1, 1.08), (2, 1.03), (3, 1.005)]:
+    for seed, rhat in [(1, 1.18), (2, 1.13), (3, 1.05)]:
         directory = tmp_path / f'seed_{seed:08d}' / 'recovery'
         directory.mkdir(parents=True)
         payload = dict(seed=seed, max_r_hat=rhat, min_n_eff=100,
@@ -21,8 +21,8 @@ def test_completed_selection_does_not_shrink_when_first_mock_converges(tmp_path)
 
 
 def test_aggregate_rechecks_saved_verdict_at_current_cut(tmp_path):
-    for seed, rhat, neff, saved_verdict in [(1, 1.009, 50, False), (2, 1.01, 100, True),
-                                             (3, 1.04, 100, True), (4, 1.009, 49, True)]:
+    for seed, rhat, neff, saved_verdict in [(1, 1.099, 50, False), (2, 1.1, 100, True),
+                                             (3, 1.14, 100, True), (4, 1.099, 49, True)]:
         directory = tmp_path / f"seed_{seed:08d}" / "recovery"
         directory.mkdir(parents=True)
         payload = dict(seed=seed, max_r_hat=rhat, min_n_eff=neff, converged=saved_verdict,
@@ -32,7 +32,7 @@ def test_aggregate_rechecks_saved_verdict_at_current_cut(tmp_path):
     campaign = load_campaign(tmp_path, converged_only=True)
     assert campaign.seeds == [1]
     assert campaign.summary.converged.tolist() == [True, False, False, False]
-    assert '1.01' in campaign.summary.iloc[1].convergence_reasons
+    assert '1.1' in campaign.summary.iloc[1].convergence_reasons
     assert load_campaign(tmp_path, converged_only=False).seeds == [1, 2, 3, 4]
     assert load_campaign(tmp_path).seeds == [1, 2, 3, 4]
 

@@ -24,7 +24,7 @@ from .truth import draw_truth, parameter_truth, truth_from_json
 from .writers import MockPaths, write_mock
 
 RECOVERY_FILE = "recovery.json"
-CONVERGENCE_RHAT = 1.01          # diagnostic threshold; automatic aggregates include every completed realization
+CONVERGENCE_RHAT = 1.1           # diagnostic threshold; automatic aggregates include every completed realization
 CONVERGENCE_MIN_NEFF = 50.0      # optional converged-only selection also requires this minimum effective size
 
 

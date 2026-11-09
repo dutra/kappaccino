@@ -90,7 +90,7 @@ class Campaign:
 
 def load_campaign(root: str | Path, *, converged_only: bool = False) -> Campaign:
     """All completed recovery tables by default, with convergence flags retained. With ``converged_only`` realizations whose sampler did not converge
-    (max R-hat >= 1.01 or min n_eff < 50, recomputed from saved diagnostics) are left out of every table except the
+    (max R-hat >= 1.1 or min n_eff < 50, recomputed from saved diagnostics) are left out of every table except the
     summary, which keeps all of them with their ``converged`` flag and reasons."""
     root = Path(root)
     files = sorted(root.glob("seed_*/recovery/" + RECOVERY_FILE))

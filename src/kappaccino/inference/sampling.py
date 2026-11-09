@@ -200,6 +200,44 @@ def unconstrained_from_theta(specs: list[ParameterSpec], theta: np.ndarray) -> d
 HESSIAN_CHUNK = 16                      # Hessian columns per batched forward-over-reverse product (memory bound on all blocks)
 
 
+def hessian_columns(function: Callable[[jnp.ndarray], jnp.ndarray], x, columns=None, *, chunk: int = HESSIAN_CHUNK) -> np.ndarray:
+    """Columns of the Hessian of the scalar ``function`` at ``x``, by forward-over-reverse Hessian-vector products
+    ``chunk`` columns at a time.
+
+    ``jax.jacfwd(jax.grad(f))``, or a ``jax.vmap`` of Hessian-vector products over every direction, holds one copy of
+    every intermediate of the backward pass per direction at once.  With hundreds of exact members and all-image
+    covariances that runs out of memory (Ares: 334 exact members), so the directions go through in chunks and the peak
+    memory is ``chunk`` copies whatever the dimension.
+
+    Parameters
+    ----------
+    function : callable
+        Scalar function of a vector.
+    x : array_like
+        The point, shape (dimension,).
+    columns : array_like of int, optional
+        Which columns (directions) to compute.  None (default) computes them all.
+    chunk : int, optional
+        Directions per batched product.  Default ``HESSIAN_CHUNK``.
+
+    Returns
+    -------
+    numpy.ndarray
+        Shape (dimension, len(columns)): column j is the Hessian times the unit vector of ``columns[j]``.
+    """
+    x = jnp.asarray(x)
+    columns = np.arange(x.size) if columns is None else np.asarray(columns, dtype=int)
+    gradient = jax.grad(function)
+    products = jax.jit(jax.vmap(lambda tangent: jax.jvp(gradient, (x,), (tangent,))[1]))
+    out = []
+    for start in range(0, columns.size, int(chunk)):
+        index = columns[start:start + int(chunk)]
+        basis = np.zeros((int(chunk), x.size))
+        basis[np.arange(index.size), index] = 1.0          # padded to a fixed chunk so one compilation serves every chunk
+        out.append(np.asarray(products(jnp.asarray(basis)), dtype=float)[:index.size])
+    return np.concatenate(out, axis=0).T if out else np.zeros((x.size, 0))
+
+
 def block_mass_seed(model, specs: list[ParameterSpec], reference_theta: np.ndarray, *,
                     dense_families: tuple[str, ...] = ()) -> tuple[list, dict, dict[str, Any]]:
     """Dense inverse mass for the global block from the Hessian at the reference; unit diagonal for latent sites.
@@ -249,11 +287,7 @@ def block_mass_seed(model, specs: list[ParameterSpec], reference_theta: np.ndarr
     try:
         # Forward-over-reverse Hessian-vector products, HESSIAN_CHUNK columns at a time: one jacfwd over a few hundred
         # dimensions would hold that many copies of every intermediate (606 x 606 blocks under all-image covariances).
-        gradient_fn = jax.grad(global_potential)
-        products = jax.jit(jax.vmap(lambda tangent: jax.jvp(gradient_fn, (global_vector,), (tangent,))[1]))
-        basis = np.eye(int(global_vector.size))
-        hessian = np.concatenate([np.asarray(products(jnp.asarray(basis[k:k + HESSIAN_CHUNK])), dtype=float)
-                                  for k in range(0, basis.shape[0], HESSIAN_CHUNK)], axis=0).T
+        hessian = hessian_columns(global_potential, global_vector)
     except Exception as error:  # forward-over-reverse unsupported: central differences of the gradient
         diagnostics["autodiff_failure"] = repr(error)
         gradient = jax.jit(jax.grad(global_potential))

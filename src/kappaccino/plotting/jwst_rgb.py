@@ -290,7 +290,7 @@ def critical_quantile_band(determinants):
 def critical_band(config,state,evaluator,posterior,best_index,geometry,tables,log=print,*,cache_stem='jwst_rgb_critical_z9'):
     import hashlib
     from ..lens.cosmology import dpie_sigma0_factor_from_config
-    indices,chain=best_chain_draw_indices(posterior,best_index)
+    indices,chain=best_chain_draw_indices(posterior,best_index,count=int(config.image_catalog.critical_band_draws))
     samples=np.asarray(posterior.samples)[indices]
     resolution=512
     xe=np.linspace(*geometry['xlim'],resolution+1);ye=np.linspace(*geometry['ylim'],resolution+1)

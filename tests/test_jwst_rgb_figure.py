@@ -172,3 +172,25 @@ systems:
     assert result.valid_photometry.tolist() == [True, True, False]
     assert rgb_overview_stem(NS(), ['F435W','F606W','F814W']) == 'hst_rgb_critical_z9'
     assert rgb_overview_stem(NS(), ['F150W','F200W','F444W']) == 'jwst_rgb_critical_z9'
+
+
+def test_critical_band_draw_count_is_configured(synthetic_config, monkeypatch):
+    """image_catalog.critical_band_draws sets how many best-chain draws the critical band uses; it must be positive."""
+    from dataclasses import replace
+    from types import SimpleNamespace
+    from kappaccino.plotting import jwst_rgb as rgb
+    assert synthetic_config.image_catalog.critical_band_draws == 32
+    with pytest.raises(ValueError, match="critical_band_draws"):
+        replace(synthetic_config, image_catalog=replace(synthetic_config.image_catalog, critical_band_draws=0)).validate()
+    posterior = SimpleNamespace(grouped_samples=np.zeros((2, 100, 3)), samples=np.zeros((200, 3)))
+    indices, chain = rgb.best_chain_draw_indices(posterior, 150, count=4)
+    assert chain == 1 and len(indices) == 4 and 150 in indices and np.all((indices >= 100) & (indices < 200))
+    config = replace(synthetic_config, image_catalog=replace(synthetic_config.image_catalog, critical_band_draws=4)).validate()
+    seen = []
+    def select(posterior, best_index, count=32):
+        seen.append(count)
+        raise RuntimeError('stop after the draw selection')
+    monkeypatch.setattr(rgb, 'best_chain_draw_indices', select)
+    with pytest.raises(RuntimeError):
+        rgb.critical_band(config, None, None, None, 0, None, None)
+    assert seen == [4]

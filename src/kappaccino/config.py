@@ -1503,6 +1503,9 @@ class ImageCatalogCutoutConfig:
         Suffix appended to the cluster mass figure name and related products, e.g. ``"_jwst"``.  Default ``""``.
     rgb : RGBDisplayConfig, optional
         Display overrides.  Default: ``RGBDisplayConfig()`` (recipe defaults).
+    critical_band_draws : int, optional
+        Posterior draws of the best chain, evenly spaced and including the best draw, behind the z = 9 critical curve
+        and its 16-84% band on the RGB overview.  At least 1.  Default ``32``.
     mode : str, optional
         Not read by the current pipeline.  Default ``"full"``.
     dpi : int or None, optional
@@ -1522,6 +1525,7 @@ class ImageCatalogCutoutConfig:
     bands: tuple[str, ...] | None = None
     figure_suffix: str = ""
     rgb: RGBDisplayConfig = field(default_factory=RGBDisplayConfig)
+    critical_band_draws: int = 32
     mode: str = "full"
     dpi: int | None = None
     max_side_pixels: int | None = None
@@ -2036,6 +2040,9 @@ def validate_config(config: LensClusterSolverConfig) -> None:
         raise ValueError("image_diagnostics.posterior_diagnostic_draws must be a nonnegative integer.")
     if not isinstance(diagnostics.fold_max_draws, int) or not 1 <= diagnostics.fold_max_draws <= 128:
         raise ValueError("image_diagnostics.fold_max_draws must be an integer between 1 and 128.")
+    draws = config.image_catalog.critical_band_draws
+    if isinstance(draws, bool) or not isinstance(draws, Integral) or draws < 1:
+        raise ValueError("image_catalog.critical_band_draws must be a positive integer.")
     if not math.isfinite(diagnostics.fold_pair_max_separation_arcsec) or diagnostics.fold_pair_max_separation_arcsec <= 0:
         raise ValueError("image_diagnostics.fold_pair_max_separation_arcsec must be finite and positive.")
     if int(diagnostics.posterior_image_diagnostic_draws) < 0:

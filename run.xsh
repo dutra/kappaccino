@@ -766,8 +766,10 @@ def build_config(
         config = replace(
             config,
             search=replace(config.search, n_starts=256),
-            image_diagnostics=replace(config.image_diagnostics, fold_max_draws=16,
+            image_diagnostics=replace(config.image_diagnostics, fold_max_draws=8,
                                       fold_pair_max_separation_arcsec=3.0),
+            # Four draws of the best chain behind the RGB overview's z = 9 critical curve and band.
+            image_catalog=replace(config.image_catalog, critical_band_draws=4),
             sampling=SamplingConfig(warmup=500, samples=250, max_tree_depth=7, target_accept=0.8),
             members=replace(config.members, far_field_cut_radii=2.0, classification_prior_quantile=None, min_deflection_arcsec=None,
                             cut_radius_inflation=3.0),

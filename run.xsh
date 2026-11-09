@@ -102,6 +102,8 @@ HFF_RGB_DISPLAY = {}      # library defaults: f_nu-scaled Lupton display with th
 # --imaging jwst: NIRCam mosaics (CANUCS for MACS0416, DJA for AS1063) under data/imaging/<cluster>/{canucs_dr1,dja_v7.5} (scripts/download_imaging.py); blue F115W+F150W, green
 # F150W+F200W, red F444W, the STScI/UNCOVER hue assignment with the four bands we hold.
 JWST_RGB_BANDS = ["F115W", "F150W", "F200W", "F444W"]
+# Brighter AS1063 display to reveal faint cluster galaxies and arcs.
+AS1063_JWST_RGB_DISPLAY = RGBDisplayConfig(q=80.0, stretch=20.0)
 
 VALID_CLUSTERS = "ARES, HERA, AS1063, AS1063_JWST, M0416_BERGAMINI2023, M0416_CANUCS2025"
 FF_RGB_BANDS = ("F435W", "F606W", "F814W")
@@ -752,7 +754,8 @@ def build_config(
             image_dir=imaging_dir(cluster_config["cluster_key"], imaging if is_hff else "ffsims"),
             image_scale="auto",
             bands=(tuple(JWST_RGB_BANDS) if imaging == "jwst" else tuple(HFF_RGB_BANDS)) if is_hff else FF_RGB_BANDS,
-            rgb=RGBDisplayConfig(**HFF_RGB_DISPLAY) if is_hff else FF_RGB_DISPLAY,
+            rgb=(AS1063_JWST_RGB_DISPLAY if cluster in {"AS1063", "AS1063_JWST"} and imaging == "jwst"
+                 else RGBDisplayConfig(**HFF_RGB_DISPLAY) if is_hff else FF_RGB_DISPLAY),
             figure_suffix="_jwst" if (is_hff and imaging == "jwst") else "",
         ),
     )

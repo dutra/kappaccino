@@ -112,8 +112,19 @@ def render_rgb_critical(config, state, evaluator, theta, catalog, extra, imaging
     main_output = output
     for show_candidates in ((False, True) if m0416 else (False,)):
         output = main_output.with_name(main_output.stem + '_candidates.pdf') if show_candidates else main_output
-        fig=plt.figure(figsize=(9,9))
-        ax=fig.add_subplot(111,projection=geometry['wcs'])
+        # Match the M0416 candidate overview's page and map footprint for
+        # side-by-side paper figures. Expand the sky crop, never stretch pixels.
+        matched_page = cluster.lower() == 'as1063'
+        page_width, page_height = 612.8157348632812, 551.6261596679688
+        map_left, map_top, map_right, map_bottom = 113.94043731689453, 6.9825439453125, 608.6768798828125, 506.11749267578125
+        if matched_page:
+            fig=plt.figure(figsize=(page_width/72.,page_height/72.))
+            ax=fig.add_axes([map_left/page_width, (page_height-map_bottom)/page_height,
+                             (map_right-map_left)/page_width, (map_bottom-map_top)/page_height],
+                            projection=geometry['wcs'])
+        else:
+            fig=plt.figure(figsize=(9,9))
+            ax=fig.add_subplot(111,projection=geometry['wcs'])
         n=geometry['resolution']
         ax.imshow(rgb,origin='lower',extent=(-.5,n-.5,-.5,n-.5),interpolation='none')
         if band is not None:
@@ -167,6 +178,13 @@ def render_rgb_critical(config, state, evaluator, theta, catalog, extra, imaging
         # Include both fitted images and proposed candidates, with 3 arcsec padding.
         pad=3./geometry['size']*n
         limits=[float(min(all_px)-pad),float(max(all_px)+pad),float(min(all_py)-pad),float(max(all_py)+pad)]
+        if matched_page:
+            target_ratio=(map_right-map_left)/(map_bottom-map_top)
+            width,height=limits[1]-limits[0],limits[3]-limits[2]
+            cx,cy=(limits[0]+limits[1])/2.,(limits[2]+limits[3])/2.
+            width=max(width,height*target_ratio)
+            height=width/target_ratio
+            limits=[cx-width/2.,cx+width/2.,cy-height/2.,cy+height/2.]
         ax.set_xlim(limits[:2]);ax.set_ylim(limits[2:])
         from matplotlib.lines import Line2D
         from matplotlib.patches import Patch
@@ -214,7 +232,12 @@ def render_rgb_critical(config, state, evaluator, theta, catalog, extra, imaging
         ra.set_ticklabel_position('b');dec.set_ticklabel_position('l')
         ra.display_minor_ticks(True);dec.display_minor_ticks(True)
         inset_info=None
-        fig.savefig(output,dpi=300,bbox_inches='tight',pad_inches=.06);plt.close(fig)
+        if matched_page:
+            from matplotlib.transforms import Bbox
+            fig.savefig(output,dpi=300,bbox_inches=Bbox.from_bounds(0,0,page_width/72.,page_height/72.),pad_inches=0)
+        else:
+            fig.savefig(output,dpi=300,bbox_inches='tight',pad_inches=.06)
+        plt.close(fig)
         output.with_suffix('.json').write_text(json.dumps(dict(run=config.paths.run_name,image_position_marker='square',recovered_position_probability=.954499736,insets=inset_info,candidate_marker='diamond' if show_candidates else None,best_index=best_index,central_statistic='zero contour of pointwise posterior median determinant; same draws as band',z_source=9.,model='parametric + conditional mean GRF; no GP displacement' if shared_grf else 'parametric only; no shared GRF available',grf_field=shared_grf_label(evaluator),grf_derivatives=PLOT_FIELD_VERSION,bands=list(bands),catalog_images=len(catalog),resolution=n,determinant_resolution=int(det.shape[0]),critical_definition='median over draws of det(I - Hessian_draw) = 0',cache_fingerprint=fingerprint,marker_photometry=str(photpath) if photpath else None,magnitude_band=sorted(set(marker_table.loc[valid, 'magnitude_band'])),marker_photometry_catalog=str(getattr(getattr(getattr(config, 'model', None), 'image_constraints', None), 'catalog_path', '')),matched_magnitudes=int(valid.sum()),missing_magnitude_policy='minimum marker area 9 pt^2',marker_area='clip(16*10**(-0.2*(m-26)),9,64) pt^2',crop_padding_arcsec=3.,crop_pixel_limits=limits,candidate_catalog=str(candidate_path) if candidate_path else None,candidate_overlays=[r['id'] for r in overlay_rows]),indent=2)+'\n')
         log(f"[outputs] RGB critical overview written: {output}")
     return main_output

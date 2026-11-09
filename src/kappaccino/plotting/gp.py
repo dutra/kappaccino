@@ -158,7 +158,7 @@ def plot_shared_vs_white(state, evaluator, posterior, output):
 
 DEFAULT_SCALE_SITES = (('images.sigma_shared', 'Shared displacement scale', r'$\sigma_{\rm shared}$', 1e3, 'mas'),
                        ('images.sigma_white', 'Independent displacement scale', r'$\sigma_{\rm white}$', 1e3, 'mas'))
-KNEE_SCALE_SITES = (('images.gp_sigma_alpha', 'Mass-field deflection error', r'$\sigma_\alpha$', 1e3, 'mas'),
+KNEE_SCALE_SITES = (('images.gp_sigma_alpha', 'Mass-field deflection error', r'$\sigma_{\rm GRF}$', 1e3, 'mas'),
                     ('images.gp_knee', 'Knee wavelength', r'$\ell_{\rm knee}$', 1.0, 'arcsec'),
                     ('images.gp_knee_gamma', 'Spectral slope beyond the knee', r'$\gamma_{\rm GRF}$', 1.0, ''),
                     ('images.sigma_shared', 'Image-plane GP amplitude', r'$\sigma_{\rm shared}$', 1e3, 'mas'),

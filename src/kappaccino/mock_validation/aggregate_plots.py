@@ -37,7 +37,7 @@ PAPER_PARAMETERS = (
     "potfile.log10_mass_msun", "potfile.sigma", "potfile.cutkpc", "potfile.alpha_sigma", "potfile.beta_radius", "potfile.gamma_ml",
 )
 PARAMETER_LABELS = {
-    "gp_sigma_alpha": r"$\sigma_\alpha$", "gp_knee": r"$\ell_{\rm knee}$",
+    "gp_sigma_alpha": r"$\sigma_{\rm GRF}$", "gp_knee": r"$\ell_{\rm knee}$",
     "gp_knee_gamma": r"$\gamma_{\rm GRF}$", "gp_sigma_alpha2": r"$\sigma_{\alpha,2}$",
     "gp_knee2": r"$\ell_{\rm knee,2}$", "gp_knee_beta_low": r"$\beta_{\rm low}$",
     "sigma_shared": r"$\sigma_{\rm shared}$", "gp_ell": r"$\ell$",

@@ -121,7 +121,7 @@ def plot_covariance_corner(config, state, posterior, paths):
               'gp_sigma_alpha', 'gp_knee', 'gp_knee_gamma']
     symbols = [r'$\sigma_{\rm extra}$', r'$\sigma_{\rm def}$',
                r'$\sigma_{\rm sel}$', r'$\lambda_{\rm sel}$', r'$\sigma_{\rm shared}$', r'$\sigma_{\rm white}$', r'$\ell$',
-               r'$\sigma_\alpha$', r'$\ell_{\rm knee}$', r'$\gamma_{\rm GRF}$']
+               r'$\sigma_{\rm GRF}$', r'$\ell_{\rm knee}$', r'$\gamma_{\rm GRF}$']
     selection = [(i, spec, label) for field, label in zip(fields, symbols)
                  for i, spec in enumerate(state.parameter_specs) if spec.name == 'images.'+field]
     grouped = None

@@ -93,7 +93,8 @@ def test_output_reuses_loaded_imaging(monkeypatch, synthetic_config, tmp_path, c
     def load(image_config, *args):
         if missing_hst and not image_config.figure_suffix:
             raise FileNotFoundError('HST unavailable')
-        return (None,None,None,imaging)
+        bands = ['F115W','F150W','F200W'] if image_config.figure_suffix == '_jwst' else ['F435W','F606W','F814W']
+        return (None,bands,None,imaging)
     monkeypatch.setattr(cutouts,'load_cluster_imaging',load)
     monkeypatch.setattr(mass_figure,'render_cluster_mass_figure',lambda *a,**k:None)
     calls=[];monkeypatch.setattr(outputs,'write_covariance_cutouts',lambda *a,**k:calls.append(a[5]))
@@ -110,8 +111,11 @@ def test_output_reuses_loaded_imaging(monkeypatch, synthetic_config, tmp_path, c
     monkeypatch.setattr(outputs,"save_fold_data",lambda *a:None)
     monkeypatch.setattr(outputs,"render_fold_diagnostics",lambda *a,**k:fold_renders.append(a[4]))
     outputs.write_outputs(config,state,evaluator,posterior,{},paths,log=lambda _:None)
-    assert len(rgb_calls)==(1 if cluster in {"hera","ares"} else 0)
-    assert all(call[7].name.endswith("hst_rgb_critical_z9.pdf") for call in rgb_calls)
+    # One RGB critical overview per loaded imaging variant, named by its instrument.
+    assert len(rgb_calls)==expected
+    assert sorted(call[7].name for call in rgb_calls)==sorted(
+        ("jwst" if call[0].image_catalog.figure_suffix=="_jwst" else "hst")+"_rgb_critical_z9.pdf" for call in rgb_calls)
+    assert any(call[7].name=="jwst_rgb_critical_z9.pdf" for call in rgb_calls)==(cluster in {"m0416","as1063"})
     assert len(lambda_calls)==(1 if cluster in {"m0416","as1063"} else 0)
     assert all(call[5][3] is imaging for call in lambda_calls)
     assert len(fold_calls)==1 and len(fold_renders)==expected

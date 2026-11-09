@@ -35,7 +35,7 @@ from ..config import TruthRecoveryConfig
 from ..likelihood.evaluator import Evaluator
 from ..core.model import ModelState
 from ..core.utils import progress
-from ..likelihood.grf_fields import shared_grf_fields
+from ..likelihood.grf_fields import shared_field_evaluator, shared_grf_fields, shared_grf_label
 
 QUANTITIES = ("kappa", "gamma1", "gamma2", "detA", "mu", "abs_mu")
 APERTURE_CENTER_SMOOTHING_SIGMA_PIX = 2.0
@@ -282,11 +282,19 @@ def mass_per_kappa_pixel_msun(state: ModelState, wcs: WCS, z_source: float) -> f
     return float((sigma_crit * dl ** 2).to_value(u.Msun) * pixel_solid_angle)
 
 
+def shared_grf_available(evaluator: Evaluator, theta: np.ndarray) -> bool:
+    """True when a shared mass field exists (the run's own or an all-block twin of a system-block run), so that the GRF
+    conditional mean defines a cluster-wide map."""
+    return shared_field_evaluator(evaluator) is not None
+
+
 def compute_truth_recovery(state: ModelState, evaluator: Evaluator, samples: np.ndarray, config: TruthRecoveryConfig,
-                           fits_dir: Path, tables_dir: Path, *, seed: int, log=print) -> dict[str, Any] | None:
+                           fits_dir: Path, tables_dir: Path, *, seed: int, log=print,
+                           median_theta: np.ndarray | None = None) -> dict[str, Any] | None:
     """Write median and 16/84 percentile grids of the lens quantities and the aperture profile. Returns grid data.
 
-    The truth convergence (and, when both are configured, shear) maps are resampled onto a grid of at most
+    Every grid is the parametric model plus the shared GRF conditional mean of the same draw, when the run has one
+    shared mass field.  The truth convergence (and, when both are configured, shear) maps are resampled onto a grid of at most
     ``config.truth_grid_size`` pixels per side.  The model is evaluated at the latent median of ``samples`` and at up
     to ``config.posterior_truth_recovery_draws`` random draws, for a source at ``config.caustic_source_redshift``.
     Writes to ``fits_dir`` ``truth_recovery_<q>_model_median.fits``, ``truth_recovery_<q>_model_q16.fits`` and
@@ -313,6 +321,9 @@ def compute_truth_recovery(state: ModelState, evaluator: Evaluator, samples: np.
         Seed of the random choice of draws.
     log : callable, optional
         Logging function.  Default ``print``.
+    median_theta : numpy.ndarray or None, optional
+        Parameter vector of the median map.  Pass ``grf_fields.posterior_median_theta`` so that the GRF is conditioned
+        on the physical median sources, as in the mass figure.  None (default) uses the latent median of ``samples``.
 
     Returns
     -------
@@ -344,7 +355,13 @@ def compute_truth_recovery(state: ModelState, evaluator: Evaluator, samples: np.
     n_draws = min(int(config.posterior_truth_recovery_draws), len(samples))
     rng = np.random.default_rng(seed)
     draws = samples[np.sort(rng.choice(len(samples), size=n_draws, replace=False))] if n_draws else samples[:0]
-    median_theta = np.median(samples, axis=0)
+    median_theta_is_latent = median_theta is None
+    median_theta = np.median(samples, axis=0) if median_theta is None else np.asarray(median_theta, dtype=float)
+    grf_included = shared_grf_available(evaluator, median_theta)
+    if not grf_included:
+        log("[truth] WARNING: no knee mass field in this run; truth maps are the parametric model only")
+    else:
+        log(f"[truth] parametric + GRF: {shared_grf_label(evaluator)}")
     realizations = [median_theta, *draws] if n_draws else [median_theta]
     finite = np.isfinite(x) & np.isfinite(y)
     flat_x, flat_y = x[finite], y[finite]
@@ -358,9 +375,10 @@ def compute_truth_recovery(state: ModelState, evaluator: Evaluator, samples: np.
     header = wcs.to_header()
     header["ZSOURCE"] = z_source
     truth_header = header.copy()
-    header["GRFMEAN"] = bool(getattr(evaluator, "gp_knee", False) and state.gp_blocks == "all"
-                              and evaluator.gp_sigma_alpha_index >= 0 and evaluator.gp_knee_spectrum == "knee")
+    header["GRFMEAN"] = grf_included
     header["GRFTYPE"] = "conditional mean; same draw"
+    header["GRFFIELD"] = ("run" if shared_field_evaluator(evaluator) is evaluator else "all-block twin") if grf_included else "none"
+    header["MEDTHETA"] = "latent median" if median_theta_is_latent else "physical median"
     products: dict[str, dict[str, np.ndarray]] = {}
     for q in QUANTITIES:
         products[q] = {"median": grids[q][0]}

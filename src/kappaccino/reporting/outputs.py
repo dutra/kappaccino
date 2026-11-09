@@ -104,8 +104,12 @@ def write_outputs(config: LensClusterSolverConfig, state: ModelState, evaluator:
     plots.plot_critical_curves(state, evaluator, best, sources, z_crit if z_crit > state.z_lens else max(state.z_source_values),
                                plots.figure_path(figures, "critical_curves.pdf", prefix))
 
+    median_theta = None
+    if config.truth.kappa_true_fits:
+        from ..likelihood.grf_fields import posterior_median_theta
+        median_theta = posterior_median_theta(evaluator, posterior)
     truth = compute_truth_recovery(state, evaluator, np.asarray(posterior.samples), config.truth, paths.fits, tables,
-                                   seed=config.runtime.seed, log=log)
+                                   seed=config.runtime.seed, log=log, median_theta=median_theta)
     write_aperture_mass_histogram(config, state, evaluator, posterior, paths, image_df, log=log)
     if truth is not None:
         from ..diagnostics.exact_images import astropy_cosmology
@@ -159,8 +163,7 @@ def write_outputs(config: LensClusterSolverConfig, state: ModelState, evaluator:
                 from ..plotting.apj_fold_cutouts import render_apj_fold_cutouts
                 from ..plotting.fold_pairs import add_best_grf_critical_curves
                 # Reuse selected draws and imaging; never rerun image recovery.
-                add_best_grf_critical_curves(state, evaluator, posterior, fold_data, log=log,
-                                           system_block_fields=True, critical_only=True)
+                add_best_grf_critical_curves(state, evaluator, posterior, fold_data, log=log, critical_only=True)
                 save_fold_data(fold_data, tables)
                 output = render_apj_fold_cutouts(config, fold_data, imaging,
                     plots.figure_path(figures, 'fold_cutouts_apj_jwst.pdf', prefix),

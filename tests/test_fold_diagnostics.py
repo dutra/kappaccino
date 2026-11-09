@@ -376,7 +376,7 @@ def test_prepare_fold_plot_upgrades_old_cache_and_records_gravitational_display(
     monkeypatch.setattr(fd,'add_system_knots',knots)
     monkeypatch.setattr(fd,'add_best_grf_critical_curves',grf)
     state=SimpleNamespace(images=SimpleNamespace(system_ids=['S']),gp_blocks='all')
-    evaluator=SimpleNamespace(gp_knee=True)
+    evaluator=SimpleNamespace(gp_knee=True,gp_sigma_alpha_index=0,gp_knee_spectrum='knee',state=state)   # an all-block run: its own shared field
     data=dict(pairs=[])
     fd.prepare_fold_plot_data(None,state,evaluator,None,data)
     assert calls==['knots','grf']

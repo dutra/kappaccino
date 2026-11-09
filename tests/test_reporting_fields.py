@@ -48,13 +48,37 @@ def test_total_magnification_uses_total_jacobian_once(monkeypatch):
 def test_no_field_and_empty_points(monkeypatch):
     e=evaluator(monkeypatch)
     assert shared_grf_fields(e,None,4.,np.empty((0,2)))[0].shape==(0,2)
-    for blocks in ['family','system']:
+    e.gp_sigma_alpha_index=-1                  # no mass field: nothing to add, whatever the blocks
+    for blocks in ['all','family','system']:
         e.state.gp_blocks=blocks
         a,u=shared_grf_fields(e,None,4.,[[1.,2.]])
         assert not a.any() and not u.any()
+    e.gp_sigma_alpha_index=0
     e.state.gp_blocks='all'
     e.gp_deflection_correction=lambda theta:None
     assert not shared_grf_fields(e,None,4.,[[1.,2.]])[1].any()
+
+
+def test_system_blocks_use_the_shared_twin(monkeypatch):
+    """A system-block run reports the conditional mean of its all-block twin, with the draw re-expressed for it."""
+    from kappaccino.likelihood import grf_fields as reporting_fields
+    twin=evaluator(monkeypatch)
+    run=evaluator(monkeypatch)
+    run.state.gp_blocks='system'
+    run.gp_deflection_correction=lambda theta:(_ for _ in ()).throw(AssertionError('per-system field used'))
+    run._shared_field_twin=twin
+    seen=[]
+    monkeypatch.setattr(reporting_fields,'shared_theta',lambda e,theta:seen.append((e,theta)) or 'twin-theta')
+    def twin_correction(theta):
+        seen.append(theta)
+        return lambda x,y,f:(3*x*x,3*y*y,6*x,0*x,0*x,6*y)
+    twin.gp_deflection_correction=twin_correction
+    xy=np.array([[.01,.02],[.03,.04]])
+    a,u=shared_grf_fields(run,'theta',4.,xy)
+    np.testing.assert_allclose(a,2*xy**2)
+    np.testing.assert_allclose(u[:,0,0],4*xy[:,0])
+    assert seen[0]==(run,'theta') and seen[1]=='twin-theta'
+    assert reporting_fields.shared_field_evaluator(run) is twin
 
 
 def test_observed_stretch_uses_corrected_jacobian():

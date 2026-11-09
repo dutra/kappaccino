@@ -11,7 +11,7 @@ from scipy.interpolate import BPoly, CubicSpline
 
 from ..likelihood import gp_knee
 
-PLOT_FIELD_VERSION = 'potential-consistent-hermite-v1'
+PLOT_FIELD_VERSION = 'potential-consistent-hermite-v2-shared-field'   # v2: system-block runs use the all-block twin
 
 
 class SmoothPlotDeflection:

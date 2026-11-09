@@ -7,6 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from .grf import plot_deflection_correction, PLOT_FIELD_VERSION
 from ..io.hdf5 import load_arrays, save_arrays
+from ..likelihood.grf_fields import shared_field_evaluator, shared_grf_label, shared_theta
 
 
 def overview_grf_correction(evaluator, theta, geometry):
@@ -56,7 +57,7 @@ def render_rgb_critical(config, state, evaluator, theta, catalog, extra, imaging
     geometry=overview_geometry(reference_image,catalog,extra,state.reference,resolution=768)
     tables.mkdir(parents=True, exist_ok=True)
     output.parent.mkdir(parents=True, exist_ok=True)
-    shared_grf=bool(getattr(evaluator,'gp_knee',False) and state.gp_blocks=='all')
+    shared_grf=shared_field_evaluator(evaluator) is not None
     band,band_info=critical_band(config,state,evaluator,posterior,best_index,geometry,tables,log=log,cache_stem=stem)
     saved = load_arrays(tables/f'{stem}_band.h5')
     lower,det,upper=critical_quantile_summary(saved['determinants'])
@@ -139,7 +140,7 @@ def render_rgb_critical(config, state, evaluator, theta, catalog, extra, imaging
     ra.display_minor_ticks(True);dec.display_minor_ticks(True)
     inset_info=render_overview_cutouts(fig,insets,imaging,state.reference) if insets is not None else None
     fig.savefig(output,dpi=300,bbox_inches='tight',pad_inches=.06);plt.close(fig)
-    output.with_suffix('.json').write_text(json.dumps(dict(run=config.paths.run_name,insets=inset_info,best_index=best_index,central_statistic='zero contour of pointwise posterior median determinant; same draws as band',z_source=9.,model='parametric + conditional mean GRF; no GP displacement' if shared_grf else 'parametric only; no shared GRF available',grf_derivatives=PLOT_FIELD_VERSION,bands=list(bands),catalog_images=len(catalog),resolution=n,determinant_resolution=int(det.shape[0]),critical_definition='median over draws of det(I - Hessian_draw) = 0',cache_fingerprint=fingerprint,marker_photometry=str(photpath) if photpath else None,magnitude_band='F200W AB' if photpath else None,matched_magnitudes=int(valid.sum()),missing_magnitude_policy='minimum marker area 9 pt^2',marker_area='clip(16*10**(-0.2*(m-26)),9,64) pt^2',crop_padding_arcsec=3.,crop_pixel_limits=limits,candidate_catalog=str(candidate_path) if candidate_path else None,candidate_overlays=[r['id'] for r in overlay_rows]),indent=2)+'\n')
+    output.with_suffix('.json').write_text(json.dumps(dict(run=config.paths.run_name,image_position_marker='circle',recovered_position_probability=None,insets=inset_info,best_index=best_index,central_statistic='zero contour of pointwise posterior median determinant; same draws as band',z_source=9.,model='parametric + conditional mean GRF; no GP displacement' if shared_grf else 'parametric only; no shared GRF available',grf_field=shared_grf_label(evaluator),grf_derivatives=PLOT_FIELD_VERSION,bands=list(bands),catalog_images=len(catalog),resolution=n,determinant_resolution=int(det.shape[0]),critical_definition='median over draws of det(I - Hessian_draw) = 0',cache_fingerprint=fingerprint,marker_photometry=str(photpath) if photpath else None,magnitude_band='F200W AB' if photpath else None,matched_magnitudes=int(valid.sum()),missing_magnitude_policy='minimum marker area 9 pt^2',marker_area='clip(16*10**(-0.2*(m-26)),9,64) pt^2',crop_padding_arcsec=3.,crop_pixel_limits=limits,candidate_catalog=str(candidate_path) if candidate_path else None,candidate_overlays=[r['id'] for r in overlay_rows]),indent=2)+'\n')
     log(f"[outputs] RGB critical overview written: {output}")
     return output
 
@@ -198,22 +199,23 @@ def critical_band(config,state,evaluator,posterior,best_index,geometry,tables,lo
     x,y=np.meshgrid((xe[:-1]+xe[1:])/2,(ye[:-1]+ye[1:])/2)
     xy=np.column_stack([x.ravel(),y.ravel()])
     fingerprint=hashlib.sha256(samples.tobytes()+indices.tobytes()+xy.tobytes()+
-        json.dumps({'model':config.to_json_dict()['model'],'likelihood':config.to_json_dict()['likelihood']},sort_keys=True,default=str).encode()+PLOT_FIELD_VERSION.encode()+b'critical-band-z9-best-chain-smooth-v2').hexdigest()
+        json.dumps({'model':config.to_json_dict()['model'],'likelihood':config.to_json_dict()['likelihood']},sort_keys=True,default=str).encode()+PLOT_FIELD_VERSION.encode()+b'critical-band-z9-best-chain-smooth-v2'+shared_grf_label(evaluator).encode()).hexdigest()
     path=tables/f'{cache_stem}_band.h5'
     if path.exists():
         saved = load_arrays(path)
         if str(saved['fingerprint'])==fingerprint:
             log(f'[outputs] cached critical band: chain {chain}, {len(indices)} draws')
             return saved['band'].copy(),dict(chain=chain,draw_indices=indices.tolist(),resolution=resolution,cache_reused=True)
-    shared=bool(getattr(evaluator,'gp_knee',False) and state.gp_blocks=='all')
-    factor=float(dpie_sigma0_factor_from_config(state.z_lens,9.,state.cosmo_config))/float(dpie_sigma0_factor_from_config(state.z_lens,state.gp_reference_redshift,state.cosmo_config))/float(evaluator.gp_weights_per_family[0]) if shared else 0.
+    twin=shared_field_evaluator(evaluator)
+    shared=twin is not None
+    factor=float(dpie_sigma0_factor_from_config(state.z_lens,9.,state.cosmo_config))/float(dpie_sigma0_factor_from_config(state.z_lens,state.gp_reference_redshift,state.cosmo_config))/float(twin.gp_weights_per_family[0]) if shared else 0.
     determinants=[]
     for number,theta in enumerate(samples):
         packed=evaluator.packed_state_for_z(evaluator.physical(theta),9.)
         _,hessian=evaluator.total_fields_at(xy,packed,chunk=1024)
         hessian=np.array(hessian,copy=True)
         if shared:
-            correction=overview_grf_correction(evaluator,theta,geometry)
+            correction=overview_grf_correction(twin,shared_theta(evaluator,theta),geometry)
             for start in range(0,len(xy),384):
                 q=xy[start:start+384]
                 c=correction(q[:,0],q[:,1],np.zeros(len(q),dtype=int))

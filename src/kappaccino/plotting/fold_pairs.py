@@ -11,6 +11,7 @@ from types import SimpleNamespace
 
 import contourpy
 from .grf import plot_deflection_correction, PLOT_FIELD_VERSION
+from ..likelihood.grf_fields import shared_evaluator_and_posterior, shared_field_evaluator
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -226,8 +227,11 @@ def posterior_image_positions(config, state, evaluator, posterior, *, family_ids
 
 
 def compute_fold_diagnostics(config, state, evaluator, posterior, *, log=print):
-    """Compute at most 128 joint draws once; reuse for HST and JWST renderings."""
+    """Compute at most 128 joint draws once; reuse for HST and JWST renderings.
+
+    Every field here is the shared mass field: a system-block run is evaluated through its all-block twin."""
     started = time.monotonic()
+    evaluator, posterior = shared_evaluator_and_posterior(evaluator, posterior)
     full_posterior = posterior
     result = dict(pairs=[], skipped=[], selection='Mutual nearest same-family images; opposite best-fit exact parity; '
                   'critical curve between images; regular fold. Model-identified candidates.',
@@ -480,13 +484,14 @@ def prepare_fold_plot_data(config, state, evaluator, posterior, data, *, log=pri
     products. The renderer always uses gravitational image positions, even if
     optional GP-adjusted diagnostics are present in a saved cache.
     """
+    evaluator, posterior = shared_evaluator_and_posterior(evaluator, posterior)
     if 'systems' not in data and getattr(state.images, 'system_ids', ()):
         data = add_system_knots(config, state, evaluator, posterior, data, log=log)
     add_best_grf_critical_curves(state, evaluator, posterior, data, log=log)
     data["central_curve_statistic"] = CRITICAL_CURVE_STATISTIC
     for system in data.get("systems", []):
         system["central_curve_statistic"] = CRITICAL_CURVE_STATISTIC
-    shared_grf = bool(getattr(evaluator, 'gp_knee', False) and state.gp_blocks == 'all')
+    shared_grf = shared_field_evaluator(evaluator) is not None
     data['plot_presentation'] = dict(
         version='fold-system-display-v1',
         image_position_contours='Parametric + conditional-mean GRF' if shared_grf else 'Parametric',
@@ -595,12 +600,12 @@ def add_system_knots(config, state, evaluator, posterior, data, *, log=print):
     return data
 
 
-def add_best_grf_critical_curves(state, evaluator, posterior, data, *, log=print,
-                                 system_block_fields=False, critical_only=False):
-    """Two best-draw critical curves on the same sky grid; no posterior resampling."""
-    if not (getattr(evaluator, 'gp_knee', False) and
-            (state.gp_blocks == 'all' or (system_block_fields and state.gp_blocks == 'system'))):
+def add_best_grf_critical_curves(state, evaluator, posterior, data, *, log=print, critical_only=False):
+    """Two best-draw critical curves on the same sky grid; no posterior resampling.  The GRF is the shared field
+    (the all-block twin for a system-block run)."""
+    if shared_field_evaluator(evaluator) is None:
         return data
+    evaluator, posterior = shared_evaluator_and_posterior(evaluator, posterior)
     best = int(np.nanargmax(posterior.log_prob))
     theta = posterior.samples[best]
     correction = plot_deflection_correction(evaluator, theta)

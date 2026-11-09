@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 from .grf import PLOT_FIELD_VERSION
 from ..io.hdf5 import load_arrays, save_arrays
+from ..likelihood.grf_fields import shared_field_evaluator, shared_grf_label, shared_theta
 
 
 def median_cutout_determinants(state,evaluator,posterior,centers,fovs,redshifts,indices,path,fingerprint,*,resolution=96,log=print):
@@ -17,24 +18,23 @@ def median_cutout_determinants(state,evaluator,posterior,centers,fovs,redshifts,
     grids=np.array([np.stack(np.meshgrid(c[0]+axis*f,c[1]+axis*f),axis=-1) for c,f in zip(centers,fovs)])
     samples=np.asarray(posterior.samples)[indices]
     key=hashlib.sha256(samples.tobytes()+indices.tobytes()+grids.tobytes()+redshifts.tobytes()+
-        fingerprint.encode()+PLOT_FIELD_VERSION.encode()+b'cutout-critical-median-v1').hexdigest()
+        fingerprint.encode()+PLOT_FIELD_VERSION.encode()+b'cutout-critical-median-v1'+shared_grf_label(evaluator).encode()).hexdigest()
     path=Path(path)
     if path.exists():
         saved = load_arrays(path)
         if str(saved['fingerprint'])==key and 'lower' in saved and 'upper' in saved:
             return grids,saved['median_determinant'].copy(),indices,saved['lower'].copy(),saved['upper'].copy()
-    shared=bool(getattr(evaluator,'gp_knee',False) and state.gp_blocks=='all')
-    if getattr(evaluator,'gp_knee',False) and not shared:
-        raise ValueError('Cutout critical curves currently require a shared GRF (gp_blocks=all)')
+    twin=shared_field_evaluator(evaluator)
+    shared=twin is not None
     factors=np.zeros(len(redshifts))
     if shared:
-        ref=float(dpie_sigma0_factor_from_config(state.z_lens,state.gp_reference_redshift,state.cosmo_config))*float(evaluator.gp_weights_per_family[0])
+        ref=float(dpie_sigma0_factor_from_config(state.z_lens,state.gp_reference_redshift,state.cosmo_config))*float(twin.gp_weights_per_family[0])
         factors=np.array([float(dpie_sigma0_factor_from_config(state.z_lens,float(z),state.cosmo_config))/ref for z in redshifts])
     flat=grids.reshape(-1,2)
     geometry=dict(xlim=(flat[:,0].min(),flat[:,0].max()),ylim=(flat[:,1].min(),flat[:,1].max()))
     draws=[]
     for i,theta in enumerate(samples):
-        correction=overview_grf_correction(evaluator,theta,geometry) if shared else None
+        correction=overview_grf_correction(twin,shared_theta(evaluator,theta),geometry) if shared else None
         physical=evaluator.physical(theta)
         fields=[]
         for grid,z,factor in zip(grids,redshifts,factors):
@@ -57,6 +57,6 @@ def median_cutout_determinants(state,evaluator,posterior,centers,fovs,redshifts,
     save_arrays(path,median_determinant=median,lower=lower,upper=upper,determinants=draws,draw_indices=indices,redshifts=redshifts,
                         centers=centers,fovs=fovs,fingerprint=key)
     path.with_suffix('.json').write_text(json.dumps(dict(definition='Zero contour of pointwise posterior median determinant; band where the same draws 16-84% determinant interval contains zero',
-        model='parametric + conditional mean GRF' if shared else 'parametric',draw_indices=indices.tolist(),
+        model='parametric + conditional mean GRF' if shared else 'parametric',grf_field=shared_grf_label(evaluator),draw_indices=indices.tolist(),
         redshifts=redshifts.tolist(),resolution=resolution),indent=2)+'\n')
     return grids,median,indices,lower,upper

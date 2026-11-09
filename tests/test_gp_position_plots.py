@@ -46,6 +46,7 @@ def test_gp_contours_include_latent_variance_with_identical_posterior_means():
 def test_gp_position_cache_and_missing_gravitational_roots():
     class Evaluator:
         gp_knee=True
+        gp_sigma_alpha_index=0; gp_knee_spectrum='knee'          # an all-block run with a mass field: its own shared field
         gp=dict(slots=jnp.array([[0]]))
         def _padded_evaluator(self):return self
         def statistics(self,t):
@@ -58,8 +59,10 @@ def test_gp_position_cache_and_missing_gravitational_roots():
     system=dict(labels=['A.a'],positions=positions,observed=np.array([[1.,0.]]))
     data=dict(systems=[system],draw_indices=[0,1])
     posterior=SimpleNamespace(samples=np.array([[0.],[1.]]))
-    add_gp_position_diagnostics(state,Evaluator(),posterior,data,log=lambda _:None)
+    evaluator=Evaluator(); evaluator.state=state
+    add_gp_position_diagnostics(state,evaluator,posterior,data,log=lambda _:None)
     np.testing.assert_allclose(system['gp_adjusted_mean_positions'][0,0],[np.exp(-.5)/1.01,0.],atol=1e-14)
     assert np.isnan(system['gp_adjusted_mean_positions'][1]).all()
-    broken=SimpleNamespace(gp_knee=True,_padded_evaluator=lambda:(_ for _ in ()).throw(AssertionError('cache missed')))
+    broken=SimpleNamespace(gp_knee=True,gp_sigma_alpha_index=0,gp_knee_spectrum='knee',state=state,
+                           _padded_evaluator=lambda:(_ for _ in ()).throw(AssertionError('cache missed')))
     add_gp_position_diagnostics(state,broken,posterior,data,log=lambda _:None)

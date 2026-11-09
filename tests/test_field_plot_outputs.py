@@ -1,5 +1,7 @@
 """Check that the normal GP output path includes both shared-field figures."""
 from types import SimpleNamespace
+
+import pytest
 from unittest.mock import Mock
 
 from kappaccino.plotting import gp, fields
@@ -20,9 +22,29 @@ def test_standard_gp_outputs_include_field_figures(monkeypatch, tmp_path):
     writer.assert_called_once()
 
 
-def test_system_blocks_do_not_render_a_fictitious_shared_map(tmp_path):
-    config = SimpleNamespace(likelihood=SimpleNamespace(gp_blocks='system'))
-    evaluator = SimpleNamespace(gp_knee=True)
+def test_no_mass_field_skips_the_shared_maps():
+    config = SimpleNamespace(likelihood=SimpleNamespace(gp_blocks='all'))
+    evaluator = SimpleNamespace(gp_knee=True, gp_sigma_alpha_index=-1, gp_knee_spectrum='knee', state=SimpleNamespace(gp_blocks='all'))
     messages = []
     assert fields.write_field_plots(config, None, evaluator, None, None, log=messages.append) == []
-    assert 'gp_blocks=all' in messages[0]
+    assert 'skipped' in messages[0]
+
+
+def test_system_blocks_render_through_the_shared_twin(monkeypatch):
+    """A system-block run's maps come from its all-block twin, with the draws converted to the twin's coordinates."""
+    from kappaccino.likelihood import grf_fields as reporting_fields
+    twin = SimpleNamespace(gp_knee=True, gp_sigma_alpha_index=0, gp_knee_spectrum='knee', state=SimpleNamespace(gp_blocks='all'))
+    run = SimpleNamespace(gp_knee=True, gp_sigma_alpha_index=0, gp_knee_spectrum='knee', state=SimpleNamespace(gp_blocks='system'),
+                          _shared_field_twin=twin)
+    monkeypatch.setattr(reporting_fields, 'shared_posterior', lambda e, p: 'twin-posterior')
+    seen = []
+    def compute(config, state, evaluator, posterior):
+        seen.append((evaluator, posterior))
+        raise RuntimeError('stop after the swap')
+    monkeypatch.setattr(fields, 'compute_fields', compute)
+    config = SimpleNamespace(likelihood=SimpleNamespace(gp_blocks='system'), paths=SimpleNamespace(figure_prefix='x'))
+    messages = []
+    with pytest.raises(RuntimeError):
+        fields.write_field_plots(config, None, run, 'posterior', None, log=messages.append)
+    assert seen == [(twin, 'twin-posterior')]
+    assert 'twin' in messages[0]

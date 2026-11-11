@@ -140,6 +140,10 @@ def _usage() -> str:
         "  --member-shapes SIGMA|none: sample e1, e2 of every exact member around its catalog light shape with this prior width\n"
         "          (in e = (1-q)/(1+q)), or none to fix them at the catalog shapes (default: the cluster entry; M0416_CANUCS2025\n"
         "          samples at 0.1; --fast always fixes them)\n"
+        "  --member-profile dpie|power-law: the member halos: dPIE (default) or the cored power law, the dPIE with a free 3D slope\n"
+        "          gamma (rho ~ r^-gamma between core and cut, 2 is the dPIE) at the dPIE's mass inside the cut; one slope per\n"
+        "          population, uniform on 1.1-2.9\n"
+        "  --member-slope G: power-law members only: hold the slope at G instead of sampling it\n"
         "  --fix-relation k=v,...: hold member-relation parameters at these values (sigma km/s and cutkpc at the population's\n"
         "          prior magnitude; alpha_sigma, beta_radius), e.g. sigma=129,cutkpc=33,alpha_sigma=0.30,beta_radius=0.60 (R25)\n"
         "  --gp-knee-gamma G|free|flat: grf_gp only: the high-k slope of the mass field's spectrum, P ~ 1 / (1 + (k/k_t)^G): fixed at G (default 4),\n"
@@ -183,12 +187,13 @@ def _parse_args(argv: list[str]) -> dict:
               "halo_search": "lbfgs", "member_search": "lbfgs", "likelihood": "grf_gp", "gp_blocks": None,
               "warm_start": None, "gp_band_max": None, "start_tolerance": None, "start_max_iter": None, "gp_knee_gamma": None, "gp_knee_fixed": None, "fix_relation": None, "relation_prior": None, "kinematics": None, "drop_halos": None, "member_shapes": None,
               "warmup": None, "samples": None, "dense_offsets": None, "far_offsets": None, "offset_tail": None, "bcg_cut_prior": "lognormal",
-              "skip_plots": False, "wbic": False}
+              "skip_plots": False, "wbic": False, "member_profile": "dpie", "member_slope": None}
     flag_to_key = {"--campaign": "campaign", "--run-label": "run_label", "--stage": "stage", "--imaging": "imaging",
                    "--halo-search": "halo_search", "--member-search": "member_search", "--likelihood": "likelihood",
                    "--gp-blocks": "gp_blocks", "--warm-start": "warm_start",
                    "--gp-band-max": "gp_band_max", "--start-tolerance": "start_tolerance", "--start-max-iter": "start_max_iter",
                    "--gp-knee-gamma": "gp_knee_gamma", "--gp-knee-fixed": "gp_knee_fixed", "--fix-relation": "fix_relation", "--relation-prior": "relation_prior", "--kinematics": "kinematics", "--drop-halos": "drop_halos", "--member-shapes": "member_shapes", "--warmup": "warmup", "--samples": "samples",
+                   "--member-profile": "member_profile", "--member-slope": "member_slope",
                    "--dense-offsets": "dense_offsets", "--far-offsets": "far_offsets", "--offset-tail": "offset_tail",
                    "--bcg-cut-prior": "bcg_cut_prior"}
     index = 2
@@ -238,6 +243,18 @@ def _parse_args(argv: list[str]) -> dict:
     if values["gp_blocks"] is not None and values["likelihood"] != "grf_gp":
         print("--gp-blocks applies to the grf_gp likelihood only.")
         raise SystemExit(2)
+    if values["member_profile"] not in {"dpie", "power-law"}:
+        print("--member-profile must be dpie or power-law.")
+        raise SystemExit(2)
+    if values["member_slope"] is not None:
+        try:
+            values["member_slope"] = float(values["member_slope"])
+        except ValueError:
+            print("--member-slope takes a number between 1 and 3.")
+            raise SystemExit(2)
+        if values["member_profile"] != "power-law" or not 1.0 < values["member_slope"] < 3.0:
+            print("--member-slope needs --member-profile power-law and a slope between 1 and 3.")
+            raise SystemExit(2)
     try:
         for key, kind in (("gp_band_max", float), ("start_tolerance", float), ("start_max_iter", int), ("gp_knee_fixed", float)):
             if values[key] is not None:
@@ -274,7 +291,8 @@ def _parse_args(argv: list[str]) -> dict:
                 gp_band_max=values["gp_band_max"], start_tolerance=values["start_tolerance"], start_max_iter=values["start_max_iter"],
                 gp_knee_gamma=values["gp_knee_gamma"], gp_knee_fixed=values["gp_knee_fixed"], fix_relation=values["fix_relation"], relation_prior=values["relation_prior"], kinematics=values["kinematics"], drop_halos=values["drop_halos"], member_shapes=values["member_shapes"], warmup=values["warmup"], samples=values["samples"],
                 dense_offsets=values["dense_offsets"], far_offsets=values["far_offsets"], offset_tail=values["offset_tail"],
-                bcg_cut_prior=values["bcg_cut_prior"], skip_plots=values["skip_plots"], wbic=values["wbic"])
+                bcg_cut_prior=values["bcg_cut_prior"], skip_plots=values["skip_plots"], wbic=values["wbic"],
+                member_profile=values["member_profile"], member_slope=values["member_slope"])
 
 
 # The solver's tuned defaults live in kappaccino.config; a cluster entry carries only what is specific to it: the
@@ -674,6 +692,8 @@ def build_config(
     kinematics: str | None = None,
     drop_halos: str | None = None,
     member_shapes: str | None = None,
+    member_profile: str = "dpie",
+    member_slope: float | None = None,
 ) -> LensClusterSolverConfig:
     """The solver configuration for one cluster: library defaults plus the cluster entry, the command-line choices and,
     with ``fast``, the exploratory overrides."""
@@ -829,6 +849,14 @@ def build_config(
                   for k in ("alpha_sigma", "beta_radius") if k in fixed}
         config = replace(config, model=replace(config.model, member_populations=tuple(pops)),
                          scaling=replace(config.scaling, fixed_relation_fields=tuple(fixed), **slopes))
+    if member_profile == "power-law":
+        # The cored power law (MemberPopulationConfig, profile 102): one 3D slope per population, sampled or held at member_slope.
+        pops = [replace(p, profile_type=102, **({"slope": float(member_slope)} if member_slope is not None else {}))
+                for p in config.model.member_populations]
+        config = replace(config, model=replace(config.model, member_populations=tuple(pops)))
+        if member_slope is not None:
+            config = replace(config, scaling=replace(config.scaling,
+                                                     fixed_relation_fields=tuple(config.scaling.fixed_relation_fields) + ("slope",)))
     if start_tolerance is not None or start_max_iter is not None:
         config = replace(config, search=replace(config.search,
                                                 nuts_start_tolerance=float(start_tolerance or config.search.nuts_start_tolerance),
@@ -870,7 +898,8 @@ def main(argv=None):
                           gp_blocks=options["gp_blocks"],
                           warm_start=options["warm_start"], gp_band_max=options["gp_band_max"],
                           start_tolerance=options["start_tolerance"], start_max_iter=options["start_max_iter"],
-                          gp_knee_gamma=options["gp_knee_gamma"], gp_knee_fixed=options["gp_knee_fixed"], fix_relation=options["fix_relation"], relation_prior=options["relation_prior"], kinematics=options["kinematics"], drop_halos=options["drop_halos"], member_shapes=options["member_shapes"])
+                          gp_knee_gamma=options["gp_knee_gamma"], gp_knee_fixed=options["gp_knee_fixed"], fix_relation=options["fix_relation"], relation_prior=options["relation_prior"], kinematics=options["kinematics"], drop_halos=options["drop_halos"], member_shapes=options["member_shapes"],
+                          member_profile=options["member_profile"], member_slope=options["member_slope"])
     # Sampler-geometry overrides (2026-11-04 tests): draws, the dense block's members, far-field offsets, deviation tails.
     sampling = config.sampling
     if options["warmup"] is not None:

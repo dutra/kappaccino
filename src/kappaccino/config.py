@@ -398,12 +398,19 @@ class IndependentMemberHaloConfig:
 
 @dataclass(frozen=True)
 class MemberPopulationConfig:
-    """A population of cluster members whose dPIE halos follow a luminosity scaling relation.
+    """A population of cluster members whose halos follow a luminosity scaling relation.
 
     Member :math:`i` with luminosity ratio :math:`L_i/L_0 = 10^{-0.4 (m_i - m_0)}` gets dispersion
     :math:`\\sigma_0 (L_i/L_0)^{\\alpha}` and core and cut radii :math:`r_0 (L_i/L_0)^{\\beta}`, times its sampled
     deviation from the relation (see :class:`ScalingModelConfig`, which also holds the slope priors).
     :meth:`bergamini2019` and :meth:`neutral` build populations with published or scale-free priors.
+
+    The members are dPIE halos (``profile_type`` 81) or cored power laws (``profile_type`` 102,
+    ``kappaccino.lens.cored_power_law``): the dPIE with a free 3D density slope :math:`\\gamma` between the core and
+    the cut radius, :math:`\\rho \\propto r^{-\\gamma}`, at the dPIE's total mass for the same dispersion and radii.
+    :math:`\\gamma = 2` is the dPIE; a smaller slope moves mass out of the center, a larger one moves mass in.  One
+    slope holds for the whole population, sampled with ``slope_prior`` unless ``"slope"`` is in
+    ``ScalingModelConfig.fixed_relation_fields``.
 
     Parameters
     ----------
@@ -428,7 +435,13 @@ class MemberPopulationConfig:
     z_lens : float
         Redshift of the members.  Must be positive.
     profile_type : int, optional
-        Lenstool profile code of the members; only ``81`` (dPIE) is supported.  Default ``81``.
+        Profile code of the members: ``81`` (dPIE) or ``102`` (cored power law).  Default ``81``.
+    slope : float, optional
+        Cored power law only: the 3D density slope :math:`\\gamma` when it is held fixed, dimensionless, in (1, 3).
+        Default ``2.0`` (the dPIE).
+    slope_prior : numpyro distribution, optional
+        Cored power law only: prior of the 3D density slope, dimensionless, sampled linearly; its support must lie
+        inside (1, 3).  Default ``dist.Uniform(1.1, 2.9)``.
     sigma_prior : numpyro distribution, optional
         Prior of the pivot dispersion, in km s^-1, given at ``mag0`` (or ``prior_mag0`` when ``mag0`` is ``"auto"``).
         Default: log-normal of mean 100 and standard deviation 40 km s^-1 truncated to 20-500 km s^-1, sampled in log.
@@ -469,6 +482,8 @@ class MemberPopulationConfig:
     cutkpc: float
     z_lens: float
     profile_type: int = 81
+    slope: float = 2.0
+    slope_prior: Any = field(default_factory=lambda: dist.Uniform(1.1, 2.9))
     sigma_prior: Any = field(default_factory=lambda: lognormal_from_moments(100.0, 40.0, low=20.0, high=500.0))
     cutkpc_prior: Any = field(default_factory=lambda: lognormal_from_moments(300.0, 120.0, low=20.0, high=1000.0))
     exclude_catalog_ids: tuple[str, ...] = ()
@@ -984,7 +999,8 @@ class ScalingModelConfig:
     fixed_relation_fields : tuple of str, optional
         Relation parameters held at nominal values instead of sampled, any of: ``"sigma"`` and ``"cutkpc"`` (the
         population's values moved to the pivot), ``"alpha_sigma"`` and ``"beta_radius"`` (the centers of their
-        priors).  For tests against a published relation.  Default ``()``.
+        priors), ``"slope"`` (the population's ``slope``, cored power-law populations).  For tests against a published
+        relation, or a cored power law at a chosen slope.  Default ``()``.
     member_shape_scatter : float or None, optional
         Scatter :math:`s` of the sampled member shapes, dimensionless, in (0, 1).  For every exact member
         :math:`e_1 = e_{1,light} + s u_1` and :math:`e_2 = e_{2,light} + s u_2` with :math:`u \\sim N(0, 1)`, where
@@ -1872,9 +1888,13 @@ def validate_config(config: LensClusterSolverConfig) -> None:
         raise ValueError("sampling.dense_offset_members must be 'all', 'centered', 'exact' or 'none'.")
     if sampling.far_field_offsets not in {"sample", "fixed"}:
         raise ValueError("sampling.far_field_offsets must be 'sample' or 'fixed'.")
-    bad = set(getattr(config.scaling, "fixed_relation_fields", ())) - {"sigma", "cutkpc", "alpha_sigma", "beta_radius"}
+    bad = set(getattr(config.scaling, "fixed_relation_fields", ())) - {"sigma", "cutkpc", "alpha_sigma", "beta_radius", "slope"}
     if bad:
-        raise ValueError(f"scaling.fixed_relation_fields: unknown fields {sorted(bad)}; allowed: sigma, cutkpc, alpha_sigma, beta_radius.")
+        raise ValueError(f"scaling.fixed_relation_fields: unknown fields {sorted(bad)}; allowed: sigma, cutkpc, alpha_sigma, beta_radius, slope.")
+    if (any(int(p.profile_type) == 102 for p in config.model.member_populations)
+            and config.image_diagnostics.exact_image_finder == "lenstronomy"):
+        raise ValueError("image_diagnostics.exact_image_finder='lenstronomy' cannot model cored power-law members (profile_type 102); "
+                         "use 'global-jax', 'local-lm' or 'local-lm-adaptive'.")
     members = config.members
     _positive("members.far_field_cut_radii", members.far_field_cut_radii)
     if members.cut_radius_inflation < 1.0 or not math.isfinite(members.cut_radius_inflation):
@@ -2158,6 +2178,13 @@ def _validate_model_config(model: LensModelConfig | None) -> None:
             raise ValueError(f"member population catalog does not exist: {population.catalog_path}")
         if population.corekpc <= 0.0 or population.sigma <= 0.0 or population.cutkpc <= 0.0 or population.z_lens <= 0.0:
             raise ValueError(f"member population {population.id!r} must have positive corekpc, sigma, cutkpc, and z_lens.")
+        if int(population.profile_type) not in (81, 102):
+            raise ValueError(f"member population {population.id!r}: profile_type must be 81 (dPIE) or 102 (cored power law).")
+        if int(population.profile_type) == 102:
+            low, high = physical_bounds(population.slope_prior)
+            if not (1.0 < float(population.slope) < 3.0 and 1.0 < low and high < 3.0):
+                raise ValueError(f"member population {population.id!r}: the cored power-law slope and the support of slope_prior "
+                                 f"must lie inside (1, 3); got slope={population.slope} and support [{low}, {high}].")
         exclude_ids = tuple(str(value).strip() for value in population.exclude_catalog_ids)
         if any(not value for value in exclude_ids) or len(set(exclude_ids)) != len(exclude_ids):
             raise ValueError(f"member population {population.id!r} has empty or duplicate exclude_catalog_ids entries.")

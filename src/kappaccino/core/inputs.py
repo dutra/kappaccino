@@ -219,6 +219,7 @@ def declared_model_inputs(model_config: LensModelConfig, scaling: Any = None) ->
             "catalog_path": str(population.catalog_path), "catalog_df": catalog_df,
             "mag0": mag0, "pivot": pivot, "corekpc": float(population.corekpc), "corekpc_nominal": corekpc_nominal, "zlens": float(population.z_lens),
             "sigma_prior": sigma_prior, "sigma_nominal": sigma_nominal, "cutkpc_prior": cutkpc_prior, "cutkpc_nominal": cutkpc_nominal,
+            "slope_prior": population.slope_prior, "slope_nominal": float(population.slope),
         })
     return potentials, potfiles, images_df, cosmo_config, reference
 

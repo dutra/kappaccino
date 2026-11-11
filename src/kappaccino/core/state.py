@@ -25,7 +25,8 @@ from .inputs import (
 )
 from ..lens.cosmology import dpie_sigma0_factor_from_config, kpc_per_arcsec_from_config
 from .model import (
-    COMPONENT_FAMILY_LARGE, COMPONENT_FAMILY_SCALING, DP_IE_PROFILE, DPIE_PROFILE_NAME, SHEAR_PROFILE,
+    COMPONENT_FAMILY_LARGE, COMPONENT_FAMILY_SCALING, CORED_POWER_LAW_PROFILE, CORED_POWER_LAW_PROFILE_NAME, DP_IE_PROFILE,
+    DPIE_PROFILE_NAME, MEMBER_PROFILES, SHEAR_PROFILE,
     SHEAR_PROFILE_NAME, FamilyData, ImageData, MemberModel, ModelState, PackedLensSpec, ParameterSpec, default_theta,
     physical_to_latent,
 )
@@ -118,24 +119,29 @@ def build_halo_parameter_specs(potentials: list[dict[str, Any]]):
 
 # ----------------------------------------------------------------------------- member scaling
 def build_scaling_parameter_specs(potfiles: list[dict[str, Any]], scaling: Any, *, start_index: int = 0):
-    """Reference scaling parameters per population: sigma, cutkpc, corekpc, alpha_sigma, beta_radius."""
+    """Reference scaling parameters per population: sigma, cutkpc, corekpc, alpha_sigma, beta_radius, and the 3D slope
+    of a cored power-law population."""
     specs: list[ParameterSpec] = []
     indices_by_potfile: list[dict[str, int]] = []
     lens_model_list: list[str] = []
+    names = {DP_IE_PROFILE: DPIE_PROFILE_NAME, CORED_POWER_LAW_PROFILE: CORED_POWER_LAW_PROFILE_NAME}
     for potfile in potfiles:
         potfile_id = str(potfile["id"])
-        if int(potfile["type"]) != DP_IE_PROFILE:
+        profile_type = int(potfile["type"])
+        if profile_type not in MEMBER_PROFILES:
             raise ValueError(f"Unsupported potfile type {potfile['type']} for {potfile_id}.")
-        lens_model_list.extend([DPIE_PROFILE_NAME] * len(potfile["catalog_df"]))
+        lens_model_list.extend([names[profile_type]] * len(potfile["catalog_df"]))
         priors = {"sigma": potfile["sigma_prior"], "cutkpc": potfile["cutkpc_prior"], "corekpc": scaling.corekpc_prior,
-                  "alpha_sigma": scaling.alpha_sigma_prior, "beta_radius": scaling.beta_radius_prior}
+                  "alpha_sigma": scaling.alpha_sigma_prior, "beta_radius": scaling.beta_radius_prior, "slope": potfile.get("slope_prior")}
         field_index: dict[str, int] = {}
         fields = ("sigma", "cutkpc", "corekpc", "alpha_sigma", "beta_radius") if getattr(scaling, "fit_corekpc", True) else ("sigma", "cutkpc", "alpha_sigma", "beta_radius")
+        if profile_type == CORED_POWER_LAW_PROFILE:
+            fields = fields + ("slope",)
         fields = tuple(f for f in fields if f not in set(getattr(scaling, "fixed_relation_fields", ())))   # held at the nominal / prior centre
         for field_name in fields:
             field_index[field_name] = start_index + len(specs)
             specs.append(_prior_spec(f"{potfile_id}.{field_name}", sample_name(potfile_id, field_name), potfile_id, field_name,
-                                     priors[field_name], "scaling", profile_type=DP_IE_PROFILE))
+                                     priors[field_name], "scaling", profile_type=profile_type))
         indices_by_potfile.append(field_index)
     return specs, indices_by_potfile, lens_model_list
 
@@ -158,7 +164,7 @@ def build_member_components(potfiles, reference, scaling_param_indices, *, start
             ellipticite, angle_pos = catalog_shape_to_ellipticity(row.catalog_a, row.catalog_b, row.catalog_theta)
             component_index = start_component_index + len(components)
             components.append({
-                "id": f"{potfile['id']}.{row.id}", "profil": DP_IE_PROFILE,
+                "id": f"{potfile['id']}.{row.id}", "profil": int(potfile["type"]),
                 "x_centre": float(x_offsets[row_index]), "y_centre": float(y_offsets[row_index]),
                 "ellipticite": ellipticite, "angle_pos": angle_pos,
                 "core_radius_kpc": core_radius_kpc, "cut_radius_kpc": cut_radius_kpc,
@@ -174,6 +180,7 @@ def build_member_components(potfiles, reference, scaling_param_indices, *, start
                 "core_ref_param_index": int(param_index.get("corekpc", -1)),
                 "alpha_sigma_param_index": int(param_index.get("alpha_sigma", -1)),
                 "beta_radius_param_index": int(param_index.get("beta_radius", -1)),
+                "slope_base": float(potfile.get("slope_nominal", 2.0)), "slope_param_index": int(param_index.get("slope", -1)),
             })
             records.append({
                 "potfile_id": str(potfile["id"]), "potfile_order": int(potfile_order), "catalog_row_index": int(row_index),
@@ -214,7 +221,7 @@ def build_packed_lens_spec(base_components, component_assignments, scaling_assig
         cut_radius_excess_above_effective_core=np.zeros(n, dtype=bool),
         velocity_offset_param_index=ints(), velocity_scatter_param_index=ints(),
         scale_radius_kpc_base=floats(), log10_m200_base=floats(), scale_radius_param_index=ints(), log10_m200_param_index=ints(),
-        kappa_base=floats(), kappa_param_index=ints())
+        kappa_base=floats(), kappa_param_index=ints(), slope_base=floats(2.0), slope_param_index=ints())
     spec.ellipticity_soft_cap, spec.ellipticity_soft_width = floats(np.inf), floats(1.0)
     for idx, (component, assignments) in enumerate(zip(base_components, component_assignments)):
         if component.get("ellipticity_soft_cap") is not None:
@@ -247,8 +254,9 @@ def build_packed_lens_spec(base_components, component_assignments, scaling_assig
         spec.luminosity_ratio[idx] = float(item["luminosity_ratio"])
         for key in ("sigma_ref_base", "cut_ref_base", "core_ref_base", "alpha_sigma_base", "beta_radius_base",
                     "sigma_ref_param_index", "cut_ref_param_index", "core_ref_param_index",
-                    "alpha_sigma_param_index", "beta_radius_param_index"):
-            getattr(spec, key)[idx] = item[key]
+                    "alpha_sigma_param_index", "beta_radius_param_index", "slope_base", "slope_param_index"):
+            if key in item:
+                getattr(spec, key)[idx] = item[key]
     spec.cut_radius_excess_above_effective_core[:] = (
         (spec.profile_type == DP_IE_PROFILE) & (spec.component_family != COMPONENT_FAMILY_SCALING) & (spec.cut_radius_param_index >= 0))
     return spec

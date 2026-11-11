@@ -1,6 +1,6 @@
 """Registry of the lens profiles the solver knows: Lenstool-style code, lenstronomy name, the fields a potential
 definition must carry, which pair of polar shape fields becomes a Cartesian pair, and which fields are sampled in
-log space.  Adding a profile means one entry here, a kernel in ``jax_lensing``, the packing in ``Evaluator.packed_state``
+log space.  Adding a profile means one entry here, a kernel in ``kappaccino.lens``, the packing in ``Evaluator.packed_state``
 and the per-component branch of ``Evaluator.component_rows`` and ``exact_images.packed_to_kwargs_lens``."""
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ import jax.numpy as jnp
 import numpy as np
 
 from ..core.model import (
-    DP_IE_PROFILE, DPIE_PROFILE_NAME, MASS_SHEET_PROFILE, MASS_SHEET_PROFILE_NAME, NFW_PROFILE, NFW_PROFILE_NAME,
+    CORED_POWER_LAW_PROFILE, CORED_POWER_LAW_PROFILE_NAME, DP_IE_PROFILE, DPIE_PROFILE_NAME, MASS_SHEET_PROFILE, MASS_SHEET_PROFILE_NAME, NFW_PROFILE, NFW_PROFILE_NAME,
     SHEAR_PROFILE, SHEAR_PROFILE_NAME,
 )
 
@@ -46,9 +46,14 @@ PROFILES: dict[int, LensProfile] = {
     MASS_SHEET_PROFILE: LensProfile(
         code=MASS_SHEET_PROFILE, name=MASS_SHEET_PROFILE_NAME, label="external convergence",
         required_fields=("kappa",), polar_shape=None, cartesian_shape=None),
+    # Members only (MemberPopulationConfig.profile_type): built by the scaling relation, never from a potential definition.
+    CORED_POWER_LAW_PROFILE: LensProfile(
+        code=CORED_POWER_LAW_PROFILE, name=CORED_POWER_LAW_PROFILE_NAME, label="cored power law",
+        required_fields=("x_centre", "y_centre", "ellipticite", "angle_pos", "core_radius_kpc", "cut_radius_kpc", "v_disp"),
+        polar_shape=("ellipticite", "angle_pos"), cartesian_shape=("e1", "e2")),
 }
 SUPPORTED_PROFILES = frozenset(PROFILES)
-ELLIPTICAL_PROFILES = frozenset({DP_IE_PROFILE, NFW_PROFILE})
+ELLIPTICAL_PROFILES = frozenset({DP_IE_PROFILE, NFW_PROFILE, CORED_POWER_LAW_PROFILE})
 
 
 def profile(code: int) -> LensProfile:
@@ -108,4 +113,6 @@ def lenstronomy_kwargs(packed, index: int) -> dict[str, float]:
         return {"gamma1": f("gamma1"), "gamma2": f("gamma2")}
     if code == MASS_SHEET_PROFILE:
         return {"kappa": f("kappa"), "ra_0": 0.0, "dec_0": 0.0}
+    if code == CORED_POWER_LAW_PROFILE:
+        raise ValueError("lenstronomy has no cored power-law profile (code 102); solve images with the JAX finders.")
     raise ValueError(f"Unsupported profile type {code}.")

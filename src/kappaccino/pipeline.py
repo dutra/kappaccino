@@ -202,7 +202,7 @@ def _scaling_value(state: ModelState, physical: np.ndarray, field: str) -> float
             return float(physical[index])
     # Held fixed (scaling.fixed_relation_fields): the base value carried by the packed spec, the same for every component.
     base = {"sigma": "sigma_ref_base", "cutkpc": "cut_ref_base", "corekpc": "core_ref_base",
-            "alpha_sigma": "alpha_sigma_base", "beta_radius": "beta_radius_base"}[field]
+            "alpha_sigma": "alpha_sigma_base", "beta_radius": "beta_radius_base", "slope": "slope_base"}[field]
     members = np.asarray(state.members.component_indices, dtype=int)
     if members.size == 0:
         raise KeyError(field)

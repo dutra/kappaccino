@@ -21,6 +21,7 @@ PARAMETERS = (
     ("corekpc", r"$r_{{\rm core},\star}$ (kpc)"),
     ("alpha_sigma", r"$\alpha_\sigma$"),
     ("beta_radius", r"$\beta_r$"),
+    ("slope", r"$\gamma$ (3D slope)"),
     ("velocity_log_scatter", r"$s_\sigma$"),
     ("radius_log_scatter", r"$s_r$"),
 )

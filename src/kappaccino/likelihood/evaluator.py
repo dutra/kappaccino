@@ -9,11 +9,11 @@ import jax.numpy as jnp
 import numpy as np
 
 from . import gp_image_plane as gp, gp_knee, smoothed as sl
-from ..lens import lensing
+from ..lens import cored_power_law, lensing
 from ..lens.farfield import evaluate_farfield, member_farfield_geometry, slice_geometry
 from ..lens.cosmology import dpie_sigma0_factor_from_config, dpie_sigma0_factor_from_lensing_efficiency
 from ..core.model import (
-    member_log_deviations, COMPONENT_FAMILY_SCALING, DP_IE_PROFILE, MASS_SHEET_PROFILE, NFW_PROFILE,
+    member_log_deviations, COMPONENT_FAMILY_SCALING, CORED_POWER_LAW_PROFILE, DP_IE_PROFILE, MASS_SHEET_PROFILE, NFW_PROFILE,
     SAFE_RADIUS_MARGIN_ARCSEC, SAFE_RADIUS_MARGIN_KPC, SHEAR_PROFILE, ModelState, PackedLensState,
     PackedLensValidity, apply_parameter_transforms_jax, log_mask,
 )
@@ -114,6 +114,8 @@ class Evaluator:
         self.geometry = member_farfield_geometry(np.asarray(self.xy), self.member_xy)
         self.far_geometry = slice_geometry(self.geometry, self.far_positions)
         self.far_components = self.member_components[self.far_positions]
+        # Far-field cored power-law members: the exact circular profile instead of the dPIE series (static mask).
+        self.far_power_law = np.asarray(state.packed_lens_spec.profile_type, dtype=int)[self.far_components] == CORED_POWER_LAW_PROFILE
         self.far_min_separation = jnp.asarray(np.asarray(self.geometry.separation)[self.far_positions].min(axis=1)) if len(self.far_positions) else jnp.zeros(0)
         self.guard_cut_radii = float(members.far_field_guard_cut_radii)
         self.far_field_barrier_width = float(members.far_field_barrier_width)
@@ -301,16 +303,18 @@ class Evaluator:
         Returns
         -------
         packed : PackedLensState
-            Per-component arrays: ``profile_type``; dPIE ``sigma0`` (the kernel normalization, :math:`\\sigma^2` times the lensing-efficiency factor over the core radius in arcsec; shape (component,)
+            Per-component arrays: ``profile_type``; dPIE and cored power law ``sigma0`` (the kernel normalization, :math:`\\sigma^2` times the lensing-efficiency factor over the core radius in arcsec; shape (component,)
             or (component, point)), ``Ra`` and ``Rs`` (core and cut radii, arcsec); ``e1``, ``e2`` (dimensionless,
             dPIE and NFW); ``center_x``, ``center_y`` (arcsec); shear ``gamma1``, ``gamma2``; NFW ``nfw_rs``
             (scale radius, arcsec) and ``alpha_rs`` (deflection at the scale radius, arcsec); mass-sheet ``kappa``
-            (convergence for this source).  Entries that do not apply to a component's profile are zero.
+            (convergence for this source); cored power-law ``slope`` (the 3D slope, 2 for every other component).
+            Entries that do not apply to a component's profile are zero.
         validity : PackedLensValidity
-            ``is_valid`` (scalar bool) and ``reason_flags`` (bool, shape (11,)): non-finite normalization, dPIE core
+            ``is_valid`` (scalar bool) and ``reason_flags`` (bool, shape (12,)): non-finite normalization, dPIE core
             radius not positive, cut radius not above the core, non-finite cut radius, non-finite dispersion,
             non-finite scaling slopes, non-finite centers, non-finite shear, invalid ellipticity
-            (:math:`e_1^2 + e_2^2 \\ge 1`), invalid NFW parameters, non-finite sheet convergence.
+            (:math:`e_1^2 + e_2^2 \\ge 1`), invalid NFW parameters, non-finite sheet convergence, cored power-law
+            slope outside (1, 3).
         """
         spec = self.spec
         x_center = self._apply(spec["x_center_base"], spec["x_center_param_index"], physical)
@@ -331,8 +335,11 @@ class Evaluator:
         log10_m200 = self._apply(spec["log10_m200_base"], spec["log10_m200_param_index"], physical)
         kappa_inf = self._apply(spec["kappa_base"], spec["kappa_param_index"], physical)
         profile_type = spec["profile_type"]
-        is_dpie = profile_type == DP_IE_PROFILE
+        is_cpl = profile_type == CORED_POWER_LAW_PROFILE
+        # The cored power law shares the dPIE's dispersion, radii and normalization; its kernel adds the 3D slope.
+        is_dpie = (profile_type == DP_IE_PROFILE) | is_cpl
         is_nfw = profile_type == NFW_PROFILE
+        slope = jnp.where(is_cpl, self._apply(spec["slope_base"], spec["slope_param_index"], physical), 2.0)
         is_shear = profile_type == SHEAR_PROFILE
         is_sheet = profile_type == MASS_SHEET_PROFILE
         is_scaling = spec["component_family"] == COMPONENT_FAMILY_SCALING
@@ -392,7 +399,8 @@ class Evaluator:
         packed = PackedLensState(
             profile_type=profile_type, sigma0=sigma0, Ra=jnp.where(is_dpie, ra, 0.0), Rs=jnp.where(is_dpie, rs, 0.0),
             e1=jnp.where(elliptical, e1, 0.0), e2=jnp.where(elliptical, e2, 0.0), center_x=x_center, center_y=y_center,
-            gamma1=jnp.where(is_shear, gamma1, 0.0), gamma2=jnp.where(is_shear, gamma2, 0.0), nfw_rs=nfw_rs, alpha_rs=alpha_rs, kappa=kappa)
+            gamma1=jnp.where(is_shear, gamma1, 0.0), gamma2=jnp.where(is_shear, gamma2, 0.0), nfw_rs=nfw_rs, alpha_rs=alpha_rs, kappa=kappa,
+            slope=slope)
         flags = jnp.stack([
             jnp.any(~jnp.isfinite(sigma0)) | jnp.any(~jnp.isfinite(alpha_rs)),
             jnp.any(is_dpie & (ra_raw <= 0.0)),
@@ -405,6 +413,7 @@ class Evaluator:
             jnp.any(elliptical & (~jnp.isfinite(e1) | ~jnp.isfinite(e2) | ((jnp.square(e1) + jnp.square(e2)) >= 1.0))),
             jnp.any(is_nfw & ((scale_radius_kpc <= 0.0) | ~jnp.isfinite(scale_radius_kpc) | ~jnp.isfinite(log10_m200))),
             jnp.any(is_sheet & ~jnp.isfinite(kappa_inf)),
+            jnp.any(is_cpl & ~((slope > cored_power_law.SLOPE_LOWER) & (slope < cored_power_law.SLOPE_UPPER))),
         ])
         return packed, PackedLensValidity(is_valid=~jnp.any(flags), reason_flags=flags)
 
@@ -597,7 +606,8 @@ class Evaluator:
     def component_rows(self, xy: jnp.ndarray, packed: PackedLensState, components: np.ndarray, *, derivative: bool = False):
         """Per-component deflection rows (C, N, 2), Jacobians U = d alpha / d theta (C, N, 2, 2) and, with ``derivative``,
         the spatial derivatives dU (C, N, 2, 2, 2).  dPIE components with fixed catalog geometry evaluated at the image
-        positions reuse the precomputed geometry; the other dPIEs use the full analytic kernel, NFW halos the CSE kernel."""
+        positions reuse the precomputed geometry; the other dPIEs use the full analytic kernel, cored power-law members
+        the quadrature kernel of ``kappaccino.lens.cored_power_law``, NFW halos the CSE kernel."""
         x, y = xy[:, 0], xy[:, 1]
         components = np.asarray(components, dtype=np.int32)
         n = x.shape[0]
@@ -626,6 +636,15 @@ class Evaluator:
             a_rows, u_rows, du_rows = lensing.grouped_dpie_fields[derivative](x, y, take(packed.sigma0, idx), take(packed.Ra, idx), take(packed.Rs, idx),
                                                                                   take(packed.e1, idx), take(packed.e2, idx), take(packed.center_x, idx), take(packed.center_y, idx))
             pos = jnp.asarray(np.flatnonzero(variable_mask), dtype=jnp.int32)
+            alpha, u = alpha.at[pos].set(a_rows), u.at[pos].set(u_rows)
+            du = du.at[pos].set(du_rows) if derivative else du
+        cpl_mask = profile == CORED_POWER_LAW_PROFILE
+        if np.any(cpl_mask):
+            idx = components[cpl_mask]
+            a_rows, u_rows, du_rows = cored_power_law.grouped_cored_power_law_fields[derivative](
+                x, y, take(packed.sigma0, idx), take(packed.Ra, idx), take(packed.Rs, idx), take(packed.slope, idx),
+                take(packed.e1, idx), take(packed.e2, idx), take(packed.center_x, idx), take(packed.center_y, idx))
+            pos = jnp.asarray(np.flatnonzero(cpl_mask), dtype=jnp.int32)
             alpha, u = alpha.at[pos].set(a_rows), u.at[pos].set(u_rows)
             du = du.at[pos].set(du_rows) if derivative else du
         nfw_mask = profile == NFW_PROFILE
@@ -757,7 +776,8 @@ class Evaluator:
         far_cut_radii = None
         if not force_exact and len(self.far_positions):
             ci = jnp.asarray(self.far_components)
-            far = evaluate_farfield(self.far_geometry, jnp.take(packed.sigma0, ci, axis=0), jnp.take(packed.Ra, ci), jnp.take(packed.Rs, ci))
+            far = evaluate_farfield(self.far_geometry, jnp.take(packed.sigma0, ci, axis=0), jnp.take(packed.Ra, ci), jnp.take(packed.Rs, ci),
+                                    slope=jnp.take(packed.slope, ci), power_law=self.far_power_law)
             member_alpha = member_alpha.at[self.far_positions].set(far.alpha)
             member_u = member_u.at[self.far_positions].set(far.jacobian)
             alpha = alpha + jnp.sum(far.alpha, axis=0)

@@ -478,8 +478,9 @@ class MemberPopulationConfig:
         to that of the dPIE with the same dispersion and radii (``kappaccino.lens.cored_power_law.aperture_dispersion_ratio``:
         isotropic Jeans, light traces mass), so the dPIE calibration holds at slope 2.
     kinematics_aperture_arcsec : float or None, optional
-        Cored power-law members only: radius of the circular aperture of the measured dispersions, in arcsec.  None uses
-        each member's circularized catalog light axes, :math:`\\sqrt{ab}`.  Must be positive.  Default None.
+        Cored power-law members only: radius of the circular aperture of the measured dispersions, in arcsec, for every
+        member.  None uses the catalog's ``aperture_arcsec`` of each measurement (for example the galaxy's half-light
+        radius for a sigma_e) or of its source; every measurement must then have one.  Must be positive.  Default None.
     """
     id: str
     catalog_path: str | Path

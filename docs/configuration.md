@@ -172,11 +172,19 @@ member's half-light radius, and the images fix the mass inside larger radii. For
 the dPIE calibration `kinematics_aperture_factor` times the ratio $\sigma_\mathrm{ap}(\gamma)/\sigma_\mathrm{ap}(2)$.
 This ratio compares the member's aperture dispersion with that of the dPIE with the same dispersion parameter and
 radii. It comes from the isotropic Jeans equation, with light tracing mass, integrated over a circular aperture
-(`kappaccino.lens.cored_power_law.aperture_dispersion_ratio`). At slope 2 the ratio is 1. The aperture radius is
-`kinematics_aperture_arcsec`, or by default each member's circularized catalog light axes $\sqrt{ab}$. At fixed mass
-inside the cut, a slope of 1.5 lowers the aperture dispersion by about 17% and a slope of 2.6 raises it by about 30%
-(core 0.03", cut 2", aperture 0.3"). The inferred slope therefore depends on the aperture. Check it against a fixed
-`kinematics_aperture_arcsec`.
+(`kappaccino.lens.cored_power_law.aperture_dispersion_ratio`). At slope 2 the ratio is 1. The aperture radius comes
+from the member catalog: each measurement's `aperture_arcsec`, else its source's. For dispersions measured inside a
+galaxy's half-light radius ($\sigma_e$), that is the galaxy's own radius. `kinematics_aperture_arcsec` replaces the
+catalog's aperture with one radius for every member, for sensitivity tests. A CPL population with kinematics needs an
+aperture for every measurement. At fixed mass inside the cut, a slope of 1.5 lowers the aperture dispersion by about
+17% and a slope of 2.6 raises it by about 30% (core 0.03", cut 2", aperture 0.3"), so the inferred slope depends on
+the apertures.
+
+For AS1063 (`catalogs/as1063/diego2026/members.yaml`), the 46 MUSE dispersions of Beauchesne et al. (2025a) are
+$\sigma_e$ values. Each carries the half-light radius of the galaxy's dPIE light fit,
+$R_e = \tfrac34\sqrt{r_c^2 + \tfrac{10}{3} r_c r_\mathrm{cut} + r_\mathrm{cut}^2}$, the aperture of Beauchesne
+et al. (2025b, Sect. 3). The released core and cut radii are read as arcsec, the only reading that gives galaxy-sized
+radii (median 0.11", about 0.55 kpc).
 
 ### Scaling relation and deviations
 

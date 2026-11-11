@@ -251,17 +251,29 @@ def test_aperture_dispersion_ratio_is_one_at_slope_two_and_grows_with_the_slope(
     np.testing.assert_allclose(float(gradient), float(numeric), rtol=1e-6)
 
 
+APERTURES = {"g1": 0.35, "g2": 0.2}
+
+
+def _with_apertures(config, tmp_path, *, apertures=APERTURES):
+    """The kinematics test catalog (test_member_kinematics) with an aperture on each measurement."""
+    from test_member_kinematics import _with_kinematics
+
+    def extra(members):
+        for name, radius in apertures.items():
+            members[name]["kinematics"][0]["aperture_arcsec"] = radius
+    return _with_kinematics(config, tmp_path, extra=extra)
+
+
 def test_power_law_kinematics_use_the_jeans_ratio(synthetic_config, tmp_path):
     """At slope 2 the kinematics term is the dPIE term; at another slope each model dispersion carries the ratio at the
-    member's core, cut and aperture (the circularized catalog axes, or the configured radius)."""
-    from test_member_kinematics import MEASURED, _with_kinematics
-    dpie_config = _with_kinematics(synthetic_config, tmp_path / "dpie")
-    power_law = _power_law_config(_with_kinematics(synthetic_config, tmp_path / "cpl"))
+    member's core, cut and aperture (the measurement's catalog aperture, or the configured radius for all)."""
+    from test_member_kinematics import MEASURED
+    dpie_config = _with_apertures(synthetic_config, tmp_path / "dpie")
+    power_law = _power_law_config(_with_apertures(synthetic_config, tmp_path / "cpl"))
     dpie_state, state = build_state(dpie_config), build_state(power_law)
     kinematics = state.member_kinematics
-    records = {r["component_index"]: r for r in state.scaling_component_records}
-    np.testing.assert_allclose(kinematics["aperture_arcsec"],
-                               [np.sqrt(records[c]["catalog_a"] * records[c]["catalog_b"]) for c in kinematics["component_index"]])
+    ids = [member.split(":")[1] for member in kinematics["member_ids"]]
+    np.testing.assert_allclose(kinematics["aperture_arcsec"], [APERTURES[i] for i in ids])
     a, b = Evaluator(dpie_state, "smoothed"), Evaluator(state, "smoothed")
     names = [s.name for s in state.parameter_specs]
     theta = np.asarray(state.initial_theta, dtype=float)
@@ -279,8 +291,23 @@ def test_power_law_kinematics_use_the_jeans_ratio(synthetic_config, tmp_path):
     z = (np.log(kinematics["sigma"]) - np.log(c * sigma * ratio)) / kinematics["log_err"]
     expected = -0.5 * np.sum(z ** 2) - np.sum(np.log(kinematics["log_err"])) - 0.5 * z.size * np.log(2 * np.pi)
     np.testing.assert_allclose(float(b.kinematics_log_likelihood(physical)), expected, rtol=1e-10)
-    assert np.all(ratio > 1.0)
+    assert np.all(ratio > 1.0) and len(MEASURED) == len(components)
     fixed = replace(power_law, model=replace(power_law.model, member_populations=(
         replace(power_law.model.member_populations[0], kinematics_aperture_arcsec=0.4),)))
     np.testing.assert_allclose(build_state(fixed.validate()).member_kinematics["aperture_arcsec"], 0.4)
-    assert len(MEASURED) == len(components)
+
+
+def test_power_law_kinematics_need_an_aperture(synthetic_config, tmp_path, monkeypatch):
+    """A measurement without its own aperture takes its source's; with neither, a cored power-law population refuses its
+    kinematics, while a dPIE population does not need one."""
+    import test_member_catalog
+    from test_member_kinematics import _with_kinematics
+    with_source = _with_kinematics(synthetic_config, tmp_path / "source")
+    source_aperture = test_member_catalog.SOURCES["K"]["aperture_arcsec"]
+    np.testing.assert_allclose(build_state(_power_law_config(with_source)).member_kinematics["aperture_arcsec"], source_aperture)
+    sources = {name: {"reference": entry["reference"], "quantity": "sigma_e"} for name, entry in test_member_catalog.SOURCES.items()}
+    monkeypatch.setattr(test_member_catalog, "SOURCES", sources)
+    plain = _with_kinematics(synthetic_config, tmp_path / "plain")
+    assert np.all(np.isnan(build_state(plain).member_kinematics["aperture_arcsec"]))
+    with pytest.raises(ValueError, match="no aperture_arcsec"):
+        build_state(_power_law_config(plain))

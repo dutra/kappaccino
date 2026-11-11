@@ -48,10 +48,10 @@ def _style():
     return plt.rc_context(fname=STYLE)
 
 
-def plot_potfile_corner(samples, specs, population, path, *, grouped_physical=None, best_index=None):
+def plot_potfile_corner(samples, specs, population, path, *, grouped_physical=None):
     from .corner import plot_parameter_corner
     samples, selection = _selection(samples, specs, population)
-    result = plot_parameter_corner(samples, selection, path, grouped_physical=grouped_physical, best_index=best_index)
+    result = plot_parameter_corner(samples, selection, path, grouped_physical=grouped_physical)
     if result is not None:
         metadata = json.loads(path.with_suffix('.json').read_text())
         metadata['population'] = population
@@ -149,20 +149,16 @@ def write_potfile_plots(samples, specs, figures, prefix=None, *, posterior=None,
     """Create a prior-overlaid corner for every population using the run's naming convention."""
     results = []
     grouped = None
-    best_index = None
     if posterior is not None:
         from .chain_traces import trace_data
         traces = trace_data(posterior, specs)
         if traces is not None:
             grouped = traces["chains"]
-        log_prob = np.asarray(posterior.log_prob)
-        if np.isfinite(log_prob).any():
-            best_index = int(np.nanargmax(log_prob))
     for population in potfile_populations(specs):
         for name, renderer in (("corner", plot_potfile_corner),):
             basename = f"{population}_{name}.pdf"
             path = Path(figures) / (f"{prefix}_{basename}" if prefix else basename)
-            kwargs = {"grouped_physical": grouped, "best_index": best_index} if name == "corner" else {}
+            kwargs = {"grouped_physical": grouped} if name == "corner" else {}
             result = renderer(samples, specs, population, path, **kwargs)
             if result is None:
                 log(f"[outputs] {population} {name} skipped: insufficient varying posterior draws")

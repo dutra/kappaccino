@@ -30,14 +30,17 @@ def test_uniform_mass_apertures_and_output(tmp_path,monkeypatch,prefix):
     members.to_csv(paths.tables/'member_diagnostics.csv',index=False)
     images=pd.DataFrame(dict(x_obs_arcsec=[-2,2,2,-2],y_obs_arcsec=[-2,-2,2,2]))
     config=NS(paths=NS(figure_prefix=prefix),truth=NS(kappa_true_fits=truth,caustic_source_redshift=9.))
-    path=am.write_aperture_mass_histogram(config,state,Evaluator(),NS(physical=np.ones((2,1))),paths,images,log=lambda s:None)
+    class Draws(NS):
+        def __len__(self):return len(self.physical)
+    draws=Draws(evaluator=Evaluator(),physical=np.ones((2,1)),has_field=False)
+    path=am.write_aperture_mass_histogram(config,state,draws,paths,images,log=lambda s:None)
     table=pd.read_csv(paths.tables/'member_aperture_masses.csv')
     np.testing.assert_allclose(table.ratio[:2],1,atol=1e-12)
     np.testing.assert_allclose(table.model_mass_msun[:2],.5*np.pi*table.aperture_arcsec[:2]**2,rtol=1e-12)
     assert table.inside_image_hull.tolist()==[True,False,False]
     assert table.usable.tolist()==[True,True,False]
-    assert path.name==f'{prefix}_all_vs_image_footprint_histogram.pdf'
-    assert path.read_bytes().startswith(b'%PDF')
+    assert path.name=='aperture_mass_histogram.json'
+    assert table.n_draws.tolist()==[2,2,2]
     stats=json.loads((paths.tables/'aperture_mass_histogram.json').read_text())
     assert stats['samples']['all']['n']==2
     assert stats['samples']['image_hull']['n']==1
@@ -52,9 +55,21 @@ def test_uniform_mass_apertures_and_output(tmp_path,monkeypatch,prefix):
     np.testing.assert_allclose(corrected.ratio[:2],1.4,atol=1e-12)
 
 
+def test_median_over_draws_takes_member_medians_and_needs_every_draw_usable():
+    base=pd.DataFrame(dict(member_id=['a','b'],truth_mass_msun=[2.,4.],usable=[True,True],model_quadrature_error=[0.,0.]))
+    draws=[base.assign(model_mass_msun=m,usable=u,model_quadrature_error=e)
+           for m,u,e in [([1.,4.],[True,True],[.001,0.]),([2.,8.],[True,False],[0.,.002]),([3.,6.],[True,True],[0.,0.])]]
+    table=am.median_over_draws(draws)
+    np.testing.assert_allclose(table.model_mass_msun,[2.,6.])
+    assert table.usable.tolist()==[True,False]
+    np.testing.assert_allclose(table.ratio[:1],[1.])
+    assert np.isnan(table.ratio[1])
+    np.testing.assert_allclose(table.model_quadrature_error,[.001,.002])
+
+
 def test_degenerate_footprint_and_other_clusters():
     assert not am.inside_image_footprint([[0,0]],[[0,0],[1,0],[2,0]]).any()
-    assert am.write_aperture_mass_histogram(NS(paths=NS(figure_prefix='as1063')),None,None,None,None,None) is None
+    assert am.write_aperture_mass_histogram(NS(paths=NS(figure_prefix='as1063')),None,None,None,None) is None
 
 
 def test_quartiles_and_rendering_do_not_drop_display_tails(tmp_path):

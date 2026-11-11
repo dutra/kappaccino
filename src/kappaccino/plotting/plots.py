@@ -20,7 +20,7 @@ from skimage.measure import find_contours
 from .style import PAPER_STYLE
 from ..likelihood.evaluator import Evaluator
 from ..core.model import ModelState, ParameterSpec, PosteriorResults, member_log_deviations
-from ..diagnostics.truth_recovery import lens_quantities
+from ..diagnostics.truth_recovery import PROFILE_INNER_ARCSEC, smoothed_digitized_curve
 from ..core.utils import log10_dpie_mass_msun
 
 STYLE = Path(__file__).with_name("style.mplstyle")
@@ -43,27 +43,6 @@ def _finish(fig, path: Path, dpi: int = 220) -> Path:
 
 
 # ----------------------------------------------------------------------------- image recovery
-def posterior_residual_spread(draws: pd.DataFrame | None, best_count: int) -> dict[str, Any]:
-    """RMS and median of the recovered residuals over the posterior draws that recovered exactly as many images as the
-    best fit: their 16th to 84th percentiles, how many draws were used, and how many recovered more images than the best."""
-    out = {"draws_used": 0, "draws_total": 0, "draws_more_than_best": 0, "rms_q16": np.nan, "rms_q84": np.nan, "median_q16": np.nan, "median_q84": np.nan}
-    if draws is None or draws.empty or "draw_index" not in draws:
-        return out
-    residual = pd.to_numeric(draws["image_residual_arcsec"], errors="coerce")
-    recovered = draws["recovered"].astype(bool) & np.isfinite(residual)
-    per_draw = draws.assign(residual=residual, recovered=recovered).groupby("draw_index").agg(
-        count=("recovered", "sum"), rms=("residual", lambda v: float(np.sqrt(np.nanmean(np.square(v[np.isfinite(v)])))) if np.isfinite(v).any() else np.nan),
-        median=("residual", lambda v: float(np.nanmedian(v)) if np.isfinite(v).any() else np.nan))
-    out["draws_total"] = int(len(per_draw))
-    out["draws_more_than_best"] = int((per_draw["count"] > best_count).sum())
-    same = per_draw[per_draw["count"] == best_count]
-    out["draws_used"] = int(len(same))
-    if len(same) >= 2:
-        out["rms_q16"], out["rms_q84"] = (float(v) for v in np.nanpercentile(same["rms"], [16, 84]))
-        out["median_q16"], out["median_q84"] = (float(v) for v in np.nanpercentile(same["median"], [16, 84]))
-    return out
-
-
 def posterior_residual_histogram_counts(draws: pd.DataFrame | None, bins: np.ndarray, *, min_recovered: int = 0) -> np.ndarray:
     """Raw counts for draws meeting the minimum recovered-image count."""
     if draws is None or draws.empty or "draw_index" not in draws:
@@ -80,25 +59,30 @@ def posterior_residual_histogram_counts(draws: pd.DataFrame | None, bins: np.nda
 
 @plt.rc_context(fname=STYLE, rc=PAPER_STYLE)
 def plot_image_residual_histogram(image_df: pd.DataFrame, path: Path, *, draws: pd.DataFrame | None = None, log=None) -> Path:
-    """Best-fit residual histogram; posterior draws are used only for recovery warnings."""
-    residual = pd.to_numeric(image_df["image_residual_arcsec"], errors="coerce").to_numpy(dtype=float)
-    recovered = (image_df["image_recovery_status"].astype(str) == "recovered").to_numpy() & np.isfinite(residual)
-    values = residual[recovered]
-    spread = posterior_residual_spread(draws, int(values.size))
+    """Image-position residual histogram over the reporting draws, as the mock aggregate figure
+    (``mock_validation.aggregate_plots.plot_image_residual_distribution``): the median count per bin over draws with
+    the 16-84 per cent band, and the RMS as the median of the per-draw values (dashed) with their 16-84 per cent range
+    (red shade)."""
+    groups = []
+    if draws is not None and not draws.empty:
+        for _, group in draws.groupby("draw_index", sort=True):
+            r = pd.to_numeric(group["image_residual_arcsec"], errors="coerce").to_numpy(float)
+            r = r[group["recovered"].astype(bool).to_numpy() & np.isfinite(r) & (r >= 0)]
+            if r.size:
+                groups.append(r)
     fig, ax = plt.subplots(figsize=(3.5, 2.6))
-    if values.size:
-        bins = np.linspace(0.0, max(float(values.max()) * 1.04, 1.0e-6), min(48, max(14, int(np.sqrt(values.size) * 2.4))) + 1)
-        counts, _ = np.histogram(values, bins=bins)
-        ax.stairs(counts, bins, color="tab:blue", linewidth=1.5, label="Best fit", zorder=3)
-        rms, median = float(np.sqrt(np.mean(values ** 2))), float(np.median(values))
+    if groups:
+        pooled = np.concatenate(groups)
+        x_max = float(np.ceil(np.quantile(pooled, 0.99) * 1.10 / 0.05) * 0.05)
+        edges = np.linspace(0.0, max(x_max, 1e-6), 25)
+        counts = np.stack([np.histogram(g, bins=edges)[0] for g in groups])
+        h16, h50, h84 = np.percentile(counts, [16, 50, 84], axis=0)
+        rms_low, rms, rms_high = (float(v) for v in np.percentile([np.sqrt(np.mean(g ** 2)) for g in groups], [16, 50, 84]))
+        ax.stairs(h84, edges, baseline=h16, fill=True, color="tab:blue", alpha=0.08, linewidth=0.0, zorder=1)
+        ax.stairs(h50, edges, color="tab:blue", linewidth=1.5, label="Residuals", zorder=3)
+        ax.axvspan(rms_low, rms_high, color="#ba5a2a", alpha=0.15, linewidth=0, zorder=2)
         ax.axvline(rms, color="#ba5a2a", linestyle="--", linewidth=1.3, label="RMS", zorder=4)
-        ax.axvline(median, color="#303030", linestyle=":", linewidth=1.3, label="Median", zorder=4)
-        ax.set_xlim(0.0, bins[-1])
-    if spread["draws_more_than_best"]:
-        if log is not None:
-            log(f"[outputs] warning: {spread['draws_more_than_best']} of {spread['draws_total']} posterior draws recovered more images "
-                f"than the best fit ({values.size}); the best fit may not be the best image-plane solution")
-    if values.size:
+        ax.set_xlim(0.0, edges[-1])
         ax.legend(loc="upper right", fontsize=8, frameon=False)
     ax.set_xlabel("Image-position residual (arcsec)")
     ax.set_ylabel("Number of images")
@@ -152,15 +136,11 @@ def plot_image_recovery(image_df: pd.DataFrame, extra_df: pd.DataFrame, path: Pa
 
 
 # ----------------------------------------------------------------------------- posterior
-def plot_corner(samples: np.ndarray, specs: list[ParameterSpec], path: Path, *, best: np.ndarray | None = None,
-                grouped_physical=None, best_index=None) -> Path | None:
+def plot_corner(samples: np.ndarray, specs: list[ParameterSpec], path: Path, *, grouped_physical=None) -> Path | None:
     from .corner import plot_parameter_corner
     keep = [(i, spec, spec.name) for i, spec in enumerate(specs)
             if spec.component_family not in {"source_position", "member_scatter_offset", "member_shape_offset"}]
-    if best_index is None and best is not None:
-        matches = np.flatnonzero(np.all(np.asarray(samples) == best, axis=1))
-        best_index = int(matches[0]) if len(matches) else None
-    return plot_parameter_corner(samples, keep, path, grouped_physical=grouped_physical, best_index=best_index)
+    return plot_parameter_corner(samples, keep, path, grouped_physical=grouped_physical)
 
 
 def member_scaling_table(state: ModelState, posterior: PosteriorResults) -> pd.DataFrame:
@@ -315,37 +295,48 @@ def plot_scaling_relation(table: pd.DataFrame, posterior_physical: np.ndarray, s
 
 
 # ----------------------------------------------------------------------------- critical curves
-def plot_critical_curves(state: ModelState, evaluator: Evaluator, theta: np.ndarray, sources: np.ndarray, z_source: float,
-                         path: Path, *, half_fov_arcsec: float = 100.0, grid_scale_arcsec: float = 0.2) -> Path:
+def plot_critical_curves(state: ModelState, draws, z_source: float, path: Path, *, half_fov_arcsec: float | None = None,
+                         grid_scale_arcsec: float = 0.5, log=print) -> Path:
+    """Critical curves and caustics over the reporting draws (parametric plus each draw's GRF conditional mean): the zero
+    contours of the per-pixel median tangential (solid) and radial (dashed) eigenvalues 1 - kappa -/+ |gamma|, shaded
+    where their 16-84% range contains zero; the caustics are the per-point median over draws of the median curves
+    mapped through each draw's lens; the sources are the medians over draws with their 16-84% range.  The grid spans
+    ``half_fov_arcsec`` about the reference (default: the farthest image plus 20", rounded up to 10")."""
+    from .jwst_rgb import draw_critical_interval
+    if half_fov_arcsec is None:
+        # The images and 20" around them, in steps of 10": the grid covers the constrained region, not empty sky.
+        reach = float(np.max(np.abs(np.concatenate([state.images.x_obs, state.images.y_obs]))))
+        half_fov_arcsec = 10.0 * np.ceil((reach + 20.0) / 10.0)
     n = max(2, int(round(2 * half_fov_arcsec / grid_scale_arcsec)) + 1)
     axis = np.linspace(-half_fov_arcsec, half_fov_arcsec, n)
     xx, yy = np.meshgrid(axis, axis)
-    quantities = lens_quantities(evaluator, theta, z_source, xx.ravel(), yy.ravel())
-    kappa = quantities["kappa"].reshape(xx.shape)
-    shear = np.hypot(quantities["gamma1"], quantities["gamma2"]).reshape(xx.shape)
+    maps = draws.grid_maps("critical curves", xx, yy, z_source, log=log)
+    shear = np.hypot(maps["gamma1"], maps["gamma2"])
     fig, (image_ax, source_ax) = plt.subplots(1, 2, figsize=(12, 5))
     pixel = np.arange(n, dtype=float)
-    physical = evaluator.physical(jnp.asarray(theta))
-    packed = evaluator.packed_state_for_z(physical, z_source)
-    from ..likelihood.grf_fields import shared_grf_fields
     curves = []
-    for field, linestyle in ((1.0 - kappa - shear, "-"), (1.0 - kappa + shear, "--")):
-        for vertices in find_contours(field, 0.0):
+    for eigenvalue, linestyle in ((1.0 - maps["kappa"] - shear, "-"), (1.0 - maps["kappa"] + shear, "--")):
+        low, median, high = np.nanpercentile(eigenvalue, [16, 50, 84], axis=0)
+        draw_critical_interval(image_ax, low, high, CRITICAL_COLOR, coordinates=(xx, yy))
+        for vertices in find_contours(median, 0.0):
             cx, cy = np.interp(vertices[:, 1], pixel, axis), np.interp(vertices[:, 0], pixel, axis)
             image_ax.plot(cx, cy, color=CRITICAL_COLOR, linestyle=linestyle, linewidth=1.0)
             curves.append(np.stack((cx, cy), -1))
     if curves:
-        # Every segment's caustic in one field evaluation (one GRF correction, one pass of the lens fields).
         xy = np.concatenate(curves)
-        correction, _ = shared_grf_fields(evaluator, theta, z_source, xy)
-        beta = xy - evaluator.total_fields_at(xy, packed)[0] - correction
+        beta = np.median([xy - draws.deflections(k, xy, z_source) for k in range(len(draws))], axis=0)
         source_ax.scatter(beta[:, 0], beta[:, 1], color=CRITICAL_COLOR, s=2, alpha=0.75, linewidths=0.0)
+    evaluator = draws.evaluator
+    sources = np.stack([np.asarray(evaluator.source_positions(jnp.asarray(theta))) for theta in draws.samples])
+    s16, s50, s84 = np.percentile(sources, [16, 50, 84], axis=0)
     cmap = plt.get_cmap("tab20", max(1, len(state.family_data)))
     for idx, family in enumerate(state.family_data):
         image_ax.scatter(family.x_obs, family.y_obs, color=cmap(idx), s=14, label=family.family_id)
     for idx, family_id in enumerate(state.images.family_ids):
         color_index = [f.family_id for f in state.family_data].index(family_id)
-        source_ax.scatter(sources[idx, 0], sources[idx, 1], color=cmap(color_index), s=14)
+        source_ax.errorbar(s50[idx, 0], s50[idx, 1], xerr=[[s50[idx, 0] - s16[idx, 0]], [s84[idx, 0] - s50[idx, 0]]],
+                           yerr=[[s50[idx, 1] - s16[idx, 1]], [s84[idx, 1] - s50[idx, 1]]], fmt="o", ms=3.5,
+                           color=cmap(color_index), elinewidth=0.8, capsize=0)
     image_ax.invert_xaxis()
     image_ax.set_xlabel("x (arcsec)")
     image_ax.set_ylabel("y (arcsec)")
@@ -374,8 +365,7 @@ def plot_truth_recovery_residuals(recovery: dict[str, Any], image_df: pd.DataFra
     cmap = LinearSegmentedColormap.from_list(
         "RdBu_r_cropped", plt.get_cmap("RdBu_r")(np.linspace(0.25, 1.0, 768)), N=768)
     cmap.set_bad("#e8e8e8")
-    style = {"font.size": 9, "axes.labelsize": 9, "xtick.labelsize": 8, "ytick.labelsize": 8, "legend.fontsize": 8, "axes.linewidth": 0.8, "pdf.fonttype": 42}
-    with plt.rc_context(style):
+    with plt.rc_context(fname=STYLE, rc=PAPER_STYLE):
         fig, axes = plt.subplots(1, 3, figsize=(7.2, 3.4), sharex=True, sharey=True)
         fig.subplots_adjust(left=0.075, right=0.99, bottom=0.17, top=0.79, wspace=0.07)
         meshes = [ax.pcolormesh(x, y, np.ma.masked_invalid(r), cmap=cmap, norm=norm, shading="nearest", rasterized=True) for ax, r in zip(axes[:2], residuals)]
@@ -394,24 +384,106 @@ def plot_truth_recovery_residuals(recovery: dict[str, Any], image_df: pd.DataFra
         for ax in axes:
             ax.set_aspect("equal", adjustable="box")
             ax.set_xlabel("x (arcsec)")
-            ax.tick_params(which="both", direction="out", top=False, right=False)
+            ax.tick_params(which="both", direction="in", top=True, right=True)
         axes[0].set_ylabel("y (arcsec)")
         if handles:
-            axes[2].legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 1.06), ncol=3, frameon=False, handlelength=1.3, columnspacing=0.7)
+            axes[2].legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 1.06), ncol=3, frameon=False, fontsize=8, handlelength=1.3, columnspacing=0.7)
         fig.canvas.draw()
         for ax, mesh, label in zip(axes[:2], meshes, (r"$(\kappa_{\rm model}-\kappa_{\rm true})/\kappa_{\rm true}$", r"$(|\mu_{\rm model}|-|\mu_{\rm true}|)/|\mu_{\rm true}|$")):
             box = ax.get_position()
-            cax = fig.add_axes([box.x0, box.y1 + 0.045, box.width, 0.025])
-            cb = fig.colorbar(mesh, cax=cax, orientation="horizontal", ticks=[-1, 0, 1, 2], extend="both")
+            cax = fig.add_axes([box.x0, box.y1 + 0.045, box.width, 0.035])
+            cb = fig.colorbar(mesh, cax=cax, orientation="horizontal", ticks=[-1, 0, 1, 2])
             cb.set_label(label, fontsize=8, labelpad=5)
             cb.ax.xaxis.set_label_position("top")
             cb.ax.xaxis.set_ticks_position("top")
             cb.ax.minorticks_off()
-            cb.ax.tick_params(direction="out", length=2.5, width=0.6, labelsize=8, pad=2)
+            cb.ax.tick_params(direction="in", length=3.5, width=0.8, labelsize=8, pad=2)
         return _finish(fig, path, dpi=600)
 
 
-def plot_m2d_aperture_ratio(profile: pd.DataFrame, center: dict[str, Any], image_df: pd.DataFrame | None, mass_scale: float, path: Path) -> Path:
+# Published FF-SIMS reconstructions drawn in the ratio panels: (name, approach in Table 1 of Meneghetti et al. 2017,
+# colour).  Only the parametric models are drawn (the free-form ones stay in the digitized table); every model has its
+# own colour, none of them blue (the colour of this work); a model is drawn only when the digitized table has it.
+LITERATURE_MODELS = (("CATS", "Parametric", "#D55E00"), ("GLAFIC", "Parametric", "#009E73"),
+                     ("Johnson-Sharon", "Parametric", "#CC79A7"), ("Zitrin-LTM-gauss", "Parametric", "#E69F00"),
+                     ("Zitrin-NFW", "Parametric", "#882255"))
+LITERATURE_GROUP_STYLE = {"Parametric": "-"}
+
+
+def draw_literature_ratios(ax, literature: pd.DataFrame | None) -> dict:
+    """Draw the digitized published ratios on ``ax`` (``smoothed_digitized_curve`` of the clean and partly hidden samples),
+    returning the drawn lines by approach, in ``LITERATURE_MODELS`` order."""
+    if literature is None:
+        return {}
+    groups = {}
+    for name, group, color in LITERATURE_MODELS:
+        curve = literature[(literature["model"] == name) & (literature["flag"] <= 1)]
+        if len(curve) < 2:
+            continue
+        line, = ax.plot(*smoothed_digitized_curve(curve["r_arcsec"], curve["ratio"]), color=color,
+                        linestyle=LITERATURE_GROUP_STYLE[group], linewidth=0.9, label=name, zorder=1.5)
+        groups.setdefault(group, []).append(line)
+    return groups
+
+
+def literature_legends(fig, groups: dict, top: float) -> None:
+    """One legend per approach above ``top`` (figure fraction), titled with the approach, stacked downward."""
+    for group, lines in groups.items():
+        legend = fig.legend(handles=lines, loc="lower center", bbox_to_anchor=(0.55, top), ncol=3,
+                            title=f"{group} (Meneghetti et al. 2017)", title_fontsize=plt.rcParams["legend.fontsize"], handlelength=1.8, columnspacing=0.9,
+                            labelspacing=0.25, borderaxespad=0.0)
+        fig.canvas.draw()
+        top = legend.get_window_extent().transformed(fig.transFigure.inverted()).y1 + 0.005
+
+
+@plt.rc_context(fname=STYLE, rc=PAPER_STYLE)
+def plot_truth_ratio_panels(profile: pd.DataFrame, kappa_profile: pd.DataFrame, center: dict[str, Any], image_df: pd.DataFrame | None,
+                            path: Path, literature_mass: pd.DataFrame | None = None, literature_kappa: pd.DataFrame | None = None) -> Path:
+    """Model over truth for the enclosed projected mass (upper panel) and the azimuthally averaged convergence (lower panel)
+    against radius, in the style of the enclosed-mass figure: posterior median and 16-84 per cent band, the published
+    ratios (``draw_literature_ratios``, in one legend inside the mass panel) and ticks at the image radii."""
+    fig, (ax_m, ax_k) = plt.subplots(2, 1, figsize=(3.5, 3.7), sharex=True, gridspec_kw={"hspace": 0.06})
+    radii = None
+    if image_df is not None and not image_df.empty and center is not None:
+        radii = np.hypot(image_df["x_obs_arcsec"].to_numpy(float) - center["center_x_arcsec"], image_df["y_obs_arcsec"].to_numpy(float) - center["center_y_arcsec"])
+    panels = ((ax_m, profile, "radius_arcsec", "m2d_ratio", literature_mass, r"$M_{\rm model}/M_{\rm true}$", (0.9, 1.1), [0.9, 0.95, 1.0, 1.05, 1.1]),
+              (ax_k, kappa_profile, "radius_arcsec", "kappa_ratio", literature_kappa, r"$\kappa_{\rm model}/\kappa_{\rm true}$", (0.8, 1.2), [0.8, 0.9, 1.0, 1.1, 1.2]))
+    groups = {}
+    for ax, table, rcol, prefix, literature, label, ylim, yticks in panels:
+        radius = table[rcol].to_numpy(float)
+        lo, mid, hi = (table[f"{prefix}_{k}"].to_numpy(float) for k in ("q16", "median", "q84"))
+        band = np.isfinite(lo) & np.isfinite(hi)
+        if band.any():
+            ax.fill_between(radius[band], lo[band], hi[band], color="#2878A5", alpha=0.22, linewidth=0.0)
+        drawn = draw_literature_ratios(ax, literature)
+        if sum(map(len, drawn.values())) > sum(map(len, groups.values())):
+            groups = drawn
+        ours, = ax.plot(radius, mid, color="#2878A5", linewidth=1.4, label="This work", zorder=2)
+        ax.axhline(1.0, color="0.2", linestyle="--", linewidth=1.0)
+        if radii is not None:
+            ax.vlines(radii[radii > 0], 0.0, 0.10, transform=ax.get_xaxis_transform(), color="0.20", linewidth=0.85, alpha=0.9, zorder=5)
+        ax.set_ylim(*ylim)
+        ax.set_yticks(yticks)
+        ax.set_ylabel(label)
+    ax_m.set_xscale("log")
+    shown = np.concatenate([profile["radius_arcsec"].to_numpy(float), kappa_profile["radius_arcsec"].to_numpy(float)])
+    ax_k.set_xlim(PROFILE_INNER_ARCSEC, np.nanmax(shown) * 1.03)
+    ax_k.set_xlabel(r"$R$ (arcsec)")
+    # One legend in the upper left of the mass panel, on a mostly opaque box drawn above the curves.
+    legend = ax_m.legend(handles=[ours, *[line for lines in groups.values() for line in lines]], loc="upper left", ncol=2,
+                         frameon=True, framealpha=0.85, facecolor="white", edgecolor="none", handlelength=1.6,
+                         columnspacing=0.8, labelspacing=0.2, borderpad=0.3, borderaxespad=0.3)
+    legend.set_zorder(10)
+    fig.align_ylabels((ax_m, ax_k))
+    return _finish(fig, path, dpi=220)
+
+
+@plt.rc_context(fname=STYLE, rc=PAPER_STYLE)
+def plot_m2d_aperture_ratio(profile: pd.DataFrame, center: dict[str, Any], image_df: pd.DataFrame | None, mass_scale: float, path: Path,
+                            literature: pd.DataFrame | None = None) -> Path:
+    """Enclosed projected mass of model and truth against aperture radius, and their ratio.  ``literature``
+    (``truth_recovery.literature_m2d_ratios``) adds the digitized published ratios to the ratio panel
+    (``draw_literature_ratios``), listed by approach in the legend."""
     fig, (ax, ax_resid) = plt.subplots(2, 1, figsize=(3.5, 3.7), sharex=True, gridspec_kw={"height_ratios": [2.2, 1], "hspace": 0.06})
     radius = profile["radius_arcsec"].to_numpy(float)
     truth = profile["kappa_true_sum"].to_numpy(float) * mass_scale
@@ -430,23 +502,23 @@ def plot_m2d_aperture_ratio(profile: pd.DataFrame, center: dict[str, Any], image
     rband = np.isfinite(r16) & np.isfinite(r84)
     if rband.any():
         ax_resid.fill_between(radius[rband], r16[rband], r84[rband], color="#2878A5", alpha=0.22, linewidth=0.0)
+    literature_groups = draw_literature_ratios(ax_resid, literature)
     ax_resid.plot(radius, ratio, color="#2878A5", linewidth=1.3)
     ax_resid.axhline(1.0, color="0.2", linestyle="--", linewidth=1.0)
     ax_resid.set_ylim(0.9, 1.1)
     ax_resid.set_yticks([0.9, 0.95, 1.0, 1.05, 1.1])
     ax.set_xscale("log")
     ax.set_yscale("log")
-    ax_resid.set_xlim(left=5.0)
-    ax_resid.set_xlabel(r"$R$ (arcsec)", fontsize=10)
-    ax_resid.set_ylabel(r"$M_{\rm model}/M_{\rm true}$", fontsize=10)
-    ax.set_ylabel(r"$M_{\rm 2D}(<R)$ ($M_\odot$)", fontsize=10)
-    shown = np.isfinite(truth) & np.isfinite(model) & (radius >= 4.9) & (truth > 0) & (model > 0)
+    ax_resid.set_xlim(left=PROFILE_INNER_ARCSEC)
+    ax_resid.set_xlabel(r"$R$ (arcsec)")
+    ax_resid.set_ylabel(r"$M_{\rm model}/M_{\rm true}$")
+    ax.set_ylabel(r"$M_{\rm 2D}(<R)$ ($M_\odot$)")
+    shown = np.isfinite(truth) & np.isfinite(model) & (radius >= PROFILE_INNER_ARCSEC - 0.1) & (truth > 0) & (model > 0)
     if shown.any():
         values = np.concatenate([truth[shown], model[shown]])
         ax.set_ylim(values.min() / 1.35, values.max() * 1.35)
-        ax.set_xlim(5.0, radius[shown].max() * 1.03)
-    for panel in (ax, ax_resid):
-        panel.tick_params(which="major", labelsize=9, length=4, width=0.8, direction="in", top=True, right=True)
-        panel.tick_params(which="minor", length=2, width=0.6, direction="in", top=True, right=True)
-    ax.legend(loc="upper left", fontsize=8, frameon=False, handlelength=2.3)
+        ax.set_xlim(PROFILE_INNER_ARCSEC, radius[shown].max() * 1.03)
+    ax.legend(loc="upper left", handlelength=2.3)
+    if literature_groups:
+        literature_legends(fig, literature_groups, ax.get_position().y1 + 0.008)
     return _finish(fig, path, dpi=220)

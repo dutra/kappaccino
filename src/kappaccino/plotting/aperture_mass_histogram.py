@@ -17,25 +17,11 @@ from scipy.spatial import ConvexHull, QhullError
 from astropy.wcs.utils import proj_plane_pixel_area
 
 from .style import PAPER_STYLE
+from ..core.utils import progress
 from ..diagnostics.truth_recovery import load_truth_fits, mass_per_kappa_pixel_msun
 
 STYLE = Path(__file__).with_name('style.mplstyle')
 NORMALIZATION_KPC = 8.
-
-
-def conditional_grf(evaluator, physical, z_source):
-    """Mean field at the physical median, preserving its physical source positions; the shared field of the run, or
-    its all-block twin for a system-block run."""
-    from ..lens.cosmology import dpie_sigma0_factor_from_config
-    from ..likelihood.grf_fields import latent_from_physical, shared_field_evaluator
-    twin = shared_field_evaluator(evaluator)
-    if twin is None:
-        return None, 1.
-    state = twin.state
-    correction = twin.gp_deflection_correction(latent_from_physical(twin, physical))
-    reference = float(dpie_sigma0_factor_from_config(state.z_lens, state.gp_reference_redshift, state.cosmo_config))
-    target = float(dpie_sigma0_factor_from_config(state.z_lens, z_source, state.cosmo_config))
-    return correction, target/reference/float(twin.gp_weights_per_family[0])
 
 
 def inside_image_footprint(centers, images):
@@ -124,11 +110,8 @@ def aperture_masses(state, evaluator, physical, members, image_xy, truth_config,
             alpha,_=evaluator.total_fields_at(xy.reshape(-1,2),packed,chunk=4096)
             if grf_correction is not None:
                 points=xy.reshape(-1,2)
-                for start in range(0,len(points),1024):
-                    block=points[start:start+1024];count=len(block)
-                    block=np.pad(block,((0,1024-count),(0,0)),mode='edge')
-                    field=grf_correction(block[:,0],block[:,1],np.zeros(1024,dtype=int))
-                    alpha[start:start+count] += np.stack(field[:2],-1)[:count]*grf_weight
+                field=grf_correction(points[:,0],points[:,1],np.zeros(len(points),dtype=int))
+                alpha=alpha+np.stack(field[:2],-1)*grf_weight
             out[valid]=np.pi*radius[valid]*np.mean(np.sum(alpha.reshape(-1,nt,2)*n,axis=-1),axis=1)
         return out
     def truth_integral(nr,nt):
@@ -164,7 +147,23 @@ def aperture_masses(state, evaluator, physical, members, image_xy, truth_config,
     return table
 
 
-def write_aperture_mass_histogram(config,state,evaluator,posterior,paths,image_df,*,log=print):
+def median_over_draws(tables):
+    """One row per member from the per-draw ``aperture_masses`` tables: the median model mass over the draws, with
+    its 16th and 84th percentiles; a member is usable only when it is usable in every draw."""
+    first=tables[0].copy()
+    model=np.stack([t.model_mass_msun.to_numpy(float) for t in tables])
+    usable=np.logical_and.reduce([t.usable.to_numpy(bool) for t in tables])
+    first['usable']=usable
+    first['model_mass_msun']=np.median(model,axis=0)
+    first['model_mass_q16_msun'],first['model_mass_q84_msun']=np.percentile(model,[16,84],axis=0)
+    truth=first.truth_mass_msun.to_numpy(float)
+    first['ratio']=np.divide(first.model_mass_msun.to_numpy(float),truth,out=np.full(len(first),np.nan),where=usable)
+    first['model_quadrature_error']=np.max([t.model_quadrature_error.to_numpy(float) for t in tables],axis=0)
+    first['n_draws']=len(tables)
+    return first
+
+
+def write_aperture_mass_histogram(config,state,draws,paths,image_df,*,log=print):
     prefix=str(config.paths.figure_prefix or '')
     if prefix.lower() not in {'hera','ares'}:
         return None
@@ -179,27 +178,30 @@ def write_aperture_mass_histogram(config,state,evaluator,posterior,paths,image_d
     members=pd.read_csv(paths.tables/'member_diagnostics.csv',dtype={'member_id':str,'catalog_id':str})
     if members.member_id.tolist()!=list(state.members.member_ids):
         raise ValueError('Aperture catalog identities differ from saved model')
-    physical=np.median(posterior.physical,axis=0)
-    correction,weight=conditional_grf(evaluator,physical,float(config.truth.caustic_source_redshift))
-    description='conditional GRF mean included' if correction is not None else 'parametric only; shared GRF correction unavailable'
-    log(f'[aperture] exact 2Re masses: F160W size normalization {NORMALIZATION_KPC:g} kpc at magnitude 20; {description}')
-    table=aperture_masses(state,evaluator,physical,members,
-                          image_df[['x_obs_arcsec','y_obs_arcsec']].to_numpy(),config.truth,
-                          grf_correction=correction,grf_weight=weight)
+    evaluator=draws.evaluator
+    physical=draws.physical
+    z=float(config.truth.caustic_source_redshift)
+    description=('conditional GRF mean of each draw included' if draws.has_field
+                 else 'parametric only; shared GRF correction unavailable')
+    centres=members[['x_centre','y_centre']].to_numpy(float)
+    reach=draws._grf_reach(centres[np.isfinite(centres).all(1)])+10. if draws.has_field else 0.
+    log(f'[aperture] exact 2Re masses over {len(physical)} posterior draws: F160W size normalization '
+        f'{NORMALIZATION_KPC:g} kpc at magnitude 20; {description}')
+    tables=[]
+    for k in progress(range(len(draws)),desc='aperture draws'):
+        correction,weight=(draws.correction(k,reach),draws.grf_weight(z)) if draws.has_field else (None,1.)
+        tables.append(aperture_masses(state,evaluator,physical[k],members,image_df[['x_obs_arcsec','y_obs_arcsec']].to_numpy(),
+                                      config.truth,grf_correction=correction,grf_weight=weight))
+    table=median_over_draws(tables)
     table.to_csv(paths.tables/'member_aperture_masses.csv',index=False)
     stats=dict(normalization_kpc=NORMALIZATION_KPC,samples=distribution_statistics(table),
                equation=f'Re[kpc] = {NORMALIZATION_KPC:g} * 10**(-0.24*(m_F160W-20)); aperture radius = 2 Re',
-               model=f'componentwise physical posterior median; exact parametric kernels; {description}',
+               model=f'median over {len(physical)} posterior draws of each member mass; exact parametric kernels; {description}',
                grf_included=correction is not None,
                footprint='galaxy centers within convex hull of observed multiple images',
                display='central 99% of all usable ratios; statistics use full distribution',
                skipped_member_ids=table.loc[~table.usable,'member_id'].tolist())
-    (paths.tables/'aperture_mass_histogram.json').write_text(json.dumps(stats,indent=2)+'\n')
-    path=paths.figures/f'{prefix}_all_vs_image_footprint_histogram.pdf'
-    counts=render_histogram(table,path)
-    if counts is None:
-        log('[aperture] no usable apertures; no histogram written')
-        return None
-    counts.to_csv(paths.tables/'all_vs_image_footprint_histogram.csv',index=False)
+    path=paths.tables/'aperture_mass_histogram.json'
+    path.write_text(json.dumps(stats,indent=2)+'\n')
     log(f'[aperture] wrote {path}; {int(table.usable.sum())}/{len(table)} usable members')
     return path

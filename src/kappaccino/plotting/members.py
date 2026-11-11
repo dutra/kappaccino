@@ -179,7 +179,6 @@ def approximation_pdf(data, path):
         lo, med, hi = np.quantile(f[key], [.16, .5, .84], axis=0)
         ax.errorbar(x, med, yerr=np.maximum(0., [med-lo, hi-med]), fmt='o', ms=2.5,
                     color='tab:blue', ecolor='#b7cfdf', elinewidth=.7, label='Posterior 16–84%')
-        ax.plot(x, f[key][0], '.', color='black', ms=3, label='Best fit')
         if key == 'error_whitened':
             ax.axhline(p['tolerance'], color='tab:red', ls='--', lw=1)
             bad = np.max(f[key], axis=0) >= p['tolerance']
@@ -187,7 +186,7 @@ def approximation_pdf(data, path):
         ax.set(xlabel='Constrained image index', ylabel=ylabel, ylim=(0, None))
     far = t[t.member_class == 'far-field']
     axes[0, 0].legend(frameon=False, fontsize=7)
-    for ax, key, label in ((axes[1, 0], 'member_error_whitened_best', 'Whitened member error'),
+    for ax, key, label in ((axes[1, 0], 'member_error_whitened_max', 'Whitened member error'),
                             (axes[1, 1], 'guard_ratio_min', r'Minimum $R/r_{\rm cut}$')):
         if far.empty:
             ax.text(.5, .5, 'All members evaluated exactly', transform=ax.transAxes, ha='center')
@@ -199,8 +198,8 @@ def approximation_pdf(data, path):
                 lo, hi = far.member_error_whitened_p16.to_numpy(), far.member_error_whitened_p84.to_numpy()
                 ax.errorbar(far.catalog_mag, med, yerr=np.maximum(0., [med-lo, hi-med]), fmt='o', ms=2.5,
                             color='tab:blue', ecolor='#b7cfdf', elinewidth=.6)
-                bad = far.member_error_whitened_max.to_numpy() >= threshold
-                ax.scatter(far.catalog_mag, values, s=10, c=np.where(bad, 'tab:red', 'black'), zorder=4)
+                bad = values >= threshold
+                ax.scatter(far.catalog_mag[bad], values[bad], s=10, c='tab:red', marker='x', zorder=4, label='Maximum over draws')
             else:
                 bad = values < threshold
                 ax.scatter(far.catalog_mag, values, s=12, c=np.where(bad, 'tab:red', 'tab:blue'))
@@ -258,7 +257,6 @@ def write_member_diagnostic_plots(config, state, evaluator, posterior, paths, *,
     for d, index in enumerate(data.provenance['selected_draw_indices']):
         frame = data.images.copy()
         frame['draw_index'] = index
-        frame['best_fit'] = d == 0
         for key in ('error_arcsec', 'error_whitened'):
             frame[key] = data.fields[key][d]
         frame['whitened_u1'], frame['whitened_u2'] = data.fields['residual'][d].T

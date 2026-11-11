@@ -78,9 +78,9 @@ def test_explicit_panels_compute_missing_critical_fields(tmp_path,monkeypatch):
     calls=[]
     def compute(*args,**kwargs):
         calls.append(args)
-        return None,np.ones((2,4,4)),np.arange(32),np.zeros((2,4,4)),np.ones((2,4,4))*2
+        return None,np.ones((2,4,4)),np.zeros((2,4,4)),np.ones((2,4,4))*2
     monkeypatch.setattr(critical_fields,'median_cutout_determinants',compute)
-    data=rc.overview_cutout_data(tmp_path,'toy',image_labels=('b','a'),state=object(),evaluator=object(),posterior=object())
+    data=rc.overview_cutout_data(tmp_path,'toy',image_labels=('b','a'),draws=object())
     assert [item['label'] for item in data['images']]==['b','a']
-    assert len(calls)==1 and calls[0][5]==[3.,2.]
+    assert len(calls)==1 and calls[0][3]==[3.,2.]
     assert all('critical' in item for item in data['images'])

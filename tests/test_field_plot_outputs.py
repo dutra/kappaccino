@@ -31,20 +31,27 @@ def test_no_mass_field_skips_the_shared_maps():
 
 
 def test_system_blocks_render_through_the_shared_twin(monkeypatch):
-    """A system-block run's maps come from its all-block twin, with the draws converted to the twin's coordinates."""
-    from kappaccino.likelihood import grf_fields as reporting_fields
+    """A system-block run's maps use the reporting draws, converted once to its all-block twin's coordinates."""
+    import numpy as np
+    from kappaccino.reporting import draws as reporting
     twin = SimpleNamespace(gp_knee=True, sigma_grf_index=0, gp_knee_spectrum='knee', state=SimpleNamespace(gp_blocks='all'))
     run = SimpleNamespace(gp_knee=True, sigma_grf_index=0, gp_knee_spectrum='knee', state=SimpleNamespace(gp_blocks='system'),
                           _shared_field_twin=twin)
-    monkeypatch.setattr(reporting_fields, 'shared_posterior', lambda e, p: 'twin-posterior')
+    monkeypatch.setattr(reporting, 'shared_theta', lambda evaluator, theta: theta + 100.)
     seen = []
-    def compute(config, state, evaluator, posterior):
-        seen.append((evaluator, posterior))
+    def compute(config, state, draws, *, log):
+        seen.append(draws)
         raise RuntimeError('stop after the swap')
     monkeypatch.setattr(fields, 'compute_fields', compute)
-    config = SimpleNamespace(likelihood=SimpleNamespace(gp_blocks='system'), paths=SimpleNamespace(figure_prefix='x'))
+    config = SimpleNamespace(likelihood=SimpleNamespace(gp_blocks='system'), paths=SimpleNamespace(figure_prefix='x'),
+                             reporting=SimpleNamespace(draws=8), runtime=SimpleNamespace(seed=3))
+    posterior = SimpleNamespace(samples=np.arange(20.)[:, None], physical=np.arange(20.)[:, None])
     messages = []
     with pytest.raises(RuntimeError):
-        fields.write_field_plots(config, None, run, 'posterior', None, log=messages.append)
-    assert seen == [(twin, 'twin-posterior')]
+        fields.write_field_plots(config, None, run, posterior, None, log=messages.append)
+    draws = seen[0]
+    assert draws.evaluator is run and len(draws) == 8
+    evaluator, samples = draws.shared()
+    assert evaluator is twin
+    np.testing.assert_array_equal(samples, draws.samples + 100.)
     assert 'twin' in messages[0]

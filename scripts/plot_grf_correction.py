@@ -32,8 +32,12 @@ def main():
     data['member_xy'] = members[['x_centre','y_centre']].to_numpy()
     state = json.loads((args.run_directory / 'init/artifacts/state.json').read_text())
     archive = load_arrays(final / 'artifacts/posterior.h5')
-    physical = archive['physical'][int(data['draw_index'])]
-    fitted = dict(zip((s['name'] for s in state['parameter_specs']),physical))
+    # The map's own posterior draws: halo positions and member masses are medians over them, like the map.
+    indices = np.asarray(data['draw_indices'], int)
+    physical = archive['physical'][indices]
+    names = [s['name'] for s in state['parameter_specs']]
+    fitted = dict(zip(names, np.median(physical, axis=0)))
+    per_draw = [dict(zip(names, p)) for p in physical]
     model = config['model']
     centres, labels = [], []
     for halo in model['large_halos']:
@@ -51,15 +55,16 @@ def main():
         Path(__file__).resolve().parents[1]/'src/kappaccino/data/m0416_image_f200w_photometry.csv')
     data['image_sizes'] = photometry.marker_area_pt2.to_numpy()
     archive = load_arrays(final / 'tables/member_diagnostic_draws.h5')
-    deviations = archive['deviations'][int(data['draw_index'])]
-    assert deviations.shape == (len(members),2)
-    masses = []
-    for j,row in members.iterrows():
-        pop = row.potfile_id
-        sigma = fitted[pop+'.sigma']*row.luminosity_ratio**fitted[pop+'.alpha_sigma']*np.exp(deviations[j,0])
-        cut = fitted[pop+'.cutkpc']*row.luminosity_ratio**fitted[pop+'.beta_radius']*np.exp(deviations[j,1])
-        masses.append(float(10**log10_dpie_mass_msun(sigma,cut)))
-    masses = np.asarray(masses)
+    deviations = archive['deviations'][indices]
+    assert deviations.shape == (len(indices),len(members),2)
+    masses = np.empty((len(indices),len(members)))
+    for d,draw in enumerate(per_draw):
+        for j,row in members.iterrows():
+            pop = row.potfile_id
+            sigma = draw[pop+'.sigma']*row.luminosity_ratio**draw[pop+'.alpha_sigma']*np.exp(deviations[d,j,0])
+            cut = draw[pop+'.cutkpc']*row.luminosity_ratio**draw[pop+'.beta_radius']*np.exp(deviations[d,j,1])
+            masses[d,j] = float(10**log10_dpie_mass_msun(sigma,cut))
+    masses = np.median(masses, axis=0)
     assert np.isfinite(masses).all() and (masses>0).all()
     data['member_sizes'] = np.clip(10*np.sqrt(masses/1e11),3,70)
     marker_table = members[['member_id','x_centre','y_centre']].copy()
@@ -79,14 +84,14 @@ def main():
     data['halo_xy'],data['halo_labels'] = np.asarray(centres),labels
     render_grf_correction(data, output)
     output.with_suffix('.json').write_text(json.dumps(dict(
-        source=str(source),draw_index=int(data['draw_index']),
+        source=str(source),draw_indices=indices.tolist(),
         member_positions=len(members),independent_halo_labels=labels,
         image_size='area = clip(16*10**(-0.2*(m_F200W-26)),9,64) pt^2; unavailable magnitudes use 9',
         image_measured_magnitudes=int(photometry.valid_photometry.sum()),
-        member_size='area = clip(10*sqrt(M/1e11 Msun),3,70) pt^2; total dPIE mass at map draw',
+        member_size='area = clip(10*sqrt(M/1e11 Msun),3,70) pt^2; median total dPIE mass over the map draws',
         independent_halo_positions=centres,
         reference_redshift=float(data['reference_redshift']),
-        panel='Middle panel of total_grf_dimensionless_power; unchanged cached convergence correction',
+        panel='Middle panel of total_grf_dimensionless_power: per-pixel median over the draws of each draw conditional-mean GRF',
         colormap='vik',normalization='same symmetric zero-centered limits as the three-panel figure'),indent=2)+'\n')
     print(output)
 

@@ -18,14 +18,14 @@ def plot_field_recovery(campaign, output: Path):
             continue
         data = load_arrays(path)
         n = len(data['xy'])
-        center = data['median_parameter_images']
+        center = data['mean_images']
         sigma = np.sqrt(data['within_variance_images']+data['between_variance_images'])
         for field, start in [('GRF', 0), ('GP', 2*n)]:
             for i in range(n):
                 for axis in range(2):
                     index = start+2*i+axis
                     rows.append(dict(seed=seed, image_index=i, field=field, component='xy'[axis],
-                                     truth=float(data['truth_images'][index]), median=float(center[index]),
+                                     truth=float(data['truth_images'][index]), posterior_mean=float(center[index]),
                                      posterior_sd=float(sigma[index])))
     if not rows:
         return None
@@ -39,22 +39,22 @@ def plot_field_recovery(campaign, output: Path):
         for col, component in enumerate('xy'):
             ax = axes[row, col]
             data = table[(table.field == field) & (table.component == component)]
-            finite = np.isfinite(data[['truth','median','posterior_sd']]).all(axis=1)
+            finite = np.isfinite(data[['truth','posterior_mean','posterior_sd']]).all(axis=1)
             data = data[finite]
             if data.empty:
                 ax.set_axis_off(); continue
-            raw = ax.errorbar(data.truth, data['median'], yerr=data.posterior_sd,
+            raw = ax.errorbar(data.truth, data['posterior_mean'], yerr=data.posterior_sd,
                               fmt='.', markersize=2.5, color='tab:blue', alpha=.22,
                               elinewidth=.45, capsize=0, zorder=2)
             handles.setdefault('Images (posterior SD)', raw)
-            bins = parameter_recovery_bins(data, bins=8)
+            bins = parameter_recovery_bins(data.rename(columns={'posterior_mean': 'median'}), bins=8)
             if not bins.empty:
                 binned = ax.errorbar(bins.truth_mean, bins.recovered_mean, yerr=bins.recovered_sem,
                                      fmt='o', markersize=4.5, color='tab:orange',
                                      elinewidth=1., capsize=2, zorder=4)
                 handles.setdefault('Binned images', binned)
                 bins_saved.append(bins.assign(field=field, component=component))
-            limit = 1.06*max(np.max(np.abs(data.truth)), np.max(np.abs(data['median'])+data.posterior_sd),1e-8)
+            limit = 1.06*max(np.max(np.abs(data.truth)), np.max(np.abs(data['posterior_mean'])+data.posterior_sd),1e-8)
             ax.plot([-limit,limit],[-limit,limit],ls='--',lw=.8,color='.3',zorder=1)
             ax.set(xlim=(-limit,limit),ylim=(-limit,limit),
                    xlabel=rf'Injected $\delta {component}$ (arcsec)',
@@ -69,7 +69,7 @@ def plot_field_recovery(campaign, output: Path):
     if bins_saved:
         pd.concat(bins_saved,ignore_index=True).to_csv(output/'mock_grf_gp_field_recovery_bins.csv',index=False)
     (output/'mock_grf_gp_field_recovery.txt').write_text(
-        'Points: conditional field at componentwise physical posterior-median model.\n'
+        'Points: posterior mean field, the conditional mean of each posterior draw averaged over the draws.\n'
         'Bars: total posterior SD, including conditional variance and variation between joint parameter draws; not central credible intervals about these points.\n'
         'Binned points: equal-weight mean of within-mock means per truth bin. Bars: SEM across contributing mocks (at least two).\n'
         'GRF: at reference redshift, with fitted low-order modes removed from truth and model. GP: image-plane displacements.\n'

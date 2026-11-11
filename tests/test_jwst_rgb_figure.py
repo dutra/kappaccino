@@ -30,16 +30,6 @@ def test_missing_photometry_keeps_all_image_markers(tmp_path):
     assert (result.marker_area_pt2==9).all()
 
 
-def test_critical_band_uses_only_best_chain():
-    from types import SimpleNamespace
-    from kappaccino.plotting.jwst_rgb import best_chain_draw_indices
-    grouped=np.arange(4*100*2).reshape(4,100,2)
-    p=SimpleNamespace(grouped_samples=grouped,samples=grouped.reshape(-1,2))
-    indices,chain=best_chain_draw_indices(p,326,count=32)
-    assert chain==3 and len(indices)==32 and 326 in indices
-    assert np.all((indices>=300)&(indices<400))
-
-
 def test_critical_band_for_translating_line_and_identical_draws():
     from kappaccino.plotting.jwst_rgb import critical_quantile_band
     x=np.linspace(-2,2,401)
@@ -102,19 +92,20 @@ def test_simulated_hst_overview_has_no_m0416_overlays(tmp_path, monkeypatch, clu
     wcs=WCS(naxis=2)
     wcs.wcs.ctype=['RA---TAN','DEC--TAN'];wcs.wcs.crval=[64.,-24.]
     wcs.wcs.crpix=[16.,16.];wcs.wcs.cdelt=[-.1/3600,.1/3600]
-    geometry=dict(wcs=wcs,resolution=32,center=None,size=3.2,xlim=(-1.6,1.6),ylim=(-1.6,1.6))
+    gx,gy=np.meshgrid(np.linspace(-1.55,1.55,32),np.linspace(-1.55,1.55,32))
+    geometry=dict(wcs=wcs,resolution=32,center=None,size=3.2,xlim=(-1.6,1.6),ylim=(-1.6,1.6),x=gx,y=gy)
     monkeypatch.setattr(mass_figure,'overview_geometry',lambda *a,**k:geometry)
     monkeypatch.setattr(mass_figure,'aligned_rgb',lambda image,*a:image)
     monkeypatch.setattr(mass_figure,'grid_pixels',lambda geometry,x,y:(16+np.asarray(x)*10,16+np.asarray(y)*10))
     monkeypatch.setattr(cutouts,'rgb_cutout',lambda *a:np.zeros((32,32,3)))
     monkeypatch.setattr(cutouts,'rgb_reference_band',lambda bands:bands[0])
-    def band(*args,cache_stem,**kwargs):
-        assert cache_stem=='hst_rgb_critical_z9'
-        x,y=np.meshgrid(np.linspace(-1,1,32),np.linspace(-1,1,32))
-        determinants=np.array([x*x+y*y-r for r in [.3,.4,.5]])
-        save_arrays(tmp_path/f'{cache_stem}_band.h5',determinants=determinants,fingerprint='test')
-        return np.ones((32,32),bool),dict(draw_indices=[0,1,2],chain=0)
-    monkeypatch.setattr(rgb,'critical_band',band)
+    class Draws:
+        indices=np.arange(3); key='test'; evaluator=NS(gp_knee=False)
+        def __len__(self):return 3
+        def grid_maps(self,name,x,y,z,log=print):
+            assert name=='overview' and z==9.
+            x,y=np.meshgrid(np.linspace(-1,1,32),np.linspace(-1,1,32))
+            return {'detA':np.array([x*x+y*y-r for r in [.3,.4,.5]])}
     catalog=pd.DataFrame(dict(image_label=['a','b'],family_id=['1','2'],x_obs_arcsec=[-.3,.3],y_obs_arcsec=[-.3,.3]))
     config=NS(paths=NS(run_name=cluster),image_catalog=NS(candidate_catalog_path='must-not-read.json'))
     if cluster == 'm0416':
@@ -127,8 +118,8 @@ def test_simulated_hst_overview_has_no_m0416_overlays(tmp_path, monkeypatch, clu
         catalog['family_id'] = ['K66','K67']
     state=NS(reference=(3,64.,-24.))
     output=tmp_path/f'{cluster}_hst_rgb_critical_z9.pdf'
-    rgb.render_rgb_critical(config,state,NS(gp_knee=False),None,catalog,pd.DataFrame(),
-        ({'F814W':object()},('F814W',),None,cluster),output,tmp_path,best_index=0,posterior=object(),log=lambda _:None)
+    rgb.render_rgb_critical(config,state,Draws(),catalog,pd.DataFrame(),
+        ({'F814W':object()},('F814W',),None,cluster),output,tmp_path,log=lambda _:None)
     import json
     info=json.loads(output.with_suffix('.json').read_text())
     assert output.exists() and info['candidate_overlays']==[]
@@ -172,25 +163,3 @@ systems:
     assert result.valid_photometry.tolist() == [True, True, False]
     assert rgb_overview_stem(NS(), ['F435W','F606W','F814W']) == 'hst_rgb_critical_z9'
     assert rgb_overview_stem(NS(), ['F150W','F200W','F444W']) == 'jwst_rgb_critical_z9'
-
-
-def test_critical_band_draw_count_is_configured(synthetic_config, monkeypatch):
-    """image_catalog.critical_band_draws sets how many best-chain draws the critical band uses; it must be positive."""
-    from dataclasses import replace
-    from types import SimpleNamespace
-    from kappaccino.plotting import jwst_rgb as rgb
-    assert synthetic_config.image_catalog.critical_band_draws == 32
-    with pytest.raises(ValueError, match="critical_band_draws"):
-        replace(synthetic_config, image_catalog=replace(synthetic_config.image_catalog, critical_band_draws=0)).validate()
-    posterior = SimpleNamespace(grouped_samples=np.zeros((2, 100, 3)), samples=np.zeros((200, 3)))
-    indices, chain = rgb.best_chain_draw_indices(posterior, 150, count=4)
-    assert chain == 1 and len(indices) == 4 and 150 in indices and np.all((indices >= 100) & (indices < 200))
-    config = replace(synthetic_config, image_catalog=replace(synthetic_config.image_catalog, critical_band_draws=4)).validate()
-    seen = []
-    def select(posterior, best_index, count=32):
-        seen.append(count)
-        raise RuntimeError('stop after the draw selection')
-    monkeypatch.setattr(rgb, 'best_chain_draw_indices', select)
-    with pytest.raises(RuntimeError):
-        rgb.critical_band(config, None, None, None, 0, None, None)
-    assert seen == [4]

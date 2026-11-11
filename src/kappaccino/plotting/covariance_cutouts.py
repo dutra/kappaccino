@@ -37,16 +37,9 @@ def quadratic_contours(jacobian, derivative, covariance, fov, *, grid_size=1001)
     return contourpy.contour_generator(x=axis, y=axis, z=q).lines(1.)
 
 
-def best_geometry(state, evaluator, theta):
-    """Exact fields in the observed image order, at each family's source redshift."""
-    @jax.jit
-    def evaluate(t):
-        p = evaluator.physical(t)
-        f = evaluator.fields(p, force_exact=True, derivative=True)
-        c = evaluator.per_image_covariance(p, f['jacobian'])['covariance']
-        meas = jnp.broadcast_to(evaluator.error_scales(p)['sigma_img'], f['jacobian'].shape[:1])     # the diagonal block's image-plane scale
-        return p, f['backprojected'], f['jacobian'], f['jacobian_spatial_derivative'], c, meas
-    p, beta, a, b, c, meas = map(np.asarray, evaluate(jnp.asarray(theta)))
+def linear_widths(a, c):
+    """Image-plane standard deviations along the singular directions of each image's A (ascending singular value),
+    from the source-plane covariance ``c``: ``singular``, ``directions`` (image, 2, 2), ``widths`` and ``valid``."""
     _, singular, vh = np.linalg.svd(a)
     directions = vh[:, ::-1, :].transpose(0, 2, 1)
     singular = singular[:, ::-1]
@@ -57,20 +50,46 @@ def best_geometry(state, evaluator, theta):
         inverse = np.linalg.solve(a[i], np.eye(2))
         image_cov = inverse @ c[i] @ inverse.T
         widths[i] = np.sqrt(np.maximum(np.diag(directions[i].T @ image_cov @ directions[i]), 0.))
-    return dict(physical=p, beta=beta, a=a, b=b, c=c, meas=meas, singular=singular,
-                directions=directions, widths=widths, valid=valid & np.isfinite(widths).all(axis=1))
+    return dict(singular=singular, directions=directions, widths=widths, valid=valid & np.isfinite(widths).all(axis=1))
 
 
-def write_covariance_cutouts(config, state, evaluator, posterior, paths, imaging, *, log=print):
-    """Write up to twelve best-fit cutouts; reuse already loaded cluster imaging."""
+def draw_geometry(state, evaluator, theta):
+    """Exact fields of one draw in the observed image order, at each family's source redshift."""
+    @jax.jit
+    def evaluate(t):
+        p = evaluator.physical(t)
+        f = evaluator.fields(p, force_exact=True, derivative=True)
+        c = evaluator.per_image_covariance(p, f['jacobian'])['covariance']
+        meas = jnp.broadcast_to(evaluator.error_scales(p)['sigma_img'], f['jacobian'].shape[:1])     # the diagonal block's image-plane scale
+        return p, f['backprojected'], f['jacobian'], f['jacobian_spatial_derivative'], c, meas
+    p, beta, a, b, c, meas = map(np.asarray, evaluate(jnp.asarray(theta)))
+    return dict(physical=p, beta=beta, a=a, b=b, c=c, meas=meas, **linear_widths(a, c))
+
+
+def median_geometry(state, draws):
+    """Per image, the element-wise median over the reporting draws of A, its spatial derivative B, the source-plane
+    covariance C and the measurement scale, with the linear widths of the median A and C; ``draws`` keeps every draw's
+    geometry for checks against each draw's own lens."""
+    cached = getattr(draws, '_median_geometry', None)
+    if cached is not None:
+        return cached
+    per_draw = [draw_geometry(state, draws.evaluator, theta) for theta in draws.samples]
+    median = {key: np.median([g[key] for g in per_draw], axis=0) for key in ('a', 'b', 'c', 'meas')}
+    draws._median_geometry = dict(**median, **linear_widths(median['a'], median['c']), draws=per_draw)
+    return draws._median_geometry
+
+
+def write_covariance_cutouts(config, state, draws, paths, imaging, *, log=print):
+    """Up to twelve cutouts of the images with the smallest median |lambda_arc|, from the median local mapping over the
+    reporting draws; reuses already loaded cluster imaging."""
     stem = f'small_lambda_covariance_cutouts{config.image_catalog.figure_suffix}'
     metadata_path = paths.tables / f'{stem}.json'
     paths.tables.mkdir(parents=True, exist_ok=True)
-    if config.likelihood.likelihood_mode != 'smoothed' or not np.isfinite(posterior.log_prob).any():
-        metadata_path.write_text(json.dumps({'skipped': 'Requires smoothed likelihood and a finite best draw'}))
+    if config.likelihood.likelihood_mode != 'smoothed':
+        metadata_path.write_text(json.dumps({'skipped': 'Requires the smoothed likelihood'}))
         return None
-    best = int(np.nanargmax(posterior.log_prob))
-    g = best_geometry(state, evaluator, posterior.samples[best])
+    evaluator = draws.evaluator
+    g = median_geometry(state, draws)
     labels = list(state.images.image_labels)
     order = sorted(np.flatnonzero(g['valid']), key=lambda i: (g['singular'][i, 0], labels[i]))[:12]
     if not order:
@@ -83,7 +102,7 @@ def write_covariance_cutouts(config, state, evaluator, posterior, paths, imaging
     records, contours = [], {}
     intervals = None
     width_path, info_path = paths.tables / 'covariance_errors_both_planes.csv', paths.tables / 'covariance_errors_both_planes.json'
-    if width_path.exists() and info_path.exists() and json.loads(info_path.read_text()).get('best_draw') == best:
+    if width_path.exists() and info_path.exists():
         intervals = pd.read_csv(width_path, dtype={'image_label': str}).query("plane == 'image' and direction == 'arc'").set_index('image_label')
     for i in order:
         family_id = state.images.family_ids[int(state.images.family_index_per_image[i])]
@@ -93,18 +112,23 @@ def write_covariance_cutouts(config, state, evaluator, posterior, paths, imaging
         fov = min(30., max(6., 2.5 * g['widths'][i, 0]))
         segments = quadratic_contours(g['a'][i], g['b'][i], g['c'][i], fov)
         contours[i] = segments
-        error = None
-        if segments:
-            vertices = np.concatenate(segments)
+        # The second-order check, per draw against its own exact map; the median over draws is reported.
+        errors = []
+        for d in g['draws']:
+            own = quadratic_contours(d['a'][i], d['b'][i], d['c'][i], fov, grid_size=401)
+            if not own:
+                continue
+            vertices = np.concatenate(own)
             selected = vertices[np.linspace(0, len(vertices)-1, min(512, len(vertices))).astype(int)]
             # Fixed batch shape avoids compiling a new exact kernel for each contour.
             points = np.tile(xy, (512, 1)); points[:len(selected)] += selected
-            packed = evaluator.packed_state_for_z(g['physical'], family.z_source)
+            packed = evaluator.packed_state_for_z(d['physical'], family.z_source)
             bx, by, *_ = solver.ray_shoot_and_jacobian(packed, points[:, 0], points[:, 1])
-            actual = np.column_stack([bx, by])[:len(selected)] - g['beta'][i]
-            approximate = quadratic_offset(selected, g['a'][i], g['b'][i])
-            discrepancy = np.linalg.solve(np.linalg.cholesky(g['c'][i]), (actual-approximate).T).T
-            error = float(np.linalg.norm(discrepancy, axis=1).max())
+            actual = np.column_stack([bx, by])[:len(selected)] - d['beta'][i]
+            approximate = quadratic_offset(selected, d['a'][i], d['b'][i])
+            discrepancy = np.linalg.solve(np.linalg.cholesky(d['c'][i]), (actual-approximate).T).T
+            errors.append(float(np.linalg.norm(discrepancy, axis=1).max()))
+        error = float(np.median(errors)) if errors else None
         clipped = any(np.any(np.abs(seg) >= fov/2 - 1e-8) for seg in segments)
         records.append(dict(image_label=labels[i], family_id=str(family.family_id), z_source=float(family.z_source),
                             x_arcsec=float(xy[0]), y_arcsec=float(xy[1]), lambda_abs=float(g['singular'][i, 0]),
@@ -172,7 +196,7 @@ def write_covariance_cutouts(config, state, evaluator, posterior, paths, imaging
                         else:
                             err = row['sampled_max_exact_map_error']
                             text = f'Second-order mapping | {fov:.1f}″ field\n'
-                            text += f'Exact-map error: {err:.2f} source σ (sampled max)' if err is not None else 'No unit contour in this field'
+                            text += f'Exact-map error: {err:.2f} source σ (median over draws of the sampled max)' if err is not None else 'No unit contour in this field'
                             if row['quadratic_clipped']: text += '\nContour extends beyond field'
                         ax.text(.5, -.035, text, transform=ax.transAxes, ha='center', va='top', fontsize=9)
                 fig.legend(handles=[Line2D([], [], color='.3', marker='+', ls='none', label='Observed position'),
@@ -181,13 +205,13 @@ def write_covariance_cutouts(config, state, evaluator, posterior, paths, imaging
                                     Line2D([], [], color=QUADRATIC, label='Second-order contour')],
                            loc='upper center', ncol=4, frameon=False)
                 fig.text(.5, .018, 'Contours enclose source offsets with Δβᵀ C⁻¹ Δβ ≤ 1; C is fixed at the observed position. Actual angular sizes.\n'
-                         'Quadratic contours are geometric diagnostics, not calibrated probability contours. Best-posterior model; each family redshift.',
+                         'Quadratic contours are geometric diagnostics, not calibrated probability contours. Median over posterior draws of A, B and C; each family redshift.',
                          ha='center', fontsize=8)
                 pdf.savefig(fig); plt.close(fig)
     pd.DataFrame(records).to_csv(paths.tables / f'{stem}.csv', index=False)
     save_arrays(paths.tables / f'{stem}_contours.h5',
              **{f'image_{i}_segment_{k}': seg for i in order for k, seg in enumerate(contours[i])})
-    metadata_path.write_text(json.dumps(dict(best_draw=best, definition=DEFINITION, selection='12 smallest absolute Jacobian singular values; ties by image label',
+    metadata_path.write_text(json.dumps(dict(posterior_draw_indices=np.asarray(draws.indices).tolist(), definition=DEFINITION, selection='12 smallest absolute Jacobian singular values; ties by image label',
                                             kernel='exact', excluded_singular_or_nonfinite=int((~g['valid']).sum()), records=records,
                                             rgb_files={band: str(image.path) for band, image in images.items()}), indent=2))
     log(f'[outputs] covariance RGB cutouts: {len(order)} images -> {output}')

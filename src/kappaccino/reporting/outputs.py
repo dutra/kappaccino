@@ -21,11 +21,13 @@ from ..plotting.potfile import write_potfile_plots
 from ..plotting.members import write_member_diagnostic_plots
 from ..diagnostics.truth_recovery import compute_truth_recovery
 from ..plotting.aperture_mass_histogram import write_aperture_mass_histogram
+from ..plotting.zeta_masses import write_zeta_masses
 from .results_tex import write_run_results
 from ..plotting.gp import write_gp_plots
 from ..plotting.covariance import write_covariance_plots
 from ..plotting.covariance_cutouts import write_covariance_cutouts
 from ..plotting.fold_pairs import compute_fold_diagnostics, save_fold_data, render_fold_diagnostics
+from .draws import reporting_draws
 
 
 def posterior_summary_table(state: ModelState, posterior: PosteriorResults) -> pd.DataFrame:
@@ -38,7 +40,6 @@ def posterior_summary_table(state: ModelState, posterior: PosteriorResults) -> p
         rows.append({"parameter": spec.name, "site": spec.sample_name, "family": spec.component_family, "field": spec.field,
                      "median": q[1], "p16": q[0], "p84": q[2], "mean": float(physical[:, index].mean()), "std": float(physical[:, index].std()),
                      "latent_median": float(np.median(latent[:, index])),
-                     "best_fit": float(np.asarray(posterior.maximum_likelihood_fit)[index]) if posterior.maximum_likelihood_fit is not None else np.nan,
                      "r_hat": float(np.asarray(diagnostics.get("r_hat", np.full(latent.shape[1], np.nan)))[index]),
                      "n_eff": float(np.asarray(diagnostics.get("n_eff", np.full(latent.shape[1], np.nan)))[index])})
     return pd.DataFrame(rows)
@@ -52,13 +53,14 @@ def classification_table(state: ModelState) -> pd.DataFrame:
 
 def write_outputs(config: LensClusterSolverConfig, state: ModelState, evaluator: Evaluator, posterior: PosteriorResults,
                   audit: dict[str, Any], paths, *, log=print) -> dict[str, Any]:
-    """``paths`` is the final StagePaths."""
+    """``paths`` is the final StagePaths.  Every product is computed over one set of reporting draws
+    (``reporting.draws.reporting_draws``), each draw evaluated once and shared by all of them; none uses the single best
+    sample."""
     tables, figures, prefix = paths.tables, paths.figures, config.paths.figure_prefix
     tables.mkdir(parents=True, exist_ok=True)
-    log_prob = np.asarray(posterior.log_prob, dtype=float)
-    best = np.asarray(posterior.samples[int(np.nanargmax(log_prob))] if np.isfinite(log_prob).any() else np.median(posterior.samples, axis=0), dtype=float)
-    best_physical = np.asarray(evaluator.physical(jnp.asarray(best)))
-    summary = {}
+    draws = reporting_draws(config, evaluator, posterior)
+    log(f"[outputs] {len(draws)} reporting draws (seed {draws.seed})")
+    summary = {"reporting_draws": len(draws)}
 
     posterior_summary_table(state, posterior).to_csv(tables / "posterior_summary.csv", index=False)
     classification_table(state).to_csv(tables / "member_classification.csv", index=False)
@@ -71,7 +73,7 @@ def write_outputs(config: LensClusterSolverConfig, state: ModelState, evaluator:
     write_potfile_plots(posterior.physical, state.parameter_specs, figures, prefix, posterior=posterior, log=log)
     write_posterior_block_corner(posterior.physical, state.parameter_specs,
                                 plots.figure_path(figures, "corner_combined.pdf", prefix))
-    write_covariance_plots(config, state, evaluator, posterior, paths, log=log)
+    write_covariance_plots(config, state, draws, posterior, paths, log=log)
     write_gp_plots(config, state, evaluator, posterior, paths, log=log)
     write_member_diagnostic_plots(config, state, evaluator, posterior, paths, log=log)
     if not member_table.empty:
@@ -79,13 +81,15 @@ def write_outputs(config: LensClusterSolverConfig, state: ModelState, evaluator:
                                     plots.figure_path(figures, "scaling_relation.pdf", prefix),
                                     fixed=fixed_relation_values(state, member_table))
 
-    recovery = image_recovery_tables(state, evaluator, posterior, config.image_diagnostics, best, log=log)
+    recovery = image_recovery_tables(state, evaluator, draws, config.image_diagnostics, extra_images=config.reporting.extra_images, log=log)
     for name, frame in recovery.items():
         frame.to_csv(tables / f"{name}.csv", index=False)
     image_df = recovery["image_fit_quality"]
-    summary["fit"] = fit_summary(state, image_df, recovery["image_count_recovery"], recovery.get("image_fit_quality_lens_only"))
-    log(f"[outputs] recovered {summary['fit'].get('recovered_image_count')}/{summary['fit']['observed_image_count']} images at the best fit, "
-        f"rms={summary['fit'].get('image_rms_arcsec')}")
+    summary["fit"] = fit_summary(state, recovery, extra_image_draws=len(draws) if config.reporting.extra_images else 0)
+    fit = summary["fit"]
+    if "recovered_image_count" in fit:
+        log(f"[outputs] recovered {fit['recovered_image_count']['median']:g}/{fit['observed_image_count']} images (median over "
+            f"{len(draws.image_indices)} draws), rms {fit['image_rms_arcsec']['median']:.3f}\"")
     if not image_df.empty:
         plots.plot_image_residual_histogram(image_df, plots.figure_path(figures, "image_residual_histogram.pdf", prefix),
                                             draws=recovery.get("posterior_image_residual_draws"), log=log)
@@ -94,23 +98,18 @@ def write_outputs(config: LensClusterSolverConfig, state: ModelState, evaluator:
     from ..plotting.chain_traces import trace_data
     traces = trace_data(posterior, state.parameter_specs)
     corner_path = plots.plot_corner(np.asarray(posterior.physical), state.parameter_specs,
-                                   plots.figure_path(figures, "corner_globals.pdf", prefix), best=best_physical,
+                                   plots.figure_path(figures, "corner_globals.pdf", prefix),
                                    grouped_physical=None if traces is None else traces['chains'])
     if corner_path is None:
         log("[outputs] corner skipped: fewer than two global parameters with posterior spread")
 
     z_crit = float(config.truth.caustic_source_redshift)
-    sources = np.asarray(evaluator.source_positions(jnp.asarray(best)))
-    plots.plot_critical_curves(state, evaluator, best, sources, z_crit if z_crit > state.z_lens else max(state.z_source_values),
-                               plots.figure_path(figures, "critical_curves.pdf", prefix))
+    plots.plot_critical_curves(state, draws, z_crit if z_crit > state.z_lens else max(state.z_source_values),
+                               plots.figure_path(figures, "critical_curves.pdf", prefix), log=log)
 
-    median_theta = None
-    if config.truth.kappa_true_fits:
-        from ..likelihood.grf_fields import posterior_median_theta
-        median_theta = posterior_median_theta(evaluator, posterior)
-    truth = compute_truth_recovery(state, evaluator, np.asarray(posterior.samples), config.truth, paths.fits, tables,
-                                   seed=config.runtime.seed, log=log, median_theta=median_theta)
-    write_aperture_mass_histogram(config, state, evaluator, posterior, paths, image_df, log=log)
+    truth = compute_truth_recovery(state, draws, config.truth, paths.fits, tables, log=log)
+    write_aperture_mass_histogram(config, state, draws, paths, image_df, log=log)
+    write_zeta_masses(config, state, draws, paths, image_df, log=log)
     if truth is not None:
         from ..diagnostics.exact_images import astropy_cosmology
         from ..plotting.magnification_recovery import write_magnification_recovery
@@ -120,7 +119,11 @@ def write_outputs(config: LensClusterSolverConfig, state: ModelState, evaluator:
         plots.plot_truth_recovery_residuals(truth, image_df, plots.figure_path(figures, "truth_recovery_residuals.pdf", prefix))
         if truth["profile"] is not None:
             plots.plot_m2d_aperture_ratio(truth["profile"], truth["center"], image_df, truth["mass_per_kappa_pixel_msun"],
-                                          plots.figure_path(figures, "truth_recovery_m2d_aperture_ratio.pdf", prefix))
+                                          plots.figure_path(figures, "mass_profile.pdf", prefix),
+                                          literature=truth["literature_m2d"])
+            plots.plot_truth_ratio_panels(truth["profile"], truth["kappa_profile"], truth["center"], image_df,
+                                          plots.figure_path(figures, "kappa_mass_residuals.pdf", prefix),
+                                          literature_mass=truth["literature_m2d"], literature_kappa=truth["literature_kappa"])
             ratio = truth["profile"]
             summary["truth"] = {"m2d_ratio_at_max_radius": float(ratio["m2d_ratio_median"].iloc[-1]), "n_radii": int(len(ratio))}
     # The headline numbers and the results macros are written here and again at the end: the imaging products below
@@ -140,14 +143,11 @@ def write_outputs(config: LensClusterSolverConfig, state: ModelState, evaluator:
                 # Missing external imaging must not prevent the other outputs.
                 log(f"[outputs] cluster mass figure and covariance RGB cutouts skipped: {error}")
                 continue
-            write_covariance_cutouts(replace(config, image_catalog=image_config), state, evaluator, posterior,
-                                     paths, imaging, log=log)
+            write_covariance_cutouts(replace(config, image_catalog=image_config), state, draws, paths, imaging, log=log)
             from ..plotting.jwst_rgb import render_rgb_critical, rgb_overview_stem
-            render_rgb_critical(replace(config, image_catalog=image_config), state, evaluator, best, image_df,
+            render_rgb_critical(replace(config, image_catalog=image_config), state, draws, image_df,
                 recovery['image_recovery_extra_images'], imaging,
-                plots.figure_path(figures, rgb_overview_stem(image_config, imaging[1]) + '.pdf', prefix), tables,
-                best_index=int(np.nanargmax(log_prob)) if np.isfinite(log_prob).any() else None,
-                posterior=posterior, log=log)
+                plots.figure_path(figures, rgb_overview_stem(image_config, imaging[1]) + '.pdf', prefix), tables, log=log)
             overview_config = next((view for view in overview_configs
                                     if replace(view, figure_suffix=image_config.figure_suffix) == image_config), None)
             if overview_config is None:
@@ -156,26 +156,23 @@ def write_outputs(config: LensClusterSolverConfig, state: ModelState, evaluator:
             position_contours = None
             if image_config.figure_suffix == '_jwst':
                 from ..diagnostics.position_contours import load_or_compute_contours
-                position_contours = load_or_compute_contours(replace(config, image_catalog=image_config), state, evaluator,
-                    posterior, recovery['image_recovery_extra_images'], tables, log=log)
+                position_contours = load_or_compute_contours(replace(config, image_catalog=image_config), state, draws,
+                    recovery['image_recovery_extra_images'], tables, log=log)
                 from ..plotting.small_lambda_jwst import write_small_lambda_jwst
-                write_small_lambda_jwst(replace(config, image_catalog=image_config), state, evaluator,
-                    posterior, paths, imaging, position_contours, log=log)
-            render_cluster_mass_figure(evaluator, best, image_df, recovery["image_recovery_extra_images"], imaging,
+                write_small_lambda_jwst(replace(config, image_catalog=image_config), state, draws,
+                    paths, imaging, position_contours, log=log)
+            render_cluster_mass_figure(draws, image_df, recovery["image_recovery_extra_images"], imaging,
                                        z_source=z_crit, kappa_true_fits=config.truth.kappa_true_fits,
                                        figure_path=plots.figure_path(figures, f"image_catalog_family_cluster_mass{image_config.figure_suffix}.pdf", prefix),
-                                       tables_dir=tables, fits_dir=paths.fits, artifact_suffix=image_config.figure_suffix, position_contours=position_contours, posterior=posterior)
+                                       tables_dir=tables, fits_dir=paths.fits, artifact_suffix=image_config.figure_suffix,
+                                       position_contours=position_contours, log=log)
             log(f"[outputs] cluster mass figure rendered from {imaging[3]} imaging ({image_config.image_dir})")
             if fold_data is None:
-                fold_data = compute_fold_diagnostics(config, state, evaluator, posterior, log=log)
+                fold_data = compute_fold_diagnostics(config, state, draws, tables, log=log)
                 save_fold_data(fold_data, tables)
             render_fold_diagnostics(replace(config, image_catalog=image_config), state, fold_data, paths, imaging, log=log)
             if image_config.figure_suffix == '_jwst':
                 from ..plotting.apj_fold_cutouts import render_apj_fold_cutouts
-                from ..plotting.fold_pairs import add_best_grf_critical_curves
-                # Reuse selected draws and imaging; never rerun image recovery.
-                add_best_grf_critical_curves(state, evaluator, posterior, fold_data, log=log, critical_only=True)
-                save_fold_data(fold_data, tables)
                 output = render_apj_fold_cutouts(config, fold_data, imaging,
                     plots.figure_path(figures, 'fold_cutouts_apj_jwst.pdf', prefix),
                     run_directory=paths.root.parent,
@@ -183,8 +180,7 @@ def write_outputs(config: LensClusterSolverConfig, state: ModelState, evaluator:
                 if output is not None:
                     log(f'[outputs] ApJ fold cutouts: {output}')
                 from ..plotting.paper_cutouts import write_paper_cutouts
-                write_paper_cutouts(replace(config, image_catalog=image_config), state, evaluator,
-                    posterior, tables, figures, imaging, log=log)
+                write_paper_cutouts(replace(config, image_catalog=image_config), state, draws, tables, figures, imaging, log=log)
     (tables / "run_summary.json").write_text(json.dumps(summary, indent=2, default=float))
     write_run_results(paths.root, name=prefix)
     return summary

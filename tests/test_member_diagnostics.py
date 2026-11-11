@@ -10,7 +10,7 @@ import pytest
 
 from kappaccino.likelihood.evaluator import Evaluator
 from kappaccino.diagnostics.members import (
-    compute_member_diagnostics, diagnostic_draw_indices, deviation_draws, neighbor_variables, prior_deviation_draws,
+    compute_member_diagnostics, deviation_draws, neighbor_variables, prior_deviation_draws,
     reporting_fields, whiten,
 )
 from kappaccino.plotting.members import write_member_diagnostic_plots
@@ -24,11 +24,7 @@ def posterior_for(state, evaluator, n=12):
     return SimpleNamespace(samples=samples, physical=physical, log_prob=np.arange(n, dtype=float))
 
 
-def test_selection_neighbors_and_whitening():
-    np.testing.assert_array_equal(diagnostic_draw_indices([0., 4., 1., 2.], 0), [1])
-    indices = diagnostic_draw_indices([0., 4., 1., 2.], 100)
-    assert len(indices) == len(set(indices)) == 4 and indices[0] == 1
-    assert len(diagnostic_draw_indices([0., np.nan, 2.], 32)) == 2
+def test_neighbors_and_whitening():
     xy = np.column_stack((np.arange(6), np.zeros(6)))
     nearest, density = neighbor_variables(xy)
     np.testing.assert_allclose(nearest, 1.)
@@ -81,14 +77,14 @@ def test_exact_reporting_preserves_sampled_sources(synthetic_config):
     np.testing.assert_array_equal(zero['error_arcsec'], 0)
 
 
-def test_suite_and_best_only(synthetic_config, tmp_path):
-    config = replace(synthetic_config, image_diagnostics=replace(synthetic_config.image_diagnostics, posterior_diagnostic_draws=0))
+def test_suite_with_one_reporting_draw(synthetic_config, tmp_path):
+    config = replace(synthetic_config, reporting=replace(synthetic_config.reporting, draws=1))
     state = build_state(config)
     evaluator = Evaluator(state)
     posterior = posterior_for(state, evaluator)
     data = compute_member_diagnostics(state, evaluator, posterior, config)
     assert data.fields['residual'].shape == (1, 4, 2)
-    assert data.provenance['selected_draw_indices'] == [11]
+    assert len(data.provenance['selected_draw_indices']) == 1
     assert 'neighbor_density_arcsec2' in data.provenance['skipped_variables']
     assert 'environment_kappa' in data.variables
     assert data.members.member_id.tolist() == list(state.members.member_ids)
@@ -105,10 +101,10 @@ def test_suite_and_best_only(synthetic_config, tmp_path):
     assert not plt.get_fignums()
 
 
-@pytest.mark.parametrize('count', [-1, True, 1.5])
-def test_diagnostic_count_validation(synthetic_config, count):
-    config = replace(synthetic_config, image_diagnostics=replace(synthetic_config.image_diagnostics, posterior_diagnostic_draws=count))
-    with pytest.raises(ValueError, match='posterior_diagnostic_draws'):
+@pytest.mark.parametrize('count', [0, -1, True, 1.5])
+def test_reporting_draw_count_validation(synthetic_config, count):
+    config = replace(synthetic_config, reporting=replace(synthetic_config.reporting, draws=count))
+    with pytest.raises(ValueError, match='reporting.draws'):
         config.validate()
 
 
@@ -162,7 +158,7 @@ def test_multiple_populations_without_large_halo(synthetic_config):
     model = replace(synthetic_config.model, large_halos=(ShearHaloConfig('shear', .03, 0., .3),),
                     member_populations=(first, replace(first, id='second')))
     config = replace(synthetic_config, model=model,
-                     image_diagnostics=replace(synthetic_config.image_diagnostics, posterior_diagnostic_draws=0))
+                     reporting=replace(synthetic_config.reporting, draws=1))
     state = build_state(config)
     evaluator = Evaluator(state)
     data = compute_member_diagnostics(state, evaluator, posterior_for(state, evaluator), config)
@@ -174,7 +170,7 @@ def test_multiple_populations_without_large_halo(synthetic_config):
 
 def test_failed_budget_is_saved_without_changing_classes(synthetic_config, tmp_path):
     config = replace(synthetic_config, members=replace(synthetic_config.members, template_tolerance=1e-14),
-                     image_diagnostics=replace(synthetic_config.image_diagnostics, posterior_diagnostic_draws=0))
+                     reporting=replace(synthetic_config.reporting, draws=1))
     state = with_member_classes(build_state(config), np.array([0, 1]))
     before = state.members.exact_positions.copy()
     evaluator = Evaluator(state)

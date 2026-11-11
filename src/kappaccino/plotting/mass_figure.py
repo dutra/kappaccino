@@ -19,8 +19,8 @@ from scipy.ndimage import map_coordinates
 from ..imaging import cutouts
 from ..likelihood.evaluator import Evaluator
 from ..diagnostics.exact_images import astropy_cosmology
-from ..diagnostics.truth_recovery import lens_quantities, load_truth_fits
-from ..likelihood.grf_fields import shared_field_evaluator, shared_grf_fields, shared_grf_label
+from ..diagnostics.truth_recovery import load_truth_fits
+from ..likelihood.grf_fields import shared_field_evaluator, shared_grf_label
 
 MIN_OVERVIEW_SIZE_ARCSEC = 40.0
 CONTOUR_LEVELS_MSUN_PER_KPC2 = np.array([0.5, 1.0, 2.0, 4.0]) * 1.0e9
@@ -42,18 +42,27 @@ def _stretch_directions(jacobian):
     return directions, singular, defined
 
 
-def arc_direction_table(evaluator: Evaluator, theta: np.ndarray, catalog: pd.DataFrame) -> pd.DataFrame:
-    """Exact image-plane minimum right-singular vectors, matched by stable image label."""
-    fields = evaluator.fields(evaluator.physical(theta), force_exact=True, derivative=False)
-    jacobian = np.asarray(fields["jacobian"]).copy()
-    if getattr(evaluator, "gp_knee", False):
-        correction = evaluator.gp_deflection_correction(theta)
-        if correction is not None:
-            images = evaluator.state.images
-            terms = correction(images.x_obs, images.y_obs, images.family_index_per_image)
-            jacobian -= np.stack(terms[2:], axis=-1).reshape(-1, 2, 2)
+def median_jacobians(draws, xy: np.ndarray, families: np.ndarray, redshifts: np.ndarray) -> np.ndarray:
+    """Element-wise median over the reporting draws of A = I - d(alpha)/d(theta) at ``xy`` (arcsec, shape (point, 2)),
+    each point at its own source redshift and family, parametric plus each draw's shared-field GRF conditional mean."""
+    xy, families, redshifts = np.asarray(xy, float).reshape(-1, 2), np.asarray(families, int), np.asarray(redshifts, float)
+    result = np.empty((len(draws), len(xy), 2, 2))
+    for k in range(len(draws)):
+        for z in np.unique(redshifts):
+            rows = np.flatnonzero(redshifts == z)
+            parametric, grf = draws.jacobians(k, xy[rows], float(z))
+            result[k, rows] = np.eye(2) - parametric - grf
+    return np.median(result, axis=0)
+
+
+def arc_direction_table(draws, catalog: pd.DataFrame) -> pd.DataFrame:
+    """Image-plane minimum right-singular vectors of the median A over the reporting draws at the observed images,
+    matched by stable image label."""
+    images = draws.evaluator.state.images
+    z_by_family = {str(f.family_id): float(f.z_source) for f in draws.evaluator.state.family_data}
+    redshifts = np.array([z_by_family[str(images.family_ids[int(f)])] for f in images.family_index_per_image])
+    jacobian = median_jacobians(draws, np.column_stack((images.x_obs, images.y_obs)), images.family_index_per_image, redshifts)
     directions, singular, defined = _stretch_directions(jacobian)
-    images = evaluator.state.images
     labels = list(map(str, images.image_labels))
     if len(set(labels)) != len(labels) or catalog["image_label"].astype(str).duplicated().any():
         raise ValueError("Arc-direction overlay requires unique image labels")
@@ -63,31 +72,25 @@ def arc_direction_table(evaluator: Evaluator, theta: np.ndarray, catalog: pd.Dat
     return result
 
 
-def extra_arc_direction_table(evaluator: Evaluator, theta: np.ndarray, extra: pd.DataFrame) -> pd.DataFrame:
-    """Exact stretch directions at extra-image positions and their own family redshifts."""
+def extra_arc_direction_table(draws, extra: pd.DataFrame) -> pd.DataFrame:
+    """Stretch directions of the median A over the reporting draws at the extra-image positions and their own family
+    redshifts."""
     result = extra.copy().reset_index(drop=True)
     for column in ("e_arc_x", "e_arc_y", "s_arc", "s_perp"):
         result[column] = np.nan
     result["direction_defined"] = False
     if result.empty:
         return result
-    families = {str(f.family_id): f for f in evaluator.state.family_data}
-    physical = evaluator.physical(theta)
-    for family_id, rows in result.groupby("family_id", sort=False):
-        family = families[str(family_id)]
-        packed = evaluator.packed_state_for_z(physical, float(family.z_source))
-        _, u = evaluator.total_fields_at(rows[["x_model_arcsec", "y_model_arcsec"]].to_numpy(float), packed)
-        if getattr(evaluator, "gp_knee", False):
-            correction = evaluator.gp_deflection_correction(theta)
-            if correction is not None:
-                index = list(map(str, evaluator.state.images.family_ids)).index(str(family_id))
-                terms = correction(rows.x_model_arcsec.to_numpy(), rows.y_model_arcsec.to_numpy(),
-                                   np.full(len(rows), index, dtype=int))
-                u = u + np.stack(terms[2:], axis=-1).reshape(-1, 2, 2)
-        directions, singular, defined = _stretch_directions(np.eye(2) - u)
-        result.loc[rows.index, ["e_arc_x", "e_arc_y"]] = directions
-        result.loc[rows.index, ["s_arc", "s_perp"]] = singular[:, ::-1]
-        result.loc[rows.index, "direction_defined"] = defined
+    state = draws.evaluator.state
+    families = {str(f.family_id): f for f in state.family_data}
+    family_ids = list(map(str, state.images.family_ids))
+    jacobian = median_jacobians(draws, result[["x_model_arcsec", "y_model_arcsec"]].to_numpy(float),
+                                [family_ids.index(str(f)) for f in result.family_id],
+                                [float(families[str(f)].z_source) for f in result.family_id])
+    directions, singular, defined = _stretch_directions(jacobian)
+    result[["e_arc_x", "e_arc_y"]] = directions
+    result[["s_arc", "s_perp"]] = singular[:, ::-1]
+    result["direction_defined"] = defined
     return result
 
 
@@ -175,8 +178,8 @@ def integrate_strips(surface_density: np.ndarray, x_edges: np.ndarray, y_edges: 
     return (lo[keep] + hi[keep]) / 2, dx[keep], profile[keep], total
 
 
-def convergence_maps(evaluator: Evaluator, theta: np.ndarray, geometry: dict[str, Any], z_source: float, kappa_true_fits: str | Path | None):
-    """Model convergence on the overview grid, the truth map resampled to it, and the physical scales."""
+def convergence_maps(evaluator: Evaluator, geometry: dict[str, Any], z_source: float, kappa_true_fits: str | Path | None):
+    """The truth map resampled to the overview grid (or None) and the physical scales."""
     state = evaluator.state
     if z_source <= state.z_lens:
         raise ValueError("Mass map source redshift must exceed lens redshift")
@@ -186,9 +189,6 @@ def convergence_maps(evaluator: Evaluator, theta: np.ndarray, geometry: dict[str
     sigma_crit = float((const.c ** 2 / (4 * np.pi * const.G) * ds / (dl * dls)).to_value(u.Msun / u.kpc ** 2))
     kpc_per_arcsec = float(dl.to_value(u.kpc) * np.pi / (180 * 3600))
     x, y = geometry["x"], geometry["y"]
-    model = lens_quantities(evaluator, theta, z_source, x.ravel(), y.ravel(), include_grf=False)["kappa"].reshape(x.shape)
-    if not np.isfinite(model).all():
-        raise ValueError("Model convergence is nonfinite in the displayed rectangle")
     truth = None
     if kappa_true_fits:
         native, wcs = load_truth_fits(kappa_true_fits)
@@ -203,16 +203,17 @@ def convergence_maps(evaluator: Evaluator, theta: np.ndarray, geometry: dict[str
         truth = map_coordinates(native, [py, px], order=1, mode="constant", cval=np.nan)
         if not np.isfinite(truth).all():
             raise ValueError("Truth convergence does not cover the displayed rectangle with finite values")
-    return model, truth, dict(z_lens=float(state.z_lens), z_source=float(z_source), sigma_crit_msun_per_kpc2=sigma_crit,
+    return truth, dict(z_lens=float(state.z_lens), z_source=float(z_source), sigma_crit_msun_per_kpc2=sigma_crit,
                               kpc_per_arcsec=kpc_per_arcsec, truth_available=truth is not None,
                               truth_path=str(kappa_true_fits) if kappa_true_fits else None)
 
 
-def covariance_ellipse_curves(evaluator, theta, catalog):
-    """Unit-Mahalanobis image-plane contours, at observed positions and family redshifts."""
-    from .covariance_cutouts import best_geometry
-    g = best_geometry(evaluator.state, evaluator, theta)
-    labels = list(map(str, evaluator.state.images.image_labels))
+def covariance_ellipse_curves(draws, catalog):
+    """Unit-Mahalanobis image-plane contours of the median A and C over the reporting draws, at observed positions and
+    family redshifts."""
+    from .covariance_cutouts import median_geometry
+    g = median_geometry(draws.evaluator.state, draws)
+    labels = list(map(str, draws.evaluator.state.images.image_labels))
     if len(set(labels)) != len(labels) or catalog["image_label"].astype(str).duplicated().any():
         raise ValueError("Covariance ellipses require unique image labels")
     indices = {label: i for i, label in enumerate(labels)}
@@ -302,8 +303,8 @@ def overview_axes(fig, ax, images, bands, display, display_image, catalog, extra
     if position_contours is not None:
         handles = [Line2D([], [], color='tab:blue', lw=.35, label='Recovered positions'),
                    Line2D([], [], color='tab:purple', lw=.35, label='Tracked extra positions'),
-                   Line2D([], [], color='white', marker='x', ls='none', ms=2, mew=.2, label='Catalog: recovered (best fit)'),
-                   Line2D([], [], color='tab:red', marker='x', ls='none', ms=2, mew=.2, label='Catalog: missed (best fit)'),
+                   Line2D([], [], color='white', marker='x', ls='none', ms=2, mew=.2, label='Catalog: recovered'),
+                   Line2D([], [], color='tab:red', marker='x', ls='none', ms=2, mew=.2, label='Catalog: missed'),
                    Line2D([], [], color='white', lw=.35, label='1σ (68.3%)'),
                    Line2D([], [], color='white', lw=.35, ls='--', label='2σ (95.4%)')]
     if arc_directions is not None and position_contours is None:
@@ -315,37 +316,37 @@ def overview_axes(fig, ax, images, bands, display, display_image, catalog, extra
               facecolor="black", edgecolor="none", framealpha=0.65, borderpad=0.6, handletextpad=0.5, handlelength=1.2)
 
 
-def shared_grf_convergence(evaluator, theta, geometry, z_source, chunk=384):
-    """Conditional mean convergence at the overview redshift, with the fitted projection."""
-    if shared_field_evaluator(evaluator) is None:
-        return None
-    points = np.column_stack([geometry["x"].ravel(), geometry["y"].ravel()])
-    _, jacobian = shared_grf_fields(evaluator, theta, z_source, points, chunk=chunk)
-    return (.5 * np.trace(jacobian, axis1=-2, axis2=-1)).reshape(geometry["x"].shape)
+def render_cluster_mass_figure(draws, catalog: pd.DataFrame, extra: pd.DataFrame, imaging, *,
+                               z_source: float, kappa_true_fits: str | Path | None, figure_path: Path, tables_dir: Path, fits_dir: Path,
+                               artifact_suffix: str = "", position_contours=None, log=print) -> dict[str, Any]:
+    """Write the overview-plus-mass-panels figure, the strip profiles and the convergence FITS. Returns provenance.
 
-
-def render_cluster_mass_figure(evaluator: Evaluator, theta: np.ndarray, catalog: pd.DataFrame, extra: pd.DataFrame, imaging, *,
-                               z_source: float, kappa_true_fits: str | Path | None, figure_path: Path, tables_dir: Path, fits_dir: Path, artifact_suffix: str = "", position_contours=None, posterior=None) -> dict[str, Any]:
-    """Write the overview-plus-mass-panels figure, the strip profiles and the convergence FITS. Returns provenance."""
+    The convergence maps are per-pixel medians over the reporting draws (``reporting.draws.ReportingDraws``) of the
+    parametric convergence, of the shared field's conditional-mean convergence and of their sum, each draw's field
+    conditioned at that draw; the stretch directions and covariance ellipses use the median A (and C) over the draws."""
+    evaluator = draws.evaluator
     images, bands, display, cluster = imaging
     display_image = images[cutouts.rgb_reference_band(bands)]
     geometry = overview_geometry(display_image, catalog, extra, evaluator.state.reference)
-    arc_directions = arc_direction_table(evaluator, theta, catalog)
-    extra_directions = extra_arc_direction_table(evaluator, theta, extra if extra is not None else pd.DataFrame())
-    map_theta = theta
-    if posterior is not None:
-        from ..likelihood.grf_fields import posterior_median_theta
-        map_theta = posterior_median_theta(evaluator, posterior)
-    model, truth, physical = convergence_maps(evaluator, map_theta, geometry, z_source, kappa_true_fits)
+    arc_directions = arc_direction_table(draws, catalog)
+    extra_directions = extra_arc_direction_table(draws, extra if extra is not None else pd.DataFrame())
+    truth, physical = convergence_maps(evaluator, geometry, z_source, kappa_true_fits)
+    grid = draws.grid_maps("overview", geometry["x"], geometry["y"], z_source, log=log)
+    model = np.median(grid["kappa_parametric"], axis=0).astype(float)
+    kappa_total = np.median(grid["kappa"], axis=0).astype(float)
+    grf = np.median(grid["kappa_grf"], axis=0).astype(float) if draws.has_field else None
+    if not np.isfinite(model).all():
+        raise ValueError("Model convergence is nonfinite in the displayed rectangle")
+    statistic = f"per-pixel median over {len(draws)} posterior draws"
+    grf_quantity = f"per-pixel median over {len(draws)} posterior draws of each draw's conditional mean"
     sigma_crit = physical["sigma_crit_msun_per_kpc2"]
     sigma_angle = sigma_crit * physical["kpc_per_arcsec"] ** 2
     x, y, xe, ye = (geometry[k] for k in ("x", "y", "xe", "ye"))
     bounds = (float(xe.min()), float(xe.max()), float(ye.min()), float(ye.max()))
-    grf = shared_grf_convergence(evaluator, map_theta, geometry, z_source)
-    maps = {"model": model, **({"model_grf": model + grf} if grf is not None else {}), **({"truth": truth} if truth is not None else {})}
-    provenance: dict[str, Any] = {"cluster": cluster, "bands": list(bands), "map_statistic": "coordinatewise physical posterior median" if posterior is not None else "supplied model", **physical}
+    maps = {"model": model, **({"model_grf": kappa_total} if grf is not None else {}), **({"truth": truth} if truth is not None else {})}
+    provenance: dict[str, Any] = {"cluster": cluster, "bands": list(bands), "map_statistic": statistic, **physical}
     if grf is not None:
-        provenance["grf"] = dict(quantity="conditional mean at the displayed model; not posterior mean field",
+        provenance["grf"] = dict(quantity=grf_quantity,
             projection=list(getattr(shared_field_evaluator(evaluator), "gp_project_modes", ())),
             field=shared_grf_label(evaluator),
             map_redshift=z_source, reference_redshift=evaluator.state.gp_reference_redshift,
@@ -374,19 +375,19 @@ def render_cluster_mass_figure(evaluator: Evaluator, theta: np.ndarray, catalog:
 
     if grf is not None:
         fits.writeto(fits_dir / f"image_catalog_mass_kappa_grf{artifact_suffix}.fits", grf, header, overwrite=True)
-        fits.writeto(fits_dir / f"image_catalog_mass_kappa_model_grf{artifact_suffix}.fits", model + grf, header, overwrite=True)
+        fits.writeto(fits_dir / f"image_catalog_mass_kappa_model_grf{artifact_suffix}.fits", kappa_total, header, overwrite=True)
 
     covariance_curves = None
     if cutouts.rgb_instrument(bands) == "jwst" and position_contours is None:
-        covariance_curves, covariance_table = covariance_ellipse_curves(evaluator, theta, catalog)
+        covariance_curves, covariance_table = covariance_ellipse_curves(draws, catalog)
         covariance_table.to_csv(tables_dir / f"image_catalog_covariance_ellipses{artifact_suffix}.csv", index=False)
         provenance["covariance_ellipses"] = dict(kernel="exact", redshift="per image", center="observed",
             contour="unit Mahalanobis", display_scale=1., plane="image", defined_count=len(covariance_curves),
             covariance="inverse(A) C inverse(A).T", extra_images="not defined: no observed positional covariance")
 
     if position_contours is not None:
-        provenance['posterior_position_contours'] = dict(contours='KDE 68.3/95.4% highest-density regions',
-            conditional_on='successful local recovery', catalog_markers='tiny crosses; best-fit recovery status', stretch_sticks=False, summaries=position_contours['summaries'])
+        provenance['posterior_position_contours'] = dict(contours='68.3/95.4% regions of the reporting draws',
+            conditional_on='successful local recovery', catalog_markers='tiny crosses; recovery status in at least half the draws', stretch_sticks=False, summaries=position_contours['summaries'])
     fig = plt.figure(figsize=(7.1, 7.1), facecolor="white")
     grid = fig.add_gridspec(2, 2, width_ratios=[3.2, 1], height_ratios=[3.2, 1], left=0.09, right=0.95, bottom=0.10, top=0.96, wspace=0.025, hspace=0.025)
     ax = fig.add_subplot(grid[0, 0])
@@ -412,9 +413,9 @@ def render_cluster_mass_figure(evaluator: Evaluator, theta: np.ndarray, catalog:
         if positions:
             ax.clabel(contours, manual=positions, fmt="%g", fontsize=7, inline_spacing=3)
     if grf is not None:
-        total_levels = available((model + grf) * sigma_crit)
+        total_levels = available(kappa_total * sigma_crit)
         if len(total_levels):
-            ax.contour(rx, ry, (model + grf) * sigma_crit / 1e9, levels=total_levels / 1e9,
+            ax.contour(rx, ry, kappa_total * sigma_crit / 1e9, levels=total_levels / 1e9,
                        colors="#CC79A7", linewidths=.7, zorder=3)
         legend = ax.get_legend()
         handles = list(legend.legend_handles)

@@ -8,31 +8,18 @@ from kappaccino.diagnostics.exact_images import ExactImageSolver
 from kappaccino.io.hdf5 import load_arrays, save_arrays
 
 
-def test_extra_assignment_tolerance_and_empty():
-    result=ipc.match_extra_roots(np.array([[10.,0.],[20.,0.]]),np.array([[20.1,0.],[10.1,0.],[100.,0.]]),1.)
-    np.testing.assert_allclose(result[:2],[[20,0],[10,0]])
-    assert np.isnan(result[2]).all()
-    assert ipc.match_extra_roots([],np.zeros((2,2)),1.).shape==(2,2)
-
-
-def test_catalog_matching_precedes_extra_tracking(synthetic_config,monkeypatch):
-    family=FamilyData('a',2.,['a1','a2'],np.array([0.,1.]),np.zeros(2),np.ones(2))
-    state=SimpleNamespace(images=SimpleNamespace(image_labels=('a1','a2'),family_ids=('a',),x_obs=family.x_obs,y_obs=family.y_obs,family_index_per_image=np.zeros(2,int)),
-                          family_data=[family],dpie_sigma0_factor_by_z={2.:.3})
-    evaluator=SimpleNamespace(n_components=1,physical=lambda t:t,source_positions=lambda t:jnp.zeros((1,2)),packed_state=lambda p,f:(f,None))
-    calls=[]
-    def refine(self,packed,sx,sy,x,y,shoot):
-        calls.append(np.asarray(packed));x=x.copy();x[2]=0.
-        return dict(x=x,y=y,identification_pass=np.ones(len(x),bool))
-    monkeypatch.setattr(ExactImageSolver,'_refine',refine)
-    monkeypatch.setattr(ExactImageSolver,'solve_all_global',lambda *a: (_ for _ in ()).throw(AssertionError('Global search not allowed')))
-    extra=pd.DataFrame(dict(family_id=['a','a'],x_model_arcsec=[.01,10.],y_model_arcsec=[0.,0.]))
-    data=ipc.compute_position_draws(synthetic_config,state,evaluator,SimpleNamespace(samples=np.zeros((3,1))),extra,log=lambda _:None)
-    assert len(calls)==3
-    np.testing.assert_allclose(calls,np.full((3,4),.3))
-    np.testing.assert_allclose(data['recovered'],np.tile([[0.,0.],[1.,0.]],(3,1,1)))
-    assert np.isnan(data['extra'][:,0]).all()
-    np.testing.assert_allclose(data['extra'][:,1],np.tile([10.,0.],(3,1)))
+def test_positions_come_from_the_recovery_tables(tmp_path):
+    rows=pd.DataFrame(dict(draw_index=[0,0,1,1],posterior_index=[5,5,7,7],family_id=['a']*4,image_label=['a1','a2']*2,
+                           recovered=[True,False,True,True],x_model_arcsec=[0.,9.,.1,1.],y_model_arcsec=[0.,9.,0.,0.]))
+    rows.to_csv(tmp_path/'posterior_image_residual_draws.csv',index=False)
+    pd.DataFrame(dict(family_id=['a'],x_model_arcsec=[10.],y_model_arcsec=[0.])).to_csv(tmp_path/'image_recovery_extra_images.csv',index=False)
+    pd.DataFrame(dict(draw_index=[0,1,1],posterior_index=[5,7,7],family_id=['a','a','a'],x_model_arcsec=[10.2,9.9,30.],y_model_arcsec=[0.,0.,0.])).to_csv(
+        tmp_path/'posterior_extra_images.csv',index=False)
+    data=ipc.position_draws(np.array([5,7]),tmp_path)
+    np.testing.assert_allclose(data['recovered'][:,0],[[0.,0.],[.1,0.]])
+    assert np.isnan(data['recovered'][0,1]).all()
+    np.testing.assert_allclose(data['extra'][:,0],[[10.2,0.],[9.9,0.]])
+    np.testing.assert_array_equal(data['draw_indices'],[5,7])
 
 
 def test_gaussian_contour_probabilities_and_no_covariance_fallback():
@@ -44,7 +31,10 @@ def test_gaussian_contour_probabilities_and_no_covariance_fallback():
     radii=[np.median(np.linalg.norm(np.concatenate(c['segments'])/[.1,.2],axis=1)) for c in contours]
     np.testing.assert_allclose(radii,np.sqrt(-2*np.log(1-np.array([.682689492,.954499736]))),rtol=.12)
     assert ipc.position_contours(np.zeros((100,2)))[0]==[]
-    assert ipc.position_contours(points[:5])[0]==[]
+    assert ipc.position_contours(points[:2])[0]==[]
+    # Few draws: Gaussian ellipses at the chi-square radii of the sample covariance.
+    few,reason=ipc.position_contours(points[:8])
+    assert reason is None and [c['probability'] for c in few]==[.682689492,.954499736]
 
 
 def test_overview_contours_have_tiny_catalog_crosses(monkeypatch):
@@ -64,34 +54,7 @@ def test_overview_contours_have_tiny_catalog_crosses(monkeypatch):
     assert any(line.get_color()=='tab:blue' and line.get_linestyle()=='-' for line in ax.lines)
     labels=[t.get_text() for t in ax.get_legend().get_texts()]
     assert 'Covariance ellipse' not in labels
-    assert 'Catalog: missed (best fit)' in labels
+    assert 'Catalog: missed' in labels
     plt.close(fig)
 
 
-def test_overview_draw_selection_and_cache_subset(tmp_path,monkeypatch):
-    for count,best in [(17,8),(256,100),(4000,3424)]:
-        indices=ipc.overview_draw_indices(count,best)
-        assert len(indices)==min(count,256) and best in indices
-        assert len(set(indices))==len(indices)
-        fewer=ipc.overview_draw_indices(count,best,32)
-        assert len(fewer)==min(count,32) and best in fewer
-    config=SimpleNamespace(to_json_dict=lambda:{},image_catalog=SimpleNamespace(contour_draws=256))
-    state=SimpleNamespace(members=SimpleNamespace(classification={}))
-    posterior=SimpleNamespace(samples=np.arange(4000.)[:,None],log_prob=np.arange(4000.))
-    seen=[]
-    def compute(c,s,e,p,extra,**kwargs):
-        seen.append(len(p.samples))
-        return dict(recovered=np.zeros((len(p.samples),1,2)),extra=np.zeros((len(p.samples),0,2)),image_labels=np.array(['a']))
-    sizes=[]
-    monkeypatch.setattr(ipc,'compute_position_draws',compute)
-    monkeypatch.setattr(ipc,'prepare_contours',lambda d,**k:sizes.append(len(d['recovered'])) or dict(curves=[],summaries=[]))
-    for _ in range(2):ipc.load_or_compute_contours(config,state,None,posterior,pd.DataFrame(),tmp_path,log=lambda _:None)
-    assert seen==[256] and sizes==[256,256]
-    # Older full-draw caches are reused and retained, while only 256 enter contours.
-    save_arrays(tmp_path/'posterior_overview_positions.h5',recovered=np.zeros((4000,1,2)),extra=np.zeros((4000,0,2)))
-    result=ipc.load_or_compute_contours(config,state,None,posterior,pd.DataFrame(),tmp_path,log=lambda _:None)
-    np.testing.assert_array_equal(result["position_data"]["draw_indices"],ipc.overview_draw_indices(4000,3999))
-    assert len(result["position_data"]["recovered"])==256 and result["fingerprint"]
-    assert seen==[256] and sizes[-1]==256
-    saved = load_arrays(tmp_path/'posterior_overview_positions.h5')
-    assert len(saved['recovered'])==4000

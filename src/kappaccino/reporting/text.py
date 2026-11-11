@@ -33,7 +33,7 @@ def _duration(seconds: float | None) -> str:
 
 
 def run_summary_table(result, config) -> str:
-    """The end-of-run summary: data and model sizes, image recovery and residuals at the best fit, sampler health,
+    """The end-of-run summary: data and model sizes, image recovery and residuals over the reporting draws, sampler health,
     the far-field audit, and how long each stage took.  Rendered with rich without colour, so the log and the terminal
     read the same."""
     from rich.console import Console
@@ -47,6 +47,13 @@ def run_summary_table(result, config) -> str:
     def number(value, digits=3):
         return "-" if value is None or (isinstance(value, float) and not np.isfinite(value)) else f"{value:.{digits}f}"
 
+    def spread(key, digits=3):
+        """Median (16th-84th percentile) over the reporting draws of a fit-summary entry."""
+        value = fit.get(key)
+        if not isinstance(value, dict):
+            return "-"
+        return f"{number(value['median'], digits)} ({number(value['q16'], digits)}-{number(value['q84'], digits)})"
+
     sections = [
         ("Run", [("name", str(config.paths.run_name)), ("output", str(result.paths.final.root)),
                  ("stages", ("init resumed, " if result.init.resumed else "init run, ") + ("final resumed" if result.resumed else "final run"))]),
@@ -54,10 +61,12 @@ def run_summary_table(result, config) -> str:
                             ("members: exact, far-field", f"{len(state.members.exact_positions)}, {len(state.members.far_positions)}"),
                             ("sampled parameters", str(state.n_parameters)),
                             ("global parameters", f"{fit.get('n_global_parameters', '-')}")]),
-        ("Images at the best fit", [("recovered / observed", f"{fit.get('recovered_image_count', '-')} / {fit.get('observed_image_count', '-')}"),
-                                    ("missing, extra", f"{fit.get('missing_image_count', '-')}, {fit.get('extra_image_count', '-')}"),
-                                    ("families fully recovered", f"{fit.get('families_fully_recovered', '-')} / {state.images.n_families}"),
-                                    ("residual rms, median, max (arcsec)", f"{number(fit.get('image_rms_arcsec'))}, {number(fit.get('image_median_residual_arcsec'))}, {number(fit.get('image_max_residual_arcsec'))}")]),
+        (f"Images over {fit.get('n_draws', '-')} draws: median (16-84%)",
+         [("recovered / observed", f"{spread('recovered_image_count', 0)} / {fit.get('observed_image_count', '-')}"),
+          ("extra", spread('extra_image_count', 0)),
+          ("families fully recovered (half the draws)", f"{fit.get('families_fully_recovered', '-')} / {state.images.n_families}"),
+          ("residual rms (arcsec)", spread('image_rms_arcsec')),
+          ("median residual (arcsec)", spread('image_median_residual_arcsec'))]),
         ("Sampler", [("chains x (warmup + samples)", f"{config.runtime.chains} x ({config.sampling.warmup} + {config.sampling.samples})"),
                      ("draws, divergences", f"{len(posterior.samples)}, {int(np.asarray(posterior.diverging).sum())}"),
                      ("mean accept, mean steps", f"{float(np.mean(posterior.accept_prob)):.3f}, {float(np.mean(posterior.num_steps)):.1f}"),

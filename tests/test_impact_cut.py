@@ -9,7 +9,7 @@ import numpy as np
 from kappaccino.io import artifacts
 from kappaccino import pipeline
 from kappaccino.core.classification import member_max_deflection_arcsec
-from kappaccino.config import ImageDiagnosticsConfig, RuntimeConfig, SamplingConfig, SearchConfig
+from kappaccino.config import ReportingConfig, ImageDiagnosticsConfig, RuntimeConfig, SamplingConfig, SearchConfig
 from kappaccino.likelihood.evaluator import Evaluator
 from kappaccino.core.state import build_state
 
@@ -32,7 +32,7 @@ def test_init_stage_applies_and_persists_the_impact_cut(synthetic_config):
                      runtime=RuntimeConfig(seed=3, chains=1, resume=True, nuts_chain_method="sequential", skip_plots=True),
                      search=SearchConfig(n_starts=2, lbfgs_max_iter=20, polish_max_iter=5),
                      sampling=SamplingConfig(warmup=5, samples=5, max_tree_depth=3),
-                     image_diagnostics=ImageDiagnosticsConfig(posterior_image_diagnostic_draws=0)).validate()
+                     reporting=ReportingConfig(draws=1)).validate()
     init = pipeline.run(config, stage="init")
     assert len(init.state.members.member_ids) == 2
     saved = json.loads((init.paths.artifacts / artifacts.CLASSIFICATION_FILE).read_text())

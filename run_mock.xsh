@@ -66,7 +66,7 @@ from kappaccino.config import (
     SamplingConfig,
     ScalingModelConfig,
     SearchConfig,
-    TruthRecoveryConfig,
+    ReportingConfig,
 )
 from kappaccino.cpu_runtime import configure_cpu_runtime, resolve_cpu_plan, threads_per_chain_if_supported
 from kappaccino.priors import truncated_lognormal
@@ -88,7 +88,7 @@ def _usage() -> str:
             "  --mode idealized: priors centred on each realization's truth, which isolates the sampler and the likelihood\n"
             "  --likelihood: grf_gp (default; the mass-field GRF with a knee spectrum plus the image-plane GP, as run.xsh), gp_image_plane\n"
             "          (the image-plane GP alone, per family) or smoothed (the per-image source-plane floor sigma_def and sigma_meas)\n"
-            "  --gp-blocks: grf_gp only: all (default: one shared field with translation, convergence and shear projected out, as\n"
+            "  --gp-blocks: grf_gp only: all (default: one shared field with translation, convergence and shear projected out, unlike\n"
             "          full run.xsh runs), system (an independent field per system, no projection; the --fast default) or family\n"
             "  --knotted-families N: primary families that are galaxies with knots (default 5 for production, 1 for smoke)\n"
             "  --fisher-only: generate (or reuse) the mocks and forecast how well the GP hyperparameters are constrained (a Fisher\n"
@@ -222,14 +222,16 @@ def _solver(*, production: bool, fast: bool, seed: int, likelihood: str, gp_bloc
         # Centered deviations for the members the data pin, unit offsets for the rest, classification at the current model
         # (reclassified at the MAP), as for the observed clusters.
         members=MemberConfig(centering="auto", classification_prior_quantile=None),
-        image_diagnostics=ImageDiagnosticsConfig(posterior_image_diagnostic_draws=64 if production else 8, match_tolerance_arcsec=3.0),
-        truth=TruthRecoveryConfig(posterior_truth_recovery_draws=0),
+        image_diagnostics=ImageDiagnosticsConfig(match_tolerance_arcsec=3.0),
+        reporting=ReportingConfig(draws=64, image_draws=64, extra_images=True) if production
+                  else ReportingConfig(draws=32, image_draws=32, extra_images=False),
     )
     if fast:
         config = replace(
             config,
             sampling=SamplingConfig(warmup=500, samples=250, max_tree_depth=8, target_accept=0.8, far_field_offsets="fixed") if production else config.sampling,
-            image_diagnostics=replace(config.image_diagnostics, fold_max_draws=16, fold_pair_max_separation_arcsec=3.0),
+            image_diagnostics=replace(config.image_diagnostics, fold_pair_max_separation_arcsec=3.0),
+            reporting=ReportingConfig(draws=32, image_draws=32, extra_images=False),
             members=replace(config.members, far_field_cut_radii=2.0, classification_prior_quantile=None, min_deflection_arcsec=None,
                             cut_radius_inflation=3.0),
             scaling=replace(config.scaling, member_shape_scatter=None),
@@ -289,7 +291,7 @@ def _fast_mode_warning(solver) -> None:
             f"  - {solver.search.n_starts} search starts, {solver.sampling.warmup} warmup + {solver.sampling.samples} draws per chain "
             f"at tree depth {solver.sampling.max_tree_depth}, target accept {solver.sampling.target_accept:g}\n"
             f"  - GP covariance blocks: {solver.likelihood.gp_blocks}, projection {', '.join(solver.likelihood.gp_knee_project_modes) or 'off'} "
-            f"(full run.xsh runs use all blocks with the projection)")
+            f"(full run.xsh runs use all blocks, without the projection)")
     Console(stderr=False).print(Panel(text, title="[bold]WARNING: --fast[/bold]", border_style="yellow", style="yellow", expand=False))
 
 

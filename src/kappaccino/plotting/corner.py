@@ -24,7 +24,7 @@ def display_values(values, spec):
     return np.log10(values) if spec.log else values
 
 
-def plot_parameter_corner(samples, selection, path, *, grouped_physical=None, best_index=None):
+def plot_parameter_corner(samples, selection, path, *, grouped_physical=None):
     import corner
     samples = np.asarray(samples)
     selection = [(i, spec, label) for i, spec, label in selection if np.ptp(samples[:, i]) > 0]
@@ -40,7 +40,6 @@ def plot_parameter_corner(samples, selection, path, *, grouped_physical=None, be
         raise ValueError('Nonfinite posterior corner coordinates')
     if grouped_physical is not None:
         grouped = values.reshape(*grouped_physical.shape[:2], len(selection))
-    best_values = values[best_index] if best_index is not None else None
     priors, ranges, labels = [], [], []
     for j, (_, spec, label) in enumerate(selection):
         prior = DisplayPrior(spec)
@@ -95,14 +94,10 @@ def plot_parameter_corner(samples, selection, path, *, grouped_physical=None, be
             axes[j, j].plot(x, density, color='tab:orange', ls='--', lw=1.5)
             axes[j, j].set_ylim(0, max(axes[j,j].get_ylim()[1], 1.05*density.max()))
             index, spec, physical_label = selection[j]
-            low, median, high = np.quantile(samples[:, index], [.16, .5, .86])
+            low, median, high = np.quantile(samples[:, index], [.16, .5, .84])
             symbol = physical_label.split('$')[1] if '$' in physical_label else physical_label.replace('_', r'\_')
             axes[j, j].text(.5, 1.04, rf'${symbol}={median:.3f}^{{+{high-median:.3f}}}_{{-{median-low:.3f}}}$',
                             transform=axes[j,j].transAxes, ha='center', fontsize=8)
-            if best_index is not None:
-                axes[j, j].axvline(best_values[ j], color='tab:red', lw=1, zorder=10)
-            for k in range(j) if best_index is not None else ():
-                axes[j, k].plot(best_values[ k], best_values[ j], 'x', color='tab:red', ms=5, mew=1.1, zorder=10)
         fig.subplots_adjust(wspace=0, hspace=0)
         if grouped is not None and n >= 3:
             middle = max(1, n // 2)
@@ -118,8 +113,6 @@ def plot_parameter_corner(samples, selection, path, *, grouped_physical=None, be
                 for chain in range(grouped.shape[0]):
                     ax.plot(np.arange(1, grouped.shape[1]+1), grouped[chain,:,j],
                             lw=.45, alpha=.75, rasterized=True)
-                if best_index is not None:
-                    ax.plot(best_index % grouped.shape[1]+1, best_values[j], 'x', color='tab:red', ms=6, zorder=10)
                 trace_label = '$' + labels[j].split('$')[1] + '$' if '$' in labels[j] else labels[j]
                 ax.set_ylabel(trace_label, fontsize=8, rotation=0, labelpad=24)
                 ax.tick_params(labelsize=7, labelbottom=j==n-1, top=False, right=False)
@@ -130,17 +123,16 @@ def plot_parameter_corner(samples, selection, path, *, grouped_physical=None, be
                 if j == n-1:
                     ax.set_xlabel('Post-warmup draw per chain', fontsize=9)
         fig.legend(handles=[Line2D([], [], color='black', label='Posterior'),
-                            Line2D([], [], color='tab:orange', ls='--', label='Prior'),
-                            Line2D([], [], color='tab:red', marker='x', ls='none', label='Best fit')],
-                   loc='upper center', bbox_to_anchor=(.76, .98), fontsize=9, ncol=3, frameon=False)
+                            Line2D([], [], color='tab:orange', ls='--', label='Prior')],
+                   loc='upper center', bbox_to_anchor=(.76, .98), fontsize=9, ncol=2, frameon=False)
         path.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(path, bbox_inches='tight', pad_inches=.04)
         plt.close(fig)
     metadata = dict(draws=len(values), parameters=[spec.name for _,spec,_ in selection],
-                    best_posterior_draw_index=best_index, ranges=ranges,
+                    ranges=ranges,
                     trace_chains=0 if grouped is None else grouped.shape[0],
                     trace_draws_per_chain=0 if grouped is None else grouped.shape[1],
-                    contour_probabilities=[.68,.95], marginal_quantiles=[.16,.5,.86],
+                    contour_probabilities=[.68,.95], marginal_quantiles=[.16,.5,.84],
                     uniform_joint_prior='support boundary; highest-density regions are not unique',
                     marginal_summary_coordinates='physical',
                     coordinates='log10 for log-transformed parameters; physical otherwise')

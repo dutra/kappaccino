@@ -18,7 +18,7 @@ sphinx:
   fail_on_warning: false
 
 # The Python requirements of the documentation build only (Sphinx, MyST and nbsphinx); the package itself,
-# with JAX and the lenstronomy forks, is not installed on Read the Docs.
+# with JAX, is not installed on Read the Docs.
 python:
   install:
     - requirements: docs/requirements.txt

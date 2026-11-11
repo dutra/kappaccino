@@ -1,0 +1,55 @@
+# How AS1063 is fitted with the HST + MUSE catalog of Bergamini et al. 2019.
+# xonsh run.xsh catalogs/as1063/bergamini2019 [--profile fast] [--profile jwst]
+name: as1063
+priors: priors.yaml
+
+runtime: {seed: 12345, chains: 4, resume: true, numpyro_print_summary: true, nuts_chain_method: parallel}
+
+likelihood:
+  # The GRF of unmodelled mass with a knee spectrum plus the image-plane GP; see catalogs/hera/run.yaml for the priors.
+  likelihood_mode: gp_image_plane
+  gp_kernel: knee
+  sigma_sel_prior: null
+  gp_blocks: all
+  gp_knee_project_modes: [translation, convergence, shear]
+  gp_knee_gamma: 4.0
+  gp_knee_gamma_prior: null
+  gp_knee_scales_arcsec: [0.2, 100.0]
+  lambda_b_prior: lognormal(20.0, 1.0) in [0.5, 80.0]
+  lambda_b_start_arcsec: 20.0
+  sigma_grf_prior: lognormal(0.08, 0.5) in [1.0e-4, 0.5]
+  sigma_grf_start_arcsec: 0.08
+  gp_knee_ell_gp_prior: lognormal(1.0, 0.4) in [0.4, 3.0]
+  gp_knee_ell_gp_start_arcsec: 1.0
+
+search: {n_starts: 256, halo_method: lbfgs, member_method: lbfgs}
+sampling: {warmup: 500, samples: 250, max_tree_depth: 7, target_accept: 0.8}
+
+# Classified at the current model (reclassified at the MAP) rather than at the prior's 0.975 quantile, which for a
+# log-uniform cut radius is 90 kpc (198 of 222 exact).
+members: {centering: auto, classification_prior_quantile: null}
+
+reporting: {draws: 64, image_draws: 64, extra_images: true}
+
+# BUFFALO HST mosaics with the library's Lupton display.
+image_catalog:
+  image_dir: ../../../data/imaging/as1063/buffalo
+  image_scale: auto
+  bands: [F435W, F606W, F814W, F105W, F125W, F140W, F160W]
+
+profiles:
+  fast:
+    likelihood: {gp_blocks: system, gp_knee_project_modes: []}
+    sampling: {max_tree_depth: 8}
+    members: {far_field_cut_radii: 2.0, classification_prior_quantile: null, min_deflection_arcsec: null, cut_radius_inflation: 3.0}
+    scaling: {member_shape_scatter: null}
+    image_diagnostics: {fold_pair_max_separation_arcsec: 3.0}
+    reporting: {draws: 8, image_draws: 8, extra_images: false}
+  # Figures on the DJA NIRCam mosaics (F115W+F150W blue, F150W+F200W green, F444W red), brighter to show the faint
+  # members and arcs.
+  jwst:
+    image_catalog:
+      image_dir: ../../../data/imaging/as1063/dja_v7.5
+      bands: [F115W, F150W, F200W, F444W]
+      rgb: {q: 80.0, stretch: 20.0}
+      figure_suffix: _jwst

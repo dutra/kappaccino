@@ -1,0 +1,56 @@
+# AS1063 (RXC J2248), transcribed from source/Bergamini_RXCJ2248_lenstool_Normal.par (radii given there in arcsec).
+reference: {ra0_deg: 342.18321, dec0_deg: -44.530878}
+cosmology: {H0: 70.0, Om0: 0.3, Ode0: 0.7}
+z_lens: 0.348
+images: images.yaml
+
+halos:
+  # Main halo: ellipticite 0.4-0.8 at angles -42 to -36 deg (the start lies inside the published bounds).
+  "1":
+    x_centre:
+      start: 0.0
+      prior: uniform(-2.0, 4.0)
+    y_centre: uniform(-2.0, 2.0)
+    ellipticite: 0.5
+    angle_pos: -39.0
+    shape: {ellipticity: [0.4, 0.8], angle: [-42.0, -36.0]}
+    core_radius_kpc:
+      start: 13.5871 * arcsec
+      prior: loguniform(5.0 * arcsec, 35.0 * arcsec)
+    cut_radius_kpc: 2000.0 * arcsec
+    v_disp:
+      start: 1500.0
+      prior: lognormal(mean=1200.0, std=200.0) in [1000.0, inf]
+  # Second halo, round.
+  "2":
+    x_centre:
+      start: -84.6455835
+      prior: uniform(-100.0, 50.0)
+    y_centre:
+      start: 45.01476
+      prior: uniform(-50.0, 70.0)
+    ellipticite: 0.0
+    angle_pos: 0.0
+    core_radius_kpc: 0.05 * arcsec
+    cut_radius_kpc: 2000.0 * arcsec
+    v_disp:
+      start: 300.0
+      prior: lognormal(mean=500.0, std=500.0) in [1.0e-4, inf]
+  # Fixed gas components from the same model.
+  "3": {x_centre: 18.898068688515124, y_centre: -73.3566238994408, ellipticite: 0.804756331682532, angle_pos: -162.04793432346537,
+        core_radius_kpc: 188.39998560000458 * arcsec, cut_radius_kpc: 189.2403216000046 * arcsec, v_disp: 355.9263730614334}
+  "4": {x_centre: -18.0530993114858, y_centre: 13.469568100561368, ellipticite: 0.13273356095824723, angle_pos: -27.795099374268442,
+        core_radius_kpc: 36.323966400000884 * arcsec, cut_radius_kpc: 339.1572480000082 * arcsec, v_disp: 442.5672747534171}
+  "5": {x_centre: 0.19813268851464938, y_centre: -1.2372958994389047, ellipticite: 0.34435532608684766, angle_pos: -15.486418948811508,
+        core_radius_kpc: 14.434532160000352 * arcsec, cut_radius_kpc: 356.49532800000867 * arcsec, v_disp: 249.68220495795586}
+  # External shear, free amplitude and angle (2026-11-03), as for CANUCS.
+  shear: {profile: shear, preset: free, gamma_upper: 0.3}
+
+# Member priors at L* that come from no lens model: Bergamini et al. 2019 define L* as M_F160W = -23 with no
+# K-correction, so m* = -23 + mu(z = 0.348) = 18.33.  sigma* 200 +- 100 km/s, r_cut* log-uniform 2-100 kpc, alpha
+# 0.25 +- 0.10, beta 0.5 +- 0.25.  Their AS1063 fit (299 km/s, 6.8 kpc at the BCG magnitude 16.18, i.e. 175 km/s and
+# 25 kpc at m*) lies inside these priors.
+members:
+  potfile_1: {catalog_path: members.cat, preset: neutral, prior_mag0: 18.33}
+
+scaling: {preset: neutral}

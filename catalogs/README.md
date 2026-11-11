@@ -6,21 +6,23 @@ The image and member catalogs the pipeline reads, one folder per cluster and per
 catalogs/<cluster>/<source>/
     images.yaml          multiple images (format lenscluster-images/1, src/kappaccino/image_catalog.py)
     members.yaml|.cat    cluster members (src/kappaccino/member_catalog.py)
+    priors.yaml          what is fitted: halos, members, priors (src/kappaccino/run_files.py, docs/run-files.md)
+    run.yaml             how it is fitted: likelihood, sampler, products, figures, profiles
     README.*             the source's own notes
     source/              the published files the YAML was converted from (Lenstool catalogs, par files, MAST tables)
     history/             earlier versions of the YAML kept for the record (before the parity edit, before the light shapes)
 ```
 
-| folder | run.xsh entry | images | members | from |
+| folder | run name | images | members | from |
 |---|---|---|---|---|
-| `hera/` | HERA | images.yaml | members.yaml | FF-SIMS Hera: `source/hera_obs_arcs.cat`, `hera_cluster_members_potfile.cat`, `hera_lenscluster.par`, the 7-band truth magnitudes |
-| `ares/` | ARES | images.yaml | members.yaml | FF-SIMS Ares, the same files |
-| `m0416/canucs2025/` | M0416_CANUCS2025 (default) | images.yaml (knots, parities) | members.yaml (DR1 light shapes, Granata 2026 kinematics) | Rihtarsic et al. 2025 MAST release: `source/hlsp_canucs_*lenstool-*` and `allmultim`; `image_f200w_photometry.*` is our F200W photometry of the images |
-| `m0416/bergamini2023/` | M0416_BERGAMINI2023 | images.yaml | members.cat | Bergamini et al. 2023 (2022 release): `source/obs_arcs.cat`, the par files; members.cat was `CM_cat_MACSJ0416.cat` |
+| `hera/` | hera | images.yaml | members.yaml | FF-SIMS Hera: `source/hera_obs_arcs.cat`, `hera_cluster_members_potfile.cat`, `hera_lenscluster.par`, the 7-band truth magnitudes |
+| `ares/` | ares | images.yaml | members.yaml | FF-SIMS Ares, the same files |
+| `m0416/canucs2025/` | m0416_canucs2025 (default) | images.yaml (knots, parities) | members.yaml (DR1 light shapes, Granata 2026 kinematics) | Rihtarsic et al. 2025 MAST release: `source/hlsp_canucs_*lenstool-*` and `allmultim`; `image_f200w_photometry.*` is our F200W photometry of the images |
+| `m0416/bergamini2023/` | m0416_bergamini2023 | images.yaml | members.cat | Bergamini et al. 2023 (2022 release): `source/obs_arcs.cat`, the par files; members.cat was `CM_cat_MACSJ0416.cat` |
 | `m0416/diego2024/` | (comparison only) | images.yaml (every rank), images.ecsv / .fits | | Diego et al. 2024 PEARLS Table B.1, `raw/` and the earlier BUFFALO/Flashlights table; images.yaml by `scripts/convert_diego2024_catalog.py` |
 | `m0416/master/` | (not an entry yet) | images.yaml | members.yaml | built from the three folders above, see below |
-| `as1063/bergamini2019/` | AS1063 | images.yaml | members.cat | Bergamini et al. 2019 RXC J2248: `source/obs_arcs.dat`, the par files |
-| `as1063/diego2026/` | AS1063_JWST | images.yaml | members.yaml (Beauchesne 2025) | Diego et al. 2026 Table 1 (`raw/`), `image_mapping.json`, `validation.json` |
+| `as1063/bergamini2019/` | as1063 | images.yaml | members.cat | Bergamini et al. 2019 RXC J2248: `source/obs_arcs.dat`, the par files |
+| `as1063/diego2026/` | as1063_jwst | images.yaml | members.yaml (Beauchesne 2025) | Diego et al. 2026 Table 1 (`raw/`), `image_mapping.json`, `validation.json` |
 | `as1063/caminha2016/` | (not an entry) | images.yaml | members.yaml (no BCG) | Caminha et al. 2016, model v2.0: `source/A1063_obs_arcs_v11.dat`, `members_95_160_nonan_cuts.cat`, par, region files; systems 50 and 51 have z = 0 (free in Lenstool) |
 | `as1063/master/` | (not an entry yet) | images.yaml | members.yaml | built from the three folders above, see below |
 | `a2744/bergamini2023b/` | (not an entry yet) | images.yaml (knots; 10 systems free z) | | Bergamini et al. 2023, ApJ 952, 84 (GLASS-JWST) Table 2, VizieR |

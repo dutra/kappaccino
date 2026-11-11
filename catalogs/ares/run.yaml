@@ -1,0 +1,64 @@
+# How Ares is fitted.  xonsh run.xsh catalogs/ares [--profile fast]
+name: ares
+priors: priors.yaml
+
+runtime: {seed: 12345, chains: 4, resume: true, numpyro_print_summary: true, nuts_chain_method: parallel}
+
+likelihood:
+  # The GRF of unmodelled mass on the lens potential with a knee spectrum, plus the image-plane GP and sigma_meas.
+  likelihood_mode: gp_image_plane
+  gp_kernel: knee
+  # No selection term: in the oct28a M0416 run sigma_sel and sigma_def fit equally well and lambda_sel stayed at its prior.
+  sigma_sel_prior: null
+  # One shared mass field over every image, with its field-wide translation, convergence and shear projected out
+  # (absorbed by the sources and the free external shear).  System blocks are 5x cheaper per gradient but their
+  # posterior differs (importance reweighting kept 1 of 200 draws): the fast profile.
+  gp_blocks: all
+  gp_knee_project_modes: [translation, convergence, shear]
+  # The slope fixed at 4 (NFW-like cusps): sampled, it drifted to 5.3 without the data pinning it.
+  gp_knee_gamma: 4.0
+  gp_knee_gamma_prior: null
+  # Wavelengths from 0.2" to 100".
+  gp_knee_scales_arcsec: [0.2, 100.0]
+  # The knee free over the knee tables (0.5-80") so the field can take the scale of the cluster halos (2026-11-10).
+  lambda_b_prior: lognormal(20.0, 1.0) in [0.5, 80.0]
+  lambda_b_start_arcsec: 20.0
+  # The rms deflection error of the substructure at z_ref: 0.08" median, 0.05-0.13" at 1 sigma.
+  sigma_grf_prior: lognormal(0.08, 0.5) in [1.0e-4, 0.5]
+  sigma_grf_start_arcsec: 0.08
+  # The image-plane GP's correlation length near the measurement scale: fitted free it went to 4.4" and did the mass
+  # field's work.
+  gp_knee_ell_gp_prior: lognormal(1.0, 0.4) in [0.4, 3.0]
+  gp_knee_ell_gp_start_arcsec: 1.0
+
+search: {n_starts: 256, halo_method: lbfgs, member_method: lbfgs}
+sampling: {warmup: 500, samples: 250, max_tree_depth: 7, target_accept: 0.8}
+
+# Direct (centered) deviations for the members the data pin, unit offsets for the rest.
+members: {centering: auto}
+
+truth:
+  kappa_true_fits: ../../data/imaging/ares/ffsims/kappa_z9_0.fits
+  gammax_true_fits: ../../data/imaging/ares/ffsims/gammax_z9_0.fits
+  gammay_true_fits: ../../data/imaging/ares/ffsims/gammay_z9_0.fits
+
+# Every product is a median over posterior draws with its 16-84% range.  64 draws: the median RMS scatters by 0.01".
+reporting: {draws: 64, image_draws: 64, extra_images: true}
+
+image_catalog:
+  image_dir: ../../data/imaging/ares/ffsims
+  image_scale: auto
+  bands: [F435W, F606W, F814W]
+  rgb: {q: 6.8, stretch: 0.0158, minimum: 0.00105, red_gain: 0.62, green_gain: 0.78, blue_gain: 3.65}
+
+profiles:
+  # Exploratory: far-field members down to 2 cut radii, classified at the current model with 3x headroom on the cut
+  # radius, system blocks, member shapes fixed at the catalog, 8 draws and no extra-image search.  Check the audit's
+  # far-field error before trusting a fast run.
+  fast:
+    likelihood: {gp_blocks: system, gp_knee_project_modes: []}
+    sampling: {max_tree_depth: 8}
+    members: {far_field_cut_radii: 2.0, classification_prior_quantile: null, min_deflection_arcsec: null, cut_radius_inflation: 3.0}
+    scaling: {member_shape_scatter: null}
+    image_diagnostics: {fold_pair_max_separation_arcsec: 3.0}
+    reporting: {draws: 8, image_draws: 8, extra_images: false}

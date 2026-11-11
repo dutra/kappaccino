@@ -25,8 +25,8 @@ everything else as JSON or CSV. `config.json` restores the run configuration exa
 (`kappaccino.io.artifacts.load_config`). Nothing is pickled.
 
 Every reported product (figures, tables and results macros) is computed over one set of reporting draws:
-`reporting.draws` random posterior draws over all chains, chosen with `runtime.seed` (64 in a full run, 8 with
-`--fast`). Each draw is evaluated once, with its own GRF conditional mean, and shared by every product. Maps are
+`reporting.draws` random posterior draws over all chains, chosen with `runtime.seed` (64 in a full run, 8 in the
+fast profile). Each draw is evaluated once, with its own GRF conditional mean, and shared by every product. Maps are
 per-pixel medians over the draws with their 16th and 84th percentiles, curves are zero contours of median maps with
 16–84% bands, and numbers are medians with 16–84% ranges. No product uses the single best sample.
 

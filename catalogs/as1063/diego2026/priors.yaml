@@ -1,0 +1,24 @@
+# AS1063 with the JWST images of Diego et al. 2026 (2601.11704v2) and the Beauchesne et al. 2025 members.  The cluster
+# and gas halos are those of ../bergamini2019, not a transcription of either paper's mass model.
+extends: ../bergamini2019/priors.yaml
+images: images.yaml
+
+halos:
+  # The new member file has no BCG+ICL, so Bergamini member 1809 is a separate round dPIE at its light position, started
+  # on the neutral relation at m_F160W = 16.176: (L/L*)^0.25 = 1.6421015082946058, (L/L*)^0.5 = 2.6964973635434193.
+  # Cut radius: a log-normal around the relation's value with width a factor 1.9 (mean 1.227 and std 0.714 times
+  # 1.227 times the median), unbounded, as an excess above the 0.15 kpc core.
+  bcg_1809:
+    x_centre: -0.06929121777336769
+    y_centre: 0.028800000004025605
+    ellipticite: 0.0
+    angle_pos: 0.0
+    core_radius_kpc: 0.15
+    cut_radius_kpc: 15.0 * 2.6964973635434193
+    v_disp:
+      start: 200.0 * 1.6421015082946058
+      prior: lognormal(mean=200.0 * 1.6421015082946058, std=100.0 * 1.6421015082946058) in [50.0 * 1.6421015082946058, 500.0 * 1.6421015082946058]
+    cut_excess_kpc: lognormal(mean=1.227 * 15.0 * 2.6964973635434193 - 0.15, std=0.714 * 1.227 * 15.0 * 2.6964973635434193)
+
+members:
+  potfile_1: {catalog_path: members.yaml, band: F160W}

@@ -20,19 +20,22 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
-# label, cluster, extra run.xsh flags, what it tests
+# Cluster folders of the clusters below (outputs under their run.yaml name, the lower-case key).
+FOLDERS = {"AS1063": "catalogs/as1063/bergamini2019", "AS1063_JWST": "catalogs/as1063/diego2026"}
+
+# label, cluster, extra run.xsh overrides, what it tests
 VARIANTS = [
     # Defaults since 2026-11-04: dense block = globals + centered members, Student-t tails, log-normal BCG cut prior.
-    ("h0_baseline", "AS1063", ["--dense-offsets", "all", "--offset-tail", "normal"], "old defaults: all offsets dense, normal tails"),
-    ("h1_dense_centered", "AS1063", ["--dense-offsets", "centered", "--offset-tail", "normal"], "dense block: globals + centered (data-pinned) members only"),
-    ("h4_dense_exact", "AS1063", ["--dense-offsets", "exact"], "far-field offsets sampled outside the dense block"),
-    ("h5_far_fixed", "AS1063", ["--far-offsets", "fixed"], "far-field offsets pinned at the scaling relation"),
-    ("h2_tail_student", "AS1063", ["--offset-tail", "student_t"], "Student-t(4) deviations against normal ones"),
+    ("h0_baseline", "AS1063", ["--set", "sampling.dense_offset_members=all", "--set", "scaling.member_deviation_tail=normal"], "old defaults: all offsets dense, normal tails"),
+    ("h1_dense_centered", "AS1063", ["--set", "sampling.dense_offset_members=centered", "--set", "scaling.member_deviation_tail=normal"], "dense block: globals + centered (data-pinned) members only"),
+    ("h4_dense_exact", "AS1063", ["--set", "sampling.dense_offset_members=exact"], "far-field offsets sampled outside the dense block"),
+    ("h5_far_fixed", "AS1063", ["--set", "sampling.far_field_offsets=fixed"], "far-field offsets pinned at the scaling relation"),
+    ("h2_tail_student", "AS1063", ["--set", "scaling.member_deviation_tail=student_t"], "Student-t(4) deviations against normal ones"),
     # A scale-mixture form of the Student-t (normal x sqrt(lambda)) was tested on 2026-11-04 and dropped: per-member
     # (offset, lambda) funnels, 911-dimensional dense block, chain disagreement 55 sd against 36.
-    ("h7_centered_far_fixed", "AS1063", ["--dense-offsets", "centered", "--far-offsets", "fixed"],
+    ("h7_centered_far_fixed", "AS1063", ["--set", "sampling.dense_offset_members=centered", "--set", "sampling.far_field_offsets=fixed"],
      "centered-only dense block and far-field offsets pinned"),
-    ("j0_bcg_uniform", "AS1063_JWST", ["--bcg-cut-prior", "uniform"], "BCG 1809 cut radius: old bounded uniform"),
+    # The old bounded-uniform BCG cut prior (j0_bcg_uniform) needs its own priors.yaml.
     ("j1_bcg_lognormal", "AS1063_JWST", [], "BCG 1809 cut radius: unbounded log-normal around the relation"),
 ]
 
@@ -64,8 +67,9 @@ def run_all(args):
                 running.remove((label, proc))
         if queue and len(running) < args.parallel and time.time() - last_start >= args.stagger:
             label, cluster, extra, what = queue.pop(0)
-            command = [args.xonsh, "run.xsh", cluster, "--campaign", args.campaign, "--run-label", label,
-                       "--warmup", str(args.warmup), "--samples", str(args.samples), "--skip-plots", *extra]
+            command = [args.xonsh, "run.xsh", FOLDERS[cluster], "--campaign", args.campaign, "--run-label", label,
+                       "--set", f"sampling.warmup={args.warmup}", "--set", f"sampling.samples={args.samples}",
+                       "--set", "runtime.skip_plots=true", *extra]
             log = open(logs / f"{label}.log", "w")
             running.append((label, subprocess.Popen(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT)))
             last_start = time.time()

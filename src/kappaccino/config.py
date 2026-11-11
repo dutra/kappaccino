@@ -1275,12 +1275,12 @@ class LikelihoodConfig:
     gp_floor_arcsec: float = 0.0015
     gp_kernel: str = "image_plane"
     gp_reference_redshift: float = 2.0
-    # Knee kernel: gp_knee.py, .agents/gp-knee-plan.md.  gp_blocks "system" is run.xsh --fast; "family" is for
+    # Knee kernel: gp_knee.py, .agents/gp-knee-plan.md.  gp_blocks "system" is the fast profile of the cluster run.yaml files; "family" is for
     # regression.  Sites: images.sigma_grf, images.lambda_b (lambda_t), images.gp_knee_gamma, images.sigma_gp,
     # images.ell_gp, images.sigma_meas.
     gp_blocks: str = "all"
     gp_knee_gamma: float = 4.0
-    # run.xsh uses dist.TruncatedNormal(4, 0.5, low=2, high=6): the slope of an NFW-like cusp, within a quarter of n.
+    # The cluster run.yaml files fix the slope at 4; sampled, normal(4, 0.5) in [2, 6] is the slope of an NFW-like cusp.
     gp_knee_gamma_prior: Any | None = field(default_factory=lambda: dist.Uniform(2.0, 6.0))
     gp_knee_gamma_step: float = 0.25
     # With the long end at 100" and the halos free (all-image blocks), the field took the halo-scale misfit: sigma_grf

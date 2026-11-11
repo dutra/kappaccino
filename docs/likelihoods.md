@@ -322,10 +322,10 @@ partly adjust to a wrong member, is not tested.
 ## 4. Uncertain images
 
 Section 3 relaxes the member catalog. We now relax the image catalog. Some candidate images have no known family. An
-uncertain image may be a new image of a trusted family, an image of a
-new source shared with other uncertain images, or unrelated to every other image. We keep the trusted families as
-given in the catalog and sum the family assignment of each uncertain image out of the likelihood, so that NUTS samples
-the lens with the assignment marginalized. The fit is configured with `PartitionConfig`,
+uncertain image may be a new image of a trusted family, an image of a new source shared with other uncertain images,
+or unrelated to every other image. We keep the trusted families as given in the catalog and sum the family assignment
+of the uncertain images out of the likelihood, with the sources of the new families integrated analytically, so that
+NUTS samples the lens alone. The fit is configured with `PartitionConfig`,
 
 ```python
 from kappaccino.config import PartitionConfig
@@ -338,30 +338,37 @@ The initial stage fits the trusted families alone, and the uncertain images ente
 image $j = 1, \dots, U$ carries data $D_j = (\hat\theta_j, \hat z_j, \hat c_j)$, namely a position, a catalog redshift
 with an error $\sigma_{z,j}$ (or none), and colors.
 
-(sec-slots)=
+(sec-candidate-sources)=
 ### 4.1. Candidate sources
 
 An uncertain image has one of three possible origins. The image may be a new counterimage of a trusted family $F$, in
 which case the source is the sampled source $\beta_F$ at the family redshift $z_F$. The image may instead belong to a
-new source $k = 1, \dots, S$ that no trusted family has. Each new source has parameters $\psi_k = (\beta_k, z_k, c_k)$,
-namely a source position, a redshift and intrinsic colors, which are sampled with the lens. The number $S$ of new
-sources is fixed before sampling ({ref}`§4.7 <sec-uncertain-settings>`). Finally, the image may be the only image of
-an unrelated source.
+new source that no trusted family has, with a source position, a redshift and intrinsic colors
+$\psi = (\beta, z, c)$. Finally, the image may be the only image of an unrelated source.
 
-We call each candidate source, trusted or new, a slot. Image $j$ has a latent label $\ell_j$ that records the origin,
-with $\ell_j = F$ for trusted family $F$, $\ell_j = k$ for new slot $k$, and $\ell_j = 0$ for an unrelated source. The
-labels have fixed prior weights $\pi_\ell$. By default, a fraction `PartitionConfig.unrelated_fraction` (0.5) goes to
-$\ell_j = 0$, and the slots share the remainder equally. When the catalog claims the image for a family, the slot of
-that family receives the association prior of the catalog instead (`PartitionConfig.association_weight`).
+A partition $Z$ of the uncertain images records the origins. Each block of $Z$ is either a group $G$ of two or more
+images that share one new source, or a single image alone. An image alone is unrelated or a new image of a trusted
+family. The prior of the partition follows from a mixture over sources. Image $j$ is unrelated with weight
+$\pi_{j0}$, joins trusted family $F$ with weight $\pi_{jF}$, and joins one of $S$ new sources with weight $\pi_{jk}$.
+By default, a fraction `PartitionConfig.unrelated_fraction` (0.5) goes to $\pi_{j0}$, and the trusted families and new
+sources share the remainder equally. When the catalog claims the image for a family, that family receives the
+association prior of the catalog instead (`PartitionConfig.association_weight`). A group then has the weight
+
+$$
+w_G = \sum_{k=1}^{S} \prod_{j \in G} \pi_{jk}
+$$ (eq-group-weight)
+
+of falling on one new source. The number $S$ of new sources is fixed before sampling
+({ref}`§4.7 <sec-uncertain-settings>`).
 
 (sec-population)=
 ### 4.2. The prior of a new source
 
-A new source is a field galaxy behind the cluster, so the prior of the slot parameters is
+A new source is a field galaxy behind the cluster, so the prior of its parameters is
 
 $$
-p(\psi_k) = N(\beta_k;\, \mu_\beta, s_\beta^2 I)\; q(z_k, c_k) .
-$$ (eq-slot-prior)
+p(\psi) = N(\beta;\, \mu_\beta, s_\beta^2 I)\; q(z, c) .
+$$ (eq-source-prior)
 
 Here, $q$ is the density of the field-galaxy population in redshift and colors. The colors $c$ are the $d$ differences
 of adjacent bands ($m_1 - m_2$, $m_2 - m_3$, and so on) in `PartitionConfig.bands`. We model $q$ as a Gaussian mixture
@@ -376,106 +383,114 @@ how the colors change with redshift. The number of components $M$ is `PartitionC
 6), reduced when the catalog has few rows. We fit the mixture once, before sampling, by maximum likelihood with the EM
 algorithm (Dempster, Laird & Rubin 1977), to the redshifts and `mag_<band>` colors of the galaxies in
 `PartitionConfig.population_catalog_path`. The mixture parameters stay fixed during sampling. The redshift marginal
-$\int q(z, c)\, dc$ is the redshift prior of a new slot. Because a slot pays the prior volume of $q$, grouping uncertain
-images into one slot is favored only when the images agree in redshift and color better than two random field galaxies
+$\int q(z, c)\, dc$ is the redshift prior of a new source. Because a new source pays the prior volume of $q$, grouping
+uncertain images is favored only when the images agree in redshift and color better than two random field galaxies
 would by chance.
 
 The mixture falls back to simpler forms when data are missing. Without a population catalog, the mixture is fit to the
 trusted and uncertain images, which is crude. Without usable colors, $q$ is a mixture in $z$ alone with at most three
 components. Without redshifts as well, $q$ is the single Gaussian $N(z;\, 3, 2^2)$.
 
-(sec-slot-image)=
+(sec-source-image)=
 ### 4.3. The likelihood of one image
 
-If image $j$ comes from a slot with source $\beta$ at redshift $z$ with colors $c$, the position term is the
-single-image likelihood of Equation {eq}`eq-image-likelihood` at that redshift. The redshift and colors of the image are
-independent data given the source, so
+If image $j$ comes from a source $\beta$ at redshift $z$ with colors $c$, the position term is the single-image
+likelihood of Equation {eq}`eq-image-likelihood` at that redshift. The redshift and colors of the image are independent
+data given the source, so
 
 $$
 p(D_j \mid \beta, z, c) =
 N\big(F_j(z);\, 0,\, C_j(z)\big)\, h_j(z)\;
-N(\hat z_j;\, z,\, \sigma_{z,j}^2)\;
+p(\hat z_j \mid z)\;
 p(\hat c_j \mid c), \qquad F_j(z) = b_j(z) - \beta .
-$$ (eq-slot-image)
+$$ (eq-source-image)
 
 The three factors are the position, redshift and color terms. The lensing efficiency $D_{ls}/D_s$ scales the deflection
-and the GRF weight $w$, so one evaluation of the lens at $\hat\theta_j$ serves every slot redshift. The observed colors
-scatter about the source colors with a same-source scatter, plus a broad outlier component. For a trusted slot the
-source colors are not sampled, and the color term is the predictive distribution given the other images of the family.
-
-(sec-unrelated-image)=
-### 4.4. An unrelated image
-
-If image $j$ is the only image of the source, the source is drawn from the prior, and the term is the evidence of the
-image alone,
+and the GRF weight $w$, so one evaluation of the lens at $\hat\theta_j$ serves every source redshift. The catalog
+redshift is a catastrophic outlier with probability $f_z$ (`PartitionConfig.photoz_outlier_fraction`, default 0.05),
 
 $$
-E_j = \int p(D_j \mid \beta, z, c)\; N(\beta;\, \mu_\beta, s_\beta^2 I)\; q(z, c)\; d\beta\, dz\, dc .
-$$ (eq-unrelated-evidence)
+p(\hat z_j \mid z) = (1 - f_z)\, N(\hat z_j;\, z,\, \sigma_{z,j}^2) + \frac{f_z}{z_{\max} - z_{\min}},
+$$ (eq-photoz-outlier)
 
-The position term is Gaussian in $\beta$, so the integral over $\beta$ is analytic (with $h_j$ evaluated at the
-conditional mean of $\beta$). The integral over colors is analytic against the mixture, and the integral over redshift
-is done on a grid.
+uniform over $z_{\min} = 0.5$ to $z_{\max} = 6$, so that one wrong photometric redshift does not split a family. The
+observed colors scatter about the source colors with a same-source scatter, plus a broad outlier component. For a
+trusted family the source colors are not sampled, and the color term is the predictive distribution given the other
+images of the family.
 
-(sec-label-sum)=
-### 4.5. Marginalizing the labels
+(sec-group-evidence)=
+### 4.4. The evidence of a group
 
-Given the lens, the trusted sources and the slot parameters, the uncertain images are independent. Each uncertain image
-receives the diagonal block of the configured covariance, so no error term correlates two uncertain images. The sum
-rule then removes the labels one image at a time,
-
-$$
-p(D_U \mid \Theta, \phi, \beta, \psi) = \prod_{j=1}^{U}
-\Big[\pi_0\, E_j + \sum_F \pi_F\, p(D_j \mid \beta_F, z_F) + \sum_{k=1}^{S} \pi_k\, p(D_j \mid \psi_k)\Big],
-$$ (eq-slot-likelihood)
-
-with $U(1 + N_F + S)$ terms in total for $N_F$ trusted families. With no uncertain images, $U = 0$ and the product is 1.
-
-Equation {eq}`eq-slot-likelihood` is equivalent to a sum over family assignments. Expanding the product of sums gives
-one term per labeling of the images. In a labeling, the images that share new slot $k$ all depend on the same $\psi_k$,
-and integrating $\psi_k$ over the prior turns the product of the image terms into the evidence of that group as one
-family,
+If the images of a group $G$ (one image, for an unrelated image) share a new source, the source is drawn from the prior,
+and the term is the evidence of the group,
 
 $$
-\int \prod_{j:\, \ell_j = k} p(D_j \mid \psi_k)\; p(\psi_k)\, d\psi_k = E_{\{j:\, \ell_j = k\}} .
+E_G = \int \prod_{j \in G} p(D_j \mid \beta, z, c)\; N(\beta;\, \mu_\beta, s_\beta^2 I)\; q(z, c)\; d\beta\, dz\, dc .
 $$ (eq-group-evidence)
 
-An empty slot integrates to 1. Integrating every new slot therefore gives
+The position terms are Gaussian in $\beta$, so the integral over $\beta$ is analytic (with $h_j$ evaluated at the
+conditional mean of $\beta$). The integral over colors is analytic against the mixture, and the integral over redshift
+is a quadrature on a grid. A group of several images fixes the lensing efficiency to a few percent, about the ratio of
+its position error to its deflection, so the posterior of $z$ given the group is narrow. The grid is therefore spaced
+uniformly in the lensing efficiency, with 96 points by default (`PartitionConfig.redshift_grid`). With a coarse grid,
+the quadrature misses the peak, and the evidence of a true family is underestimated by up to tens in the log.
+
+(sec-partition-sum)=
+### 4.5. Summing over the partitions
+
+Given the lens and the trusted sources, the images of different blocks are independent, and integrating the source of
+each group gives its evidence. Each uncertain image receives the diagonal block of the configured covariance, so no
+error term correlates two uncertain images. The likelihood of the uncertain images is the sum over the partitions,
 
 $$
-\int p(D_U \mid \Theta, \phi, \beta, \psi)\, p(\psi)\, d\psi = \sum_{Z} p(Z) \prod_{G \in Z} E_G ,
+p(D_U \mid \Theta, \phi, \beta) = \sum_{Z} \prod_{G \in Z} w_G\, E_G \prod_{j \text{ alone in } Z} a_j,
+\qquad a_j = \pi_{j0}\, E_j + \sum_F \pi_{jF}\, p(D_j \mid \beta_F, z_F) .
 $$ (eq-partition-sum)
 
-the sum over every partition $Z$ of the uncertain images into groups $G$, with the prior $p(Z)$ induced by the label
-weights. The number of partitions is a Bell number. Sampling $\psi$ with NUTS gives the same posterior over the lens
-with one term per image and slot, and without a search over candidate partitions. Like the trusted sources, the new
-slots are sampled as unit offsets, with a correction that turns the unit-normal prior into $p(\psi_k)$.
+With no uncertain images the sum is 1. The number of partitions is a Bell number, so the sum runs over a library of
+groups. A group enters the library when its images are mutually compatible at a lens: every pair, and the group
+as a whole, has a weighted evidence $w_G E_G$ within a margin of the product of its $a_j$ (§4.7). Two images are
+connected when a library group holds both. The sum factorizes over the connected components, and the partitions of
+each component (the sets of disjoint library groups, with the other images alone) are enumerated once, before
+sampling. Equation {eq}`eq-partition-sum` is then a fixed log-sum-exp over those partitions, exact for the library. The
+sources of the new groups are integrated out, so the uncertain images add no parameters.
 
 (sec-assignment)=
 ### 4.6. Posterior assignments
 
-At a posterior draw the labels are independent, with probabilities $r_{j\ell} \propto \pi_\ell\, p(D_j \mid \ell)$,
-where $p(D_j \mid 0) = E_j$. The average of $r_{j\ell}$ over the draws is the assignment probability. Drawing one
-label per image at every posterior draw gives joint draws of the lens, the sources and the partition. The probability
-that images $j$ and $k$ share a source is $\sum_{\ell \ne 0} r_{j\ell}\, r_{k\ell}$, averaged over the draws.
+At a posterior draw the probability of a partition is its term in Equation {eq}`eq-partition-sum` over the sum of its
+component. The probability that image $j$ is in group $G$ is the summed probability of the partitions that use $G$.
+Given that image $j$ is alone, its origin is unrelated or trusted family $F$ with probabilities proportional to the
+terms of $a_j$. The average over the draws is the assignment probability. The probability that images $j$ and $k$
+share a source is the probability that one group holds both, plus the probability that both are alone in the same
+trusted family. Drawing one partition per component and one origin per lone image at every posterior draw gives joint
+draws of the lens and the partition.
 
 (sec-uncertain-settings)=
 ### 4.7. Implementation
 
-A slot far from every image feels no gradient, so new slots are placed before sampling. At the initial lens, two
-uncertain images are linked when the evidence of the pair as one new source exceeds the best alternative of each image
-(unrelated, or the best trusted family) by more than `slot_gain_threshold`. One slot is placed on each linked group.
-Groupings missed by this seeding are not reached during sampling.
+The library is built at the initial lens. A pair of images is linked when its weighted evidence as one source is within
+`library_pair_margin` (default 3) of the two images alone in the log, and every clique of linked images, up to
+`library_max_group` images (default 8), enters when its weighted evidence is within `library_group_margin` (default 5)
+of its images alone. The images that the catalog claims for one untrusted family always form a library group. The lens
+is then refit to its maximum a posteriori with the library summed, and the library is rebuilt at every lens so far, for
+`library_refits` rounds (default 2). The chains start at the last refit. A group that is not compatible at any of those
+lenses never enters the sum, so a family whose images disagree with every library lens is split. A component with more
+than 20,000 partitions loses its least supported groups until it fits.
+
+The number $S$ of new sources in Equation {eq}`eq-group-weight` is the number of groups that the catalog claims, plus
+the number of groups linked at the initial lens. Two images are linked there when the evidence of the pair as one new
+source exceeds the best alternative of each image (unrelated, or the best trusted family).
 
 The source position prior has width `source_prior_sigma_arcsec`, which defaults to the width for the trusted sources.
 The width sets the cost of a new source, about $\ln(2\pi s_\beta^2)$ in log evidence, and therefore how readily a lone
-image joins a slot. The same-source color scatter is fit on the trusted families unless `color_scatter` is set, and a
+image joins a group. The same-source color scatter is fit on the trusted families unless `color_scatter` is set, and a
 fraction `outlier_fraction` of the color terms uses a broad outlier scatter.
 
 The deflection is proportional to the lensing efficiency except for the external shear, so one evaluation of the lens at
-each uncertain image serves every slot redshift. Under `gp_image_plane` the uncertain images are not correlated with
+each uncertain image serves every source redshift. Under `gp_image_plane` the uncertain images are not correlated with
 other images. With the knee kernel the deflection floor of an uncertain image carries the GRF amplitude weighted by $w$
-at the slot redshift (`knee_background` is not supported). With uncertain membership, each enumerated configuration
+at the source redshift (`knee_background` is not supported). With uncertain membership, each enumerated configuration
 evaluates the uncertain images with the lens of that configuration, inside the membership sum. The marginalized
 members enter through the expected mass, without the membership covariance at the uncertain images. The model assigns
 detected images only. A family whose predicted bright images are undetected is not penalized, and two detections of one
@@ -485,16 +500,16 @@ The file `catalog_path` is a CSV table with `image_label`, `ra` and `dec` (degre
 (`zspec_best`, `catalog_z` or `zphot_best`, with `catalog_z_sigma` or `pagul_zpdf_low` and `pagul_zpdf_high`) and
 `mag_<band>` with `mag_err_<band>`. The table carries no positional errors, since the uncertain images take the sampled
 error model of the trusted images. The file `population_catalog_path` is a CSV photometric catalog of the field with a
-redshift column and the same bands. The final stage writes `final/artifacts/slots.h5`, which holds the per-draw label
-probabilities and sampled assignments, the averages of both, the probability that two images share a source, and the
-redshifts and positions of the new slots. The final stage also writes the tables `uncertain_images.csv` and
-`uncertain_pairs.csv`. The sampled slot parameters (`slot.<k>.*`) are unit offsets.
+redshift column and the same bands. The final stage writes `final/artifacts/uncertain_images.h5`, which holds the
+library groups, the per-draw assignment probabilities and sampled assignments, the averages of both, and the
+probability that two images share a source. The final stage also writes the tables `uncertain_images.csv` and
+`uncertain_pairs.csv`.
 
 (sec-full-posterior)=
 ## 5. The full posterior
 
 The sampled parameters are the lens $\Theta$, the error scales $\phi$ of $e$ and $\eta$, the trusted sources
-$\beta = \{\beta_F\}$, the new slots $\psi = \{\psi_k\}$ and the membership calibration $\delta$. The data are the
+$\beta = \{\beta_F\}$ and the membership calibration $\delta$. The data are the
 trusted images $\hat\theta_F$, the uncertain images $D_j$ and the measured member velocity dispersions $\hat\sigma_m$.
 Sections 2–4 each derived one part of the likelihood. We now assemble the parts in four steps, each adding one term
 to the previous step.
@@ -511,11 +526,10 @@ members.
 
 Second, we add the uncertain images. Given the lens and the sources, the uncertain images are independent of the
 trusted images, so the likelihood of
-Equation {eq}`eq-slot-likelihood` multiplies $L_1$,
+Equation {eq}`eq-partition-sum` multiplies $L_1$,
 
 $$
-L_2(\Theta, \phi, \beta, \psi) = L_1(\Theta, \phi, \beta)
-\prod_j \sum_\ell \pi_\ell\, p(D_j \mid \ell, \Theta, \phi, \beta, \psi) .
+L_2(\Theta, \phi, \beta) = L_1(\Theta, \phi, \beta)\, p(D_U \mid \Theta, \phi, \beta) .
 $$ (eq-full-uncertain)
 
 The two factors are coupled in the posterior. Both depend on the lens, and an uncertain image assigned to trusted
@@ -528,8 +542,8 @@ and the configurations are summed
 around $L_2$,
 
 $$
-L_3(\Theta, \phi, \beta, \psi, \delta) = \sum_{z_{\mathcal E}} p(z_{\mathcal E} \mid \delta)\;
-L_2(\Theta, \phi, \beta, \psi;\, z_{\mathcal E}) .
+L_3(\Theta, \phi, \beta, \delta) = \sum_{z_{\mathcal E}} p(z_{\mathcal E} \mid \delta)\;
+L_2(\Theta, \phi, \beta;\, z_{\mathcal E}) .
 $$ (eq-full-members)
 
 Here, $L_2(\,\cdot\,;\, z_{\mathcal E})$ denotes $L_2$ evaluated with the deflection $\bar\alpha(z_{\mathcal E})$ and
@@ -543,11 +557,11 @@ outside the membership sum. With the priors, the sampled density is
 
 $$
 \begin{aligned}
-p(\Theta, \phi, \beta, \psi, \delta \mid \mathcal{D}) \;\propto\;
-& p(\Theta)\, p(\phi)\, p(\delta) \prod_F p(\beta_F) \prod_k p(\psi_k) \\
+p(\Theta, \phi, \beta, \delta \mid \mathcal{D}) \;\propto\;
+& p(\Theta)\, p(\phi)\, p(\delta) \prod_F p(\beta_F) \\
 & \times \sum_{z_{\mathcal E}} p(z_{\mathcal E} \mid \delta)
 \Big[\prod_F p(\hat\theta_F \mid \beta_F, \Theta, \phi, z_{\mathcal E})
-\prod_j \sum_{\ell} \pi_\ell\, p(D_j \mid \ell, \Theta, \phi, \beta, \psi, z_{\mathcal E})\Big] \\
+p(D_U \mid \Theta, \phi, \beta, z_{\mathcal E})\Big] \\
 & \times \prod_m p(\hat\sigma_m \mid \Theta)\; B(\Theta) .
 \end{aligned}
 $$ (eq-full-posterior)
@@ -558,7 +572,7 @@ offset of each member from the scaling relation in units of a sampled population
 prior $p(\phi)$ holds the error-scale priors of the chosen error model. The second line is the membership sum of
 Equation {eq}`eq-full-members` around the trusted and uncertain images. Under each configuration, the trusted images
 use the family likelihood with the covariance $C$ of the error model plus $C_{\mathrm{mem}}$, and the uncertain images
-use the slot mixture with the lens of that configuration.
+use the partition sum with the lens of that configuration.
 
 The third line holds the kinematics and the soft constraints. The measured stellar velocity dispersions are independent
 data given the lens (Bergamini et al. 2019), with $\ln \hat\sigma_m \sim N\big(\ln(c\, \sigma_m(\Theta)),\,
@@ -580,7 +594,7 @@ each latent quantity is removed.
 | true image positions, deflection error $\eta$ | Gaussian integral (§2.1) | $N(F;\, 0,\, C)\, h$ of every image |
 | marginalized member indicators $z_{\mathcal M}$ | Gaussian approximation (§3.3) | mean in $\bar\alpha$, fluctuation in $C_{\mathrm{mem}}$ |
 | enumerated member indicators $z_{\mathcal E}$ | exact sum over $2^K$ terms (§3.2) | outer sum of Equation {eq}`eq-full-members` |
-| uncertain-image labels $\ell_j$ | exact sum per image (§4.5) | inner sum of Equation {eq}`eq-full-uncertain` |
+| partition of the uncertain images $Z$, new sources $\psi$ | exact sum over library partitions, analytic source integral (§4.4–4.5) | $p(D_U \mid \Theta, \phi, \beta)$ in Equation {eq}`eq-full-uncertain` |
 
 In logarithms, the target that NUTS adds to the priors is
 
@@ -588,15 +602,15 @@ $$
 \begin{aligned}
 \ln L = \operatorname*{logsumexp}_{z_{\mathcal E}}\Big[&\ln p(z_{\mathcal E} \mid \delta)
 + \sum_{\text{blocks}} \ln N(F;\, 0,\, C) + \sum_i \ln h_i
-+ \sum_j \operatorname*{logsumexp}_{\ell}\big(\ln \pi_\ell + \ln p(D_j \mid \ell)\big)\Big] \\
++ \ln p(D_U \mid \Theta, \phi, \beta)\Big] \\
 &+ \sum_m \ln p(\hat\sigma_m \mid \Theta) + \ln B(\Theta),
 \end{aligned}
 $$ (eq-log-likelihood)
 
-plus the change-of-variables corrections of the sampled source and slot offsets (Equation {eq}`eq-source-correction`).
+plus the change-of-variables corrections of the sampled source offsets (Equation {eq}`eq-source-correction`).
 The method `Evaluator.log_likelihood` evaluates the bracket once per configuration, vectorized over the $2^K$
 configurations, and takes the `logsumexp`. Each step drops out when unused. With every $p_i = 1$ the outer sum has one
-term, and with no uncertain images the inner product is 1, which leaves $L_1$.
+term, and with no uncertain images the partition sum is 1, which leaves $L_1$.
 
 The likelihood does not include the number of images. Each observed image is matched to the prediction near the
 observed position, so an image that the model predicts but the catalog lacks has no cost. The posterior image

@@ -1539,12 +1539,12 @@ class ImageCatalogCutoutConfig:
 
 @dataclass(frozen=True)
 class PartitionConfig:
-    """Uncertain images whose sources are inferred jointly with the lens (``kappaccino.partition.slots``).
+    """Uncertain images whose sources are inferred jointly with the lens (``kappaccino.partition.groups``).
 
-    Each uncertain image may be a new image of a trusted family, an image of a new source shared with other uncertain
-    images (a source slot, sampled), or unrelated; the choice is summed out per image, so NUTS samples the lens and the
-    slot sources with the assignment marginalized, and assignments are drawn after sampling.  The trusted families are
-    kept as given; knots are not supported for uncertain images.
+    Each uncertain image may be a new image of a trusted family, one of a group of uncertain images that share a new
+    source, or unrelated.  The likelihood sums exactly over the partitions of the uncertain images into the groups of a
+    library, with every source integrated out, so NUTS samples the lens only.  The partition is drawn after sampling.
+    The trusted families are kept as given; knots are not supported for uncertain images.
 
     Parameters
     ----------
@@ -1556,17 +1556,19 @@ class PartitionConfig:
         trusted_prior_min``, a family without a positive redshift, a family left with one image), claimed by its own
         family with its catalog ``prior``.
     association_weight : bool, optional
-        Weight each image with a claimed family by its ``association_prior``: that family's slot (trusted, or a new
-        slot seeded on the uncertain images claimed by the same family) gets the prior, the other options share the
-        rest as they would without a claim.  Default True.
+        Weight each image with a claimed family by its ``association_prior``: that family (trusted, or the new source of
+        the uncertain images claimed by the same family) gets the prior, the other options share the rest as they would
+        without a claim.  The images a family claims always form a group of the library.  Default True.
     population_catalog_path : str or pathlib.Path or None, optional
         CSV photometric catalog of the field (a redshift column and the same ``mag_<band>`` columns) for the prior of a
         source's redshift and colors.  None fits it on the trusted and uncertain images themselves.  Default None.
     bands : tuple of str or None, optional
         Bands whose adjacent differences are the colors.  None: bands measured for at least half the uncertain images.
     redshift_grid : tuple of (float, float, int) or None, optional
-        (z_min, z_max, points) of the quadrature of an unrelated image's evidence.  None spans the catalog redshifts
-        +- 2 sigma with 12 points, above z_lens + 0.05.  Default None.
+        (z_min, z_max, points) of the redshift quadrature of a source, spaced uniformly in the lensing efficiency
+        D_ls / D_s.  A family of several images fixes the efficiency to a few percent, so the grid needs many points:
+        with too few, the evidence of a true family is underestimated and the family is split.  None spans the catalog
+        redshifts +- 2 sigma with 96 points, above z_lens + 0.05.  Default None.
     source_prior_sigma_arcsec : float or None, optional
         Width per axis of the Gaussian prior on a new or unrelated source's position: the evidence cost of a source.
         None uses ``likelihood.source_position_prior_sigma_arcsec``.  Default None.
@@ -1574,14 +1576,25 @@ class PartitionConfig:
         Same-source color scatter in mag; None fits it on the trusted families.  Default None.
     outlier_fraction, outlier_scatter : float, optional
         Fraction of images whose colors scatter by ``outlier_scatter`` mag instead.  Defaults 0.05 and 1.0.
+    photoz_outlier_fraction : float, optional
+        Fraction of catalog redshifts that are catastrophic outliers, spread uniformly over redshifts 0.5 to 6, so that
+        one wrong photo-z does not split a family.  Default 0.05.
     population_components : int, optional
         Components of the population mixture.  Default 6.
     unrelated_fraction : float, optional
         Prior probability that an uncertain image is unrelated to every other image; the rest is shared equally by the
-        trusted and new slots.  Default 0.5.
-    slot_gain_threshold : float, optional
-        New slots are seeded on groups of uncertain images linked by pairs whose evidence as one source beats two
-        unrelated sources by more than this (log) at the start lens.  Default 0.0.
+        trusted families and the new sources.  Default 0.5.
+    library_pair_margin : float, optional
+        Two images are linked when, at a library lens, the prior-weighted evidence of the pair as one source comes
+        within this (log) of the two images alone.  Default 3.0.
+    library_group_margin : float, optional
+        A clique of linked images enters the library when its prior-weighted evidence as one source comes within this
+        (log) of its images alone at a library lens.  Default 5.0.
+    library_max_group : int, optional
+        Most images in one library group.  Default 8.
+    library_refits : int, optional
+        MAP refits of the lens with the library summed, each followed by a rebuild of the library at every lens so far.
+        The chains start at the last refit.  Default 2.
     posterior_draws : int, optional
         Posterior draws used for the assignment probabilities and joint draws.  Default 500.
     """
@@ -1594,9 +1607,13 @@ class PartitionConfig:
     color_scatter: float | None = None
     outlier_fraction: float = 0.05
     outlier_scatter: float = 1.0
+    photoz_outlier_fraction: float = 0.05
     population_components: int = 6
     unrelated_fraction: float = 0.5
-    slot_gain_threshold: float = 0.0
+    library_pair_margin: float = 3.0
+    library_group_margin: float = 5.0
+    library_max_group: int = 8
+    library_refits: int = 2
     posterior_draws: int = 500
 
 
@@ -2086,8 +2103,15 @@ def _validate_partition_config(partition: PartitionConfig, config: LensClusterSo
         raise ValueError("partition.outlier_fraction must be in [0, 1).")
     if not 0.0 < float(partition.unrelated_fraction) < 1.0:
         raise ValueError("partition.unrelated_fraction must be in (0, 1).")
-    if not math.isfinite(float(partition.slot_gain_threshold)):
-        raise ValueError("partition.slot_gain_threshold must be finite.")
+    if not 0.0 <= float(partition.photoz_outlier_fraction) < 1.0:
+        raise ValueError("partition.photoz_outlier_fraction must be in [0, 1).")
+    for label in ("library_pair_margin", "library_group_margin"):
+        if not math.isfinite(float(getattr(partition, label))) or float(getattr(partition, label)) < 0.0:
+            raise ValueError(f"partition.{label} must be finite and >= 0.")
+    if int(partition.library_max_group) < 2:
+        raise ValueError("partition.library_max_group must be at least 2.")
+    if int(partition.library_refits) < 0:
+        raise ValueError("partition.library_refits must be >= 0.")
     _positive_int("partition.population_components", partition.population_components)
     _positive_int("partition.posterior_draws", partition.posterior_draws)
 

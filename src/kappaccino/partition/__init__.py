@@ -1,10 +1,11 @@
 """Uncertain lensed images assigned to sources jointly with the lens.
 
-``slots`` adds the uncertain images to the position likelihood as a mixture over source slots (trusted families, new
-sampled sources, or an unrelated source), with each image's assignment summed out; ``lens_evidence`` and
-``catalog_evidence`` give the per-image terms and the evidence of an image as its own source.  See
+``groups`` adds the uncertain images to the likelihood as an exact sum over their partitions into groups that share a
+new source, with each image alone either unrelated or a new image of a trusted family.  The sources are integrated
+out, so no parameters are added.  ``inputs`` reads the images and computes the lens-independent terms, and
+``lens_evidence`` and ``catalog_evidence`` give the evidence of a group of images as one source.  See
 ``docs/likelihoods.md`` (Uncertain images).
 """
-from .slots import SlotModel, add_slots, extend_theta
+from .groups import GroupModel, add_uncertain_images, write_partition_outputs
 
-__all__ = ["SlotModel", "add_slots", "extend_theta"]
+__all__ = ["GroupModel", "add_uncertain_images", "write_partition_outputs"]

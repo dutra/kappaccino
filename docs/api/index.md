@@ -20,7 +20,7 @@ The package is organized as:
 | `kappaccino.diagnostics` | numerical diagnostics: image recovery, exact images, members, priors, truth recovery |
 | `kappaccino.plotting` | figures and the shared matplotlib style |
 | `kappaccino.reporting` | tables, text reports and publication macros written after a run |
-| `kappaccino.partition` | uncertain images: the source-slot mixture |
+| `kappaccino.partition` | uncertain images: the sum over their partitions into groups |
 | `kappaccino.mock_validation` | analytic mock clusters, their fits and recovery scores |
 
 ```{toctree}

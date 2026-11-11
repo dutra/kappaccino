@@ -17,7 +17,7 @@ WBIC (the reported number)
     :math:`\\mathrm{WBIC} = -2\\, \\mathrm{E}_\\beta[\\ln L]`, the posterior mean of :math:`-2 \\ln L` under the
     tempered posterior :math:`p_\\beta(\\theta) \\propto L(\\theta)^\\beta \\pi(\\theta)` with :math:`\\beta = 1/\\ln n`
     (Watanabe 2013, JMLR 14, 867).  WBIC needs no parameter count and stays valid for hierarchical and mixture models
-    (the member deviations, the GRF, the uncertain-image slots), where BIC's :math:`k \\ln n` is wrong.  It costs one
+    (the member deviations, the GRF, the uncertain-image mixture), where BIC's :math:`k \\ln n` is wrong.  It costs one
     more NUTS run (``SamplingConfig.wbic``).  Its Monte Carlo error is the standard deviation of :math:`-2 \\ln L`
     over the tempered draws divided by the square root of the draws' effective sample size.  WBIC agrees with
     :math:`-2 \\ln Z` to leading order in :math:`n`.  The remainder can be several units, so calibrate a claimed
@@ -60,7 +60,7 @@ def n_data(state) -> dict[str, int]:
     Parameters
     ----------
     state : kappaccino.core.model.ModelState
-        The model, with the source slots when the run has uncertain images.
+        The model, with its uncertain images when the run has them.
 
     Returns
     -------
@@ -68,7 +68,7 @@ def n_data(state) -> dict[str, int]:
         ``image_coordinates``, ``uncertain_image_coordinates``, ``kinematics`` and their sum ``n``.
     """
     images = 2 * int(state.images.n_images)
-    uncertain = 2 * len(state.slots.labels) if getattr(state, "slots", None) is not None else 0
+    uncertain = 2 * len(state.uncertain_images.labels) if getattr(state, "uncertain_images", None) is not None else 0
     kinematics = len((getattr(state, "member_kinematics", None) or {}).get("member_ids", ()))
     return dict(image_coordinates=images, uncertain_image_coordinates=uncertain, kinematics=kinematics, n=images + uncertain + kinematics)
 
@@ -100,8 +100,8 @@ def data_fingerprint(state) -> str:
         labels=list(images.image_labels), family=np.asarray(images.family_index_per_image).tolist(),
         x=np.round(np.asarray(images.x_obs, dtype=float), 9).tolist(), y=np.round(np.asarray(images.y_obs, dtype=float), 9).tolist(),
         z=np.round(z, 9).tolist())
-    if getattr(state, "slots", None) is not None:
-        payload["uncertain"] = list(state.slots.labels)
+    if getattr(state, "uncertain_images", None) is not None:
+        payload["uncertain"] = list(state.uncertain_images.labels)
     kinematics = getattr(state, "member_kinematics", None) or {}
     if kinematics:
         payload["kinematics"] = dict(ids=list(kinematics["member_ids"]), sigma=np.round(np.asarray(kinematics["sigma"]), 9).tolist(),

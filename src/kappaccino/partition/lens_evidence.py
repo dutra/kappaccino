@@ -1,6 +1,6 @@
 """Lens terms of uncertain images: the per-image position term at any source redshift, and the evidence of a group of
 images as the images of one source with the source position integrated out (an unrelated image is a group of one;
-``slots`` also uses groups to seed new slots).
+``groups`` sums over partitions of such groups).
 
 Each image i ray-shoots to beta_i(z) = x_i - alpha(x_i; z) with Jacobian A_i(z).  As for the trusted families
 (``kappaccino.likelihood.smoothed``), the image-plane density of the observed position given a source beta is, to first order,
@@ -173,7 +173,7 @@ def family_lens_evidence(terms: dict[str, jnp.ndarray], images: LensImages, memb
     """log E_lens(F, z_g) for padded families, shape (family, grid), with the source posterior of each.
 
     ``terms`` from ``image_terms``; ``member_index`` (family, n_max) holds image indices (any valid index in unused
-    slots), ``member_mask`` which slots are used.  Returns ``log_evidence`` (-inf where any term is invalid),
+    positions), ``member_mask`` which positions are used.  Returns ``log_evidence`` (-inf where any term is invalid),
     ``source_mean`` (family, grid, 2) and ``source_covariance`` (family, grid, 2, 2), the Gaussian posterior of the source.
     """
     index, mask = jnp.asarray(member_index), jnp.asarray(member_mask, dtype=bool)

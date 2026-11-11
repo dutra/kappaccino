@@ -133,7 +133,7 @@ WBIC has three advantages over BIC here.
 
 - **No parameter count.** The tempered posterior sets the effective number of parameters, so the member offsets, the
   GRF and the hyperparameters are counted correctly.
-- **Valid for hierarchical and mixture models**, including the uncertain-image slots.
+- **Valid for hierarchical and mixture models**, including the sum over the partitions of the uncertain images.
 - **Less sensitive to the prior widths** than a Bayes factor from the Savage–Dickey ratio.
 
 WBIC agrees with $-2 \ln Z$ to leading order in $n$. The remainder can be several units for models with many effective

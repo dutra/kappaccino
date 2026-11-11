@@ -633,7 +633,7 @@ def write_final_model_comparison(config: LensClusterSolverConfig, state: ModelSt
     saved = json.loads(path.read_text()) if path.is_file() else {}
     record: dict[str, Any] = {"run": config.paths.run_name}
     init_file = init.paths.artifacts / model_comparison.MODEL_COMPARISON_FILE
-    if state.slots is not None:
+    if state.uncertain_images is not None:
         record.update(bic=None, bic_note="BIC is not defined for the uncertain-image mixture (a singular model). Use WBIC.")
     elif init_file.is_file():
         init_record = json.loads(init_file.read_text())
@@ -714,7 +714,7 @@ def _run_init(config: LensClusterSolverConfig) -> InitResult:
         signature = artifacts.init_signature(config)
         if config.runtime.resume and artifacts.is_init_complete(paths.artifacts):
             saved = json.loads((paths.artifacts / artifacts.INIT_SIGNATURE_FILE).read_text())
-            if saved != artifacts._jsonable(signature):
+            if artifacts.without_partition(saved) != artifacts._jsonable(signature):
                 raise ValueError("The saved init stage was made with a different model, likelihood, member or search configuration; use a new run name.")
             log("[init] complete init stage found; loading the saved start")
             saved_classes = json.loads((paths.artifacts / artifacts.CLASSIFICATION_FILE).read_text())
@@ -898,10 +898,18 @@ def run_final(config: LensClusterSolverConfig, init: InitResult) -> RunResult:
     state, evaluator = init.state, init.evaluator
     try:
         if config.partition is not None:
-            # Uncertain images and their source slots (lenscluster.partition.slots): extra parameters after the init
-            # stage's, seeded deterministically at its start so a resumed stage rebuilds the same model.
-            from .partition.slots import add_slots
-            state, evaluator = add_slots(config, state, evaluator, init.theta, log=log)
+            # Uncertain images summed over their partitions (kappaccino.partition.groups): the group library is built at
+            # the init start and rebuilt after MAP refits with the uncertain images, deterministically, so a resumed
+            # stage rebuilds the same model.  No parameters are added; the chains start at the last refit.
+            from .inference.search import multistart_map
+            from .partition.groups import add_uncertain_images
+
+            def refit(refit_state, refit_evaluator, theta):
+                result = multistart_map(refit_state, refit_evaluator, np.asarray(theta, dtype=float)[None], config.search, method="lbfgs",
+                                        seed=runtime.seed, log=log, label="lens + uncertain images")
+                return result["theta"]
+
+            state, evaluator, uncertain_start = add_uncertain_images(config, state, evaluator, init.theta, refit=refit, log=log)
         if runtime.resume and artifacts.is_final_complete(stage.artifacts):
             saved = artifacts.load_config(stage.artifacts)
             if _without_wbic(saved.to_json_dict()) != _without_wbic(config.to_json_dict()):
@@ -926,9 +934,8 @@ def run_final(config: LensClusterSolverConfig, init: InitResult) -> RunResult:
         artifacts.save_config(stage.artifacts, config)
         starts = chain_starts(init.search, runtime.chains, config.search.max_chain_modes)
         init_theta = init.theta
-        if state.slots is not None:
-            from .partition.slots import extend_theta
-            starts, init_theta = extend_theta(state, starts), extend_theta(state, init.theta)
+        if state.uncertain_images is not None:
+            starts, init_theta = np.tile(uncertain_start, (runtime.chains, 1)), uncertain_start
         sampling = config.sampling
         log(f"[final] NUTS from {len({tuple(s) for s in starts.tolist()})} distinct start(s), chains={runtime.chains} "
             f"warmup={sampling.warmup} samples={sampling.samples}")
@@ -949,9 +956,10 @@ def run_final(config: LensClusterSolverConfig, init: InitResult) -> RunResult:
         posterior.diagnostics["start_check"] = start_check
         artifacts.save_posterior(stage.artifacts, posterior)
         sampling_seconds = time.perf_counter() - sampling_started
-        if state.slots is not None:
-            from .partition.slots import write_slot_outputs
-            write_slot_outputs(state, evaluator, posterior, stage, draws=config.partition.posterior_draws, seed=runtime.seed, log=log)
+        if state.uncertain_images is not None:
+            from .partition.groups import write_partition_outputs
+            write_partition_outputs(state, evaluator, posterior.samples, stage, draws=config.partition.posterior_draws, seed=runtime.seed,
+                                    log=log)
 
         comparison_started = time.perf_counter()
         comparison = write_final_model_comparison(config, state, evaluator, posterior, init, stage.artifacts, log=log)

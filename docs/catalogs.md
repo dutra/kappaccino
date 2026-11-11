@@ -243,10 +243,11 @@ when that paper gives the same band. A `set_member` decision sets one member's r
 - `ImageConstraintsConfig(trusted_prior_min=0.8)` trusts the images with $p \ge 0.8$: the diamond and gold systems
   without their poorly flagged images. An image below it leaves its family, as do families without a positive
   redshift or left with a single image.
-- With a `PartitionConfig` whose `catalog_path` is None, the untrusted images are the uncertain images of the slot
-  mixture. An image whose system is trusted puts its prior on that family's slot; the images of an untrusted system
-  (two or more of them) share a new slot seeded on them, and each puts its prior on it; the remaining $1 - p$ is
-  shared among unrelated and the other slots as for an image without a claim. Free redshifts are sampled.
+- With a `PartitionConfig` whose `catalog_path` is None, the untrusted images are the uncertain images, summed over
+  their partitions. An image whose system is trusted puts its prior $p$ on that family. The images of an untrusted
+  system (two or more of them) always form a group of the library, with one new source of their own, and each image
+  puts its prior on that source. The remaining $1 - p$ is shared among unrelated and the other sources as for an image
+  without a claim. The redshift of a new source is integrated over a grid.
 - `MemberConfig(membership="marginalize")` sums each member's membership over its `p_member`
   (`membership_max_enumerated` members exactly, the rest by their expected mass and its variance).
 - The default `trusted_prior_min=0.0` trusts every image with a positive redshift, as for a catalog without priors.

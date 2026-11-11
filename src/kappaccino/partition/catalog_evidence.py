@@ -1,5 +1,5 @@
 """Catalog evidence of a group of images: how probable their redshifts and colors are as one source drawn from the
-galaxy population (``slots`` uses it for an unrelated image, for a trusted family's predictive and for seeding).
+galaxy population (``groups`` uses it for a group of images, an unrelated image and a trusted family's predictive).
 
 For a family F with images i, catalog redshifts zhat_i (Gaussian, sigma_i) and colors c_i (adjacent-band magnitude
 differences, measurement covariance S_i), on a grid of source redshifts z_g:
@@ -33,6 +33,7 @@ MISSING_VARIANCE = 1.0e4
 DEFAULT_MAG_ERR = 0.1
 REDSHIFT_COLUMNS = ("zspec_best", "catalog_z", "zphot_best", "image_zphot_family", "z_source")
 DEFAULT_REDSHIFT_SIGMA = 0.5
+PHOTOZ_OUTLIER_RANGE = (0.5, 6.0)   # redshifts a catastrophic photo-z outlier is spread over
 
 
 def _numeric(table: pd.DataFrame, column: str, default: float = np.nan) -> np.ndarray:
@@ -232,10 +233,14 @@ def _gaussian_product_log_integral(prior_mean, prior_cov, values, covariances, m
 
 def catalog_log_evidence(data: CatalogData, member_index: np.ndarray, member_mask: np.ndarray, z_grid: np.ndarray,
                          population: GaussianMixture | None, *, color_scatter: float = 0.1, outlier_fraction: float = 0.05,
-                         outlier_scatter: float = 1.0) -> np.ndarray:
+                         outlier_scatter: float = 1.0, photoz_outlier_fraction: float = 0.0,
+                         photoz_outlier_range: tuple[float, float] = PHOTOZ_OUTLIER_RANGE) -> np.ndarray:
     """log E_cat(F, z_g) per family and grid redshift, shape (family, grid), quadrature weight included.
 
-    ``member_index`` (family, n_max) holds image indices, ``member_mask`` which slots are used.  Without a population
+    With ``photoz_outlier_fraction`` f > 0, each catalog redshift is a catastrophic outlier with probability f, uniform
+    over ``photoz_outlier_range``: p(zhat | z) = (1 - f) N(zhat | z, sigma^2) + f / (z_max - z_min), per image.
+
+    ``member_index`` (family, n_max) holds image indices, ``member_mask`` which positions are used.  Without a population
     mixture the redshift prior is uniform over the grid and colors are not used.
     """
     index, mask = np.asarray(member_index, dtype=int), np.asarray(member_mask, dtype=bool)
@@ -243,8 +248,12 @@ def catalog_log_evidence(data: CatalogData, member_index: np.ndarray, member_mas
     log_dz = np.log(redshift_grid_weights(z_grid))
     z_mean, z_sigma = data.z_mean[index], data.z_sigma[index]
     known = mask & np.isfinite(z_mean)
-    photo_z = np.where(known[..., None], -0.5 * (((z_grid - np.where(known, z_mean, 0.0)[..., None]) / z_sigma[..., None]) ** 2
-                                                 + 2.0 * np.log(z_sigma[..., None]) + LOG_2PI), 0.0).sum(axis=1)   # (u, g)
+    gaussian = -0.5 * (((z_grid - np.where(known, z_mean, 0.0)[..., None]) / z_sigma[..., None]) ** 2 + 2.0 * np.log(z_sigma[..., None])
+                       + LOG_2PI)
+    if photoz_outlier_fraction > 0.0:
+        width = float(photoz_outlier_range[1] - photoz_outlier_range[0])
+        gaussian = np.logaddexp(np.log1p(-photoz_outlier_fraction) + gaussian, np.log(photoz_outlier_fraction / width))
+    photo_z = np.where(known[..., None], gaussian, 0.0).sum(axis=1)   # (u, g)
     if population is None:
         return photo_z + log_dz - np.log(np.ptp(z_grid) if z_grid.size > 1 else 1.0)
     d = data.colors.shape[1]

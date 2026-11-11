@@ -313,11 +313,12 @@ def init_signature(config: LensClusterSolverConfig) -> dict[str, Any]:
     Returns
     -------
     dict
-        ``config.to_json_dict()`` without the ``sampling``, ``image_diagnostics``, ``truth``, ``image_catalog`` and
-        ``paths`` sections, and with ``runtime`` reduced to ``{"seed": ...}``.
+        ``config.to_json_dict()`` without the ``sampling``, ``image_diagnostics``, ``truth``, ``image_catalog``,
+        ``paths`` and ``partition`` sections (the uncertain images enter in the final stage only), and with ``runtime``
+        reduced to ``{"seed": ...}``.
     """
     payload = config.to_json_dict()
-    for key in ("sampling", "image_diagnostics", "truth", "image_catalog", "paths"):
+    for key in ("sampling", "image_diagnostics", "truth", "image_catalog", "paths", "partition"):
         payload.pop(key, None)
     payload["runtime"] = {"seed": config.runtime.seed}
     if payload.get("members", {}).get("membership") == "fixed":
@@ -325,6 +326,12 @@ def init_signature(config: LensClusterSolverConfig) -> dict[str, Any]:
         for key in ("membership", "membership_default_probability", "membership_max_enumerated", "membership_calibration_prior"):
             payload["members"].pop(key, None)
     return payload
+
+
+def without_partition(signature: dict[str, Any]) -> dict[str, Any]:
+    """A saved init signature without its ``partition`` section, which signatures saved before the uncertain images
+    left the init stage still hold."""
+    return {key: value for key, value in signature.items() if key != "partition"}
 
 
 def is_init_complete(directory: Path) -> bool:

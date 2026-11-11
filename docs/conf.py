@@ -1,5 +1,5 @@
 """Sphinx configuration of the kappaccino documentation (Markdown through MyST).  The API pages use autodoc with the
-heavy dependencies mocked: the package itself, with JAX and the lenstronomy forks, is not installed on Read the Docs."""
+heavy dependencies mocked: the package itself, with JAX, is not installed on Read the Docs."""
 
 import os
 import sys
@@ -45,8 +45,6 @@ autodoc_mock_imports = [
     "jax",
     "jax_cosmo",
     "jaxlib",
-    "jaxtronomy",
-    "lenstronomy",
     "matplotlib",
     "numpyro",
     "optax",

@@ -6,10 +6,8 @@ kappaccino needs Python 3.11 or newer. Install it from the repository root:
 python -m pip install -e .
 ```
 
-The dependencies in `pyproject.toml` include two forks that are installed from GitHub branches:
-
-- `jaxtronomy` from `dutra/JAXtronomy@feat-pseudojaffe-compact-profiles` (the JAX lens profiles), and
-- `lenstronomy` from `dutra/lenstronomy@feat-lenscluster-models` (the exact-image solver and plotting).
+`lenstronomy` and `jaxtronomy` are installed from the `main` branches of their upstream repositories. The
+lens model does not use them; the arc and fold source-light scripts do.
 
 ## Data
 

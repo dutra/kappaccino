@@ -1368,7 +1368,19 @@ class ImageDiagnosticsConfig:
         ``"global-jax"``: margin added around each family's image span to form its search window, in arcsec.  Default
         ``3.0``.
     exact_image_min_separation_arcsec : float, optional
-        Two roots closer than this, in arcsec, are one image.  Default ``0.05``.
+        Local solver: two observed images that converge onto roots closer than this, in arcsec, are one model image.
+        Default ``0.05``.
+    exact_image_root_residual_arcsec : float, optional
+        ``"global-jax"``: a candidate root is polished with Newton steps and accepted only when its source-plane residual
+        is below this, in arcsec.  Points on a critical curve with the source just outside (or inside) the caustic stall at
+        a residual equal to the caustic offset, so a loose tolerance would accept them; a true image converges to round-
+        off.  A fold pair 0.001" apart comes from a source about 1e-8" inside its caustic, so the tolerance sits well
+        below that.  Default ``1e-11``.
+    exact_image_root_separation_arcsec : float, optional
+        ``"global-jax"``: two accepted roots closer than this, in arcsec, are one image; below the separation of the
+        tightest fold pairs to be resolved (0.001").  Default ``1e-4``.
+    exact_image_polish_iterations : int, optional
+        ``"global-jax"``: Newton iterations polishing each candidate root.  Default ``40``.
     exact_image_displacement_tol_arcsec : float, optional
         LM convergence tolerance on the step and the source-plane residual, in arcsec; a ``"global-jax"`` root must
         meet it in both planes.  Default ``1e-4``.
@@ -1402,6 +1414,9 @@ class ImageDiagnosticsConfig:
     exact_image_seed_tolerance_pitches: float = 3.0
     exact_image_window_margin_arcsec: float = 3.0
     exact_image_min_separation_arcsec: float = 0.05
+    exact_image_root_residual_arcsec: float = 1.0e-11
+    exact_image_root_separation_arcsec: float = 1.0e-4
+    exact_image_polish_iterations: int = 40
     exact_image_displacement_tol_arcsec: float = 1.0e-4
     exact_image_identification_tol_arcsec: float = 1.0e-3
     exact_image_lm_max_iter: int = 100
@@ -2060,6 +2075,10 @@ def validate_config(config: LensClusterSolverConfig) -> None:
     _positive("image_diagnostics.exact_image_fine_pitch_arcsec", diagnostics.exact_image_fine_pitch_arcsec)
     if diagnostics.exact_image_fine_pitch_arcsec > diagnostics.exact_image_grid_pitch_arcsec:
         raise ValueError("image_diagnostics.exact_image_fine_pitch_arcsec must not exceed the coarse grid pitch.")
+    _positive("image_diagnostics.exact_image_root_residual_arcsec", diagnostics.exact_image_root_residual_arcsec)
+    _positive("image_diagnostics.exact_image_root_separation_arcsec", diagnostics.exact_image_root_separation_arcsec)
+    if int(diagnostics.exact_image_polish_iterations) < 1:
+        raise ValueError("image_diagnostics.exact_image_polish_iterations must be positive.")
     _positive("image_diagnostics.exact_image_seed_tolerance_pitches", diagnostics.exact_image_seed_tolerance_pitches)
     if int(config.truth.posterior_truth_recovery_draws) < 0 or int(config.truth.truth_grid_size) < 0:
         raise ValueError("truth.posterior_truth_recovery_draws and truth.truth_grid_size must be nonnegative.")

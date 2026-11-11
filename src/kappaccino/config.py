@@ -473,6 +473,13 @@ class MemberPopulationConfig:
         Ratio :math:`c = \\sigma_{ap}/\\sigma_{LT}` of the measured aperture dispersion to the dPIE dispersion,
         dimensionless.  Must be positive.  Default ``295.2 / 248.0`` (Bergamini et al. 2021: an aperture dispersion
         of 295.2 km s^-1 at the BCG magnitude deprojected to a :math:`\\sigma_{LT}` prior of 248 km s^-1).
+        For cored power-law members (``profile_type`` 102) the factor is multiplied by
+        :math:`\\sigma_\\mathrm{ap}(\\gamma) / \\sigma_\\mathrm{ap}(2)`, the ratio of the member's aperture dispersion
+        to that of the dPIE with the same dispersion and radii (``kappaccino.lens.cored_power_law.aperture_dispersion_ratio``:
+        isotropic Jeans, light traces mass), so the dPIE calibration holds at slope 2.
+    kinematics_aperture_arcsec : float or None, optional
+        Cored power-law members only: radius of the circular aperture of the measured dispersions, in arcsec.  None uses
+        each member's circularized catalog light axes, :math:`\\sqrt{ab}`.  Must be positive.  Default None.
     """
     id: str
     catalog_path: str | Path
@@ -492,6 +499,7 @@ class MemberPopulationConfig:
     kinematics_sources: tuple[str, ...] = ()
     kinematics_systematic: float = 0.05
     kinematics_aperture_factor: float = 295.2 / 248.0
+    kinematics_aperture_arcsec: float | None = None
 
     @classmethod
     def bergamini2019(cls, id: str, catalog_path: str | Path, z_lens: float, *, prior_mag0: float, sigma: float = 200.0,
@@ -2217,6 +2225,8 @@ def _validate_model_config(model: LensModelConfig | None) -> None:
                 raise ValueError(f"member population {population.id!r}: kinematics_sources need a YAML member catalog.")
             if len(set(population.kinematics_sources)) != len(population.kinematics_sources):
                 raise ValueError(f"member population {population.id!r} has duplicate kinematics_sources.")
+        if population.kinematics_aperture_arcsec is not None and not float(population.kinematics_aperture_arcsec) > 0.0:
+            raise ValueError(f"member population {population.id!r}: kinematics_aperture_arcsec must be positive or None.")
         if not (population.kinematics_systematic >= 0.0 and population.kinematics_aperture_factor > 0.0):
             raise ValueError(f"member population {population.id!r}: kinematics_systematic must be >= 0 and kinematics_aperture_factor > 0.")
     keys: set[tuple[str, str]] = set()

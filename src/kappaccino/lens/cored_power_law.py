@@ -197,3 +197,56 @@ grouped_cored_power_law_fields = {
     True: jax.vmap(cored_power_law_fields, in_axes=(None, None, 0, 0, 0, 0, 0, 0, 0, 0)),
     False: jax.vmap(functools.partial(cored_power_law_fields, derivative=False), in_axes=(None, None, 0, 0, 0, 0, 0, 0, 0, 0)),
 }
+
+
+# ----------------------------------------------------------------------------- stellar kinematics
+JEANS_NODES = 512            # log-spaced radii of the Jeans integrals, from 1e-3 of the smaller of core and aperture
+JEANS_SPAN = (1.0e-3, 1.0e3)  # to 1e3 cut radii
+
+
+def aperture_dispersion_sq(slope, a, s, aperture, sigma0=1.0):
+    """Luminosity-weighted line-of-sight velocity dispersion squared inside a circular aperture of radius
+    ``aperture``, in units of :math:`4\\\\pi G \\\\Sigma_\\\\mathrm{cr} / 3` times arcsec (so only ratios are physical).
+
+    Spherical, isotropic, light traces mass.  With the 3D density
+    :math:`\\\\rho = \\\\rho_0 [(r^2 + a^2)^{-\\\\gamma/2} - (r^2 + s^2)^{-\\\\gamma/2}]`, whose projection is the CPL
+    convergence (:math:`\\\\rho_0 = A\\\\, \\\\Gamma(\\\\gamma/2) / (\\\\sqrt{\\\\pi}\\\\, \\\\Gamma((\\\\gamma - 1)/2))`), the
+    isotropic Jeans equation projected and integrated over the aperture reduces to one radial integral,
+
+    .. math::
+
+        \\\\sigma_\\\\mathrm{ap}^2 = \\\\frac{4 \\\\pi G}{3 M_\\\\mathrm{2D}(<R)} \\\\int_0^\\\\infty \\\\rho(r) \\\\frac{M(r)}{r^2}
+        \\\\left[r^3 - (r^2 - m^2)^{3/2}\\\\right] dr, \\\\qquad m = \\\\min(r, R),
+
+    with :math:`M(r)` the 3D enclosed mass and :math:`M_\\\\mathrm{2D}(<R) = \\\\pi A\\\\, G_p(R)` the projected mass
+    inside the aperture.  Trapezoids in :math:`\\\\ln r` on ``JEANS_NODES`` points; the arguments broadcast."""
+    from jax.scipy.special import gammaln
+    slope, a, s, aperture = (jnp.asarray(v, dtype=jnp.float64) for v in (slope, a, s, aperture))
+    slope, a, s, aperture = jnp.broadcast_arrays(slope, a, s, aperture)
+    amp = amplitude(sigma0, a, s, slope)
+    rho0 = amp * jnp.exp(gammaln(0.5 * slope) - gammaln(0.5 * (slope - 1.0))) / jnp.sqrt(jnp.pi)
+    low = JEANS_SPAN[0] * jnp.minimum(a, aperture)
+    high = JEANS_SPAN[1] * s
+    t = jnp.linspace(0.0, 1.0, JEANS_NODES)
+    log_r = jnp.log(low)[..., None] + t * (jnp.log(high) - jnp.log(low))[..., None]
+    step = (jnp.log(high) - jnp.log(low))[..., None]  / (JEANS_NODES - 1)
+    r = jnp.exp(log_r)
+    r2 = r * r
+    half = 0.5 * slope[..., None]
+    rho = rho0[..., None] * ((r2 + a[..., None] ** 2) ** -half - (r2 + s[..., None] ** 2) ** -half)
+    shell = 4.0 * jnp.pi * rho * r2 * r                               # dM / d ln r
+    inner = (4.0 / 3.0) * jnp.pi * rho[..., :1] * r[..., :1] ** 3     # the mass inside the first node (flat core)
+    mass = inner + jnp.concatenate((jnp.zeros_like(shell[..., :1]),
+                                    jnp.cumsum(0.5 * (shell[..., 1:] + shell[..., :-1]), axis=-1) * step), axis=-1)
+    m = jnp.minimum(r, aperture[..., None])
+    kernel = r2 * r - jnp.maximum(r2 - m * m, 0.0) ** 1.5
+    integrand = rho * mass / r2 * kernel * r                          # d / d ln r
+    numerator = jnp.sum(0.5 * (integrand[..., 1:] + integrand[..., :-1]), axis=-1) * step[..., 0]
+    projected = jnp.pi * amp * enclosed(aperture * aperture, a, s, slope)
+    return numerator / projected
+
+
+def aperture_dispersion_ratio(slope, a, s, aperture):
+    """:math:`\\\\sigma_\\\\mathrm{ap}(\\\\gamma) / \\\\sigma_\\\\mathrm{ap}(2)`: the aperture dispersion of the CPL over that
+    of the dPIE with the same dispersion parameter and radii (so the same mass inside the cut); 1 at slope 2."""
+    return jnp.sqrt(aperture_dispersion_sq(slope, a, s, aperture) / aperture_dispersion_sq(2.0, a, s, aperture))

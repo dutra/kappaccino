@@ -191,6 +191,7 @@ def build_member_components(potfiles, reference, scaling_param_indices, *, start
                 "luminosity_ratio": float(luminosity_ratio[row_index]),
                 "x_centre": float(x_offsets[row_index]), "y_centre": float(y_offsets[row_index]),
                 "ellipticite": float(ellipticite), "angle_pos": float(angle_pos),
+                "catalog_a": float(row.catalog_a), "catalog_b": float(row.catalog_b),
             })
     return components, assignments, scaling_assignments, records
 
@@ -329,7 +330,8 @@ def source_sample_name(family_id: str, axis: str) -> str:
 def build_member_kinematics(records: list[dict[str, Any]], populations) -> dict[str, Any]:
     """The measured dispersions of the members on the scaling relations, from the sources each population turns on:
     component index, ln sigma_meas, the total log error e_i = sqrt((err_i / sigma_meas)^2 + systematic^2) and the
-    aperture factor per measurement.  A member may have one measurement among the sources turned on (two would count the
+    aperture factor and the aperture radius per measurement (``MemberPopulationConfig.kinematics_aperture_arcsec``, or
+    the circularized catalog light axes :math:`\\sqrt{ab}`).  A member may have one measurement among the sources turned on (two would count the
     same galaxy twice); a source turned on but found on no member is an error.  Empty when no source is on."""
     by_id = {str(p.id): p for p in populations}
     rows, found = [], {pid: set() for pid in by_id}
@@ -354,7 +356,10 @@ def build_member_kinematics(records: list[dict[str, Any]], populations) -> dict[
                 sigma=np.asarray([float(m["sigma"]) for _, m, _ in rows]),
                 err=np.asarray([float(m["err"]) for _, m, _ in rows]),
                 log_err=np.asarray([math.hypot(float(m["err"]) / float(m["sigma"]), float(p.kinematics_systematic)) for _, m, p in rows]),
-                aperture_factor=np.asarray([float(p.kinematics_aperture_factor) for _, _, p in rows]))
+                aperture_factor=np.asarray([float(p.kinematics_aperture_factor) for _, _, p in rows]),
+                aperture_arcsec=np.asarray([float(p.kinematics_aperture_arcsec) if p.kinematics_aperture_arcsec is not None
+                                            else math.sqrt(float(r.get("catalog_a", np.nan)) * float(r.get("catalog_b", np.nan)))
+                                            for r, _, p in rows]))
 
 
 # ----------------------------------------------------------------------------- state assembly

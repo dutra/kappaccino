@@ -167,6 +167,17 @@ per exact member as the analytic dPIE. Far-field CPL members use the exact circu
 The `lenstronomy` image finder has no CPL profile, so `ImageDiagnosticsConfig.exact_image_finder` must be one of the
 JAX finders.
 
+Measured stellar dispersions (`kinematics_sources`) constrain the slope. The dispersions fix the mass inside a
+member's half-light radius, and the images fix the mass inside larger radii. For a CPL member, the model dispersion is
+the dPIE calibration `kinematics_aperture_factor` times the ratio $\sigma_\mathrm{ap}(\gamma)/\sigma_\mathrm{ap}(2)$.
+This ratio compares the member's aperture dispersion with that of the dPIE with the same dispersion parameter and
+radii. It comes from the isotropic Jeans equation, with light tracing mass, integrated over a circular aperture
+(`kappaccino.lens.cored_power_law.aperture_dispersion_ratio`). At slope 2 the ratio is 1. The aperture radius is
+`kinematics_aperture_arcsec`, or by default each member's circularized catalog light axes $\sqrt{ab}$. At fixed mass
+inside the cut, a slope of 1.5 lowers the aperture dispersion by about 17% and a slope of 2.6 raises it by about 30%
+(core 0.03", cut 2", aperture 0.3"). The inferred slope therefore depends on the aperture. Check it against a fixed
+`kinematics_aperture_arcsec`.
+
 ### Scaling relation and deviations
 
 `ScalingModelConfig` sets the slope priors (`alpha_sigma_prior`, `beta_radius_prior`: truncated normals, 0.27 ± 0.05

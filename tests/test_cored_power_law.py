@@ -216,3 +216,71 @@ def test_configuration_checks(synthetic_config):
     with pytest.raises(ValueError, match="lenstronomy"):
         replace(config, image_diagnostics=replace(config.image_diagnostics, exact_image_finder="lenstronomy")).validate()
     assert with_population(profile_type=DP_IE_PROFILE).validate() is not None
+
+
+# ----------------------------------------------------------------------------- stellar kinematics (Jeans)
+def _brute_aperture_dispersion_sq(slope, a, s, aperture):
+    """The isotropic Jeans aperture dispersion by direct nested quadrature: M(r), the projected sigma^2 profile, the
+    aperture average; in the units of ``aperture_dispersion_sq``."""
+    from scipy.integrate import quad
+    from scipy.special import gamma
+    amp = float(cpl.amplitude(1.0, a, s, slope))
+    rho0 = amp * gamma(slope / 2) / (np.sqrt(np.pi) * gamma((slope - 1) / 2))
+    rho = lambda r: rho0 * ((r * r + a * a) ** (-slope / 2) - (r * r + s * s) ** (-slope / 2))
+    mass = lambda r: quad(lambda x: 4 * np.pi * rho(x) * x * x, 0, r, limit=200)[0]
+    projected_sq = lambda big_r: 2 * quad(lambda r: rho(r) * mass(r) / r ** 2 * np.sqrt(r * r - big_r * big_r),
+                                          big_r, 200 * s, limit=200, points=[a, s])[0]
+    numerator = quad(lambda big_r: 2 * np.pi * big_r * projected_sq(big_r), 0, aperture, limit=50)[0]
+    return numerator / (np.pi * amp * float(cpl.enclosed(aperture ** 2, a, s, slope))) * 3 / (4 * np.pi)
+
+
+@pytest.mark.parametrize("slope,a,s,aperture", ((2.0, 0.03, 2.0, 0.3), (1.5, 0.03, 2.0, 0.3), (2.6, 0.1, 3.0, 0.5)))
+def test_aperture_dispersion_matches_brute_force_jeans(slope, a, s, aperture):
+    np.testing.assert_allclose(float(cpl.aperture_dispersion_sq(slope, a, s, aperture)),
+                               _brute_aperture_dispersion_sq(slope, a, s, aperture), rtol=1e-3)
+
+
+def test_aperture_dispersion_ratio_is_one_at_slope_two_and_grows_with_the_slope():
+    a, s, aperture = 0.03, 2.0, 0.3
+    np.testing.assert_allclose(float(cpl.aperture_dispersion_ratio(2.0, a, s, aperture)), 1.0, rtol=1e-12)
+    ratios = [float(cpl.aperture_dispersion_ratio(g, a, s, aperture)) for g in (1.3, 1.7, 2.0, 2.4, 2.8)]
+    assert np.all(np.diff(ratios) > 0)
+    gradient = jax.grad(lambda g: cpl.aperture_dispersion_ratio(g, a, s, aperture))(2.3)
+    h = 1e-6
+    numeric = (cpl.aperture_dispersion_ratio(2.3 + h, a, s, aperture) - cpl.aperture_dispersion_ratio(2.3 - h, a, s, aperture)) / (2 * h)
+    np.testing.assert_allclose(float(gradient), float(numeric), rtol=1e-6)
+
+
+def test_power_law_kinematics_use_the_jeans_ratio(synthetic_config, tmp_path):
+    """At slope 2 the kinematics term is the dPIE term; at another slope each model dispersion carries the ratio at the
+    member's core, cut and aperture (the circularized catalog axes, or the configured radius)."""
+    from test_member_kinematics import MEASURED, _with_kinematics
+    dpie_config = _with_kinematics(synthetic_config, tmp_path / "dpie")
+    power_law = _power_law_config(_with_kinematics(synthetic_config, tmp_path / "cpl"))
+    dpie_state, state = build_state(dpie_config), build_state(power_law)
+    kinematics = state.member_kinematics
+    records = {r["component_index"]: r for r in state.scaling_component_records}
+    np.testing.assert_allclose(kinematics["aperture_arcsec"],
+                               [np.sqrt(records[c]["catalog_a"] * records[c]["catalog_b"]) for c in kinematics["component_index"]])
+    a, b = Evaluator(dpie_state, "smoothed"), Evaluator(state, "smoothed")
+    names = [s.name for s in state.parameter_specs]
+    theta = np.asarray(state.initial_theta, dtype=float)
+    theta_dpie = np.delete(theta, names.index("members.slope"))
+    np.testing.assert_allclose(float(b.kinematics_log_likelihood(b.physical(jnp.asarray(theta)))),
+                               float(a.kinematics_log_likelihood(a.physical(jnp.asarray(theta_dpie)))), rtol=1e-10)
+    theta[names.index("members.slope")] = 2.5
+    physical = b.physical(jnp.asarray(theta))
+    packed, _ = b.packed_state(physical, factor_per_image=1.0)
+    components = np.asarray(kinematics["component_index"])
+    ratio = np.asarray(cpl.aperture_dispersion_ratio(2.5, np.asarray(packed.Ra)[components], np.asarray(packed.Rs)[components],
+                                                     kinematics["aperture_arcsec"]))
+    sigma = np.asarray(b.component_dispersions(physical))[components]
+    c = power_law.model.member_populations[0].kinematics_aperture_factor
+    z = (np.log(kinematics["sigma"]) - np.log(c * sigma * ratio)) / kinematics["log_err"]
+    expected = -0.5 * np.sum(z ** 2) - np.sum(np.log(kinematics["log_err"])) - 0.5 * z.size * np.log(2 * np.pi)
+    np.testing.assert_allclose(float(b.kinematics_log_likelihood(physical)), expected, rtol=1e-10)
+    assert np.all(ratio > 1.0)
+    fixed = replace(power_law, model=replace(power_law.model, member_populations=(
+        replace(power_law.model.member_populations[0], kinematics_aperture_arcsec=0.4),)))
+    np.testing.assert_allclose(build_state(fixed.validate()).member_kinematics["aperture_arcsec"], 0.4)
+    assert len(MEASURED) == len(components)

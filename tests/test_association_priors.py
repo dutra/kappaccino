@@ -5,7 +5,7 @@ import pandas as pd
 import pytest
 
 from kappaccino.io.image_catalog import CatalogError, load_image_catalog, write_image_catalog
-from kappaccino.partition.slots import association_log_weights, claim_columns, claimed_groups
+from kappaccino.partition.inputs import association_log_weights, claim_columns, claimed_groups
 
 
 def test_image_and_knot_priors(tmp_path):

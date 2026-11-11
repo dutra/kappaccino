@@ -16,7 +16,7 @@ A run writes everything under its run root, `<output_dir>/<run_name>/` from
 : `classification_report.txt`, `shallow_fold_pairs.json`.
 
 `final/artifacts/`
-: `config.json`, `posterior.h5`, `audit.json`, `summary.json`, and with uncertain images `slots.h5` (see
+: `config.json`, `posterior.h5`, `audit.json`, `summary.json`, and with uncertain images `uncertain_images.h5` (see
   {doc}`likelihoods`), `model_comparison.json` (BIC and, with `SamplingConfig.wbic`, WBIC) and with WBIC
   `wbic_draws.h5` (see {doc}`model-comparison`).
 

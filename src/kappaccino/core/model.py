@@ -522,9 +522,9 @@ class ModelState:
     initial_theta : numpy.ndarray or None, optional
         The latent start vector, shape (parameter,): prior centers, with the configured starts of the error-model
         scales.  Also the known-valid reference at which ``Evaluator.log_likelihood`` evaluates rejected proposals.
-    slots : partition.slots.SlotModel or None, optional
-        Uncertain images and the source slots they may come from (``partition.slots.add_slots``); their parameters are
-        the last ones.  None (default) without uncertain images.
+    uncertain_images : partition.groups.GroupModel or None, optional
+        Uncertain images summed over their partitions (``partition.groups.add_uncertain_images``); they add no
+        parameters.  None (default) without uncertain images.
     """
     run_name: str
     cosmo_config: dict[str, Any]
@@ -566,8 +566,8 @@ class ModelState:
     # Measured member dispersions in the likelihood (state.build_member_kinematics); empty when no source is on.
     member_kinematics: dict[str, Any] = field(default_factory=dict)
     initial_theta: np.ndarray | None = None
-    # Uncertain images assigned to source slots (partition.slots.SlotModel); its parameters follow every other parameter.
-    slots: Any = None
+    # Uncertain images summed over their partitions (partition.groups.GroupModel); no parameters of their own.
+    uncertain_images: Any = None
 
     @property
     def n_parameters(self) -> int:

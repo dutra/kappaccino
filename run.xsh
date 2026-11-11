@@ -38,6 +38,7 @@ from kappaccino.config import (
     LensModelConfig,
     MemberConfig,
     MemberPopulationConfig,
+    PartitionConfig,
     RGBDisplayConfig,
     ReferenceFrameConfig,
     RunPathsConfig,
@@ -153,6 +154,12 @@ def _usage() -> str:
         "  --far-offsets sample|fixed: far-field member offsets sampled (default) or pinned at the relation\n"
         "  --offset-tail student_t|normal: member deviation tails (default student_t, dof 4)\n"
         "  --bcg-cut-prior lognormal|uniform: BCG cut-radius prior (default lognormal, unbounded)\n"
+        "  --image-catalog YAML: the image catalog to fit instead of the cluster entry's (e.g. a degraded catalog)\n"
+        "  --uncertain-images CSV|catalog: images of unknown family, summed over their partitions into groups that share a new\n"
+        "          source (kappaccino.partition.groups, PartitionConfig); catalog takes every image of the image catalog the\n"
+        "          run does not trust\n"
+        "  --redshift-grid Z_MIN,Z_MAX,POINTS: the redshift quadrature of the uncertain images (default the catalog\n"
+        "          redshifts +- 2 sigma with 96 points, uniform in the lensing efficiency)\n"
         "  --skip-plots: no figures or tables after sampling (quick tests; the sampler diagnostics are in the log)\n"
         "  --wbic: after NUTS, a second NUTS run on the tempered posterior gives WBIC for model comparison\n"
         "          (final/artifacts/model_comparison.json, about twice the sampling time).  On a finished run --wbic adds only\n"
@@ -183,14 +190,15 @@ def _parse_args(argv: list[str]) -> dict:
               "halo_search": "lbfgs", "member_search": "lbfgs", "likelihood": "grf_gp", "gp_blocks": None,
               "warm_start": None, "gp_band_max": None, "start_tolerance": None, "start_max_iter": None, "gp_knee_gamma": None, "gp_knee_fixed": None, "fix_relation": None, "relation_prior": None, "kinematics": None, "drop_halos": None, "member_shapes": None,
               "warmup": None, "samples": None, "dense_offsets": None, "far_offsets": None, "offset_tail": None, "bcg_cut_prior": "lognormal",
-              "skip_plots": False, "wbic": False}
+              "skip_plots": False, "wbic": False, "image_catalog": None, "uncertain_images": None, "redshift_grid": None}
     flag_to_key = {"--campaign": "campaign", "--run-label": "run_label", "--stage": "stage", "--imaging": "imaging",
                    "--halo-search": "halo_search", "--member-search": "member_search", "--likelihood": "likelihood",
                    "--gp-blocks": "gp_blocks", "--warm-start": "warm_start",
                    "--gp-band-max": "gp_band_max", "--start-tolerance": "start_tolerance", "--start-max-iter": "start_max_iter",
                    "--gp-knee-gamma": "gp_knee_gamma", "--gp-knee-fixed": "gp_knee_fixed", "--fix-relation": "fix_relation", "--relation-prior": "relation_prior", "--kinematics": "kinematics", "--drop-halos": "drop_halos", "--member-shapes": "member_shapes", "--warmup": "warmup", "--samples": "samples",
                    "--dense-offsets": "dense_offsets", "--far-offsets": "far_offsets", "--offset-tail": "offset_tail",
-                   "--bcg-cut-prior": "bcg_cut_prior"}
+                   "--bcg-cut-prior": "bcg_cut_prior", "--image-catalog": "image_catalog", "--uncertain-images": "uncertain_images",
+                   "--redshift-grid": "redshift_grid"}
     index = 2
     while index < len(argv):
         flag = argv[index]
@@ -267,6 +275,16 @@ def _parse_args(argv: list[str]) -> dict:
     except ValueError:
         print("--warmup and --samples take positive integers.")
         raise SystemExit(2)
+    if values["redshift_grid"] is not None:
+        try:
+            z_min, z_max, points = values["redshift_grid"].split(",")
+            values["redshift_grid"] = (float(z_min), float(z_max), int(points))
+        except ValueError:
+            print("--redshift-grid takes Z_MIN,Z_MAX,POINTS.")
+            raise SystemExit(2)
+        if values["uncertain_images"] is None:
+            print("--redshift-grid applies with --uncertain-images only.")
+            raise SystemExit(2)
     return dict(cluster=cluster, campaign_name=str(values["campaign"]).strip(), run_label=values["run_label"],
                 dry_run=values["dry_run"], fast=values["fast"], stage=values["stage"], imaging=values["imaging"],
                 halo_search=values["halo_search"], member_search=values["member_search"], likelihood=values["likelihood"],
@@ -274,7 +292,8 @@ def _parse_args(argv: list[str]) -> dict:
                 gp_band_max=values["gp_band_max"], start_tolerance=values["start_tolerance"], start_max_iter=values["start_max_iter"],
                 gp_knee_gamma=values["gp_knee_gamma"], gp_knee_fixed=values["gp_knee_fixed"], fix_relation=values["fix_relation"], relation_prior=values["relation_prior"], kinematics=values["kinematics"], drop_halos=values["drop_halos"], member_shapes=values["member_shapes"], warmup=values["warmup"], samples=values["samples"],
                 dense_offsets=values["dense_offsets"], far_offsets=values["far_offsets"], offset_tail=values["offset_tail"],
-                bcg_cut_prior=values["bcg_cut_prior"], skip_plots=values["skip_plots"], wbic=values["wbic"])
+                bcg_cut_prior=values["bcg_cut_prior"], skip_plots=values["skip_plots"], wbic=values["wbic"],
+                image_catalog=values["image_catalog"], uncertain_images=values["uncertain_images"], redshift_grid=values["redshift_grid"])
 
 
 # The solver's tuned defaults live in kappaccino.config; a cluster entry carries only what is specific to it: the
@@ -674,9 +693,14 @@ def build_config(
     kinematics: str | None = None,
     drop_halos: str | None = None,
     member_shapes: str | None = None,
+    image_catalog: str | None = None,
+    uncertain_images: str | None = None,
+    redshift_grid: tuple[float, float, int] | None = None,
 ) -> LensClusterSolverConfig:
     """The solver configuration for one cluster: library defaults plus the cluster entry, the command-line choices and,
-    with ``fast``, the exploratory overrides."""
+    with ``fast``, the exploratory overrides.  ``image_catalog`` replaces the cluster entry's image catalog, and
+    ``uncertain_images`` (a CSV table, or ``"catalog"`` for the untrusted images of the image catalog) adds the
+    uncertain images (``PartitionConfig``, with ``redshift_grid`` its quadrature)."""
     if cluster not in CLUSTERS:
         raise ValueError(f"cluster must be one of {', '.join(sorted(CLUSTERS))}; got {cluster!r}.")
     is_hff = cluster not in FF_SIMS
@@ -689,7 +713,7 @@ def build_config(
             large_halos=cluster_config["halos"],
             independent_member_halos=cluster_config["independent_member_halos"],
             member_populations=(cluster_config["member_population"],),
-            image_constraints=ImageConstraintsConfig(catalog_path=cluster_config["image_catalog"]),
+            image_constraints=ImageConstraintsConfig(catalog_path=image_catalog or cluster_config["image_catalog"]),
         ),
         # No selection term: in the oct28a M0416 run sigma_sel and sigma_def fit equally well and lambda_sel stayed at its prior.
         # Covariance blocks: all by default for full runs, system for --fast (2026-11-03); one shared mass field over every image with the field-wide
@@ -833,6 +857,9 @@ def build_config(
         config = replace(config, search=replace(config.search,
                                                 nuts_start_tolerance=float(start_tolerance or config.search.nuts_start_tolerance),
                                                 nuts_start_max_iter=int(start_max_iter or config.search.nuts_start_max_iter)))
+    if uncertain_images:
+        config = replace(config, partition=PartitionConfig(catalog_path=None if uncertain_images == "catalog" else uncertain_images,
+                                                           redshift_grid=redshift_grid))
     return config
 
 def _fast_mode_warning(config) -> None:
@@ -870,7 +897,9 @@ def main(argv=None):
                           gp_blocks=options["gp_blocks"],
                           warm_start=options["warm_start"], gp_band_max=options["gp_band_max"],
                           start_tolerance=options["start_tolerance"], start_max_iter=options["start_max_iter"],
-                          gp_knee_gamma=options["gp_knee_gamma"], gp_knee_fixed=options["gp_knee_fixed"], fix_relation=options["fix_relation"], relation_prior=options["relation_prior"], kinematics=options["kinematics"], drop_halos=options["drop_halos"], member_shapes=options["member_shapes"])
+                          gp_knee_gamma=options["gp_knee_gamma"], gp_knee_fixed=options["gp_knee_fixed"], fix_relation=options["fix_relation"], relation_prior=options["relation_prior"], kinematics=options["kinematics"], drop_halos=options["drop_halos"], member_shapes=options["member_shapes"],
+                          image_catalog=options["image_catalog"], uncertain_images=options["uncertain_images"],
+                          redshift_grid=options["redshift_grid"])
     # Sampler-geometry overrides (2026-11-04 tests): draws, the dense block's members, far-field offsets, deviation tails.
     sampling = config.sampling
     if options["warmup"] is not None:

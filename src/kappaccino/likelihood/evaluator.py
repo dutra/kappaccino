@@ -586,8 +586,8 @@ class Evaluator:
             value = jnp.sum(stats["loglike"]) + stats["source_correction"]
             if not source_jacobian:
                 value = value - stats["source_jacobian"]
-            if self.state.slots is not None:              # the uncertain images see the same member configuration
-                value = value + self.state.slots.log_likelihood(self, params, stats, membership=membership)
+            if self.state.uncertain_images is not None:   # the uncertain images see the same member configuration
+                value = value + self.state.uncertain_images.log_likelihood(self, params, stats, membership=membership)
             return value, jnp.all(stats["valid"]) & jnp.all(stats["transport_valid"])
 
         values, valid = jax.vmap(image_terms)(self.membership_configurations)
@@ -1146,7 +1146,7 @@ class Evaluator:
 
         The value is the sum of the per-image (or per-family) likelihood terms, the source-transport correction, the
         member-kinematics term, the far-field guard barrier, the smooth ellipticity caps and, when the state carries
-        source slots (``partition.slots``), the slot-mixture likelihood of the uncertain images.  It is the target the
+        uncertain images (``partition.groups``), their likelihood summed over partitions.  It is the target the
         sampler adds to the priors of the latent parameters.  ``loglike`` and ``value_and_grad`` are jitted versions.
 
         With enumerated uncertain members (``MemberConfig.membership="marginalize"``) the image terms are the log of the
@@ -1179,8 +1179,8 @@ class Evaluator:
         value = t["images"] + t["source_correction"]
         if not source_jacobian:
             value = value - t["source_jacobian"]
-        if t["slots"] is not None:
-            value = value + t["slots"]
+        if t["uncertain"] is not None:
+            value = value + t["uncertain"]
         value = value + t["kinematics"]
         value = value + t["far_field_barrier"] + t["ellipticity_cap"]
         return self._guarded(value, t)
@@ -1189,11 +1189,11 @@ class Evaluator:
         """The separate terms that ``log_likelihood`` adds, at ``params`` or (when ``params`` is rejected) at the initial
         model, plus the validity flags that ``_guarded`` applies.
 
-        Data terms: ``images`` (the image-position terms), ``slots`` (the uncertain-image mixture, None without slots)
+        Data terms: ``images`` (the image-position terms), ``uncertain`` (the uncertain images, None without them)
         and ``kinematics``.  Prior-side terms: ``source_correction`` and ``source_jacobian`` (the source transport, see
         ``log_likelihood``), ``far_field_barrier`` and ``ellipticity_cap``.  With enumerated uncertain members the
-        image terms are a log-sum over the member configurations that already holds the source correction, the slots
-        and the configuration prior: ``images`` is that log-sum, the other two are zero and ``separable`` is False.
+        image terms are a log-sum over the member configurations that already holds the source correction, the uncertain
+        images and the configuration prior: ``images`` is that log-sum, the other two are zero and ``separable`` is False.
         """
         reference = jnp.asarray(self.state.initial_theta, dtype=jnp.float64)
         physical = self.physical(params)
@@ -1207,17 +1207,18 @@ class Evaluator:
         zero = jnp.asarray(0.0, dtype=jnp.float64)
         if len(self.membership_enumerated_positions):
             log_weight, valid = self._membership_configuration_terms(safe_params, source_jacobian=source_jacobian)
-            images, correction, jacobian, slots = jax.scipy.special.logsumexp(log_weight), zero, zero, None
+            images, correction, jacobian, uncertain_terms = jax.scipy.special.logsumexp(log_weight), zero, zero, None
             far_cut_radii = None
             if len(self.far_positions):
                 far_cut_radii = jnp.take(self.packed_state(safe_physical)[0].Rs, jnp.asarray(self.far_components))
         else:
             stats = self.statistics(safe_params)
             images, correction, jacobian = jnp.sum(stats["loglike"]), stats["source_correction"], stats["source_jacobian"]
-            slots = self.state.slots.log_likelihood(self, safe_params, stats) if self.state.slots is not None else None
+            uncertain = self.state.uncertain_images
+            uncertain_terms = uncertain.log_likelihood(self, safe_params, stats) if uncertain is not None else None
             valid = jnp.all(stats["valid"]) & jnp.all(stats["transport_valid"])
             far_cut_radii = stats["fields"]["far_cut_radii"]
-        return dict(images=images, source_correction=correction, source_jacobian=jacobian, slots=slots,
+        return dict(images=images, source_correction=correction, source_jacobian=jacobian, uncertain=uncertain_terms,
                     kinematics=self.kinematics_log_likelihood(safe_physical), far_field_barrier=self.far_field_log_barrier(far_cut_radii),
                     ellipticity_cap=self.ellipticity_log_prior(packed), valid=valid, ok_model=ok_model, ok_scales=ok_scales,
                     separable=not len(self.membership_enumerated_positions))
@@ -1260,7 +1261,7 @@ class Evaluator:
         """
         self._require_separable()
         t = self._likelihood_terms(params)
-        value = t["images"] + (t["slots"] if t["slots"] is not None else 0.0) + t["kinematics"]
+        value = t["images"] + (t["uncertain"] if t["uncertain"] is not None else 0.0) + t["kinematics"]
         return self._guarded(value, t)
 
     def tempered_log_likelihood(self, params: jnp.ndarray, beta: float) -> jnp.ndarray:
@@ -1275,7 +1276,7 @@ class Evaluator:
         """
         self._require_separable()
         t = self._likelihood_terms(params)
-        data = t["images"] + (t["slots"] if t["slots"] is not None else 0.0) + t["kinematics"]
+        data = t["images"] + (t["uncertain"] if t["uncertain"] is not None else 0.0) + t["kinematics"]
         value = beta * data + t["source_correction"] + t["far_field_barrier"] + t["ellipticity_cap"]
         return self._guarded(value, t)
 

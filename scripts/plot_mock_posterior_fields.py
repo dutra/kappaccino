@@ -74,21 +74,7 @@ def run(seed,output,draw_count,step):
     grid_means=[];grid_variances=[];image_means=[];image_variances=[];mixture_draws=[]
     rng=np.random.default_rng(20261106)
     radii=np.asarray(e.gp_tables['r_grid'])
-    median_physical=np.median(posterior.physical,axis=0)
-    from kappaccino.core.model import convert_theta_to_latent
-    median_theta=convert_theta_to_latent(median_physical,state.parameter_specs)
-    ix=np.asarray(state.images.source_x_param_index);iy=np.asarray(state.images.source_y_param_index)
-    median_theta[ix]=0.;median_theta[iy]=0.
-    whitening=e.statistics(jnp.asarray(median_theta))['whitening']
-    families=np.asarray(e.gp['knot_family'])[0];valid=np.asarray(e.gp['knot_mask'])[0]
-    physical_sources=np.c_[median_physical[ix],median_physical[iy]]
-    desired=np.asarray(whitening['centroid'])[0].copy().reshape(-1,2)
-    desired[valid]=physical_sources[families[valid]]
-    offsets=np.linalg.solve(np.asarray(whitening['cholesky'])[0],desired.ravel()-np.asarray(whitening['centroid'])[0]).reshape(-1,2)
-    median_theta[ix[families[valid]]]=offsets[valid,0]
-    median_theta[iy[families[valid]]]=offsets[valid,1]
-    np.testing.assert_allclose(e.reported_physical(median_theta),median_physical,rtol=1e-8,atol=1e-8)
-    parameters=[posterior.samples[index] for index in ids]+[median_theta]
+    parameters=[posterior.samples[index] for index in ids]
     for count,theta in enumerate(parameters):
         L,residual,jac,K,S,sigma,cl,ct=map(np.asarray,statistics(jnp.asarray(theta)))
         L=L[0,:2*n,:2*n];residual=residual.ravel();A=block_diag(*jac)
@@ -114,24 +100,21 @@ def run(seed,output,draw_count,step):
             gv[start:end]=np.maximum(conditional,0).reshape(-1,2)
         grid_means.append(gm);grid_variances.append(gv)
         print(f'{seed.name}: field evaluation {count+1}/{len(parameters)}',flush=True)
-    median_grid=grid_means.pop();grid_variances.pop()
-    median_images=image_means.pop();image_variances.pop();mixture_draws.pop()
     im,iw,ib=mixture(image_means,image_variances);gm,gw,gb=mixture(grid_means,grid_variances)
     samples=np.concatenate(mixture_draws);lo,med,hi=np.quantile(samples,[.16,.5,.84],axis=0)
     stem=output/f'{seed.name}_posterior_fields'
     save_arrays(stem.with_suffix('.h5'),x=x,y=y,xy=xy,indices=ids,truth_grid=true_grid,mean_grid=gm,
                         within_variance_grid=gw,between_variance_grid=gb,truth_images=target,mean_images=im,
-                        median_parameter_grid=median_grid,median_parameter_images=median_images,median_physical=median_physical,
                         within_variance_images=iw,between_variance_images=ib,conditional_means=image_means,
                         field_draws=samples,q16=lo,median=med,q84=hi)
     info=dict(posterior_draws=len(ids),conditional_draws_per_posterior=32,reference_redshift=float(state.gp_reference_redshift),
               projection=list(modes),grid_step_arcsec=step,variance='Mean conditional variance + variance of conditional means',
-              maps='Projected GRF deflection at componentwise physical posterior-median parameters; sources re-whitened',
+              maps='Projected GRF deflection: conditional mean of each posterior draw, averaged over the draws (mean_grid)',
               gp_truth='Saved injected displacements at true images; model kernel uses observed positions',
               limitations='Posterior subsample; underlying chains fail convergence cut. No continuous injected GP saved.')
     for name,sl in [('grf',slice(0,2*n)),('gp',slice(2*n,4*n))]:
         info[name]=dict(fraction_inside_68=float(np.mean((target[sl]>=lo[sl])&(target[sl]<=hi[sl]))),
-                       rms_median_parameter_residual=float(np.sqrt(np.mean((median_images[sl]-target[sl])**2))))
+                       rms_mean_residual=float(np.sqrt(np.mean((im[sl]-target[sl])**2))))
     stem.with_suffix('.json').write_text(json.dumps(info,indent=2))
     print(seed.name,info,flush=True)
 

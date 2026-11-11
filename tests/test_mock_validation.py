@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from kappaccino.config import ImageDiagnosticsConfig, LensClusterSolverConfig, RuntimeConfig, SamplingConfig, ScalingModelConfig, SearchConfig, TruthRecoveryConfig
+from kappaccino.config import ReportingConfig, ImageDiagnosticsConfig, LensClusterSolverConfig, RuntimeConfig, SamplingConfig, ScalingModelConfig, SearchConfig, TruthRecoveryConfig
 from kappaccino.mock_validation import (MockConfig, MockValidationConfig, MockValidationPathsConfig, MockValidationRuntimeConfig, draw_truth,
                                          generate_images, generate_mock, parameter_truth, run_mock_validation, solver_config_for_mock, write_aggregate_plots)
 from kappaccino.mock_validation.aperture import APERTURE_RADII_KPC, aperture_profiles, truth_groups
@@ -90,8 +90,7 @@ def test_campaign_end_to_end_scores_only_parameters_with_a_truth(tmp_path):
     solver = LensClusterSolverConfig(runtime=RuntimeConfig(seed=11, chains=1, resume=True, nuts_chain_method="sequential"),
                                      search=SearchConfig(n_starts=2, lbfgs_max_iter=20, polish_max_iter=5),
                                      sampling=SamplingConfig(warmup=8, samples=8, max_tree_depth=3),
-                                     image_diagnostics=ImageDiagnosticsConfig(posterior_image_diagnostic_draws=2),
-                                     truth=TruthRecoveryConfig(posterior_truth_recovery_draws=0))
+                                     reporting=ReportingConfig(draws=2))
     campaign = MockValidationConfig(mock=config, paths=MockValidationPathsConfig(output_dir=tmp_path, campaign_name="c", run_name="r"),
                                     runtime=MockValidationRuntimeConfig(realizations=1, seed=11), solver=solver).validate()
     recovery_dirs = run_mock_validation(campaign, log=lambda *a, **k: None)

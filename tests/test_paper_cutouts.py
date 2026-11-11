@@ -46,7 +46,7 @@ def test_writer_uses_saved_panels_and_preserves_selector_order(tmp_path, monkeyp
         calls.append((data,kwargs['image_rects'][0]))
         fig.add_axes(kwargs['image_rects'][0])
     monkeypatch.setattr(pc,'render_overview_cutouts',render)
-    paths=pc.write_paper_cutouts(config,NS(reference=(3,0,0)),None,None,tmp_path,tmp_path,
+    paths=pc.write_paper_cutouts(config,NS(reference=(3,0,0)),None,tmp_path,tmp_path,
                                 ({},(),None,'m0416'),log=lambda _:None)
     assert len(paths)==1 and paths[0].name=='m0416_small_lambda_posteriors.pdf'
     assert calls[0][0]['systems'][0]['labels']==['K6B.a','K6B.b']
@@ -57,5 +57,5 @@ def test_writer_uses_saved_panels_and_preserves_selector_order(tmp_path, monkeyp
 
 def test_empty_selections_do_not_load_diagnostics(tmp_path, monkeypatch):
     monkeypatch.setattr(pc,'load_fold_data',lambda _:pytest.fail('disabled figure read diagnostics'))
-    assert pc.write_paper_cutouts(NS(image_catalog=ImageCatalogCutoutConfig()),None,None,None,
+    assert pc.write_paper_cutouts(NS(image_catalog=ImageCatalogCutoutConfig()),None,None,
                                  tmp_path,tmp_path,None)==[]

@@ -37,13 +37,15 @@ These scripts read a run directory and redraw one product without rerunning infe
 
 | script | regenerates |
 |---|---|
+| `regenerate_outputs.py RUN [--draws N]` | every output of the final stage, over the reporting draws (one pass) |
 | `chain_traces.py RUN` | `<prefix>_chain_traces.pdf` and `chain_convergence.csv` |
 | `make_gp_illustrations.py RUN` | the GP diagnostics and shared-field maps |
 | `regenerate_cluster_mass_figure.py RUN --imaging jwst` | the cluster mass overview (JWST or HST) |
-| `regenerate_fold_diagnostics.py RUN` | the fold-pair source and caustic figures |
+| `regenerate_fold_diagnostics.py RUN [--draws N]` | the fold-pair source and caustic figures (needs the image recovery tables) |
 | `regenerate_magnification_recovery.py RUN` | `magnification_recovery.pdf` (simulated clusters) |
-| `regenerate_truth_recovery.py RUN` | the truth maps and dependent figures, with the conditional GRF |
-| `regenerate_member_diagnostics.py RUN` | the member and likelihood diagnostic suite |
+| `regenerate_truth_recovery.py RUN [--draws N]` | the truth maps and dependent figures, with the conditional GRF |
+| `regenerate_zeta_masses.py RUN [--draws N]` | the zeta masses and contrasts of the members and their two figures (Hera, Ares) |
+| `regenerate_member_diagnostics.py RUN [--draws N]` | the member and likelihood diagnostic suite |
 | `regenerate_scaling_relation.py RUN` | `scaling_relation.pdf` |
 | `python -m kappaccino.reporting.results_tex RUN/final` | `<prefix>_results.tex` |
 

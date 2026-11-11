@@ -59,9 +59,10 @@ def _write(path, prefix, metrics, comments):
 
 
 def interval(median, lower_error, upper_error, decimals=1):
-    """TeX numerical interval, to be used in math mode."""
-    return (number(median, decimals) + '_{-' + number(lower_error, decimals)
-            + '}^{+' + number(upper_error, decimals) + '}')
+    """TeX numerical interval in braces, to be used in math mode.  The braces make it one group, so a unit written as a
+    superscript right after it (``$\\HeraRMS''$``, arcsec) does not become a double superscript."""
+    return ('{' + number(median, decimals) + '_{-' + number(lower_error, decimals)
+            + '}^{+' + number(upper_error, decimals) + '}}')
 
 
 def m0416_table_metrics(final):
@@ -134,6 +135,82 @@ def m0416_table_metrics(final):
     return result
 
 
+def footprint_metrics(final, cfg):
+    """Mean model/true ratios within the image footprint (``truth_recovery.footprint_mean_ratios``) from the saved
+    profile tables, for a simulated cluster with a truth map; empty otherwise.  This work's numbers are the medians over
+    the saved posterior draws (``truth_recovery_*_ratio_draws.csv``), with ``...Interval`` macros carrying the 16-84 per
+    cent range; without those tables they come from the median profile and the intervals are not available."""
+    import numpy as np
+    import pandas as pd
+    from ..config import TruthRecoveryConfig
+    from ..diagnostics.truth_recovery import footprint_mean_ratios, literature_ratios
+    tables = final / 'tables'
+    paths = [tables / f for f in ('truth_recovery_m2d_aperture_profile.csv', 'truth_recovery_kappa_annulus_profile.csv',
+                                  'image_fit_quality.csv')]
+    if not all(path.exists() for path in paths) or not cfg.get('truth', {}).get('kappa_true_fits'):
+        return {}
+    mass, kappa, images = (pd.read_csv(path) for path in paths)
+    draws = [tables / f for f in ('truth_recovery_m2d_aperture_ratio_draws.csv', 'truth_recovery_kappa_annulus_ratio_draws.csv')]
+    mass_draws, kappa_draws = (pd.read_csv(path) for path in draws) if all(path.exists() for path in draws) else (None, None)
+    radii = np.hypot(images['x_obs_arcsec'] - mass['center_x_arcsec'].iloc[0], images['y_obs_arcsec'] - mass['center_y_arcsec'].iloc[0])
+    truth = TruthRecoveryConfig(**cfg['truth'])
+    found = footprint_mean_ratios(mass, kappa, radii.to_numpy(float), literature_ratios(truth, 'mass'),
+                                  literature_ratios(truth, 'kappa'), mass_draws, kappa_draws)
+    result = {'FootprintInnerArcsec': number(found['inner_arcsec'], 1), 'FootprintOuterArcsec': number(found['outer_arcsec'], 1),
+              'FootprintNDraws': number(None if mass_draws is None else mass_draws['draw'].nunique(), 0)}
+    for quantity, label in (('mass', 'Mass'), ('kappa', 'Kappa')):
+        for model, value in found[quantity].items():
+            ours = model == 'This work'
+            suffix = '' if ours else re.sub(r'[^A-Za-z]', '', model)
+            for index, (name, scale, decimals) in enumerate((('Ratio', 1, 3), ('MeanAbsPercent', 100, 1), ('RMSPercent', 100, 1))):
+                key = f'Footprint{label}{name}{suffix}'
+                if value is None:
+                    result[key] = number(None)
+                elif ours and np.ndim(value) == 2:
+                    median, low, high = scale * value[:, index]
+                    result[key] = number(median, decimals)
+                    result[key + 'Interval'] = interval(median, median - low, high - median, decimals)
+                    result[key + 'Minus'] = number(median - low, decimals)
+                    result[key + 'Plus'] = number(high - median, decimals)
+                else:
+                    result[key] = number(scale * value[index], decimals)
+                    if ours:
+                        for extra in ('Interval', 'Minus', 'Plus'):
+                            result[key + extra] = number(None)
+    return result
+
+
+def count_metrics(suffix, values, decimals=0):
+    """``<suffix>`` (the median over draws) and ``<suffix>Interval`` (median with its 16-84% range, for math mode)
+    from ``{"median", "q16", "q84"}``; "not available" without it."""
+    if not values:
+        return {suffix: number(None, decimals), suffix + 'Interval': number(None)}
+    median = values['median']
+    return {suffix: number(median, decimals),
+            suffix + 'Interval': interval(median, median - values['q16'], values['q84'] - median, decimals)}
+
+
+def posterior_residual_metrics(path, prefix):
+    """``<prefix>RMS`` and ``<prefix>MedianResidual`` (arcsec, three decimals, for math mode): the median and 16th-84th
+    percentile range over the posterior draws in ``path`` (``posterior_image_residual_draws*.csv``) of each draw's RMS
+    and median residual of its recovered images; "not available" without the table."""
+    import numpy as np
+    import pandas as pd
+    result = {prefix + 'RMS': number(None), prefix + 'MedianResidual': number(None)}
+    if not Path(path).exists():
+        return result
+    draws = pd.read_csv(path)
+    values = pd.to_numeric(draws['image_residual_arcsec'], errors='coerce')
+    draws = draws.assign(r=values)[draws['recovered'].astype(bool) & np.isfinite(values) & (values >= 0)]
+    if draws.empty:
+        return result
+    grouped = draws.groupby('draw_index')['r']
+    for name, per_draw in (('RMS', grouped.apply(lambda r: float(np.sqrt(np.mean(r ** 2))))), ('MedianResidual', grouped.median())):
+        low, median, high = np.percentile(per_draw.to_numpy(float), [16, 50, 84])
+        result[prefix + name] = interval(median, median - low, high - median, 3)
+    return result
+
+
 def write_run_results(final_dir: str | Path, *, name: str | None = None) -> Path:
     r"""Write LaTeX macros of a finished run's recorded results.
 
@@ -151,8 +228,7 @@ def write_run_results(final_dir: str | Path, *, name: str | None = None) -> Path
     ``final/tables/run_summary.json``, ``final/tables/runtime.json``,
     ``final/tables/posterior_summary.csv``,
     ``final/tables/posterior_image_rms.csv``,
-    ``final/tables/image_fit_quality.csv``,
-    ``final/tables/image_recovery_extra_images.csv`` and
+    ``final/tables/image_fit_quality.csv`` and
     ``final/tables/aperture_mass_histogram.json``. For an M0416 run (``name``
     containing ``m0416`` or ``mj0416``) it also reads
     ``final/artifacts/posterior.h5``, ``final/tables/member_diagnostics.csv``,
@@ -163,10 +239,12 @@ def write_run_results(final_dir: str | Path, *, name: str | None = None) -> Path
     Main suffixes: counts (``NImages``, ``NRecovered``, ``NMissed``,
     ``NFamilies``, ``NFamiliesRecovered``, ``NParameters``, ``NMembers``,
     ``NExactMembers``, ``NFarFieldMembers``, ``NDivergences``, ``NChains``,
-    ``NWarmupPerChain``, ``NSamplesPerChain``, ``NExtraImages``); best-fit
-    image residuals in arcsec (``RMS``, ``MedianResidual``) and
-    ``RecoveredPercent``; ``PosteriorMedianRMS`` (arcsec, median of per-draw
-    RMS); position coverage (``PositionCoverageXPercent``,
+    ``NWarmupPerChain``, ``NSamplesPerChain``, ``NExtraImages``); image
+    residuals in arcsec as posterior median and 16-84% range over the saved draws
+    (``RMS``, ``MedianResidual``, and ``LensOnlyRMS``, ``LensOnlyMedianResidual``
+    for the same draws without the GRF conditional mean; ``posterior_residual_metrics``),
+    ``RecoveredPercent`` and ``NPosteriorRMSDraws`` (counts and percentages are medians over the reporting draws,
+    with ``...Interval`` the 16-84% range); position coverage (``PositionCoverageXPercent``,
     ``PositionCoverageYPercent`` and their counts); likelihood-noise posterior
     medians and intervals (``SigmaGP``, ``SigmaMeas``,
     ``EllGP``, ``SigmaGRF``, ``LambdaB``;
@@ -215,7 +293,6 @@ def write_run_results(final_dir: str | Path, *, name: str | None = None) -> Path
     metrics = {}
     for suffix, value in {
         'NImages': fit.get('observed_image_count', summary.get('images')),
-        'NRecovered': fit.get('recovered_image_count'), 'NMissed': fit.get('missing_image_count'),
         'NFamilies': summary.get('families'), 'NFamiliesRecovered': fit.get('families_fully_recovered'),
         'NParameters': summary.get('n_parameters'), 'NMembers': summary.get('members'),
         'NExactMembers': summary.get('exact_members'), 'NDivergences': summary.get('divergences'),
@@ -226,12 +303,19 @@ def write_run_results(final_dir: str | Path, *, name: str | None = None) -> Path
         metrics[suffix] = number(value, 0)
     members, exact = summary.get('members'), summary.get('exact_members')
     metrics['NFarFieldMembers'] = number(members-exact if members is not None and exact is not None else None, 0)
-    metrics['RMS'] = number(fit.get('image_rms_arcsec'))
-    metrics['MedianResidual'] = number(fit.get('image_median_residual_arcsec'))
-    # The same best-fit lens solved without the GRF conditional mean (knee-GP runs; "not available" otherwise).
-    metrics['LensOnlyRMS'] = number(fit.get('lens_only_image_rms_arcsec'))
-    metrics['LensOnlyMedianResidual'] = number(fit.get('lens_only_image_median_residual_arcsec'))
-    metrics['NLensOnlyRecovered'] = number(fit.get('lens_only_recovered_image_count'), 0)
+    # Image residuals: median and 16-84% range over the saved posterior draws (with and without the GRF conditional mean).
+    for prefix, table in (('', 'posterior_image_residual_draws.csv'), ('LensOnly', 'posterior_image_residual_draws_lens_only.csv')):
+        metrics.update(posterior_residual_metrics(final / 'tables' / table, prefix))
+    # Counts over the reporting draws: median, with the 16-84% range in ...Interval (knee-GP runs have LensOnly...).
+    total = fit.get('observed_image_count')
+    for suffix, key in (('NRecovered', 'recovered_image_count'), ('NLensOnlyRecovered', 'lens_only_recovered_image_count'),
+                        ('NExtraImages', 'extra_image_count')):
+        metrics.update(count_metrics(suffix, fit.get(key)))
+    recovered = fit.get('recovered_image_count')
+    metrics.update(count_metrics('NMissed', None if recovered is None or total is None else
+                                 {'median': total - recovered['median'], 'q16': total - recovered['q84'], 'q84': total - recovered['q16']}))
+    metrics.update(count_metrics('RecoveredPercent', None if recovered is None or not total else
+                                 {k: 100 * v / total for k, v in recovered.items()}, decimals=1))
     # Keep the median individual residual distinct from the median of draw RMSs.
     import numpy as np
     import pandas as pd
@@ -251,14 +335,10 @@ def write_run_results(final_dir: str | Path, *, name: str | None = None) -> Path
             row = parameters.loc[parameter]
             metrics[suffix+'Interval'] = interval(value, value-row.p16, row.p84-value, decimals)
     metrics['GRFReferenceRedshift'] = number(cfg.get('likelihood', {}).get('gp_reference_redshift'), 1)
-    metrics['PosteriorMedianRMS'] = number(None)
-    metrics['NPosteriorRMSDraws'] = number(None, 0)
     rms_path = final / 'tables/posterior_image_rms.csv'
+    metrics['NPosteriorRMSDraws'] = number(None, 0)
     if rms_path.exists():
-        rms = pd.read_csv(rms_path)['image_rms_arcsec'].to_numpy(float)
-        rms = rms[np.isfinite(rms)]
-        metrics['PosteriorMedianRMS'] = number(np.median(rms) if len(rms) else None)
-        metrics['NPosteriorRMSDraws'] = str(len(rms))
+        metrics['NPosteriorRMSDraws'] = str(int(np.isfinite(pd.read_csv(rms_path)['image_rms_arcsec'].to_numpy(float)).sum()))
     quality_path = final / 'tables/image_fit_quality.csv'
     quality = pd.read_csv(quality_path) if quality_path.exists() else pd.DataFrame()
     for axis in ('x', 'y'):
@@ -274,22 +354,12 @@ def write_run_results(final_dir: str | Path, *, name: str | None = None) -> Path
                 obs, low, high = values.T
                 metrics['PositionCoverage'+suffix+'Percent'] = number(
                     100*np.mean((low <= obs) & (obs <= high)), 0)
-    total, recovered = fit.get('observed_image_count'), fit.get('recovered_image_count')
-    metrics['RecoveredPercent'] = number(100*recovered/total if total and recovered is not None else None, 1)
     metrics['MaxRhat'] = number(diag.get('max_r_hat'), 4)
     metrics['MinESS'] = number(diag.get('min_n_eff'), 1)
     for suffix, seconds in [('Runtime', timing.get('total')), ('SamplingRuntime', diag.get('elapsed_seconds'))]:
         metrics[suffix] = duration(seconds)
         metrics[suffix+'Seconds'] = number(seconds, 1)
         metrics[suffix+'Hours'] = number(seconds/3600 if seconds is not None else None, 3)
-    extra = final / 'tables/image_recovery_extra_images.csv'
-    metrics['NExtraImages'] = number(None, 0)
-    if extra.exists():
-        import pandas as pd
-        try:
-            metrics['NExtraImages'] = str(len(pd.read_csv(extra)))
-        except pd.errors.EmptyDataError:
-            metrics['NExtraImages'] = '0'
     if 'm0416' in name.lower() or 'mj0416' in name.lower():
         metrics.update(m0416_table_metrics(final))
     aperture = _read(final / 'tables/aperture_mass_histogram.json')
@@ -302,15 +372,24 @@ def write_run_results(final_dir: str | Path, *, name: str | None = None) -> Path
             for field, suffix in [('median','Median'), ('p25','LowerQuartile'),
                                   ('p75','UpperQuartile'), ('iqr','IQR'), ('Q','Score')]:
                 metrics[stem + suffix] = number(row[field], 3)
+    metrics.update(footprint_metrics(final, cfg))
     return _write(final / 'figures' / f'{filename}_results.tex', command_prefix(name), metrics,
-                  ['Best-fit image recovery; no reduced chi-square exported.',
-                   'RMS and MedianResidual describe the best-fit recovered images.',
-                   'LensOnlyRMS and LensOnlyMedianResidual: the same best-fit lens without the GRF conditional mean.',
+                  ['Image recovery over the reporting posterior draws: counts are medians, ...Interval the 16-84% range; no reduced chi-square exported.',
+                   'This work: median over the saved posterior draws (FootprintNDraws), ...Interval with the 16-84% range,',
+                   '...Minus and ...Plus the distances from the median to the 16th and 84th percentiles.',
+                   'Footprint...Ratio: mean model/true ratio; Footprint...MeanAbsPercent and ...RMSPercent: mean |model/true - 1|',
+                   'and rms of model/true - 1, in per cent,',
+                   'of the enclosed mass (Mass) or the azimuthally averaged',
+                   'convergence (Kappa), uniform in log R from FootprintInnerArcsec to FootprintOuterArcsec (the outermost image, cut',
+                   'at the edge of the published figure); no suffix is this work (median over draws), a model name suffix is that',
+                   'published parametric reconstruction of Meneghetti et al. (2017), over the part of the range its curve covers.',
+                   'RMS and MedianResidual (and LensOnly...): median and 16-84% range over posterior draws of each draw RMS and median residual of its recovered images, for math mode.',
+                   'LensOnlyRMS and LensOnlyMedianResidual: the same draws solved without the GRF conditional mean.',
                    'GP and GRF parameter macros are posterior medians; angular scales are in arcseconds.',
                    'ApertureMassRatio macros, when present: galaxy-distribution median and quartiles, not posterior intervals.',
                    'Apertures use twice the estimated effective radius; normalization is Re at F160W=20 in kpc.',
                    'ImageFootprint means galaxy centers inside the observed-image convex hull. Score is -log10(IQR*abs(median-1)).',
-                   'PosteriorMedianRMS is the median of finite saved per-draw RMSs, not MedianResidual.',
+                   'NPosteriorRMSDraws counts the draws with a finite RMS.',
                    'PositionCoverageX/YPercent: observed coordinates inside saved pointwise 16-84% model intervals.',
                    'Coverage denominators NPositionCoverageX/Y include only finite observed coordinates and bounds.',
                    'These are in-sample diagnostics of the saved recovery model, not held-out predictive errors.',
@@ -318,6 +397,15 @@ def write_run_results(final_dir: str | Path, *, name: str | None = None) -> Path
                    'SamplingRuntime is the saved sampler elapsed time, not total run time.',
                    'NSamplesPerChain is configured sampling iterations before thinning.',
                    'Unavailable values are not inferred from modification timestamps.'])
+
+
+def spread_interval(values, decimals=3):
+    """Median and 16-84% range of ``values`` as a math-mode interval; "not available" when empty."""
+    import numpy as np
+    if not len(values):
+        return number(None)
+    low, median, high = np.percentile(values, [16, 50, 84])
+    return interval(median, median - low, high - median, decimals)
 
 
 def write_mock_results(campaign, output: Path, *, rhat_cut: float, min_ess: float) -> Path:
@@ -332,7 +420,7 @@ def write_mock_results(campaign, output: Path, *, rhat_cut: float, min_ess: floa
 
     Macros: ``MockNCompleted`` (realizations in ``campaign.summary``),
     ``MockNIncluded`` (``campaign.seeds``), ``MockNExcluded``, ``MockRhatCut``,
-    ``MockMinESSCut``, ``MockRMS`` and ``MockMedianResidual`` (arcsec),
+    ``MockMinESSCut``, ``MockRMS`` and ``MockMedianResidual`` (arcsec, median and 16-84% range over the groups, math mode),
     ``MockNImages``, ``MockNRecovered``, ``MockNMissed`` (sums over included
     seeds; not available if any value is missing), and ``MockRuntime``,
     ``MockRuntimeSeconds``, ``MockRuntimeHours`` (always not available: a
@@ -342,8 +430,8 @@ def write_mock_results(campaign, output: Path, *, rhat_cut: float, min_ess: floa
     ----------
     campaign : kappaccino.mock_validation.aggregate_plots.Campaign
         The loaded campaign. Uses ``summary`` (DataFrame with ``seed``,
-        ``observed_image_count``, ``recovered_image_count``,
-        ``missing_image_count``), ``seeds`` (the included seeds) and
+        ``observed_image_count``, ``recovered_image_count`` (the median over the
+        reporting draws)), ``seeds`` (the included seeds) and
         ``residual_draws`` (DataFrame with ``seed``, ``draw_index``,
         ``image_residual_arcsec``, ``recovered``).
     output : pathlib.Path
@@ -374,16 +462,19 @@ def write_mock_results(campaign, output: Path, *, rhat_cut: float, min_ess: floa
     metrics = {'NCompleted': str(len(campaign.summary)), 'NIncluded': str(len(campaign.seeds)),
                'NExcluded': str(len(campaign.summary)-len(campaign.seeds)),
                'RhatCut': number(rhat_cut, 2), 'MinESSCut': number(min_ess, 0),
-               'RMS': number(np.median(rms) if rms else None),
-               'MedianResidual': number(np.median(medians) if medians else None),
+               'RMS': spread_interval(rms), 'MedianResidual': spread_interval(medians),
                'Runtime': duration(None), 'RuntimeSeconds': number(None),
                'RuntimeHours': number(None)}
-    for suffix, col in [('NImages','observed_image_count'),('NRecovered','recovered_image_count'),('NMissed','missing_image_count')]:
+    totals = {}
+    for suffix, col in [('NImages','observed_image_count'),('NRecovered','recovered_image_count')]:
         values = pd.to_numeric(selected[col], errors='coerce') if col in selected else None
-        metrics[suffix] = number(values.sum() if values is not None and values.notna().all() else None, 0)
+        totals[suffix] = values.sum() if values is not None and values.notna().all() else None
+        metrics[suffix] = number(totals[suffix], 0)
+    missed = None if None in totals.values() else totals['NImages'] - totals['NRecovered']
+    metrics['NMissed'] = number(missed, 0)
     return _write(output / 'mock_results.tex', 'Mock', metrics,
-                  ['Counts sum best-fit images across included mocks.',
-                   'RMS and MedianResidual are medians across recovered-image mock/draw groups.',
+                  ['Counts sum over included mocks the per-mock median count over its reporting draws.',
+                   'RMS and MedianResidual: median and 16-84% range across recovered-image mock/draw groups, for math mode.',
                    'Convergence diagnostics: max Rhat strictly below RhatCut; min ESS at least MinESSCut.',
                    'Aggregates include all completed mocks by default; optional converged-only selection is recorded in campaign_selection.json.',
                    'No campaign runtime inferred: concurrent/resumed runs cannot be timed by summing draws.'])

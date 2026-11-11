@@ -222,9 +222,13 @@ def write_init_plots(state: ModelState, evaluator: Evaluator, search: dict[str, 
     _, fit = plot_fit_at_start(state, evaluator, theta, figure_path(figures_dir, "init_fit.pdf", prefix))
     _, scaling = plot_scaling_at_start(state, evaluator, theta, figure_path(figures_dir, "init_scaling_relation.pdf", prefix))
     fit["scaling"] = scaling
-    sources = np.asarray(evaluator.source_positions(jnp.asarray(theta)))
-    plot_critical_curves(state, evaluator, theta, sources, z_source if z_source > state.z_lens else max(state.z_source_values),
-                         figure_path(figures_dir, "init_critical_curves.pdf", prefix), grid_scale_arcsec=0.5)
+    # The init stage has no posterior: its critical curves are those of the starting point, as one draw.
+    from types import SimpleNamespace
+    from ..reporting.draws import ReportingDraws
+    start = ReportingDraws(evaluator, SimpleNamespace(samples=np.asarray(theta)[None],
+                                                      physical=np.asarray(evaluator.physical(jnp.asarray(theta)))[None]), 1, 0)
+    plot_critical_curves(state, start, z_source if z_source > state.z_lens else max(state.z_source_values),
+                         figure_path(figures_dir, "init_critical_curves.pdf", prefix), grid_scale_arcsec=0.5, log=log)
     log(f"[init] fit at the start: whitened residual rms {fit['whitened_residual_rms']:.2f} (expected ~1.4), max {fit['whitened_residual_max']:.2f} "
         f"({fit['worst_image']}), " + (f"sigma_img {fit['sigma_img']:.3f}\" (median source-plane sigma_def {fit['sigma_def']:.4f}\": the floor under "
                                         f"the image-plane GP, the mass field's error under the knee kernel)" if "sigma_img" in fit

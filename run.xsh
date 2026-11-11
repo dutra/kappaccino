@@ -47,6 +47,7 @@ from kappaccino.config import (
     SearchConfig,
     ShearHaloConfig,
     TruthRecoveryConfig,
+    ReportingConfig,
 )
 from kappaccino.cpu_runtime import configure_cpu_runtime, resolve_cpu_plan, threads_per_chain_if_supported
 from kappaccino.lens.cosmology import kpc_per_arcsec_from_config
@@ -388,8 +389,7 @@ def _hff_clusters():
                     cut_radius_kpc=356.49532800000867 * AS1063_KPC_PER_ARCSEC,
                     v_disp=249.68220495795586, z_lens=0.348,
                 ),
-                # External shear, free amplitude and angle (2026-11-03), as for CANUCS: the GRF projection removes the field's
-                # field-wide shear on the assumption that a free external shear absorbs it.  AS1063_JWST inherits it.
+                # External shear, free amplitude and angle (2026-11-03), as for CANUCS.  AS1063_JWST inherits it.
                 ShearHaloConfig.free("shear", 0.348, gamma_upper=0.3),
             ),
             # Member priors at L* that come from no lens model (Bergamini et al. 2019 define L* as M_F160W = -23 with no
@@ -692,11 +692,12 @@ def build_config(
             image_constraints=ImageConstraintsConfig(catalog_path=cluster_config["image_catalog"]),
         ),
         # No selection term: in the oct28a M0416 run sigma_sel and sigma_def fit equally well and lambda_sel stayed at its prior.
-        # Covariance blocks: all by default for full runs, system for --fast (2026-11-03); one shared mass field over every image with the field-wide
-        # translation, convergence and shear projected out (absorbed by the sources and the free external shear).  System
+        # Covariance blocks: all by default for full runs, system for --fast (2026-11-03); one shared mass field over every image.  Its field-wide
+        # translation, convergence and shear are projected out (absorbed by the sources and the free external shear), which
+        # needs one covariance, so only with all blocks.  Off for one run on 2026-11-10 (nov10b hera
+        # w5000s1000t8_fast_knee20upto80_blocksall_noproj: M2D 3.5% low at 50-80", as low as the projected nov10a blocksall run), back on since.  System
         # blocks give each system an independent field: 5x cheaper per gradient, but their posterior differs from the shared
-        # field's (importance reweighting kept 1 of 200 draws), and the projection needs one covariance, so they are for
-        # quick tests (--gp-blocks system).  The init search still runs on system blocks; the chain-start step and NUTS use all.
+        # field's (importance reweighting kept 1 of 200 draws), so they are for quick tests (--gp-blocks system).  The init search still runs on system blocks; the chain-start step and NUTS use all.
         likelihood=LikelihoodConfig(likelihood_mode=LIKELIHOODS[likelihood][0], sigma_sel_prior=None, gp_kernel=LIKELIHOODS[likelihood][1],
                                     gp_blocks=gp_blocks or ("system" if fast else "all"),
                                     gp_knee_project_modes=(("translation", "convergence", "shear")
@@ -710,15 +711,17 @@ def build_config(
                                                          else dist.Uniform(2.0, 6.0) if str(gp_knee_gamma) == "flat" else None),
                                     gp_knee_gamma=4.0 if gp_knee_gamma in (None, "free", "flat") else float(gp_knee_gamma),
                                     # The field's wavelengths from 0.2" to 100", as in the good fast run of 2026-11-02
-                                    # (nov1a w250s100_fast: knee 6.6", GP ell 1.4"); the knee prior keeps it near the galaxy scale.
+                                    # (nov1a w250s100_fast: knee 6.6", GP ell 1.4").
                                     gp_knee_scales_arcsec=(0.2, 100.0),
                                     # The knee near the galaxy scale: 6" is the knee of truncated isothermal halos with r_t = 5 kpc
                                     # (lambda_t = 6.4 r_t), 2.5-8" spans r_t = 2-6 kpc.  Left free it goes to 14-25" and carries
                                     # the halo-scale misfit (compare_grf_spectra, 2026-11-02); with the cap at 15" every all-block
                                     # run sat on it (nov4b, nov5a, nov6: 14-15", 2026-11-07).  Capped at 8" (2026-11-07) so the
                                     # field stays at the galaxy scale and the large-scale misfit has to go elsewhere; ln-width 0.6 kept.
-                                    lambda_b_prior=truncated_lognormal(6.0, 0.6, low=2.5, high=8.0),
-                                    lambda_b_start_arcsec=6.0,
+                                    # Opened to the edges of the knee tables (0.5-80") on 2026-11-10 so the field can take the scale
+                                    # of the cluster halos: median 20", ln-width 1, as in the --gp-band-max path.
+                                    lambda_b_prior=truncated_lognormal(20.0, 1.0, low=0.5, high=80.0),
+                                    lambda_b_start_arcsec=20.0,
                                     # The rms deflection error of that substructure at z_ref: 0.08" median, 0.05-0.13" at 1 sigma,
                                     # truncated at 0.2" (galaxy-scale fits on 2026-11-02: 0.07-0.11"; at 0.2-0.3" it was carrying
                                     # the halo-scale misfit).
@@ -747,6 +750,10 @@ def build_config(
                              classification_prior_quantile=cluster_config.get("classification_prior_quantile", MemberConfig.classification_prior_quantile)),
         truth=TruthRecoveryConfig(kappa_true_fits=cluster_config.get("kappa_true_fits"), gammax_true_fits=cluster_config.get("gammax_true_fits"),
                                   gammay_true_fits=cluster_config.get("gammay_true_fits")),
+        # Every figure, table and macro is a median over posterior draws with its 16-84% range; nothing uses the best
+        # sample (2026-11-11).  64 draws (the median RMS of 64 draws scatters by 0.01" on Hera; about 10-12 s of maps per
+        # draw on Hera); the global search for extra images on the same draws (8 s per draw on Hera, ~1-2 min on Ares).
+        reporting=ReportingConfig(draws=64, image_draws=64, extra_images=True),
         image_catalog=ImageCatalogCutoutConfig(
             candidate_catalog_path=M0416_CANDIDATES if cluster == "M0416_CANUCS2025" else None,
             paper_small_lambda_cutouts=M0416_SMALL_LAMBDA_POSTERIORS if cluster.startswith("M0416") else (),
@@ -766,12 +773,10 @@ def build_config(
         config = replace(
             config,
             search=replace(config.search, n_starts=256),
-            image_diagnostics=replace(config.image_diagnostics, fold_max_draws=8,
-                                      fold_pair_max_separation_arcsec=3.0),
-            # Four draws of the best chain behind the RGB overview's z = 9 critical curve and band; 32 posterior draws
-            # behind the recovered-position contours.
-            image_catalog=replace(config.image_catalog, critical_band_draws=4, contour_draws=32),
-            sampling=SamplingConfig(warmup=500, samples=250, max_tree_depth=7, target_accept=0.8),
+            image_diagnostics=replace(config.image_diagnostics, fold_pair_max_separation_arcsec=3.0),
+            # 32 draws, no extra-image search (2026-11-11).
+            reporting=ReportingConfig(draws=32, image_draws=32, extra_images=False),
+            sampling=SamplingConfig(warmup=500, samples=250, max_tree_depth=8, target_accept=0.8),
             members=replace(config.members, far_field_cut_radii=2.0, classification_prior_quantile=None, min_deflection_arcsec=None,
                             cut_radius_inflation=3.0),
             # Member shapes fixed at the catalog (light) shapes: no sampled ellipticity in fast runs.
@@ -847,8 +852,7 @@ def _fast_mode_warning(config) -> None:
             + f"  - far-field members are allowed down to {members.far_field_cut_radii:g} cut radii from an image (default 3)\n"
             f"  - {config.search.n_starts} search starts, {config.sampling.warmup} warmup + {config.sampling.samples} draws per chain "
             f"at tree depth {config.sampling.max_tree_depth}, target accept {config.sampling.target_accept:g}\n"
-            f"  - GP covariance blocks: {config.likelihood.gp_blocks}, projection {', '.join(config.likelihood.gp_knee_project_modes) or 'off'} "
-            f"(full runs default to all blocks with the projection)")
+            f"  - GP covariance blocks: {config.likelihood.gp_blocks} (full runs default to all blocks)")
     Console(stderr=False).print(Panel(text, title="[bold]WARNING: --fast[/bold]", border_style="yellow", style="yellow", expand=False))
 
 

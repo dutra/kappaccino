@@ -56,7 +56,7 @@ COMPONENT_NAMES = {"halo": "Halo", "bcg": "BCG", "potfile": "Members",
 
 
 def _parameter_component(parameter):
-    if parameter.startswith(("images.sigma_grf", "images.lambda_b")):     # the field: sigma_GRF, its second knee, lambda_b, slope
+    if parameter.startswith(("images.sigma_grf", "images.lambda_b", "images.gp_knee_")):     # the field: sigma_GRF, its second knee, lambda_b, slope
         return "grf"
     if parameter in ("images.sigma_gp", "images.ell_gp"):
         return "gp"
@@ -88,6 +88,18 @@ class Campaign:
     relation: list[dict[str, Any]]
 
 
+def flat_fit(fit: dict) -> dict:
+    """The run's fit summary with each median-and-range entry ``{"median", "q16", "q84"}`` (over the reporting draws)
+    as ``<key>`` (the median), ``<key>_q16`` and ``<key>_q84``."""
+    out = {}
+    for key, value in fit.items():
+        if isinstance(value, dict) and "median" in value:
+            out.update({key: value["median"], f"{key}_q16": value.get("q16"), f"{key}_q84": value.get("q84")})
+        else:
+            out[key] = value
+    return out
+
+
 def load_campaign(root: str | Path, *, converged_only: bool = False) -> Campaign:
     """All completed recovery tables by default, with convergence flags retained. With ``converged_only`` realizations whose sampler did not converge
     (max R-hat >= 1.1 or min n_eff < 50, recomputed from saved diagnostics) are left out of every table except the
@@ -104,7 +116,7 @@ def load_campaign(root: str | Path, *, converged_only: bool = False) -> Campaign
         summary.append({"seed": seed, "mode": payload.get("mode"), "converged": converged, "convergence_reasons": "; ".join(reasons),
                         "max_r_hat": payload.get("max_r_hat"), "min_n_eff": payload.get("min_n_eff"),
                         "divergences": payload.get("divergences"), "audit": payload.get("audit"), "coverage_68": payload.get("coverage_68"),
-                        "coverage_95": payload.get("coverage_95"), "scored_parameters": payload.get("scored_parameters"), **payload.get("fit", {})})
+                        "coverage_95": payload.get("coverage_95"), "scored_parameters": payload.get("scored_parameters"), **flat_fit(payload.get("fit", {}))})
         if converged_only and not converged:
             continue
         seeds.append(seed)
@@ -508,16 +520,15 @@ def plot_image_residual_distribution(campaign: Campaign, path: Path, *, bins: in
               for seed, draw in df.loc[recovered, ["seed", "draw_index"]].drop_duplicates().itertuples(index=False)]
     counts = np.stack([np.histogram(values, bins=edges)[0] for values in groups])
     h16, h50, h84 = np.percentile(counts, [16, 50, 84], axis=0)
-    rms = float(np.median([np.sqrt(np.mean(values ** 2)) for values in groups]))
-    median = float(np.median([np.median(values) for values in groups]))
+    rms_low, rms, rms_high = (float(v) for v in np.percentile([np.sqrt(np.mean(values ** 2)) for values in groups], [16, 50, 84]))
     fig, ax = plt.subplots(figsize=(3.5, 2.6))
     ax.stairs(h84, edges, baseline=h16, fill=True, color=COLOR, alpha=0.08,
               linewidth=0.0, zorder=1)
-    ax.stairs(h50, edges, color=COLOR, linewidth=1.5, label="Median", zorder=3)
+    ax.stairs(h50, edges, color=COLOR, linewidth=1.5, label="Residuals", zorder=3)
+    # The RMS: median over mock/draw groups (dashed) and its 16-84 per cent range (shade), as the run figures.
+    ax.axvspan(rms_low, rms_high, color="#ba5a2a", alpha=0.15, linewidth=0, zorder=2)
     ax.axvline(rms, color="#ba5a2a", linestyle="--", linewidth=1.3,
                label="RMS", zorder=4)
-    ax.axvline(median, color="#303030", linestyle=":", linewidth=1.3,
-               label="Median", zorder=4)
     ax.set_ylabel("Number of images")
     ax.set_xlabel("Image-position residual (arcsec)")
     ax.set_xlim(0.0, edges[-1])
@@ -525,7 +536,7 @@ def plot_image_residual_distribution(campaign: Campaign, path: Path, *, bins: in
     ax.yaxis.set_major_locator(MaxNLocator(4, integer=True))
     ax.xaxis.set_major_locator(MaxNLocator(4))
     _polish(ax)
-    ax.legend(frameon=False, loc="upper right", bbox_to_anchor=(1, .87), fontsize=8)
+    ax.legend(frameon=False, loc="upper right", fontsize=8)
     fig.tight_layout()
     return _save(fig, path)
 
@@ -566,6 +577,10 @@ def plot_m2d_components(campaign: Campaign, path: Path, *, seed: int | None = No
     top.plot([], [], color="0.3", linestyle="--", linewidth=1.0, label="Truth")
     top.set_xscale("log")
     top.set_yscale("log")
+    curve_radii = pd.to_numeric(rows["radius_kpc"], errors="coerce").to_numpy(float)
+    curve_radii = curve_radii[np.isfinite(curve_radii) & (curve_radii > 0)]
+    limits = (float(curve_radii.min()), float(curve_radii.max()))
+    top.set_xlim(limits)
     # Pool every image, using each mock's own aperture centre and physical scale.
     image_radii = []
     for image_seed in campaign.seeds:
@@ -581,12 +596,10 @@ def plot_m2d_components(campaign: Campaign, path: Path, *, seed: int | None = No
     image_radii = np.asarray(image_radii)
     image_radii = image_radii[np.isfinite(image_radii) & (image_radii > 0)]
     if image_radii.size:
-        limits = top.get_xlim()
-        limits = (min(limits[0], image_radii.min()*.95), max(limits[1], image_radii.max()*1.05))
         edges = np.geomspace(*limits, 26)
         counts, _ = np.histogram(image_radii, bins=edges)
         # Histogram height is relative abundance, independent of the mass axis.
-        height = .16 * counts / counts.max()
+        height = .16 * counts / max(int(counts.max()), 1)
         top.stairs(height, edges, baseline=0, fill=True, color=".65", alpha=.35,
                    transform=top.get_xaxis_transform(), zorder=0)
         top.stairs(height, edges, baseline=0, color=".35", linewidth=1.0,

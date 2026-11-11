@@ -50,9 +50,11 @@ def singular_eigenvalue(jacobian):
 
 
 @plt.rc_context()
-def write_small_lambda_jwst(config, state, evaluator, posterior, paths, imaging, position_contours,
+def write_small_lambda_jwst(config, state, draws, paths, imaging, position_contours,
                            *, count=24, minimum_fov=3., minimum_major_sigma=.1, minimum_axis_ratio=2., log=print):
-    """Reuse the overview's verified joint position draws; no new image searches."""
+    """Cutouts of the images with the widest position posteriors, from the reporting draws' recovered positions (no
+    new image search) and each draw's Jacobian with its own shared-field GRF conditional mean."""
+    evaluator=draws.evaluator
     if count < 1 or minimum_fov <= 0:
         raise ValueError('count and minimum_fov must be positive')
     if minimum_major_sigma<0 or minimum_axis_ratio<1:
@@ -72,30 +74,17 @@ def write_small_lambda_jwst(config, state, evaluator, posterior, paths, imaging,
     families=np.asarray(state.images.family_index_per_image,dtype=int)
     stem=f'{config.paths.figure_prefix}_small_lambda_a_image_posteriors_jwst'
     field=jax.jit(lambda t:evaluator.fields(evaluator.physical(t),force_exact=True,derivative=False)['jacobian'])
-    cache_meta=paths.tables/f'{stem}.json'
-    cache_npz=paths.tables/f'{stem}.h5'
-    previous=json.loads(cache_meta.read_text()) if cache_meta.exists() else {}
-    reuse_cache=(cache_npz.exists() and previous.get('posterior_cache_fingerprint')==fingerprint
-                 and previous.get('grf_version')==PLOT_FIELD_VERSION)
-    if reuse_cache:
-        saved = load_arrays(paths.tables/f'{stem}.h5')
-        np.testing.assert_array_equal(saved['draw_indices'],indices)
-        np.testing.assert_array_equal(saved['image_labels'],labels)
-        values=saved['lambda_a'].copy()
-        asymmetries=[previous['jacobian_max_asymmetry']]
-    else:
-        values=[];asymmetries=[]
-        for k,index in enumerate(indices):
-            theta=posterior.samples[index]
-            a=np.array(field(jnp.asarray(theta)),copy=True)
-            correction=plot_deflection_correction(evaluator,theta) if evaluator.gp_knee else None
-            if correction is not None:
-                c=correction(xy[:,0],xy[:,1],families)
-                a-=np.stack(c[2:],axis=-1).reshape(-1,2,2)
-            eigenvalue,asymmetry=singular_eigenvalue(a)
-            values.append(eigenvalue);asymmetries.append(asymmetry)
-            if k%32==0 or k==len(indices)-1:log(f'[outputs] small-lambda Jacobians: {k+1}/{len(indices)} draws')
-        values=np.asarray(values)
+    reach=float(np.linalg.norm(xy[:,None]-xy[None],axis=-1).max())
+    values=[];asymmetries=[]
+    for k,theta in enumerate(draws.samples):
+        a=np.array(field(jnp.asarray(theta)),copy=True)
+        correction=draws.correction(k,reach)
+        if correction is not None:
+            c=correction(xy[:,0],xy[:,1],families)
+            a-=np.stack(c[2:],axis=-1).reshape(-1,2,2)
+        eigenvalue,asymmetry=singular_eigenvalue(a)
+        values.append(eigenvalue);asymmetries.append(asymmetry)
+    values=np.asarray(values)
     quantiles=np.percentile(abs(values),[16,50,84],axis=0)
     z_by_family={str(f.family_id):f.z_source for f in state.family_data}
     family_labels=np.asarray(state.images.family_ids).astype(str)[families]
@@ -140,10 +129,11 @@ def write_small_lambda_jwst(config, state, evaluator, posterior, paths, imaging,
         return None
     stem=f'{config.paths.figure_prefix}_small_lambda_a_image_posteriors_jwst'
     from .critical_fields import median_cutout_determinants
-    critical_grids,critical_determinants,critical_indices,critical_lower,critical_upper=median_cutout_determinants(
-        state,evaluator,posterior,[[r.x_arcsec,r.y_arcsec] for r,_,_,_,_ in selected],
-        [f for _,_,_,_,f in selected],[r.z_source for r,_,_,_,_ in selected],indices,
-        paths.tables/f'{stem}_critical.h5',fingerprint,log=log)
+    critical_grids,critical_determinants,critical_lower,critical_upper=median_cutout_determinants(
+        draws,[[r.x_arcsec,r.y_arcsec] for r,_,_,_,_ in selected],
+        [f for _,_,_,_,f in selected],[r.z_source for r,_,_,_,_ in selected],
+        paths.tables/f'{stem}_critical.h5',log=log)
+    critical_indices=draws.indices
     plt.style.use(Path(__file__).with_name('style.mplstyle'));plt.rcParams.update(PAPER_STYLE)
     columns=min(3,len(selected));nrows=int(np.ceil(len(selected)/columns))
     fig,axes=plt.subplots(nrows,columns,figsize=(7.1,7.1*nrows/columns),squeeze=False)

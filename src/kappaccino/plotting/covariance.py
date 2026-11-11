@@ -11,17 +11,17 @@ from matplotlib.ticker import LogLocator, NullFormatter, FuncFormatter
 
 from ..likelihood.smoothed import source_covariance
 from .style import PAPER_STYLE
-from ..diagnostics.members import diagnostic_draw_indices
 
 STYLE = Path(__file__).with_name('style.mplstyle')
 
 
-def plot_covariance_errors(config, state, evaluator, posterior, paths, *, draws=32, plane='both'):
-    """Exact covariance components; field draw count follows diagnostic sampling policy."""
+def plot_covariance_errors(config, state, draws, paths, *, plane='both'):
+    """Exact covariance components over the reporting draws: per image, the median over draws of each component width
+    and of the singular values, and the 16-84% range of the total."""
     if plane not in {'source', 'image', 'both'}:
         raise ValueError('Unknown covariance display plane')
     plane_mode = plane
-    best = int(np.nanargmax(posterior.log_prob))
+    evaluator = draws.evaluator
     @jax.jit
     def evaluate(theta):
         p = evaluator.physical(theta)
@@ -41,22 +41,19 @@ def plot_covariance_errors(config, state, evaluator, posterior, paths, *, draws=
         projected = jnp.einsum('nij,nik,nkl->njl', u, cov, u)
         return s, jnp.stack([measurement, selection, deflection, total]), projected
 
-    s, widths, projected = map(np.asarray, evaluate(posterior.samples[best]))
-    np.testing.assert_allclose(widths[-1]**2, np.diagonal(projected, axis1=-2, axis2=-1), rtol=1e-11, atol=1e-14)
-    np.testing.assert_allclose(projected[:, 0, 1], 0, atol=1e-12)
-    indices = diagnostic_draw_indices(posterior.log_prob, draws)
-    source_widths = widths.copy()
-    source_draws, image_draws = [], []
-    for i in indices:
-        draw_s, draw_widths, _ = map(np.asarray, evaluate(posterior.samples[i]))
+    source_draws, image_draws, singular = [], [], []
+    for theta in draws.samples:
+        draw_s, draw_widths, projected = map(np.asarray, evaluate(theta))
+        np.testing.assert_allclose(draw_widths[-1]**2, np.diagonal(projected, axis1=-2, axis2=-1), rtol=1e-11, atol=1e-14)
+        np.testing.assert_allclose(projected[:, 0, 1], 0, atol=1e-12)
         if np.any(draw_s <= 0):
             raise ValueError('Image-plane covariance is undefined at a singular Jacobian')
+        singular.append(draw_s)
         source_draws.append(draw_widths)
         image_draws.append(draw_widths / draw_s[None, :, :])
-    if np.any(s <= 0):
-        raise ValueError('Image-plane covariance is undefined at a singular Jacobian')
-    plane_data = {'source': (source_widths, np.stack(source_draws)),
-                  'image': (source_widths / s[None, :, :], np.stack(image_draws))}
+    s = np.median(singular, axis=0)
+    plane_data = {plane: (np.median(stack, axis=0), stack) for plane, stack in
+                  (('source', np.stack(source_draws)), ('image', np.stack(image_draws)))}
     planes = ['image', 'source'] if plane == 'both' else [plane]
     prefix = config.paths.figure_prefix or 'cluster'
     stem = 'covariance_errors' + {'image': '_image_plane', 'source': '', 'both': '_both_planes'}[plane]
@@ -69,15 +66,15 @@ def plot_covariance_errors(config, state, evaluator, posterior, paths, *, draws=
         fig, axes = plt.subplots(len(planes), 2, figsize=(7.1, 5.5 if len(planes) == 2 else 3.25),
                                  sharey='row', sharex='col', squeeze=False)
         for row, plane in enumerate(planes):
-            widths, draws = plane_data[plane]
-            component_lo, component_median, component_hi = np.percentile(draws, [16, 50, 84], axis=0)
-            lo, median, hi = np.percentile(draws[:, -1], [16, 50, 84], axis=0)
+            widths, stacked = plane_data[plane]
+            component_lo, component_median, component_hi = np.percentile(stacked, [16, 50, 84], axis=0)
+            lo, median, hi = np.percentile(stacked[:, -1], [16, 50, 84], axis=0)
             for k, ax in enumerate(axes[row]):
                 order = np.argsort(s[:, k])
                 for j in range(3):
                     positive = widths[j, order, k] > 0
                     ax.plot(s[order, k][positive], widths[j, order, k][positive], color=colors[j], lw=1.5, label=names[j])
-                ax.plot(s[order, k], widths[-1, order, k], color='black', lw=1.25, label='Total: best fit')
+                ax.plot(s[order, k], widths[-1, order, k], color='black', lw=1.25, label='Total: median')
                 ax.errorbar(s[:, k], median[:, k], yerr=[median[:, k]-lo[:, k], hi[:, k]-median[:, k]],
                             fmt='o', ms=2.5, color='.35', ecolor='.65', elinewidth=.65, capsize=0,
                             label='Total: posterior 16–84%', zorder=1)
@@ -92,7 +89,7 @@ def plot_covariance_errors(config, state, evaluator, posterior, paths, *, draws=
                         va='top', fontsize=9)
                 for i, label in enumerate(state.images.image_labels):
                     table.append(dict(plane=plane, image_label=label, direction='arc' if k == 0 else 'perpendicular',
-                                      singular_value_best=s[i, k], **{name.lower()+'_arcsec': widths[j, i, k] for j, name in enumerate(names)},
+                                      singular_value_median=s[i, k], **{name.lower()+'_arcsec': widths[j, i, k] for j, name in enumerate(names)},
                                       **{f'{name.lower()}_{q}_arcsec': values[j, i, k]
                                          for j, name in enumerate(names[:3])
                                          for q, values in [('p16', component_lo), ('median', component_median), ('p84', component_hi)]},
@@ -107,10 +104,11 @@ def plot_covariance_errors(config, state, evaluator, posterior, paths, *, draws=
     tables = paths.tables
     tables.mkdir(parents=True, exist_ok=True)
     pd.DataFrame(table).to_csv(tables / f'{stem}.csv', index=False)
-    (tables / f'{stem}.json').write_text(json.dumps(dict(best_draw=best, posterior_draw_indices=indices.tolist(),
+    (tables / f'{stem}.json').write_text(json.dumps(dict(posterior_draw_indices=np.asarray(draws.indices).tolist(),
         plane=plane_mode, transformation={p: 'A^-1 C A^-T' if p == 'image' else 'C' for p in planes},
         kernels='exact', positions='observed images at their family redshifts',
-        x_axis='singular values at best fit; held fixed for posterior interval display',
+        x_axis='median over draws of each singular value',
+        lines='median over draws of each component width',
         intervals='16th–84th percentiles of component and total widths in each draw\u0027s singular basis',
         units='arcsec; standard deviations, not covariance eigenvalues'), indent=2))
     return output
@@ -131,23 +129,21 @@ def plot_covariance_corner(config, state, posterior, paths):
         np.testing.assert_array_equal(posterior.grouped_samples.reshape(posterior.samples.shape), posterior.samples)
         grouped = np.asarray(posterior.physical).reshape(posterior.grouped_samples.shape)
     path = paths.figures / f'{config.paths.figure_prefix or "cluster"}_covariance_corner.pdf'
-    result = plot_parameter_corner(posterior.physical, selection, path, grouped_physical=grouped,
-                                   best_index=int(np.nanargmax(posterior.log_prob)))
+    result = plot_parameter_corner(posterior.physical, selection, path, grouped_physical=grouped)
     if result is not None:
         paths.tables.mkdir(parents=True, exist_ok=True)
         (paths.tables / 'covariance_corner.json').write_text(path.with_suffix('.json').read_text())
     return result
 
 
-def write_covariance_plots(config, state, evaluator, posterior, paths, *, log=print):
+def write_covariance_plots(config, state, draws, posterior, paths, *, log=print):
     outputs = []
     corner = plot_covariance_corner(config, state, posterior, paths)
     if corner is not None:
         outputs.append(corner)
     else:
         log('[outputs] covariance corner skipped: insufficient draws or no sampled covariance parameters')
-    outputs.append(plot_covariance_errors(config, state, evaluator, posterior, paths,
-                                          draws=config.image_diagnostics.posterior_diagnostic_draws))
+    outputs.append(plot_covariance_errors(config, state, draws, paths))
     for path in outputs:
         log(f'[outputs] covariance plot: {path}')
     return outputs

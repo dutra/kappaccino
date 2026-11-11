@@ -36,7 +36,7 @@ def render_apj_fold_cutouts(config, data, imaging, output, *, max_separation=3.,
             return px-window.x0,py-window.y0
         rgb=rgb_cutout(images,bands,display,centre,s['fov'])
         ax.imshow(rgb,origin='lower',interpolation='nearest')
-        if 'critical_grf_best' in s:
+        if 'critical_grf_median' in s:
             shared=True
             band_sets=[(s.get('critical_grf_local_draws',s['critical_grf_draws']),critical_color)]
         else:

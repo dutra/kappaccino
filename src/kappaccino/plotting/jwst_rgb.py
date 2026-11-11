@@ -7,7 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from .grf import plot_deflection_correction, PLOT_FIELD_VERSION
 from ..io.hdf5 import load_arrays, save_arrays
-from ..likelihood.grf_fields import shared_field_evaluator, shared_grf_label, shared_theta
+from ..likelihood.grf_fields import posterior_map_draws, shared_field_evaluator, shared_grf_label, shared_theta
 
 
 def overview_grf_correction(evaluator, theta, geometry):
@@ -74,16 +74,14 @@ def overview_marker_photometry(config, catalog, reference, photpath, stem):
 
 
 @plt.rc_context()
-def render_rgb_critical(config, state, evaluator, theta, catalog, extra, imaging,
-                             output, tables, *, best_index=None, posterior=None, log=print):
-    """Render a median determinant contour and interval from the same draws."""
+def render_rgb_critical(config, state, draws, catalog, extra, imaging, output, tables, *, log=print):
+    """Render the z = 9 critical curve (zero contour of the per-pixel median det A over the reporting draws) and its
+    16-84% band on the RGB overview."""
     output,tables=Path(output),Path(tables)
-    if posterior is None:
-        raise ValueError("Median critical curves require the saved posterior")
+    evaluator=draws.evaluator
     from .mass_figure import overview_geometry, aligned_rgb, grid_pixels
     from ..imaging import cutouts
-    from ..lens.cosmology import dpie_sigma0_factor_from_config
-    import hashlib
+
     images,bands,display,cluster=imaging
     simulated=cluster.lower() in {'hera','ares'}
     stem=rgb_overview_stem(config.image_catalog, bands)
@@ -93,22 +91,24 @@ def render_rgb_critical(config, state, evaluator, theta, catalog, extra, imaging
     tables.mkdir(parents=True, exist_ok=True)
     output.parent.mkdir(parents=True, exist_ok=True)
     shared_grf=shared_field_evaluator(evaluator) is not None
-    band,band_info=critical_band(config,state,evaluator,posterior,best_index,geometry,tables,log=log,cache_stem=stem)
-    saved = load_arrays(tables/f'{stem}_band.h5')
-    lower,det,upper=critical_quantile_summary(saved['determinants'])
-    fingerprint=hashlib.sha256(str(saved['fingerprint']).encode()+b'median-determinant-contour-v1').hexdigest()
-    band_info['definition']='Zero contour of pointwise median determinant; shaded where its 16-84% interval contains zero; same parametric + conditional-mean GRF draws'
-    band_info['selection']='Chain containing best draw; not all-chain uncertainty'
+    band_geometry=overview_geometry(reference_image,catalog,extra,state.reference)
+    determinants=draws.grid_maps('overview',band_geometry['x'],band_geometry['y'],9.,log=log)['detA']
+    lower,det,upper=critical_quantile_summary(determinants)
+    band=(lower<0)&(upper>0)
+    fingerprint=draws.key
+    band_info=dict(draw_indices=draws.indices.tolist(),resolution=int(det.shape[0]),
+                   definition='Zero contour of pointwise median determinant; shaded where its 16-84% interval contains zero; parametric + conditional-mean GRF of each draw',
+                   selection='The reporting draws: random posterior draws over all chains (run seed)')
     (tables/f'{stem}_band.json').write_text(json.dumps(band_info,indent=2)+'\n')
-    save_arrays(tables/f'{stem}.h5',determinant=det,lower=lower,upper=upper,
-                        fingerprint=fingerprint,z_source=9.,draw_indices=band_info['draw_indices'],
+    save_arrays(tables/f'{stem}.h5',determinant=det,lower=lower,upper=upper,band=band,
+                        fingerprint=fingerprint,z_source=9.,draw_indices=draws.indices,
                         central_statistic='pointwise posterior median determinant')
     log(f'[outputs] rendering {cluster} RGB critical overview')
     rgb=cutouts.rgb_cutout(images,bands,display,geometry['center'],geometry['size'])
     rgb=aligned_rgb(rgb,reference_image,geometry)
     plt.style.use(str(Path(__file__).with_name('style.mplstyle')))
     from ..diagnostics.position_contours import load_or_compute_contours
-    recovered_contours = load_or_compute_contours(config, state, evaluator, posterior, extra, tables, log=log)
+    recovered_contours = load_or_compute_contours(config, state, draws, extra, tables, log=log)
     main_output = output
     for show_candidates in ((False, True) if m0416 else (False,)):
         output = main_output.with_name(main_output.stem + '_candidates.pdf') if show_candidates else main_output
@@ -238,23 +238,9 @@ def render_rgb_critical(config, state, evaluator, theta, catalog, extra, imaging
         else:
             fig.savefig(output,dpi=300,bbox_inches='tight',pad_inches=.06)
         plt.close(fig)
-        output.with_suffix('.json').write_text(json.dumps(dict(run=config.paths.run_name,image_position_marker='square',recovered_position_probability=.954499736,insets=inset_info,candidate_marker='diamond' if show_candidates else None,best_index=best_index,central_statistic='zero contour of pointwise posterior median determinant; same draws as band',z_source=9.,model='parametric + conditional mean GRF; no GP displacement' if shared_grf else 'parametric only; no shared GRF available',grf_field=shared_grf_label(evaluator),grf_derivatives=PLOT_FIELD_VERSION,bands=list(bands),catalog_images=len(catalog),resolution=n,determinant_resolution=int(det.shape[0]),critical_definition='median over draws of det(I - Hessian_draw) = 0',cache_fingerprint=fingerprint,marker_photometry=str(photpath) if photpath else None,magnitude_band=sorted(set(marker_table.loc[valid, 'magnitude_band'])),marker_photometry_catalog=str(getattr(getattr(getattr(config, 'model', None), 'image_constraints', None), 'catalog_path', '')),matched_magnitudes=int(valid.sum()),missing_magnitude_policy='minimum marker area 9 pt^2',marker_area='clip(16*10**(-0.2*(m-26)),9,64) pt^2',crop_padding_arcsec=3.,crop_pixel_limits=limits,candidate_catalog=str(candidate_path) if candidate_path else None,candidate_overlays=[r['id'] for r in overlay_rows]),indent=2)+'\n')
+        output.with_suffix('.json').write_text(json.dumps(dict(run=config.paths.run_name,image_position_marker='square',recovered_position_probability=.954499736,insets=inset_info,candidate_marker='diamond' if show_candidates else None,central_statistic='zero contour of pointwise posterior median determinant; same draws as band',z_source=9.,reporting_draws=len(draws),model='parametric + conditional mean GRF; no GP displacement' if shared_grf else 'parametric only; no shared GRF available',grf_field=shared_grf_label(evaluator),grf_derivatives=PLOT_FIELD_VERSION,bands=list(bands),catalog_images=len(catalog),resolution=n,determinant_resolution=int(det.shape[0]),critical_definition='median over draws of det(I - Hessian_draw) = 0',cache_fingerprint=fingerprint,marker_photometry=str(photpath) if photpath else None,magnitude_band=sorted(set(marker_table.loc[valid, 'magnitude_band'])),marker_photometry_catalog=str(getattr(getattr(getattr(config, 'model', None), 'image_constraints', None), 'catalog_path', '')),matched_magnitudes=int(valid.sum()),missing_magnitude_policy='minimum marker area 9 pt^2',marker_area='clip(16*10**(-0.2*(m-26)),9,64) pt^2',crop_padding_arcsec=3.,crop_pixel_limits=limits,candidate_catalog=str(candidate_path) if candidate_path else None,candidate_overlays=[r['id'] for r in overlay_rows]),indent=2)+'\n')
         log(f"[outputs] RGB critical overview written: {output}")
     return main_output
-
-
-def best_chain_draw_indices(posterior, best_index, count=32):
-    """Evenly cover only the chain containing the displayed best draw."""
-    grouped=np.asarray(posterior.grouped_samples)
-    samples=np.asarray(posterior.samples)
-    if grouped.ndim!=3 or not np.array_equal(grouped.reshape(samples.shape),samples):
-        raise ValueError('Critical band requires verified chain-major saved samples')
-    per_chain=grouped.shape[1]
-    chain=int(best_index)//per_chain
-    indices=np.unique(np.linspace(chain*per_chain,(chain+1)*per_chain-1,min(count,per_chain)).round().astype(int))
-    if best_index not in indices:
-        indices[np.argmin(abs(indices-best_index))]=best_index
-    return np.sort(indices),chain
 
 
 def draw_critical_interval(ax, lower, upper, color, extent=None, *, coordinates=None):
@@ -285,47 +271,6 @@ def critical_quantile_band(determinants):
     """Pointwise region where the central 68% determinant interval straddles zero."""
     lower,_,upper=critical_quantile_summary(determinants)
     return lower,upper,(lower<0)&(upper>0)
-
-
-def critical_band(config,state,evaluator,posterior,best_index,geometry,tables,log=print,*,cache_stem='jwst_rgb_critical_z9'):
-    import hashlib
-    from ..lens.cosmology import dpie_sigma0_factor_from_config
-    indices,chain=best_chain_draw_indices(posterior,best_index,count=int(config.image_catalog.critical_band_draws))
-    samples=np.asarray(posterior.samples)[indices]
-    resolution=512
-    xe=np.linspace(*geometry['xlim'],resolution+1);ye=np.linspace(*geometry['ylim'],resolution+1)
-    x,y=np.meshgrid((xe[:-1]+xe[1:])/2,(ye[:-1]+ye[1:])/2)
-    xy=np.column_stack([x.ravel(),y.ravel()])
-    fingerprint=hashlib.sha256(samples.tobytes()+indices.tobytes()+xy.tobytes()+
-        json.dumps({'model':config.to_json_dict()['model'],'likelihood':config.to_json_dict()['likelihood']},sort_keys=True,default=str).encode()+PLOT_FIELD_VERSION.encode()+b'critical-band-z9-best-chain-smooth-v2'+shared_grf_label(evaluator).encode()).hexdigest()
-    path=tables/f'{cache_stem}_band.h5'
-    if path.exists():
-        saved = load_arrays(path)
-        if str(saved['fingerprint'])==fingerprint:
-            log(f'[outputs] cached critical band: chain {chain}, {len(indices)} draws')
-            return saved['band'].copy(),dict(chain=chain,draw_indices=indices.tolist(),resolution=resolution,cache_reused=True)
-    twin=shared_field_evaluator(evaluator)
-    shared=twin is not None
-    factor=float(dpie_sigma0_factor_from_config(state.z_lens,9.,state.cosmo_config))/float(dpie_sigma0_factor_from_config(state.z_lens,state.gp_reference_redshift,state.cosmo_config))/float(twin.gp_weights_per_family[0]) if shared else 0.
-    determinants=[]
-    for number,theta in enumerate(samples):
-        packed=evaluator.packed_state_for_z(evaluator.physical(theta),9.)
-        _,hessian=evaluator.total_fields_at(xy,packed,chunk=1024)
-        hessian=np.array(hessian,copy=True)
-        if shared:
-            correction=overview_grf_correction(twin,shared_theta(evaluator,theta),geometry)
-            for start in range(0,len(xy),384):
-                q=xy[start:start+384]
-                c=correction(q[:,0],q[:,1],np.zeros(len(q),dtype=int))
-                hessian[start:start+len(q)]+=np.stack(c[2:],axis=-1).reshape(-1,2,2)*factor
-        det=np.linalg.det(np.eye(2)-hessian).reshape(x.shape)
-        if not np.isfinite(det).all():raise ValueError('Nonfinite posterior determinant grid')
-        determinants.append(det)
-        log(f'[outputs] critical band chain {chain}: {number+1}/{len(indices)} draws')
-    lower,upper,band=critical_quantile_band(determinants)
-    save_arrays(path,band=band,lower=lower,upper=upper,determinants=np.asarray(determinants),
-                        draw_indices=indices,chain=chain,fingerprint=fingerprint)
-    return band,dict(chain=chain,draw_indices=indices.tolist(),resolution=resolution,cache_reused=False)
 
 
 render_jwst_rgb_critical = render_rgb_critical

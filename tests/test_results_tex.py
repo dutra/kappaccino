@@ -33,25 +33,35 @@ def test_run_export(tmp_path):
     save('artifacts/config.json', {'paths': {'figure_prefix': 'm0416'}})
     save('artifacts/summary.json', {'images': 3, 'members': 8, 'exact_members': 2})
     save('artifacts/posterior_diagnostics.json', {'elapsed_seconds': 61, 'max_r_hat': 1.005})
-    save('tables/run_summary.json', {'fit': {'observed_image_count': 3, 'recovered_image_count': 2, 'image_rms_arcsec': .12345}})
+    save('tables/run_summary.json', {'fit': {'observed_image_count': 3, 'recovered_image_count': {'median': 2., 'q16': 1., 'q84': 3.}}})
     path = write_run_results(tmp_path)
     text = path.read_text()
     assert path.name == 'm0416_results.tex'
     assert path.parent == tmp_path / 'figures'
     assert not (tmp_path / 'tables' / path.name).exists()
     assert r'\MJZeroFourOneSixNRecovered}{2}' in text
-    assert r'\MJZeroFourOneSixRMS}{0.123}' in text
+    assert r'\MJZeroFourOneSixNRecoveredInterval}{{2_{-1}^{+1}}}' in text
+    assert r'\MJZeroFourOneSixNMissed}{1}' in text
+    assert r'\MJZeroFourOneSixRMS}{\textnormal{not available}}' in text
     assert r'\MJZeroFourOneSixNFarFieldMembers}{6}' in text
     assert r'\MJZeroFourOneSixRuntime}{\textnormal{not available}}' in text
     commands = re.findall(r'\\newcommand\{\\([^}]+)\}', text)
     assert commands and all(re.fullmatch('[A-Za-z]+', c) for c in commands)
     assert r'\MJZeroFourOneSixLensOnlyRMS}{\textnormal{not available}}' in text
-    save('tables/run_summary.json', {'fit': {'observed_image_count': 3, 'recovered_image_count': 2, 'image_rms_arcsec': .12345,
-                                             'lens_only_image_rms_arcsec': .25912, 'lens_only_image_median_residual_arcsec': .2031,
-                                             'lens_only_recovered_image_count': 3}})
+    save('tables/run_summary.json', {'fit': {'observed_image_count': 3, 'recovered_image_count': {'median': 2., 'q16': 2., 'q84': 2.},
+                                             'lens_only_recovered_image_count': {'median': 3., 'q16': 3., 'q84': 3.}}})
+    # Two draws: RMS 0.3 and 0.5 (residuals 0.3, 0.3 and 0.4, 0.6, plus an unrecovered image); lens only doubled.
+    rows = pd.DataFrame({'draw_index': [0, 0, 0, 1, 1, 1], 'recovered': [True, True, False, True, True, False],
+                         'image_residual_arcsec': [.3, .3, np.nan, .4, .6, np.nan]})
+    rows.to_csv(tmp_path / 'tables/posterior_image_residual_draws.csv', index=False)
+    rows.assign(image_residual_arcsec=2 * rows.image_residual_arcsec).to_csv(
+        tmp_path / 'tables/posterior_image_residual_draws_lens_only.csv', index=False)
     text = write_run_results(tmp_path).read_text()
-    assert r'\MJZeroFourOneSixLensOnlyRMS}{0.259}' in text
-    assert r'\MJZeroFourOneSixLensOnlyMedianResidual}{0.203}' in text
+    rms = np.percentile([.3, np.sqrt((.16 + .36) / 2)], [16, 50, 84])
+    assert rf'\MJZeroFourOneSixRMS}}{{{{{rms[1]:.3f}_{{-{rms[1] - rms[0]:.3f}}}^{{+{rms[2] - rms[1]:.3f}}}}}}}' in text
+    spread = np.percentile([.3, .5], [84]) [0] - .4      # per-draw medians 0.3 and 0.5
+    assert rf'\MJZeroFourOneSixMedianResidual}}{{{{0.400_{{-{spread:.3f}}}^{{+{spread:.3f}}}}}}}' in text
+    assert rf'\MJZeroFourOneSixLensOnlyMedianResidual}}{{{{0.800_{{-{2 * spread:.3f}}}^{{+{2 * spread:.3f}}}}}}}' in text
     assert r'\MJZeroFourOneSixNLensOnlyRecovered}{3}' in text
     save('tables/runtime.json', {'total': 3661})
     assert r'\MJZeroFourOneSixRuntimeHours}{1.017}' in write_run_results(tmp_path).read_text()
@@ -68,7 +78,7 @@ def test_posterior_rms_and_coordinate_coverage(tmp_path):
                   'y_model_q16': [-1, -1, -1], 'y_model_q84': [1, 1, 1]}).to_csv(
         tmp_path / 'tables/image_fit_quality.csv', index=False)
     text = write_run_results(tmp_path, name='m0416').read_text()
-    for suffix, value in [('PosteriorMedianRMS', '0.070'), ('NPosteriorRMSDraws', '3'),
+    for suffix, value in [('NPosteriorRMSDraws', '3'),
                           ('PositionCoverageXPercent', '50'), ('NPositionCoverageX', '2'),
                           ('PositionCoverageYPercent', '100'), ('NPositionCoverageY', '3')]:
         assert rf'\MJZeroFourOneSix{suffix}}}{{{value}}}' in text
@@ -85,7 +95,7 @@ def test_field_parameter_medians(tmp_path):
         tmp_path / 'tables/posterior_summary.csv', index=False)
     text = write_run_results(tmp_path, name='m0416').read_text()
     assert r'\MJZeroFourOneSixSigmaGP}{0.068}' in text
-    assert r'\MJZeroFourOneSixSigmaGPInterval}{0.068_{-0.013}^{+0.013}}' in text
+    assert r'\MJZeroFourOneSixSigmaGPInterval}{{0.068_{-0.013}^{+0.013}}}' in text
     assert r'\MJZeroFourOneSixLambdaB}{14.1}' in text
     assert r'\MJZeroFourOneSixGRFReferenceRedshift}{2.0}' in text
     assert r'\MJZeroFourOneSixSigmaMeas}{\textnormal{not available}}' in text
@@ -97,8 +107,10 @@ def test_mock_export(tmp_path):
     text = write_mock_results(campaign, tmp_path, rhat_cut=1.01, min_ess=50).read_text()
     assert r'\MockNImages}{3}' in text
     assert r'\MockNExcluded}{1}' in text
-    assert r'\MockRMS}{2.768}' in text
-    assert r'\MockMedianResidual}{2.750}' in text
+    # Groups: draw 0 residuals (3, 4) -> RMS 3.536, median 3.5; draw 1 residual (2) -> RMS 2, median 2.
+    for name, values in (('RMS', [np.sqrt(12.5), 2.0]), ('MedianResidual', [3.5, 2.0])):
+        low, mid, high = np.percentile(values, [16, 50, 84])
+        assert rf'\Mock{name}}}{{{{{mid:.3f}_{{-{mid - low:.3f}}}^{{+{high - mid:.3f}}}}}}}' in text
 
 
 def test_member_table_uses_joint_deviation_draws(tmp_path):

@@ -87,3 +87,22 @@ def test_wide_plot_extends_tables_without_changing_conditioning():
     np.testing.assert_allclose(values[3],values[4],atol=1e-12)
     plot_deflection_correction(evaluator,np.zeros(1),max_separation=3.)
     assert evaluator._plot_extended_tables is extended
+
+
+def test_jax_evaluation_matches_the_scipy_hermite_pieces(monkeypatch):
+    """The compiled evaluation uses power-basis pieces of the same quintic Hermite interpolant."""
+    smooth,_=toy_field(monkeypatch)
+    rng=np.random.default_rng(5)
+    points=rng.uniform(-4,4,(5000,2)); points[0]=smooth.xy[0,1]     # one point exactly on an image
+    families=rng.integers(0,2,len(points))
+    dx,dy,j00,j01,j10,j11=smooth(points[:,0],points[:,1],families)
+    xy=smooth.xy[0];u=smooth.u[0]
+    d=points[:,None]-xy[None];r=np.linalg.norm(d,axis=-1);safe=np.maximum(r,1e-10)
+    f=np.where(r>1e-10,smooth.ct1(r)/safe,smooth.ct2(0.));g=np.where(r>1e-10,(smooth.ct2(r)-smooth.ct1(r)/safe)/safe**2,0.)
+    du=np.einsum('pmi,mi->pm',d,u)
+    value=np.einsum('pm,ma->pa',smooth.ct(r),u)+np.einsum('pm,pma->pa',f*du,d)
+    deriv=(np.einsum('pm,ma,pmc->pac',f,u,d)+np.einsum('pm,pma,mc->pac',f,d,u)
+           +np.einsum('pm->p',f*du)[:,None,None]*np.eye(2)+np.einsum('pm,pma,pmc->pac',g*du,d,d))
+    weight=smooth.weights[families]
+    np.testing.assert_allclose(np.column_stack([dx,dy]),smooth.amplitude*value*weight[:,None],atol=1e-12)
+    np.testing.assert_allclose(np.stack([j00,j01,j10,j11],-1).reshape(-1,2,2),smooth.amplitude*deriv*weight[:,None,None],rtol=0,atol=1e-9)

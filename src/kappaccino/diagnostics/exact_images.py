@@ -7,14 +7,11 @@ from typing import Any
 import jax
 import jax.numpy as jnp
 import numpy as np
-from lenstronomy.LensModel.lens_model import LensModel as NPLensModel
-from lenstronomy.LensModel.Solver.lens_equation_solver import LensEquationSolver as NPLensEquationSolver
 from scipy.optimize import linear_sum_assignment
 
 from ..config import ImageDiagnosticsConfig
 from ..likelihood.evaluator import Evaluator
 from ..core.model import FamilyData, PackedLensState
-from ..lens.profiles import lenstronomy_kwargs
 
 _TRUST_RADIUS_DEFAULT = 0.3
 _LM_DAMPING_RELATIVE = 1.0e-3
@@ -35,18 +32,12 @@ def astropy_cosmology(cosmo_config: dict[str, Any]):
     return FlatLambdaCDM(H0=h0, Om0=om0)
 
 
-def packed_to_kwargs_lens(packed: PackedLensState) -> list[dict[str, float]]:
-    """lenstronomy keyword arguments of every component (packed state with scalar normalizations)."""
-    return [lenstronomy_kwargs(packed, idx) for idx in range(int(np.asarray(packed.profile_type).size))]
-
-
 class ExactImageSolver:
     """Solve the lens equation for every family at a latent vector and match the model images."""
 
     def __init__(self, evaluator: Evaluator, config: ImageDiagnosticsConfig) -> None:
         self.evaluator = evaluator
         self.config = config
-        self.models_by_z: dict[float, tuple[NPLensModel, NPLensEquationSolver]] = {}
         self.timing: dict[str, float] = {"exact_solver": 0.0, "global_grid": 0.0, "global_refine": 0.0}
         self.all_components = np.arange(evaluator.n_components, dtype=np.int32)
         self._per_image_fields = None
@@ -76,14 +67,6 @@ class ExactImageSolver:
     def magnification(self, packed: PackedLensState, x: np.ndarray, y: np.ndarray) -> np.ndarray:
         _, _, a00, a01, a10, a11 = self.ray_shoot_and_jacobian(packed, x, y)
         return 1.0 / (a00 * a11 - a01 * a10)
-
-    def lenstronomy_model(self, z_source: float) -> tuple[NPLensModel, NPLensEquationSolver]:
-        key = float(z_source)
-        if key not in self.models_by_z:
-            model = NPLensModel(lens_model_list=self.evaluator.state.lens_model_list, z_lens=self.evaluator.state.z_lens,
-                                z_source=key, cosmo=astropy_cosmology(self.evaluator.state.cosmo_config))
-            self.models_by_z[key] = (model, NPLensEquationSolver(model))
-        return self.models_by_z[key]
 
     # ------------------------------------------------------------------ local Levenberg--Marquardt solver
     def _lm_step(self, fx, fy, a00, a01, a10, a11):
@@ -286,15 +269,6 @@ class ExactImageSolver:
             raise RuntimeError("local exact image solver failed identification tolerance")
         return np.asarray(result["x"])[ok], np.asarray(result["y"])[ok]
 
-    def solve_lenstronomy(self, family: FamilyData, packed, source_x, source_y):
-        model, solver = self.lenstronomy_model(family.z_source)
-        x, y = solver.image_position_from_source(
-            source_x, source_y, packed_to_kwargs_lens(packed), solver="lenstronomy",
-            min_distance=float(self.config.exact_image_min_distance_arcsec), search_window=family.search_window,
-            x_center=family.x_center, y_center=family.y_center, num_iter_max=int(self.config.exact_image_num_iter_max),
-            precision_limit=float(self.config.exact_image_precision_limit))
-        return np.asarray(x, dtype=float), np.asarray(y, dtype=float)
-
     def solve(self, family: FamilyData, packed, source_x: float, source_y: float, *, adaptive: bool | None = None):
         """Model image positions of one family.  ``adaptive`` overrides the configured finder's fallback search; the
         posterior-draw diagnostics switch it off because a draw whose images the local solver cannot find from the
@@ -302,8 +276,6 @@ class ExactImageSolver:
         started = time.perf_counter()
         try:
             finder = self.config.exact_image_finder
-            if finder == "lenstronomy":
-                return self.solve_lenstronomy(family, packed, source_x, source_y)
             return self.solve_local_lm(family, packed, source_x, source_y,
                                        adaptive=(finder == "local-lm-adaptive") if adaptive is None else bool(adaptive))
         finally:

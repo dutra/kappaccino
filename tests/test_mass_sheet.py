@@ -1,4 +1,4 @@
-"""External convergence: per-family scaling, lens fields, gradients and the exact-image solver kwargs."""
+"""External convergence: per-family scaling, lens fields and gradients."""
 from __future__ import annotations
 
 from dataclasses import replace
@@ -10,12 +10,11 @@ import numpyro.distributions as dist
 
 from kappaccino.config import MassSheetConfig
 from kappaccino.likelihood.evaluator import Evaluator
-from kappaccino.diagnostics.exact_images import packed_to_kwargs_lens
 from kappaccino.lens.cosmology import flat_wcdm_lensing_efficiency
 from kappaccino.core.state import build_state
 
 
-def test_mass_sheet_scales_with_efficiency_and_matches_lenstronomy(synthetic_config):
+def test_mass_sheet_scales_with_efficiency(synthetic_config):
     sheet = MassSheetConfig(id="K", kappa=0.04, z_lens=0.3, priors={"kappa": dist.TruncatedNormal(0.0, 0.05, low=-0.2, high=0.5)})
     config = replace(synthetic_config, model=replace(synthetic_config.model, large_halos=synthetic_config.model.large_halos + (sheet,))).validate()
     state = build_state(config)
@@ -41,13 +40,3 @@ def test_mass_sheet_scales_with_efficiency_and_matches_lenstronomy(synthetic_con
     assert np.all(np.asarray(du[0]) == 0.0)
     value, grad = evaluator.value_and_grad(theta)
     assert np.isfinite(float(value)) and np.all(np.isfinite(np.asarray(grad))) and float(grad[names.index("K.kappa")]) != 0.0
-    # Exact-image solver path through lenstronomy's CONVERGENCE model.
-    from lenstronomy.LensModel.lens_model import LensModel
-    z_source = float(state.z_source_values[0])
-    packed_z = evaluator.packed_state_for_z(physical, z_source)
-    kwargs = packed_to_kwargs_lens(packed_z)
-    assert state.lens_model_list[sheet_row] == "CONVERGENCE" and kwargs[sheet_row]["kappa"] > 0
-    points = np.array([[3.0, -2.0], [-8.0, 5.0]])
-    alpha_total, _ = evaluator.total_fields_at(points, packed_z)
-    ax, ay = LensModel(lens_model_list=state.lens_model_list).alpha(points[:, 0], points[:, 1], kwargs)
-    np.testing.assert_allclose(alpha_total, np.stack((ax, ay), -1), rtol=1e-8, atol=1e-10)

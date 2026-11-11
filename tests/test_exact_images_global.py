@@ -1,4 +1,4 @@
-"""The batched global image search agrees with lenstronomy's solver at a fine grid and recovers the observed images."""
+"""The batched global image search agrees with a brute-force grid search and recovers the observed images."""
 from __future__ import annotations
 
 from dataclasses import replace
@@ -11,7 +11,7 @@ from kappaccino.diagnostics.exact_images import ExactImageSolver
 from kappaccino.core.state import build_state
 
 
-def test_global_search_matches_lenstronomy_and_recovers_observed_images(synthetic_config):
+def test_global_search_matches_brute_force_and_recovers_observed_images(synthetic_config, brute_force_images):
     state = build_state(synthetic_config)
     evaluator = Evaluator(state)
     # The synthetic catalog does not sit on the model's images, so widen the window to contain them.
@@ -30,15 +30,10 @@ def test_global_search_matches_lenstronomy_and_recovers_observed_images(syntheti
         packed = evaluator.packed_state_for_z(jnp.asarray(physical), family.z_source)
         bx, by, *_ = solver.ray_shoot_and_jacobian(packed, x, y)
         np.testing.assert_allclose(np.column_stack([bx, by]), np.broadcast_to(sources[k], (x.size, 2)), atol=5e-3)
-        # the same image set as lenstronomy at the same resolution, once its candidates are polished and de-duplicated
+        # the same image set as a brute-force search over the same window
         half = 0.5 * family.search_window + config.exact_image_window_margin_arcsec
-        lx, ly = solver.solve_lenstronomy(replace(family, x_obs=np.asarray([family.x_center - half, family.x_center + half]),
-                                                  y_obs=np.asarray([family.y_center - half, family.y_center + half]), image_labels=["a", "b"]),
-                                          packed, float(sources[k, 0]), float(sources[k, 1]))
-        polished = solver._refine(packed, float(sources[k, 0]), float(sources[k, 1]), lx, ly)
-        lx, ly = polished["x"][polished["identification_pass"]], polished["y"][polished["identification_pass"]]
-        distinct = [i for i in range(lx.size) if all(np.hypot(lx[i] - lx[j], ly[i] - ly[j]) > config.exact_image_min_separation_arcsec for j in range(i))]
-        lx, ly = lx[distinct], ly[distinct]
+        lx, ly = brute_force_images(solver, packed, sources[k], (family.x_center, family.y_center), half, pitch=0.1,
+                                    min_separation=config.exact_image_min_separation_arcsec)
         d = np.hypot(x[:, None] - lx[None, :], y[:, None] - ly[None, :])
         assert x.size == lx.size and np.all(d.min(axis=1) < 0.01) and np.all(d.min(axis=0) < 0.01), (family.family_id, x.size, lx.size)
         # no duplicates

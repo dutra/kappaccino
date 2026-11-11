@@ -57,7 +57,9 @@ def verify_geometry_and_profile():
     np.testing.assert_allclose(log_slope(1e5), -3, atol=2e-9)
     # An extended -1 interval requires stronger core/cut separation.
     np.testing.assert_allclose(log_slope(1e-3, a=1e-6, s=1), -1, atol=.002)
-    from lenstronomy.LensModel.Profiles.dpie_nie_e import DPIE_NIE_E
+    import jax
+    jax.config.update("jax_enable_x64", True)
+    from kappaccino.lens.nie import DPIE_NIE_E
     e = (1-Q)/(1+Q)
     # On the major axis, X=xi/sqrt(q).
     h = DPIE_NIE_E.hessian(radius/np.sqrt(Q), np.zeros_like(radius), 1, A, S, e, 0)

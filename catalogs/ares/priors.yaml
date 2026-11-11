@@ -1,0 +1,17 @@
+# Ares (FF-SIMS): a semi-analytic MOKA cluster at z = 0.5 (Meneghetti et al. 2017).  Positions are offsets about (0, 0).
+reference: {ra0_deg: 0.0, dec0_deg: 0.0}
+cosmology: {H0: 70.4, Om0: 0.272, Ode0: 0.728}
+z_lens: 0.5
+images: images.yaml
+
+# One cluster-scale halo at the light peak of each clump, plus external shear (cluster_scale priors as for Hera).
+halos:
+  "1": {preset: cluster_scale, x_centre: 20.0, y_centre: -32.0, v_disp: 950.0}
+  "2": {preset: cluster_scale, x_centre: -40.0, y_centre: 40.0, v_disp: 950.0}
+  S1: {profile: shear, preset: free}
+
+# The brightest cluster galaxies stay on the scaling relation, as on Hera: independent halos cost parameters, made the
+# chains multi-well and did not improve the fit.  L* is m_F160W = 19.82 at z = 0.5.  The subhalos are analytic
+# profiles, so there is no resolution softening.
+members:
+  potfile_1: {catalog_path: members.yaml, preset: bergamini2019, prior_mag0: 19.82}

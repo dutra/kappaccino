@@ -12,7 +12,7 @@ Layout (every entry is a real file; the script never creates symbolic links):
     <cluster>/ffsims/     one folder per FF-SIMS cluster (hera, ares, hermes, hephaestus) with every file its page on the
                           site served: simulation_hst_<band>.fits (seven HFF bands), simulation_subaru_R.fits, the
                           catalogs and region files and, for Hera and Ares, the lens results (kappa / gammax / gammay at
-                          z = 9, deflAngles*.fits, <Cluster>_F.fits, <Cluster>_G.fits).  run.xsh reads the three ACS
+                          z = 9, deflAngles*.fits, <Cluster>_F.fits, <Cluster>_G.fits).  The cluster run.yaml files read the three ACS
                           bands and the three z = 9 maps.
     m0416/canucs_dr1/     CANUCS DR1 NIRCam mosaics (MAST HLSP): 20 mas F115W F150W F200W, 40 mas F444W, kept
                           uncompressed (.fits): the archive's .fits.gz is unpacked once, since reading cutouts through a
@@ -364,7 +364,7 @@ The mosaics and truth maps the figures read, plain files, one folder per cluster
 
     hera/ffsims/      every FF-SIMS file of the cluster (Meneghetti et al. 2017): simulation_hst_<band>.fits (seven HFF bands),
                       simulation_subaru_R.fits, the catalogs and region files, and the lens results kappa_z9_0 / gammax_z9_0 /
-                      gammay_z9_0.fits, deflAnglesHera.fits, Hera_F.fits, Hera_G.fits.  run.xsh reads the three ACS bands
+                      gammay_z9_0.fits, deflAnglesHera.fits, Hera_F.fits, Hera_G.fits.  The cluster run.yaml files read the three ACS bands
                       and the three z = 9 maps.
     ares/ffsims/      the same for Ares
     hermes/ffsims/, hephaestus/ffsims/   images and catalogs only (the site published no lens results for them)
@@ -376,7 +376,7 @@ The mosaics and truth maps the figures read, plain files, one folder per cluster
     ffsims_site/      the pages, stylesheet and thumbnails of the FF-SIMS site, which went offline in 2026
 
 Each file has a .json sidecar (origin URL or local path, sha256, shape, pixel scale) and manifest.json lists them.
-run.xsh points ImageCatalogCutoutConfig.image_dir at <cluster>/<source> and the truth maps at <cluster>/ffsims.
+The cluster run.yaml files point ImageCatalogCutoutConfig.image_dir at <cluster>/<source> and the truth maps at <cluster>/ffsims.
 Nothing here is a symbolic link: `download --local-source DIR` copies files it finds under DIR.  `zip` packs the JWST
 and FF-SIMS files with the catalogs/ tree; `unpack` restores the archive.  None of it is tracked by git.
 """

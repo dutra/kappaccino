@@ -103,12 +103,12 @@ def fit_variant(run_dir: Path, variant: str, out: Path, *, args) -> dict:
     from kappaccino.inference.search import Objective
     from kappaccino.core.state import build_state, with_member_classes
 
-    ns = {"__file__": str(ROOT / "run.xsh"), "__name__": "compare_grf_spectra"}
-    exec(compile("\n".join(l for l in (ROOT / "run.xsh").read_text().splitlines() if not l.startswith("$")), "run.xsh", "exec"), ns)
-    config = ns["build_config"]("M0416_CANUCS2025", cores=8, campaign_name="compare_grf_spectra")
+    from kappaccino.lens.cosmology import kpc_per_arcsec_from_config
+    from kappaccino.run_files import load_run
+    config = load_run(ROOT / "catalogs/m0416/canucs2025", overrides=["runtime.chains=8", "paths.run_name=compare_grf_spectra"])
     if args.drop_halos:
         config = replace(config, model=replace(config.model, large_halos=tuple(h for h in config.model.large_halos if h.id not in args.drop_halos)))
-    kpc = float(ns["kpc_per_arcsec_from_config"](0.396, {"H0": 70.0, "Om0": 0.3}))
+    kpc = float(kpc_per_arcsec_from_config(0.396, {"H0": 70.0, "Om0": 0.3}))
     fixed_knee = ISOTHERMAL_KNEE_PER_RT * float(args.fixed_rt_kpc) / kpc
     config = replace(config, likelihood=variant_likelihood(config.likelihood, variant, args.tight_gp, fixed_knee=fixed_knee,
                                                            fixed_ell=args.fixed_ell)).validate()

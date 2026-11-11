@@ -9,9 +9,9 @@ errors, so every image (trusted and uncertain) gets realistic magnitude errors a
 Writes to the output directory:
 
 trusted.yaml
-    The trusted families (``--image-catalog`` of the ``ignore`` and ``groups`` fits).
+    The trusted families (``--images`` of the ``ignore`` and ``groups`` fits).
 uncertain.csv
-    The uncertain images (``--uncertain-images`` of the ``groups`` fit).
+    The uncertain images (``--set partition.catalog_path`` of the ``groups`` fit).
 truth.csv
     The true family, redshift and role (``hidden`` or ``counterimage``) of every uncertain image, for scoring.
 degrade.json
@@ -38,6 +38,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from kappaccino.io.image_catalog import write_image_catalog  # noqa: E402
 
 CATALOGS = {"HERA": "catalogs/hera/images.yaml", "ARES": "catalogs/ares/images.yaml"}
+FOLDERS = {"HERA": "catalogs/hera", "ARES": "catalogs/ares"}     # their run.yaml and priors.yaml
 CAMPAIGN = "uncertain_images"
 Z_MIN, Z_MAX = 0.1, 7.0
 
@@ -141,16 +142,16 @@ def main(argv=None) -> int:
                         header=f"Degraded from {source} by scripts/degrade_image_catalog.py: trusted families {', '.join(trusted)}; "
                                f"magnitudes rescattered (seed {args.seed}).")
 
-    base = ["xonsh", "run.xsh", args.cluster, "--campaign", CAMPAIGN, "--image-catalog", str(output / "trusted.yaml")]
+    base = ["xonsh", "run.xsh", FOLDERS[args.cluster], "--campaign", CAMPAIGN, "--images", str(output / "trusted.yaml")]
     commands = {"ignore": base + ["--run-label", f"{case}_ignore"],
-                "groups": base + ["--run-label", f"{case}_groups", "--uncertain-images", str(output / "uncertain.csv")]}
+                "groups": base + ["--run-label", f"{case}_groups", "--set", f"partition.catalog_path={output / 'uncertain.csv'}"]}
     settings = {"cluster": args.cluster, "case": case, "source_catalog": str(source), "trusted": trusted,
                 "counterimage_images": [f"{s}.{i}" for s, i in moved.items()], "seed": args.seed,
                 "photz_sigma": args.photz_sigma, "photz_outliers": args.photz_outliers,
                 "mag_err_26": args.mag_err_26, "mag_err_floor": args.mag_err_floor,
                 "n_uncertain": len(rows), "n_hidden_families": len(systems) - len(trusted),
                 "commands": {k: shlex.join(v) for k, v in commands.items()},
-                "full_command": shlex.join(["xonsh", "run.xsh", args.cluster, "--campaign", CAMPAIGN, "--run-label", "full"])}
+                "full_command": shlex.join(["xonsh", "run.xsh", FOLDERS[args.cluster], "--campaign", CAMPAIGN, "--run-label", "full"])}
     (output / "degrade.json").write_text(json.dumps(settings, indent=2) + "\n")
     print(f"{output}: {len(trusted)} trusted families ({', '.join(trusted)}), {len(rows)} uncertain images "
           f"from {settings['n_hidden_families']} hidden families and {len(moved)} counterimages")

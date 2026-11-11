@@ -53,14 +53,15 @@ def test_configured_panel_order_roundtrip_and_limit(tmp_path):
 
 
 def test_launcher_declares_ordered_panels():
+    import yaml
     from pathlib import Path
-    import ast
-    source=(Path(__file__).resolve().parents[1]/'run.xsh').read_text()
-    for name,expected in [('M0416_SMALL_LAMBDA_POSTERIORS',tuple('image:'+s for s in IMAGE_LABELS)),('M0416_FOLD_CUTOUTS',tuple('system:'+s for s in SYSTEM_IDS))]:
-        line=next(line for line in source.splitlines() if line.startswith(name+' ='))
-        assert ast.literal_eval(line.split('=',1)[1].strip())==expected
-    assert 'paper_small_lambda_cutouts=M0416_SMALL_LAMBDA_POSTERIORS' in source
-    assert 'paper_fold_cutouts=M0416_FOLD_CUTOUTS' in source
+    for folder in ('bergamini2023', 'canucs2025'):
+        run = Path(__file__).resolve().parents[1]/'catalogs'/'m0416'/folder/'run.yaml'
+        data = yaml.safe_load(run.read_text())
+        if 'extends' in data:
+            data = yaml.safe_load((run.parent/data['extends']).read_text())
+        assert tuple(data['image_catalog']['paper_small_lambda_cutouts'])==tuple('image:'+s for s in IMAGE_LABELS)
+        assert tuple(data['image_catalog']['paper_fold_cutouts'])==tuple('system:'+s for s in SYSTEM_IDS)
 
 
 def test_explicit_panels_compute_missing_critical_fields(tmp_path,monkeypatch):

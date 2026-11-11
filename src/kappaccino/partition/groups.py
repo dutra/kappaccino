@@ -426,7 +426,8 @@ def group_model(inputs: UncertainImageInputs, library: list[tuple[int, ...]], lo
                       log_alone_weights=log_alone_weights, groups=tuple(library), group_index=index, group_mask=mask,
                       group_catalog=inputs.catalog(index, mask) if library else np.zeros((0, inputs.images.z_grid.size)),
                       log_group_weight=group_log_weight(log_new, index, mask) if library else np.zeros(0),
-                      packing_groups=np.asarray(packing_groups).reshape(-1, len(library)), packing_alone=np.asarray(packing_alone),
+                      packing_groups=np.asarray(packing_groups, dtype=bool).reshape(len(packing_component), len(library)),
+                      packing_alone=np.asarray(packing_alone, dtype=bool),
                       packing_component=np.asarray(packing_component, dtype=np.int32), n_components=len(components),
                       image_component=image_component, group_members=group_members)
 

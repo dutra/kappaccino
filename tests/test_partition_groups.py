@@ -230,6 +230,24 @@ def test_packings_and_pruning_of_a_large_component():
     assert sorted(groups._cliques(np.asarray([[0, 1, 1], [1, 0, 1], [1, 1, 0]], dtype=bool), 3)) == [(0, 1), (0, 1, 2), (0, 2), (1, 2)]
 
 
+def test_an_empty_library_leaves_every_image_alone(synthetic_config, tmp_path):
+    """With no compatible groups, the sum has one partition per image (each image alone)."""
+    path, truth = _mock(synthetic_config, tmp_path)
+    table = pd.read_csv(path)
+    table["zphot_best"] = np.linspace(1.0, 5.0, len(table))          # every pair disagrees in redshift
+    table["catalog_z_sigma"] = 0.01
+    table.to_csv(path, index=False)
+    config = _with_partition(synthetic_config, path, photoz_outlier_fraction=0.0, library_pair_margin=0.0, library_group_margin=0.0)
+    extended, evaluator, start = _add(config)
+    model = extended.uncertain_images
+    assert model.groups == () and model.packing_groups.shape == (len(truth), 0) and model.n_components == len(truth)
+    stats = evaluator.statistics(jnp.asarray(start))
+    out = model.terms(evaluator, jnp.asarray(start), stats)
+    np.testing.assert_allclose(float(model.log_likelihood(evaluator, jnp.asarray(start), stats)), float(jnp.sum(out["log_alone"])), rtol=1e-12)
+    result = model.posterior(evaluator, start[None], np.random.default_rng(0))
+    np.testing.assert_allclose(result["probability"].sum(axis=1), 1.0, atol=1e-9)
+
+
 def test_an_uncatalogued_counterimage_joins_its_trusted_family(synthetic_config, tmp_path):
     path, truth = _mock(synthetic_config, tmp_path, counterimage=True)
     config = _with_partition(synthetic_config, path)

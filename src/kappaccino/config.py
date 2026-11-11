@@ -1336,18 +1336,15 @@ class ImageDiagnosticsConfig:
         Largest separation of a candidate fold image pair (same family, model-verified), in arcsec.  Positive.
         Default ``5.0``.
     exact_image_min_distance_arcsec : float, optional
-        ``"lenstronomy"``: its ``min_distance``, in arcsec.  ``"local-lm-adaptive"``: starting half-size of the 3 x 3
-        box of fallback starts (at most ``exact_image_lm_trust_radius_arcsec``).  Default ``0.5``.
+        ``"local-lm-adaptive"``: starting half-size of the 3 x 3 box of fallback starts (at most
+        ``exact_image_lm_trust_radius_arcsec``), in arcsec.  Default ``0.5``.
     exact_image_precision_limit : float, optional
-        ``"lenstronomy"``: its ``precision_limit``.  LM solvers: lower limit of the source-plane tolerance of
-        convergence, in arcsec.  Default ``1e-2``.
-    exact_image_num_iter_max : int, optional
-        ``"lenstronomy"``: its ``num_iter_max``.  Default ``100``.
+        Lower limit of the source-plane tolerance of convergence of the LM solvers, in arcsec.  Default ``1e-2``.
     exact_image_finder : str, optional
         Finder of each reporting draw's images: ``"global-jax"`` (seeds from a coarse grid over each family window, one
         batched LM solve; also reports extra model images), ``"local-lm-adaptive"`` (LM from the observed positions,
-        with a shrinking-box fallback for images not found), ``"local-lm"`` (LM from the observed positions) or
-        ``"lenstronomy"`` (lenstronomy's image-position solver).  Default ``"global-jax"``.
+        with a shrinking-box fallback for images not found) or ``"local-lm"`` (LM from the observed positions).
+        Default ``"global-jax"``.
     exact_image_grid_pitch_arcsec : float, optional
         ``"global-jax"``: pitch of the coarse grid over each family window, in arcsec.  Positive.  Default ``0.5``.
     exact_image_fine_pitch_arcsec : float, optional
@@ -1396,7 +1393,6 @@ class ImageDiagnosticsConfig:
     fold_pair_max_separation_arcsec: float = 5.0
     exact_image_min_distance_arcsec: float = 0.5
     exact_image_precision_limit: float = 1.0e-2
-    exact_image_num_iter_max: int = 100
     exact_image_finder: str = "global-jax"
     exact_image_grid_pitch_arcsec: float = 0.5
     exact_image_fine_pitch_arcsec: float = 0.1
@@ -2089,8 +2085,8 @@ def validate_config(config: LensClusterSolverConfig) -> None:
         raise ValueError("reporting.image_draws must be an integer of at least reporting.draws.")
     if not math.isfinite(diagnostics.fold_pair_max_separation_arcsec) or diagnostics.fold_pair_max_separation_arcsec <= 0:
         raise ValueError("image_diagnostics.fold_pair_max_separation_arcsec must be finite and positive.")
-    if diagnostics.exact_image_finder not in {"global-jax", "lenstronomy", "local-lm", "local-lm-adaptive"}:
-        raise ValueError("image_diagnostics.exact_image_finder must be 'global-jax', 'lenstronomy', 'local-lm', or 'local-lm-adaptive'.")
+    if diagnostics.exact_image_finder not in {"global-jax", "local-lm", "local-lm-adaptive"}:
+        raise ValueError("image_diagnostics.exact_image_finder must be 'global-jax', 'local-lm', or 'local-lm-adaptive'.")
     _positive("image_diagnostics.exact_image_grid_pitch_arcsec", diagnostics.exact_image_grid_pitch_arcsec)
     _positive("image_diagnostics.exact_image_fine_pitch_arcsec", diagnostics.exact_image_fine_pitch_arcsec)
     if diagnostics.exact_image_fine_pitch_arcsec > diagnostics.exact_image_grid_pitch_arcsec:

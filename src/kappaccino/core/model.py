@@ -14,10 +14,6 @@ DP_IE_PROFILE = 81          # Lenstool profile codes
 SHEAR_PROFILE = 14
 NFW_PROFILE = 12
 MASS_SHEET_PROFILE = 101    # not a Lenstool profile: uniform external convergence at the lens redshift
-DPIE_PROFILE_NAME = "DPIE_NIE_E"        # lenstronomy names (exact-image solver)
-SHEAR_PROFILE_NAME = "SHEAR"
-NFW_PROFILE_NAME = "NFW_ELLIPSE_CSE"
-MASS_SHEET_PROFILE_NAME = "CONVERGENCE"
 COMPONENT_FAMILY_LARGE = 0
 COMPONENT_FAMILY_SCALING = 1
 DEFAULT_SEARCH_PADDING = 8.0
@@ -446,8 +442,6 @@ class ModelState:
         ``core_radius_kpc``, ``cut_radius_kpc`` in kpc, ``v_disp`` in km s^-1, ...).
     packed_lens_spec : PackedLensSpec
         Per-component fixed values and the parameter index that overrides each field (-1 where the field is fixed).
-    lens_model_list : list of str
-        Profile name of each lens component.
     family_data : list of FamilyData
         The observed families, sorted by family id.
     images : ImageData
@@ -534,7 +528,6 @@ class ModelState:
     parameter_specs: list[ParameterSpec]
     base_components: list[dict[str, Any]]
     packed_lens_spec: PackedLensSpec
-    lens_model_list: list[str]
     family_data: list[FamilyData]
     images: ImageData
     potfiles: list[dict[str, Any]]

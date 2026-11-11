@@ -1,4 +1,4 @@
-"""Analytic dPIE alpha, U and dU against the jaxtronomy kernel differentiated by forward mode."""
+"""Analytic dPIE alpha, U and dU against the Cartesian dPIE kernel differentiated by forward mode."""
 import jax
 jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp

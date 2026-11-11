@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import jax
+import numpy as np
 import numpyro.distributions as dist
 import pytest
 
@@ -48,3 +49,27 @@ def synthetic_cluster_config(root: Path) -> LensClusterSolverConfig:
 @pytest.fixture
 def synthetic_config(tmp_path: Path) -> LensClusterSolverConfig:
     return synthetic_cluster_config(tmp_path)
+
+
+def _brute_force_images(solver, packed, source, center, half, pitch, min_separation=0.01):
+    """Every image of ``source`` in the square window ``center`` +- ``half``: the local minima of |beta - source| on a
+    grid of the given pitch, polished by the solver's LM step and de-duplicated.  A reference search independent of the
+    global finder's seeding."""
+    axis_x = np.arange(center[0] - half, center[0] + half + 0.5 * pitch, pitch)
+    axis_y = np.arange(center[1] - half, center[1] + half + 0.5 * pitch, pitch)
+    gx, gy = np.meshgrid(axis_x, axis_y)
+    bx, by, *_ = solver.ray_shoot_and_jacobian(packed, gx.ravel(), gy.ravel())
+    distance = np.hypot(bx - source[0], by - source[1]).reshape(gx.shape)
+    padded = np.pad(distance, 1, constant_values=np.inf)
+    neighbours = [padded[1 + i:padded.shape[0] - 1 + i, 1 + j:padded.shape[1] - 1 + j]
+                  for i in (-1, 0, 1) for j in (-1, 0, 1) if (i, j) != (0, 0)]
+    minimum = np.all([distance <= n for n in neighbours], axis=0)
+    polished = solver._refine(packed, float(source[0]), float(source[1]), gx[minimum], gy[minimum])
+    x, y = polished["x"][polished["identification_pass"]], polished["y"][polished["identification_pass"]]
+    keep = [i for i in range(x.size) if all(np.hypot(x[i] - x[j], y[i] - y[j]) > min_separation for j in range(i))]
+    return x[keep], y[keep]
+
+
+@pytest.fixture
+def brute_force_images():
+    return _brute_force_images

@@ -110,16 +110,23 @@ def circular_fields(dx, dy, sigma0, a, s, slope):
 
     With :math:`\\alpha = f(R) \\hat r`: :math:`U = (f/R) I + (f' - f/R) \\hat r \\hat r` and
     :math:`\\partial_l U_{ij} = A' \\hat r_l \\delta_{ij} + (B' - 2B/R) \\hat r_i \\hat r_j \\hat r_l
-    + (B/R)(\\delta_{il} \\hat r_j + \\delta_{jl} \\hat r_i)` with :math:`A = f/R` and :math:`B = f' - f/R`."""
-    radius = jnp.sqrt(dx * dx + dy * dy)
-    f = lambda r: circular_deflection(r, sigma0, a, s, slope)
-    ones = jnp.ones_like(radius)
-    df = lambda r: jax.jvp(f, (r,), (ones,))[1]
-    value, slope_f = jax.jvp(f, (radius,), (ones,))
-    curvature = jax.jvp(df, (radius,), (ones,))[1]
+    + (B/R)(\\delta_{il} \\hat r_j + \\delta_{jl} \\hat r_i)` with :math:`A = f/R` and :math:`B = f' - f/R`.
+    The radial derivatives are closed forms: :math:`R f = A\\, G_p(R)` and :math:`G_p' = 2 R \\kappa / A` give
+    :math:`f' = 2 \\kappa - f/R` and :math:`f'' = 2 \\kappa' - f'/R + f/R^2`."""
+    radius_sq = dx * dx + dy * dy
+    radius = jnp.sqrt(radius_sq)
+    p = 0.5 * (slope - 1.0)
+    scale = amplitude(sigma0, a, s, slope)
+    value = scale * enclosed(radius_sq, a, s, slope) / radius
+    inv_a, inv_s = 1.0 / (radius_sq + a * a), 1.0 / (radius_sq + s * s)
+    power_a, power_s = jnp.exp(p * jnp.log(inv_a)), jnp.exp(p * jnp.log(inv_s))     # (R^2 + r^2)^-p
+    kappa = scale * (power_a - power_s)
+    dkappa = -2.0 * p * radius * scale * (power_a * inv_a - power_s * inv_s)          # d kappa / d R
+    big_a = value / radius
+    slope_f = 2.0 * kappa - big_a
+    curvature = 2.0 * dkappa - slope_f / radius + big_a / radius
     rhat = jnp.stack((dx / radius, dy / radius), -1)
     eye = jnp.eye(2)
-    big_a = value / radius
     big_b = slope_f - big_a
     da = (slope_f - big_a) / radius                               # d(f/R)/dR
     db = curvature - da

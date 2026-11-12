@@ -79,6 +79,32 @@ def test_circular_kernel_matches_the_closed_form():
             assert _relative(value, reference) < 1e-4
 
 
+@pytest.mark.parametrize("slope", (1.1, 1.6, 2.0, 2.5, 2.9))
+def test_circular_derivatives_match_forward_mode(slope):
+    """The closed-form U and dU of the circular kernel against forward-mode derivatives of its deflection, from inside
+    the cut to 300 cut radii (where far-field members sit), with per-member parameters."""
+    rng = np.random.default_rng(12)
+    members, images = 6, 25
+    radius = jnp.asarray(np.geomspace(0.5, 3000.0, members * images).reshape(members, images))
+    angle = jnp.asarray(rng.uniform(0, 2 * np.pi, (members, images)))
+    dx, dy = radius * jnp.cos(angle), radius * jnp.sin(angle)
+    sigma0, a, s = (jnp.asarray(rng.uniform(low, high, (members, 1))) for low, high in ((0.5, 2.0), (0.02, 0.2), (2.0, 10.0)))
+    alpha, u, du = cpl.circular_fields(dx, dy, sigma0, a, s, slope)
+
+    def deflection(offset, sigma0, a, s):
+        r = jnp.sqrt(offset[0] ** 2 + offset[1] ** 2)
+        return cpl.circular_deflection(r, sigma0, a, s, slope) * offset / r
+
+    offsets = jnp.stack((dx, dy), -1).reshape(-1, 2)
+    broadcast = [jnp.broadcast_to(v, dx.shape).reshape(-1) for v in (sigma0, a, s)]
+    expected_u = jax.vmap(jax.jacfwd(deflection))(offsets, *broadcast).reshape(u.shape)
+    expected_du = jax.vmap(jax.jacfwd(jax.jacfwd(deflection)))(offsets, *broadcast).reshape(du.shape)
+    np.testing.assert_allclose(alpha, jax.vmap(deflection)(offsets, *broadcast).reshape(alpha.shape), rtol=1e-13)
+    for got, expected in ((u, expected_u), (du, expected_du)):
+        size = jnp.max(jnp.abs(expected), axis=tuple(range(2, expected.ndim)), keepdims=True)      # per member and image
+        assert float(jnp.max(jnp.abs(got - expected) / size)) < 1e-10
+
+
 @pytest.mark.parametrize("slope", (1.1, 1.7, 2.0, 2.6, 2.9))
 def test_mass_inside_the_cut_is_the_dpie_mass(slope):
     """Every slope keeps the dPIE's projected mass inside the cut radius (R alpha(R) is that mass over pi)."""

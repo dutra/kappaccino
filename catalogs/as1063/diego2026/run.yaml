@@ -11,6 +11,9 @@ image_catalog:
   figure_suffix: _jwst
 
 profiles:
+  # Cosmography: Om0 and w0 of flat wCDM sampled with the lens (priors_cosmography.yaml).
+  cosmography:
+    priors: priors_cosmography.yaml
   hst:
     image_catalog:
       image_dir: ../../../data/imaging/as1063/buffalo

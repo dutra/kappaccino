@@ -52,6 +52,9 @@ image_catalog:
   rgb: {q: 6.8, stretch: 0.0158, minimum: 0.00105, red_gain: 0.62, green_gain: 0.78, blue_gain: 3.65}
 
 profiles:
+  # Cosmography: Om0 and w0 of flat wCDM sampled with the lens (priors_cosmography.yaml).
+  cosmography:
+    priors: priors_cosmography.yaml
   # Exploratory: far-field members down to 2 cut radii, classified at the current model with 3x headroom on the cut
   # radius, system blocks, member shapes fixed at the catalog, 8 draws and no extra-image search.  Check the audit's
   # far-field error before trusting a fast run.

@@ -25,6 +25,10 @@ Images of unknown family are a `partition` section: `--set partition.catalog_pat
 `partition.catalog_path=null` for the untrusted images of the image catalog, with
 `partition.redshift_grid=[z_min,z_max,points]` for their redshift quadrature.
 
+The common fields have named options, applied after the profiles and before `--set`: `--chains`, `--seed`,
+`--starts`, `--warm-start RUN_DIR`, `--warmup`, `--samples`, `--tree-depth`, `--target-accept`, `--draws` (both
+reporting draw counts) and `--skip-plots`. `kappaccino --help` lists them with the field each sets.
+
 | folder | name | profiles |
 |---|---|---|
 | `catalogs/hera` | hera | fast |

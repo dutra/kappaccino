@@ -5,7 +5,7 @@ resolved against the working directory, so run from the repository root::
 
     kappaccino catalogs/hera --dry-run
     kappaccino catalogs/m0416/canucs2025 --profile fast --campaign nov11 --run-label fast
-    kappaccino catalogs/tngc014 --set sampling.warmup=1000 --set runtime.chains=8
+    kappaccino catalogs/tngc014/large --set sampling.warmup=1000 --set runtime.chains=8
 
 Outputs go to ``results/<campaign>/<name>/<run label>``; the campaign defaults to today's date (``nov11``), so pass
 ``--campaign`` to resume a run on a later day.  The files the run read are copied to its ``inputs/`` folder the first
@@ -37,6 +37,34 @@ def _segment(text: str) -> str:
     return text
 
 
+def _positive_int(text: str) -> int:
+    value = int(text)
+    if value < 1:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return value
+
+
+def _accept(text: str) -> float:
+    value = float(text)
+    if not 0.0 < value < 1.0:
+        raise argparse.ArgumentTypeError("must lie in (0, 1)")
+    return value
+
+
+# Named options: the fields each sets, after the profiles and before --set (so --set wins).
+FIELD_OPTIONS = {"chains": ("runtime.chains",), "seed": ("runtime.seed",), "starts": ("search.n_starts",),
+                 "warm_start": ("search.warm_start",), "warmup": ("sampling.warmup",), "samples": ("sampling.samples",),
+                 "tree_depth": ("sampling.max_tree_depth",), "target_accept": ("sampling.target_accept",),
+                 "draws": ("reporting.draws", "reporting.image_draws")}
+
+
+def _option_overrides(args) -> list[str]:
+    """The ``section.field=value`` assignments of the named options that were given."""
+    out = [f"{field}={getattr(args, name)}" for name, targets in FIELD_OPTIONS.items() if getattr(args, name) is not None
+           for field in targets]
+    return out + (["runtime.skip_plots=true"] if args.skip_plots else [])
+
+
 def _folder(text: str) -> str:
     if not (Path(text) / "run.yaml").is_file():
         raise argparse.ArgumentTypeError(f"no run.yaml in {text!r}")
@@ -55,6 +83,17 @@ def parser() -> argparse.ArgumentParser:
                         "search.warm_start=results/<campaign>/<name>/<run>, sampling.wbic=true; repeatable")
     p.add_argument("--campaign", type=_segment, default=None, help="results/<campaign>/ (default today's date, e.g. nov11)")
     p.add_argument("--run-label", type=_segment, default=RUN_LABEL, help=f"the run folder (default {RUN_LABEL})")
+    p.add_argument("--chains", type=_positive_int, metavar="N", help="NUTS chains, one CPU device each (runtime.chains)")
+    p.add_argument("--seed", type=int, metavar="N", help="random seed of the search, the sampler and the reporting draws (runtime.seed)")
+    p.add_argument("--starts", type=_positive_int, metavar="N", help="starts of the initial search (search.n_starts)")
+    p.add_argument("--warm-start", metavar="RUN_DIR", help="start the search from a previous run's saved start (search.warm_start)")
+    p.add_argument("--warmup", type=_positive_int, metavar="N", help="NUTS warmup draws per chain (sampling.warmup)")
+    p.add_argument("--samples", type=_positive_int, metavar="N", help="NUTS draws per chain after warmup (sampling.samples)")
+    p.add_argument("--tree-depth", type=_positive_int, metavar="N", help="NUTS maximum tree depth (sampling.max_tree_depth)")
+    p.add_argument("--target-accept", type=_accept, metavar="P", help="NUTS target acceptance in (0, 1) (sampling.target_accept)")
+    p.add_argument("--draws", type=_positive_int, metavar="N",
+                   help="posterior draws behind every reported product (reporting.draws and reporting.image_draws)")
+    p.add_argument("--skip-plots", action="store_true", help="no figures or tables after sampling (runtime.skip_plots)")
     p.add_argument("--images", default=None, metavar="YAML",
                    help="fit this image catalog instead of the one priors.yaml names (e.g. a degraded catalog). Images of "
                         "unknown family: --set partition.catalog_path=CSV (null for the untrusted images of the catalog), "
@@ -105,6 +144,7 @@ def _fast_warning(config) -> None:
 def main(argv=None) -> int:
     """Run (or dry-run) one cluster folder; returns the exit code."""
     args = parser().parse_args(argv)
+    args.overrides = [*_option_overrides(args), *args.overrides]
     os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib-kappaccino")
     from .cpu_runtime import configure_cpu_runtime, resolve_cpu_plan, threads_per_chain_if_supported
     from .run_files import input_files, read_run

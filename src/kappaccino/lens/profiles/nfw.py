@@ -139,6 +139,13 @@ def critical_density_msun_kpc3(z: float, cosmo_config: dict[str, Any] | None) ->
     return 3.0 * hubble_kms_per_kpc ** 2 / (8.0 * math.pi * G_KPC_KMS2_PER_MSUN)
 
 
+def flat_wcdm_critical_density_msun_kpc3(z, h0, omega_m, w0):
+    """rho_crit(z) = 3 H(z)^2 / (8 pi G) of flat wCDM in Msun kpc^-3, JAX-traceable in the cosmology (sampled Om0, w0)."""
+    from ..cosmology import flat_wcdm_efunc
+    hubble_kms_per_kpc = jnp.asarray(h0, dtype=jnp.float64) / 1000.0 * flat_wcdm_efunc(z, omega_m, w0)
+    return 3.0 * hubble_kms_per_kpc ** 2 / (8.0 * jnp.pi * G_KPC_KMS2_PER_MSUN)
+
+
 def nfw_scale_density(log10_m200, scale_radius_kpc, rho_crit_msun_kpc3):
     """rho_s [Msun/kpc^3] and the concentration of an NFW halo of mass M200 and scale radius r_s (JAX-traceable)."""
     m200 = jnp.power(10.0, log10_m200)

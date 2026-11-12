@@ -3,8 +3,10 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 
-BLOCK_COLORS = {'Halo': 'tab:blue', 'BCG': 'tab:purple', 'GRF + GP': 'tab:red',
-                'Scaling relation': 'tab:orange', 'Sources': 'tab:green'}
+BLOCK_COLORS = {'Halo': 'tab:blue', 'BCG': 'tab:purple', 'GRF + GP': '#D4B000',
+                'Scaling relation': 'tab:orange', 'Sources': 'tab:green', 'Cosmology': 'tab:red'}
+COSMOLOGY_LABELS = {'Om0': r'$\Omega_{\rm m}$', 'w0': r'$w_0$',
+                    'H0': r'$H_0$ (km s$^{-1}$ Mpc$^{-1}$)', 'Ode0': r'$\Omega_{\rm DE}$'}
 STYLE = Path(__file__).with_name('style.mplstyle')
 PAPER_STYLE = {'font.family': 'sans-serif', 'mathtext.fontset': 'dejavusans',
                'mathtext.default': 'regular', 'axes.grid': False, 'pdf.fonttype': 42}
@@ -18,7 +20,7 @@ def annotate_corner_summary(ax, values, weights, *, color='.2'):
 
 
 def render_block_corner(values, weights, labels, groups, path, *, zero_reference=False,
-                        summarize=False):
+                        summarize=False, show_legend=True, colored_edges=True, column_summaries=False):
     import corner
     from scipy.ndimage import gaussian_filter1d
     from matplotlib.ticker import MaxNLocator
@@ -46,6 +48,12 @@ def render_block_corner(values, weights, labels, groups, path, *, zero_reference
                     ax.set_xlim(ranges[row]); ax.set_ylim(bottom=0); ax.set_yticks([])
                     if summarize:
                         annotate_corner_summary(ax, values[:, row], weights, color=color)
+                    if column_summaries:
+                        q16, q50, q84 = corner.quantile(values[:, row], [.16, .5, .84], weights=weights)
+                        summary = (labels[row].strip('$') + rf' = {q50:.3f}'
+                                   + rf'^{{+{q84-q50:.3f}}}_{{-{q50-q16:.3f}}}')
+                        ax.text(.5, 1.04, '$' + summary + '$',
+                                transform=ax.transAxes, ha='center', va='bottom', fontsize=9, color='black')
                 else:
                     corner.hist2d(values[:, col], values[:, row], weights=weights,
                                   bins=40, range=[ranges[col], ranges[row]], smooth=1,
@@ -62,12 +70,13 @@ def render_block_corner(values, weights, labels, groups, path, *, zero_reference
                 ax.grid(False)
                 if row == n-1: ax.set_xlabel(labels[col], fontsize=9, color=colors[col])
                 if col == 0 and row > 0: ax.set_ylabel(labels[row], fontsize=9, color=color)
-                if row == 0 or groups[row] != groups[row-1]:
+                if colored_edges and (row == 0 or groups[row] != groups[row-1]):
                     ax.spines['top'].set_color(color); ax.spines['top'].set_linewidth(1.4)
-                if col == 0 or groups[col] != groups[col-1]:
+                if colored_edges and (col == 0 or groups[col] != groups[col-1]):
                     ax.spines['left'].set_color(colors[col]); ax.spines['left'].set_linewidth(1.4)
         unique = list(dict.fromkeys(zip(groups, colors)))
-        fig.legend([Line2D([], [], color=c, lw=10) for _, c in unique],
+        if show_legend:
+            fig.legend([Line2D([], [], color=c, lw=10) for _, c in unique],
                    [g for g, _ in unique], loc='upper right', bbox_to_anchor=(.94, .94),
                    frameon=False, fontsize=max(14, 64*n/26), handlelength=2.4, labelspacing=.7)
         fig.subplots_adjust(left=.045, right=.995, bottom=.045, top=.995, hspace=.035, wspace=.035)
@@ -102,7 +111,9 @@ def posterior_corner_data(samples, specs):
         if np.ptp(samples[:, i]) == 0:
             excluded.append(spec.name)
             continue
-        if 'bcg' in spec.potential_id.lower():
+        if spec.potential_id == 'cosmology':
+            group = 'Cosmology'
+        elif 'bcg' in spec.potential_id.lower():
             group = 'BCG'
         elif spec.component_family in {'scaling', 'member_velocity_scatter'}:
             group = 'Scaling relation'
@@ -117,6 +128,9 @@ def posterior_corner_data(samples, specs):
     globals_ = np.column_stack([display_values(samples[:, i], spec) for i, spec, _ in selected])
     labels = []
     for _, spec, _ in selected:
+        if spec.potential_id == 'cosmology' and spec.field in COSMOLOGY_LABELS and not spec.log:
+            labels.append(COSMOLOGY_LABELS[spec.field])
+            continue
         label = spec.name.replace('_', r'\_')
         if spec.log:
             label = r'\log(\mathrm{' + label + '})'
@@ -144,6 +158,11 @@ def posterior_corner_data(samples, specs):
         parameters.extend(['pooled_source.beta_x', 'pooled_source.beta_y'])
     else:
         values = globals_
+    order = sorted(range(len(groups)), key=lambda i: list(BLOCK_COLORS).index(groups[i]))
+    values = values[:, order]
+    labels = [labels[i] for i in order]
+    groups = [groups[i] for i in order]
+    parameters = [parameters[i] for i in order]
     return dict(values=values, labels=labels, groups=groups, parameters=parameters,
                 weights=np.full(len(values), 1/len(values)), excluded=excluded,
                 source_families=families, source_scales=source_scales)
@@ -163,4 +182,25 @@ def write_posterior_block_corner(samples, specs, path):
                     contour_color='Row block', contour_probabilities=[.68, .95],
                     bcg_identification='Explicit bcg token in potential_id; other standalone components remain in Halo.')
     path.with_suffix('.json').write_text(json.dumps(metadata, indent=2))
+    return path
+
+
+def write_cosmology_corner(samples, specs, path):
+    """Write sampled cosmology only; fixed cosmology produces no figure."""
+    selection = [i for i, spec in enumerate(specs) if spec.potential_id == 'cosmology']
+    if not selection or len(samples) < 3:
+        return None
+    return _write_cosmology_corner(np.asarray(samples)[:, selection], [specs[i] for i in selection], path)
+
+
+def _write_cosmology_corner(samples, specs, path):
+    import json
+    data = posterior_corner_data(samples, specs)
+    if data is None:
+        return None
+    path = render_block_corner(data['values'], data['weights'], data['labels'], data['groups'], path,
+                               summarize=True, show_legend=False, colored_edges=False, column_summaries=True)
+    path.with_suffix('.json').write_text(json.dumps(dict(parameters=data['parameters'], labels=data['labels'],
+        draws=len(samples), color=BLOCK_COLORS['Cosmology'], contour_probabilities=[.68,.95],
+        coordinates='Physical sampled cosmology; dotted lines mark marginal medians'), indent=2))
     return path

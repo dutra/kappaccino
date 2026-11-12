@@ -12,7 +12,7 @@ import pandas as pd
 
 from ..plotting import plots
 from ..plotting.chain_traces import write_chain_traces
-from ..plotting.block_corner import write_posterior_block_corner
+from ..plotting.block_corner import write_posterior_block_corner, write_cosmology_corner
 from ..config import LensClusterSolverConfig
 from ..diagnostics.image_recovery import fit_summary, image_recovery_tables
 from ..likelihood.evaluator import Evaluator
@@ -73,6 +73,8 @@ def write_outputs(config: LensClusterSolverConfig, state: ModelState, evaluator:
     write_potfile_plots(posterior.physical, state.parameter_specs, figures, prefix, posterior=posterior, log=log)
     write_posterior_block_corner(posterior.physical, state.parameter_specs,
                                 plots.figure_path(figures, "corner_combined.pdf", prefix))
+    write_cosmology_corner(posterior.physical, state.parameter_specs,
+                          plots.figure_path(figures, "corner_cosmology.pdf", prefix))
     write_covariance_plots(config, state, draws, posterior, paths, log=log)
     write_gp_plots(config, state, evaluator, posterior, paths, log=log)
     write_member_diagnostic_plots(config, state, evaluator, posterior, paths, log=log)

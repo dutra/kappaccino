@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import importlib.metadata as importlib_metadata
-import sys
-import types
+from functools import lru_cache
 from typing import Any
 
 from jax import config as jax_config
@@ -12,40 +10,20 @@ jax_config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 import numpy as np
 
-
-def _install_pkg_resources_shim() -> None:
-    if "pkg_resources" in sys.modules:
-        return
-    shim = types.ModuleType("pkg_resources")
-    shim.DistributionNotFound = Exception
-
-    def get_distribution(name: str) -> Any:
-        normalized = str(name).replace("_", "-")
-        return types.SimpleNamespace(version=importlib_metadata.version(normalized))
-
-    shim.get_distribution = get_distribution
-    sys.modules["pkg_resources"] = shim
-
-
-try:
-    import jax_cosmo as jc
-    import jax_cosmo.background as jc_background
-except ModuleNotFoundError as exc:  # pragma: no cover - depends on external package metadata behavior
-    if exc.name != "pkg_resources":
-        raise
-    _install_pkg_resources_shim()
-    import jax_cosmo as jc
-    import jax_cosmo.background as jc_background
-
-
-DEFAULT_JAX_COSMO_DISTANCE_STEPS = 256
-DEFAULT_FLAT_WCDM_QUADRATURE_ORDER = DEFAULT_JAX_COSMO_DISTANCE_STEPS
+# Gauss-Legendre order of the comoving-distance integral.  The integrand in ln(1 + z) is smooth, so 64 nodes give the
+# distance to round-off out to z = 20 for 0.05 < Om0 < 0.95 and -2.5 < w0 < -0.2 (tests/test_cosmology.py).
+DEFAULT_FLAT_WCDM_QUADRATURE_ORDER = 64
 C_LIGHT_KM_S = 299792.458
 C_LIGHT_M_S = 299792458.0
 G_SI = 6.67384e-11
 MPC_M = 3.08567758e22
 M_SUN_KG = 1.9891e30
 ARCSEC_TO_RAD = np.deg2rad(1.0 / 3600.0)
+
+
+@lru_cache(maxsize=None)
+def _gauss_legendre(order: int) -> tuple[np.ndarray, np.ndarray]:
+    return np.polynomial.legendre.leggauss(int(order))
 
 
 def flat_wcdm_config(
@@ -91,30 +69,16 @@ def w0_from_config(cosmo_config: dict[str, Any] | None) -> float:
     return float(cosmo_config.get("w0", cosmo_config.get("wX", cosmo_config.get("w", -1.0))))
 
 
-def flat_wcdm_cosmology(
-    h0: float | jnp.ndarray,
-    omega_m: float | jnp.ndarray,
-    w0: float | jnp.ndarray,
-) -> Any:
-    h = jnp.asarray(h0, dtype=jnp.float64) / 100.0
-    return jc.Cosmology(
-        Omega_c=jnp.asarray(omega_m, dtype=jnp.float64),
-        Omega_b=jnp.asarray(0.0, dtype=jnp.float64),
-        h=h,
-        n_s=jnp.asarray(0.96, dtype=jnp.float64),
-        sigma8=jnp.asarray(0.8, dtype=jnp.float64),
-        Omega_k=jnp.asarray(0.0, dtype=jnp.float64),
-        w0=jnp.asarray(w0, dtype=jnp.float64),
-        wa=jnp.asarray(0.0, dtype=jnp.float64),
-    )
+def flat_wcdm_efunc(z: float | jnp.ndarray, omega_m: float | jnp.ndarray, w0: float | jnp.ndarray) -> jnp.ndarray:
+    r"""Dimensionless Hubble rate of flat wCDM with matter and dark energy only:
+    :math:`E(z) = \sqrt{\Omega_m (1 + z)^3 + (1 - \Omega_m)(1 + z)^{3 (1 + w)}}`."""
+    one_plus_z = 1.0 + jnp.asarray(z, dtype=jnp.float64)
+    omega_m, w0 = jnp.asarray(omega_m, dtype=jnp.float64), jnp.asarray(w0, dtype=jnp.float64)
+    return jnp.sqrt(omega_m * one_plus_z ** 3 + (1.0 - omega_m) * one_plus_z ** (3.0 * (1.0 + w0)))
 
 
 def scale_factor_from_redshift(z: float | jnp.ndarray) -> jnp.ndarray:
     return 1.0 / (1.0 + jnp.asarray(z, dtype=jnp.float64))
-
-
-def _reshape_distance(distance: jnp.ndarray, z: float | jnp.ndarray) -> jnp.ndarray:
-    return jnp.reshape(jnp.asarray(distance, dtype=jnp.float64), jnp.asarray(z, dtype=jnp.float64).shape)
 
 
 def flat_wcdm_comoving_distance_mpc(
@@ -123,15 +87,17 @@ def flat_wcdm_comoving_distance_mpc(
     omega_m: float | jnp.ndarray,
     w0: float | jnp.ndarray,
     *,
-    steps: int = DEFAULT_JAX_COSMO_DISTANCE_STEPS,
+    order: int = DEFAULT_FLAT_WCDM_QUADRATURE_ORDER,
 ) -> jnp.ndarray:
-    cosmo = flat_wcdm_cosmology(h0, omega_m, w0)
-    distance_mpc_over_h = jc_background.radial_comoving_distance(
-        cosmo,
-        scale_factor_from_redshift(z),
-        steps=int(steps),
-    )
-    return _reshape_distance(distance_mpc_over_h / cosmo.h, z)
+    r"""Line-of-sight comoving distance in Mpc, :math:`(c / H_0) \int_0^z dz' / E(z')`, by Gauss-Legendre quadrature in
+    :math:`u = \ln(1 + z')`.  Differentiable in ``z``, ``h0``, ``omega_m`` and ``w0``; ``z`` of any shape."""
+    nodes, weights = _gauss_legendre(order)
+    z = jnp.asarray(z, dtype=jnp.float64)
+    u_max = jnp.log1p(z)
+    u = 0.5 * u_max[..., None] * (jnp.asarray(nodes) + 1.0)
+    one_plus_z = jnp.exp(u)
+    integral = 0.5 * u_max * jnp.sum(jnp.asarray(weights) * one_plus_z / flat_wcdm_efunc(one_plus_z - 1.0, omega_m, w0), axis=-1)
+    return jnp.asarray(C_LIGHT_KM_S, dtype=jnp.float64) / jnp.asarray(h0, dtype=jnp.float64) * integral
 
 
 def flat_wcdm_angular_diameter_distance_mpc(
@@ -140,9 +106,9 @@ def flat_wcdm_angular_diameter_distance_mpc(
     omega_m: float | jnp.ndarray,
     w0: float | jnp.ndarray,
     *,
-    steps: int = DEFAULT_JAX_COSMO_DISTANCE_STEPS,
+    order: int = DEFAULT_FLAT_WCDM_QUADRATURE_ORDER,
 ) -> jnp.ndarray:
-    return flat_wcdm_comoving_distance_mpc(z, h0, omega_m, w0, steps=steps) * scale_factor_from_redshift(z)
+    return flat_wcdm_comoving_distance_mpc(z, h0, omega_m, w0, order=order) * scale_factor_from_redshift(z)
 
 
 def flat_wcdm_angular_diameter_distance_z1z2_mpc(
@@ -152,10 +118,10 @@ def flat_wcdm_angular_diameter_distance_z1z2_mpc(
     omega_m: float | jnp.ndarray,
     w0: float | jnp.ndarray,
     *,
-    steps: int = DEFAULT_JAX_COSMO_DISTANCE_STEPS,
+    order: int = DEFAULT_FLAT_WCDM_QUADRATURE_ORDER,
 ) -> jnp.ndarray:
-    chi_lens = flat_wcdm_comoving_distance_mpc(z_lens, h0, omega_m, w0, steps=steps)
-    chi_source = flat_wcdm_comoving_distance_mpc(z_source, h0, omega_m, w0, steps=steps)
+    chi_lens = flat_wcdm_comoving_distance_mpc(z_lens, h0, omega_m, w0, order=order)
+    chi_source = flat_wcdm_comoving_distance_mpc(z_source, h0, omega_m, w0, order=order)
     distance = (chi_source - chi_lens) / (1.0 + jnp.asarray(z_source, dtype=jnp.float64))
     return jnp.where((chi_source > chi_lens) & (distance > 0.0), distance, jnp.nan)
 
@@ -167,10 +133,10 @@ def flat_wcdm_lensing_efficiency(
     omega_m: float | jnp.ndarray,
     w0: float | jnp.ndarray,
     *,
-    steps: int = DEFAULT_JAX_COSMO_DISTANCE_STEPS,
+    order: int = DEFAULT_FLAT_WCDM_QUADRATURE_ORDER,
 ) -> jnp.ndarray:
-    chi_lens = flat_wcdm_comoving_distance_mpc(z_lens, h0, omega_m, w0, steps=steps)
-    chi_source = flat_wcdm_comoving_distance_mpc(z_source, h0, omega_m, w0, steps=steps)
+    chi_lens = flat_wcdm_comoving_distance_mpc(z_lens, h0, omega_m, w0, order=order)
+    chi_source = flat_wcdm_comoving_distance_mpc(z_source, h0, omega_m, w0, order=order)
     efficiency = (chi_source - chi_lens) / chi_source
     return jnp.where((chi_source > 0.0) & (efficiency > 0.0), efficiency, jnp.nan)
 
@@ -182,20 +148,11 @@ def flat_wcdm_lens_geometry_factors(
     omega_m: float | jnp.ndarray,
     w0: float | jnp.ndarray,
     *,
-    steps: int = DEFAULT_JAX_COSMO_DISTANCE_STEPS,
+    order: int = DEFAULT_FLAT_WCDM_QUADRATURE_ORDER,
 ) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
-    """Return lens-plane scale and per-source lensing factors from one distance table."""
-    cosmo = flat_wcdm_cosmology(h0, omega_m, w0)
-    z_lens_array = jnp.reshape(jnp.asarray(z_lens, dtype=jnp.float64), (1,))
-    z_sources_array = jnp.ravel(jnp.asarray(z_sources, dtype=jnp.float64))
-    z_all = jnp.concatenate([z_lens_array, z_sources_array], axis=0)
-    chi_all = jc_background.radial_comoving_distance(
-        cosmo,
-        scale_factor_from_redshift(z_all),
-        steps=int(steps),
-    ) / cosmo.h
-    chi_lens = chi_all[0]
-    chi_sources = chi_all[1:]
+    """Return the lens-plane scale (kpc per arcsec), and per source the lensing efficiency and the dPIE sigma0 factor."""
+    chi_lens = flat_wcdm_comoving_distance_mpc(z_lens, h0, omega_m, w0, order=order)
+    chi_sources = flat_wcdm_comoving_distance_mpc(jnp.ravel(jnp.asarray(z_sources, dtype=jnp.float64)), h0, omega_m, w0, order=order)
     angular_diameter_lens_mpc = chi_lens * scale_factor_from_redshift(z_lens)
     kpc_per_arcsec = angular_diameter_lens_mpc * 1000.0 * jnp.asarray(ARCSEC_TO_RAD, dtype=jnp.float64)
     efficiency = (chi_sources - chi_lens) / chi_sources
@@ -209,9 +166,9 @@ def flat_wcdm_kpc_per_arcsec(
     omega_m: float | jnp.ndarray,
     w0: float | jnp.ndarray,
     *,
-    steps: int = DEFAULT_JAX_COSMO_DISTANCE_STEPS,
+    order: int = DEFAULT_FLAT_WCDM_QUADRATURE_ORDER,
 ) -> jnp.ndarray:
-    angular_diameter_mpc = flat_wcdm_angular_diameter_distance_mpc(z, h0, omega_m, w0, steps=steps)
+    angular_diameter_mpc = flat_wcdm_angular_diameter_distance_mpc(z, h0, omega_m, w0, order=order)
     return angular_diameter_mpc * 1000.0 * jnp.asarray(ARCSEC_TO_RAD, dtype=jnp.float64)
 
 
@@ -219,7 +176,7 @@ def kpc_per_arcsec_from_config(
     z: float,
     cosmo_config: dict[str, Any] | None,
     *,
-    steps: int = DEFAULT_JAX_COSMO_DISTANCE_STEPS,
+    order: int = DEFAULT_FLAT_WCDM_QUADRATURE_ORDER,
 ) -> float:
     return float(
         np.asarray(
@@ -228,7 +185,7 @@ def kpc_per_arcsec_from_config(
                 h0_from_config(cosmo_config),
                 om0_from_config(cosmo_config),
                 w0_from_config(cosmo_config),
-                steps=steps,
+                order=order,
             )
         )
     )
@@ -251,10 +208,10 @@ def dpie_sigma0_factor(
     omega_m: float | jnp.ndarray,
     w0: float | jnp.ndarray,
     *,
-    steps: int = DEFAULT_JAX_COSMO_DISTANCE_STEPS,
+    order: int = DEFAULT_FLAT_WCDM_QUADRATURE_ORDER,
 ) -> jnp.ndarray:
     return dpie_sigma0_factor_from_lensing_efficiency(
-        flat_wcdm_lensing_efficiency(z_lens, z_source, h0, omega_m, w0, steps=steps)
+        flat_wcdm_lensing_efficiency(z_lens, z_source, h0, omega_m, w0, order=order)
     )
 
 
@@ -263,7 +220,7 @@ def dpie_sigma0_factor_from_config(
     z_source: float,
     cosmo_config: dict[str, Any] | None,
     *,
-    steps: int = DEFAULT_JAX_COSMO_DISTANCE_STEPS,
+    order: int = DEFAULT_FLAT_WCDM_QUADRATURE_ORDER,
 ) -> float:
     return float(
         np.asarray(
@@ -273,7 +230,7 @@ def dpie_sigma0_factor_from_config(
                 h0_from_config(cosmo_config),
                 om0_from_config(cosmo_config),
                 w0_from_config(cosmo_config),
-                steps=steps,
+                order=order,
             )
         )
     )
@@ -287,11 +244,11 @@ def dpie_sigma0_from_vel_disp(
     z_source: float,
     cosmo_config: dict[str, Any] | None,
     *,
-    steps: int = DEFAULT_JAX_COSMO_DISTANCE_STEPS,
+    order: int = DEFAULT_FLAT_WCDM_QUADRATURE_ORDER,
 ) -> float:
     if float(ra_arcsec) <= 0.0 or float(rs_arcsec) <= float(ra_arcsec):
         return float("nan")
-    factor = dpie_sigma0_factor_from_config(z_lens, z_source, cosmo_config, steps=steps)
+    factor = dpie_sigma0_factor_from_config(z_lens, z_source, cosmo_config, order=order)
     sigma0 = float(vel_disp) ** 2 * factor / float(ra_arcsec)
     return float(sigma0)
 
@@ -303,11 +260,11 @@ def critical_surface_density_angle_msun_per_arcsec2(
     omega_m: float | jnp.ndarray,
     w0: float | jnp.ndarray,
     *,
-    steps: int = DEFAULT_JAX_COSMO_DISTANCE_STEPS,
+    order: int = DEFAULT_FLAT_WCDM_QUADRATURE_ORDER,
 ) -> jnp.ndarray:
-    dd = flat_wcdm_angular_diameter_distance_mpc(z_lens, h0, omega_m, w0, steps=steps)
-    ds = flat_wcdm_angular_diameter_distance_mpc(z_source, h0, omega_m, w0, steps=steps)
-    dds = flat_wcdm_angular_diameter_distance_z1z2_mpc(z_lens, z_source, h0, omega_m, w0, steps=steps)
+    dd = flat_wcdm_angular_diameter_distance_mpc(z_lens, h0, omega_m, w0, order=order)
+    ds = flat_wcdm_angular_diameter_distance_mpc(z_source, h0, omega_m, w0, order=order)
+    dds = flat_wcdm_angular_diameter_distance_z1z2_mpc(z_lens, z_source, h0, omega_m, w0, order=order)
     factor = (
         jnp.asarray(C_LIGHT_M_S, dtype=jnp.float64) ** 2
         / (4.0 * jnp.pi * jnp.asarray(G_SI, dtype=jnp.float64))
@@ -322,7 +279,7 @@ def critical_surface_density_angle_from_config(
     z_source: float,
     cosmo_config: dict[str, Any] | None,
     *,
-    steps: int = DEFAULT_JAX_COSMO_DISTANCE_STEPS,
+    order: int = DEFAULT_FLAT_WCDM_QUADRATURE_ORDER,
 ) -> float:
     return float(
         np.asarray(
@@ -332,7 +289,8 @@ def critical_surface_density_angle_from_config(
                 h0_from_config(cosmo_config),
                 om0_from_config(cosmo_config),
                 w0_from_config(cosmo_config),
-                steps=steps,
+                order=order,
             )
         )
     )
+

@@ -43,7 +43,6 @@ autodoc_mock_imports = [
     "graphviz",
     "h5py",
     "jax",
-    "jax_cosmo",
     "jaxlib",
     "matplotlib",
     "numpyro",

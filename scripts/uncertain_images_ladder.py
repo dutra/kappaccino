@@ -117,7 +117,7 @@ def main(argv=None) -> int:
 
     sys.path[:0] = [str(ROOT / "src")]
     from kappaccino.cpu_runtime import configure_cpu_runtime
-    configure_cpu_runtime(1, "sequential", None)             # before the run files build their priors (and start JAX)
+    configure_cpu_runtime(1, "sequential")            # before the run files build their priors (and start JAX)
     from kappaccino.run_files import load_run
     from kappaccino.pipeline import RunLog
     root = ROOT / "results" / args.campaign / args.cluster.lower()
@@ -127,7 +127,7 @@ def main(argv=None) -> int:
         mode, kernel = LIKELIHOODS[args.likelihood]
         overrides = [f"likelihood.likelihood_mode={mode}", f"likelihood.gp_kernel={kernel}",
                      f"paths.output_dir=results/{args.campaign}/{args.cluster.lower()}", f"paths.run_name={label}",
-                     "runtime.chains=1", "runtime.nuts_chain_method=sequential", "runtime.cpu_threads_per_chain=null",
+                     "runtime.chains=1", "runtime.nuts_chain_method=sequential",
                      "runtime.skip_plots=true"]
         if uncertain is not None:
             overrides.append(f"partition.catalog_path={uncertain}")

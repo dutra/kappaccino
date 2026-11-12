@@ -97,7 +97,7 @@ Use a new run label for each changed configuration.
 
 ## CPU chains
 
-NUTS runs one chain per JAX CPU device. `RuntimeConfig(chains, nuts_chain_method, cpu_threads_per_chain)` sets the
+NUTS runs one chain per JAX CPU device. `RuntimeConfig(chains, nuts_chain_method)` sets the
 plan, and {func}`kappaccino.cpu_runtime.configure_cpu_runtime` must run before JAX initializes:
 
 ```python

@@ -82,9 +82,15 @@ def core_groups(n_chains: int, threads: int) -> list[list[int]]:
     """Disjoint CPU sets, one per chain: physical cores first (one logical CPU per core), then SMT siblings."""
     if not hasattr(os, "sched_getaffinity"):
         return [[] for _ in range(n_chains)]           # no pinning on this platform (macOS): the OS schedules
-    sys.path.insert(0, str(ROOT / "src"))
-    from kappaccino.cpu_runtime import _physical_core_order
-    order = list(_physical_core_order(sorted(os.sched_getaffinity(0))))
+    cores: dict[tuple[str, str], list[int]] = {}
+    for cpu in sorted(os.sched_getaffinity(0)):
+        topology = Path(f"/sys/devices/system/cpu/cpu{cpu}/topology")
+        try:
+            key = ((topology / "physical_package_id").read_text().strip(), (topology / "core_id").read_text().strip())
+        except OSError:
+            key = ("unknown", str(cpu))
+        cores.setdefault(key, []).append(cpu)
+    order = [group[i] for i in range(max(map(len, cores.values()), default=0)) for group in cores.values() if i < len(group)]
     return [order[k * threads:(k + 1) * threads] for k in range(n_chains)]
 
 

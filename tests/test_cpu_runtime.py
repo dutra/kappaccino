@@ -164,7 +164,7 @@ def check_run(config, stage="both"):
 import kappaccino.pipeline as pipeline
 pipeline.run = check_run
 try:
-    assert cli.main([sys.argv[1], '--campaign', 'pytest_cpu_launcher', '--set', 'runtime.chains=2', '--set', 'runtime.cpu_threads_per_chain=2']) == 0
+    assert cli.main([sys.argv[1], '--results', 'results/pytest_cpu_launcher', '--set', 'runtime.chains=2', '--set', 'runtime.cpu_threads_per_chain=2']) == 0
 finally:
     shutil.rmtree('results/pytest_cpu_launcher', ignore_errors=True)
 """

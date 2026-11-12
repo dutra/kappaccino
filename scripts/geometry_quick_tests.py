@@ -66,7 +66,7 @@ def run_all(args):
                 running.remove((label, proc))
         if queue and len(running) < args.parallel and time.time() - last_start >= args.stagger:
             label, cluster, extra, what = queue.pop(0)
-            command = [sys.executable, "-m", "kappaccino", FOLDERS[cluster], "--campaign", args.campaign, "--run-label", label,
+            command = [sys.executable, "-m", "kappaccino", FOLDERS[cluster], "--results", f"results/{args.campaign}", "--run-label", label,
                        "--set", f"sampling.warmup={args.warmup}", "--set", f"sampling.samples={args.samples}",
                        "--set", "runtime.skip_plots=true", *extra]
             log = open(logs / f"{label}.log", "w")

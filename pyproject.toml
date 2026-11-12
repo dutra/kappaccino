@@ -30,6 +30,7 @@ dependencies = [
 
 [project.scripts]
 kappaccino = "kappaccino.cli:main"
+kappaccino-mock = "kappaccino.mock_validation.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

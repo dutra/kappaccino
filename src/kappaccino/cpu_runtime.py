@@ -106,7 +106,7 @@ def _parse_cpu_list(text):
     return cpus
 
 
-def cpus_claimed_by_other_runs(markers=("kappaccino", "run_mock.xsh")):
+def cpus_claimed_by_other_runs(markers=("kappaccino",)):
     """Logical CPUs that other solver processes on this machine have pinned themselves to (Linux /proc)."""
     claimed = set()
     proc = Path("/proc")
@@ -196,7 +196,7 @@ def resolve_cpu_plan(chains, chain_method="parallel", threads_per_chain=None, *,
         None (default) selects every available CPU and pins nothing.
     avoid : iterable of int or None, optional
         Logical CPU ids to treat as claimed by other runs. None (default) reads
-        them from ``/proc`` (processes whose command line contains ``run_mock.xsh`` or
+        them from ``/proc`` (processes whose command line contains
         ``kappaccino`` and that are pinned to a subset of CPUs). Used only when
         ``threads_per_chain`` is set.
     load : mapping of int to float or None, optional

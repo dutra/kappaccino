@@ -5,7 +5,26 @@ cluster, and scores the recovery against the known truth. A **campaign** is one 
 ({class}`~kappaccino.mock_validation.MockConfig`), one solver template (a `LensClusterSolverConfig` whose settings
 every realization uses), and a number of **realizations** (seeds).
 
-## A smoke test
+## From the command line
+
+`kappaccino-mock` (or `python -m kappaccino.mock_validation`, {mod}`kappaccino.mock_validation.cli`) runs a campaign
+with the injection settings and solver presets of the paper:
+
+```bash
+kappaccino-mock --campaign nov11_smoke --dry-run
+kappaccino-mock --campaign nov11 --preset production --realizations 4 --fast
+kappaccino-mock --campaign nov11 --preset production --chains 8 --set likelihood.gp_blocks=system
+```
+
+`--preset smoke` (the default) has 10 members and 4 + 1 families with short chains; `--preset production` has 150
+members and 15 + 5 families with 128 starts and 2000 + 500 draws. `--mode idealized` centres the priors on each
+realization's truth. `--fast` applies the exploratory settings of the cluster fast profile. `--chains`, `--starts`,
+`--warmup`, `--samples`, `--tree-depth`, `--target-accept` and `--draws` set those fields of the solver template, and
+`--set section.field=value` any other, as for `kappaccino`. `--fisher-only`, `--rescore` and `--aggregate-only` run
+the pre-check, rescore finished realizations or redraw the aggregate plots. Outputs go to
+`validation_runs/<campaign>/analytic_<mode>_<preset>[_fast][_<likelihood>]/seed_<seed>/`.
+
+## A smoke test in Python
 
 ```python
 from kappaccino.cpu_runtime import configure_cpu_runtime

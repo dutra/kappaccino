@@ -12,13 +12,14 @@ from . import gp_image_plane as gp, gp_knee, smoothed as sl
 from ..lens import profiles as lens_profiles
 from ..lens.profiles import cored_power_law, dpie
 from ..lens.farfield import evaluate_farfield, member_farfield_geometry, slice_geometry
-from ..lens.cosmology import dpie_sigma0_factor_from_config, dpie_sigma0_factor_from_lensing_efficiency
+from ..lens.cosmology import (dpie_sigma0_factor, dpie_sigma0_factor_from_config, dpie_sigma0_factor_from_lensing_efficiency,
+                              flat_wcdm_lens_geometry_factors, h0_from_config, om0_from_config, w0_from_config)
 from ..core.model import (
     member_log_deviations, COMPONENT_FAMILY_SCALING, CORED_POWER_LAW_PROFILE, DP_IE_PROFILE, MASS_SHEET_PROFILE, NFW_PROFILE,
     SAFE_RADIUS_MARGIN_ARCSEC, SAFE_RADIUS_MARGIN_KPC, SHEAR_PROFILE, ModelState, PackedLensState,
     PackedLensValidity, apply_parameter_transforms_jax, log_mask,
 )
-from ..lens.profiles.nfw import critical_density_msun_kpc3, nfw_alpha_rs_arcsec, nfw_scale_density
+from ..lens.profiles.nfw import critical_density_msun_kpc3, flat_wcdm_critical_density_msun_kpc3, nfw_alpha_rs_arcsec, nfw_scale_density
 
 BAD_LOG_LIKE = -1.0e30
 
@@ -100,6 +101,11 @@ class Evaluator:
         self.n_components = int(np.asarray(packed.profile_type).size)
         self.factor_by_z = jnp.asarray([state.dpie_sigma0_factor_by_z[z] for z in state.z_source_values], dtype=jnp.float64)
         self.nfw_rho_crit = float(critical_density_msun_kpc3(state.z_lens, state.cosmo_config))
+        # Sampled cosmology (cosmography): Om0 and w0 read from the parameter vector; H0 fixed.
+        self.om0_index, self.w0_index = int(state.om0_param_index), int(state.w0_param_index)
+        self.cosmology_sampled = self.om0_index >= 0 or self.w0_index >= 0
+        self.cosmology_fixed = (h0_from_config(state.cosmo_config), om0_from_config(state.cosmo_config), w0_from_config(state.cosmo_config))
+        self.z_source_array = jnp.asarray(state.z_source_values, dtype=jnp.float64)
         # The dPIE sigma0 factor is proportional to the lensing efficiency D_ls / D_s; this constant recovers it.
         self.efficiency_per_factor = 1.0 / float(dpie_sigma0_factor_from_lensing_efficiency(1.0))
         images = state.images
@@ -184,10 +190,8 @@ class Evaluator:
                 if self.gp_knee_spectrum == "knee_foreground":
                     self.gp_weights2_per_image = jnp.ones_like(self.gp_weights_per_image)
                 elif self.gp_knee_spectrum == "knee_background":
-                    from ..lens.cosmology import (
-                        flat_wcdm_lensing_efficiency, h0_from_config, om0_from_config, w0_from_config,
-                    )
-                    cosmo = (h0_from_config(state.cosmo_config), om0_from_config(state.cosmo_config), w0_from_config(state.cosmo_config))
+                    from ..lens.cosmology import flat_wcdm_lensing_efficiency
+                    cosmo = self.cosmology_fixed
                     z_plane = float(knee["plane_redshift"])
                     z_image = np.asarray(state.z_source_values, dtype=float)[np.asarray(images.z_index_per_image)]
                     reference_z = float(getattr(state, "gp_reference_redshift", 2.0))
@@ -356,7 +360,7 @@ class Evaluator:
         size_scale = size_scale * jnp.exp(delta_r)
         core_radius_kpc = jnp.where(is_scaling, core_ref * size_scale, core_radius_kpc)
         cut_radius_kpc = jnp.where(is_scaling, cut_ref * size_scale, cut_radius_kpc)
-        kpc_per_arcsec = jnp.asarray(self.state.kpc_per_arcsec, dtype=jnp.float64)
+        kpc_per_arcsec, factor_by_z, nfw_rho_crit = self.lens_geometry(physical)
         softening_index = int(self.state.softening_length_param_index)
         if softening_index >= 0:
             softening_kpc = physical[softening_index]
@@ -376,10 +380,10 @@ class Evaluator:
         rs = jnp.maximum(rs_raw, ra + SAFE_RADIUS_MARGIN_ARCSEC)
         # NFW normalization: rho_s from (M200, r_s); other components get safe placeholders so no NaN enters a gradient.
         safe_rs_kpc = jnp.where(is_nfw, jnp.maximum(scale_radius_kpc, SAFE_RADIUS_MARGIN_KPC), 1.0)
-        rho_s, _ = nfw_scale_density(jnp.where(is_nfw, log10_m200, 14.0), safe_rs_kpc, self.nfw_rho_crit)
+        rho_s, _ = nfw_scale_density(jnp.where(is_nfw, log10_m200, 14.0), safe_rs_kpc, nfw_rho_crit)
         nfw_rs = jnp.where(is_nfw, safe_rs_kpc / kpc_per_arcsec, 0.0)
         if factor_per_image is None:
-            factor_per_image = jnp.take(self.factor_by_z, self.state.images.z_index_per_image)
+            factor_per_image = jnp.take(factor_by_z, self.state.images.z_index_per_image)
         factor_per_image = jnp.asarray(factor_per_image, dtype=jnp.float64)
         per_image = factor_per_image.ndim == 1
         if per_image:
@@ -472,11 +476,43 @@ class Evaluator:
         z = (jnp.log(jnp.asarray(kinematics["sigma"])) - model) / log_err
         return -0.5 * jnp.sum(z * z) - jnp.sum(jnp.log(log_err)) - 0.5 * z.size * jnp.log(2.0 * jnp.pi)
 
+    def cosmology(self, physical: jnp.ndarray) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
+        """(H0, Om0, w0) of the flat wCDM cosmology at a physical parameter vector: the sampled ``cosmology.Om0`` and
+        ``cosmology.w0`` where the model samples them, the fixed values of ``ModelState.cosmo_config`` otherwise."""
+        h0, om0, w0 = (jnp.asarray(v, dtype=jnp.float64) for v in self.cosmology_fixed)
+        if self.om0_index >= 0:
+            om0 = physical[self.om0_index]
+        if self.w0_index >= 0:
+            w0 = physical[self.w0_index]
+        return h0, om0, w0
+
+    def lens_geometry(self, physical: jnp.ndarray) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
+        """The cosmology-dependent constants of the lens at a physical parameter vector.
+
+        Returns
+        -------
+        kpc_per_arcsec : jax.numpy.ndarray
+            Proper kpc per arcsec at the lens redshift (scalar).
+        factor_by_z : jax.numpy.ndarray
+            dPIE lensing-efficiency factor (proportional to :math:`D_{ls}/D_s`) of each redshift of
+            ``ModelState.z_source_values``, shape (redshift,).
+        nfw_rho_crit : jax.numpy.ndarray
+            Critical density at the lens redshift in Msun kpc^-3 (scalar), for the NFW mass definition.
+
+        With a fixed cosmology these are the constants computed when the state was built.
+        """
+        if not self.cosmology_sampled:
+            return jnp.asarray(self.state.kpc_per_arcsec, dtype=jnp.float64), self.factor_by_z, jnp.asarray(self.nfw_rho_crit, dtype=jnp.float64)
+        h0, om0, w0 = self.cosmology(physical)
+        kpc_per_arcsec, _, factor_by_z = flat_wcdm_lens_geometry_factors(self.state.z_lens, self.z_source_array, h0, om0, w0)
+        return kpc_per_arcsec, factor_by_z, flat_wcdm_critical_density_msun_kpc3(self.state.z_lens, h0, om0, w0)
+
     def packed_state_for_z(self, physical: jnp.ndarray, z_source: float) -> PackedLensState:
         """Kernel parameters of every lens component for a single source redshift.
 
         Use the result with ``total_fields_at`` to evaluate the lens at arbitrary points (maps, grids).  A redshift
-        not yet in ``ModelState.dpie_sigma0_factor_by_z`` is computed and cached there.
+        not yet in ``ModelState.dpie_sigma0_factor_by_z`` is computed and cached there.  With a sampled cosmology the
+        lensing efficiency is that of the cosmology in ``physical``.
 
         Parameters
         ----------
@@ -490,9 +526,11 @@ class Evaluator:
         PackedLensState
             As in ``packed_state``, with normalizations of shape (component,).
         """
+        if self.cosmology_sampled:
+            factor = dpie_sigma0_factor(self.state.z_lens, float(z_source), *self.cosmology(physical))
+            return self.packed_state(physical, factor_per_image=factor)[0]
         factor = self.state.dpie_sigma0_factor_by_z.get(float(z_source))
         if factor is None:
-            from ..lens.cosmology import dpie_sigma0_factor_from_config
             factor = float(dpie_sigma0_factor_from_config(self.state.z_lens, float(z_source), self.state.cosmo_config))
             self.state.dpie_sigma0_factor_by_z[float(z_source)] = factor
         return self.packed_state(physical, factor_per_image=jnp.asarray(factor, dtype=jnp.float64))[0]

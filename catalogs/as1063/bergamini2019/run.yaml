@@ -38,6 +38,9 @@ image_catalog:
   bands: [F435W, F606W, F814W, F105W, F125W, F140W, F160W]
 
 profiles:
+  # Cosmography: Om0 and w0 of flat wCDM sampled with the lens (priors_cosmography.yaml).
+  cosmography:
+    priors: priors_cosmography.yaml
   fast:
     likelihood: {gp_blocks: system, gp_knee_project_modes: []}
     sampling: {max_tree_depth: 8}

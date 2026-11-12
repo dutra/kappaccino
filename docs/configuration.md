@@ -46,6 +46,10 @@ LensModelConfig(
 Positions are arcsecond offsets from the reference point `(ra0_deg, dec0_deg)`, with the Lenstool `reference 3`
 convention.
 
+`CosmologyConfig` is a flat wCDM cosmology (`H0`, `Om0`, `w0`). It is fixed by default. With priors on `Om0` or `w0`
+(`CosmologyConfig(Om0=0.3, priors={"Om0": dist.Uniform(0.05, 0.95), "w0": dist.Uniform(-2.0, -0.2)})`) those two are
+sampled with the lens; see {ref}`cosmography <cosmography>`.
+
 ### Large-scale components
 
 `DPIEHaloConfig`

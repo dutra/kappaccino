@@ -31,7 +31,9 @@ key by key into the base and every other value replaces the base's.
 ``priors.yaml``
 ---------------
 ``reference``, ``cosmology``
-    Fields of :class:`~kappaccino.config.ReferenceFrameConfig` and :class:`~kappaccino.config.CosmologyConfig`.
+    Fields of :class:`~kappaccino.config.ReferenceFrameConfig` and :class:`~kappaccino.config.CosmologyConfig`.  A prior
+    on ``Om0`` or ``w0`` (or a mapping with ``start`` and ``prior``) samples that parameter of the flat wCDM cosmology
+    with the lens (cosmography); ``Ode0`` must then be absent or null.  ``arcsec`` is evaluated at the start values.
 ``z_lens``
     Redshift of every halo and member population.
 ``images``
@@ -422,6 +424,21 @@ def _scaling(entry: dict):
     return replace(getattr(ScalingModelConfig, preset)(), **{key: (tuple(v) if isinstance(v, list) else v) for key, v in entry.items()})
 
 
+def _cosmology(entry: dict) -> CosmologyConfig:
+    """The cosmology: numbers are fixed; a prior on Om0 or w0 samples it, starting at the prior's centre or at ``start``."""
+    values, sampled = {}, {}
+    for key, value in dict(entry or {}).items():
+        if key in ("Om0", "w0"):
+            values[key], prior = _start_and_prior(key, value, "cosmology")
+            if prior is not None:
+                sampled[key] = prior
+        elif is_distribution(value) or isinstance(value, dict):
+            raise ValueError(f"cosmology.{key}: cannot be sampled; give a number")
+        else:
+            values[key] = value
+    return CosmologyConfig(**values, priors=sampled)
+
+
 def load_priors(path: str | Path) -> tuple[LensModelConfig, ScalingModelConfig]:
     """Read a ``priors.yaml``.
 
@@ -444,7 +461,7 @@ def load_priors(path: str | Path) -> tuple[LensModelConfig, ScalingModelConfig]:
     """
     data = _read(Path(path), _resolve_priors_paths)
     _unknown(str(path), data, PRIORS_KEYS - {"extends"})
-    cosmology = CosmologyConfig(**parse_value(data.get("cosmology") or {}))
+    cosmology = _cosmology(parse_value(data.get("cosmology")))
     z_lens = float(parse_value(data["z_lens"]))
     from .lens.cosmology import kpc_per_arcsec_from_config
     arcsec = kpc_per_arcsec_from_config(z_lens, {"H0": cosmology.H0, "Om0": cosmology.Om0, "w0": cosmology.w0})

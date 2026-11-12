@@ -228,7 +228,7 @@ def audit_report(state: ModelState, audit: dict[str, Any], *, posterior_summary:
 
 
 # Start-parameter report: the global parameters at a model, grouped by what they describe, with their priors.
-_START_GROUPS = (("cluster", "Cluster-scale halos"), ("shear", "External shear"), ("independent", "Independent member halos"),
+_START_GROUPS = (("cosmology", "Cosmology (flat wCDM)"), ("cluster", "Cluster-scale halos"), ("shear", "External shear"), ("independent", "Independent member halos"),
                  ("scaling", "Member scaling relation"), ("error", "Error model (GRF + GP)"))
 _BOUND_MARGIN = 0.02            # flag a value within this fraction of its prior range (in sampling coordinates) of a bound
 # Status of a value in its prior: red within 2% of a bound or |z| >= 3, yellow within 10% of a bound or |z| >= 2, else green.
@@ -310,6 +310,8 @@ def _start_group(spec, independent_ids: set[str]) -> str | None:
     if family in ("scaling", "member_velocity_scatter", "softening_length"):
         return "scaling"
     if family == "large":
+        if spec.potential_id == "cosmology":
+            return "cosmology"
         if spec.potential_id == "shear" or spec.field in ("gamma1", "gamma2"):
             return "shear"
         return "independent" if spec.potential_id in independent_ids else "cluster"

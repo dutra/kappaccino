@@ -471,6 +471,10 @@ class ModelState:
     softening_length_param_index : int, optional
         Index into ``parameter_specs`` of the softening length (kpc).  Like every ``*_param_index`` field below:
         -1 when the model does not sample the parameter.
+    om0_param_index, w0_param_index : int, optional
+        The matter density and the dark-energy equation of state of the sampled flat wCDM cosmology
+        (``CosmologyConfig.priors``).  ``cosmo_config``, ``kpc_per_arcsec`` and ``dpie_sigma0_factor_by_z`` hold the
+        fixed (fiducial) cosmology; ``Evaluator.lens_geometry`` gives them at a parameter vector.
     sigma_def_param_index : int, optional
         ``smoothed`` likelihood: the source-plane deflection scatter :math:`\\sigma_\\mathrm{def}` (arcsec).
     sigma_meas_param_index : int, optional
@@ -543,6 +547,8 @@ class ModelState:
     z_source_values: list[float]
     dpie_sigma0_factor_by_z: dict[float, float]
     softening_length_param_index: int = -1
+    om0_param_index: int = -1                    # cosmology.Om0 when sampled (CosmologyConfig.priors), else -1
+    w0_param_index: int = -1                     # cosmology.w0 when sampled, else -1
     sigma_def_param_index: int = -1              # residual deflection scatter, isotropic in the source plane
     sigma_sel_param_index: int = -1              # feature-selection scatter; -1 when the term is disabled
     lambda_sel_param_index: int = -1             # stretching scale of the selection weight R = (I + A A^T / lambda_sel^2)^-1; -1 with the term

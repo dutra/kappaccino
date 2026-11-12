@@ -434,6 +434,14 @@ def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.n
     scaling = config.scaling
 
     specs, component_assignments = build_halo_parameter_specs(potentials)
+    # Sampled cosmology (cosmography): global lens parameters, in the large family with the halos, so the search draws
+    # them from their priors, optimizes them with the cluster-scale model and freezes them with it in the member stage.
+    cosmology_index = {"Om0": -1, "w0": -1}
+    for field_name in cosmology_index:
+        prior = model_config.cosmology.priors.get(field_name)
+        if prior is not None:
+            cosmology_index[field_name] = len(specs)
+            specs.append(_prior_spec(f"cosmology.{field_name}", sample_name("cosmology", field_name), "cosmology", field_name, prior, "large"))
     base_components = [{k: v for k, v in potential.items() if k != "priors"} for potential in potentials]
     scaling_specs, scaling_param_indices = build_scaling_parameter_specs(potfiles, scaling, start_index=len(specs))
     for spec_item in scaling_specs:
@@ -616,7 +624,8 @@ def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.n
         base_components=base_components, packed_lens_spec=packed,
         family_data=families, images=images, potfiles=potfiles, scaling_component_records=records,
         members=members, z_source_values=z_values, dpie_sigma0_factor_by_z=factor_by_z,
-        softening_length_param_index=int(softening_index), sigma_def_param_index=int(sigma_def_index),
+        softening_length_param_index=int(softening_index), om0_param_index=int(cosmology_index["Om0"]),
+        w0_param_index=int(cosmology_index["w0"]), sigma_def_param_index=int(sigma_def_index),
         sigma_meas_param_index=int(sigma_meas_index), sigma_sel_param_index=int(sigma_sel_index),
         lambda_sel_param_index=int(lambda_sel_index), sigma_gp_param_index=int(sigma_gp_index),
         ell_gp_param_index=int(ell_gp_index), gp_correlation_length_arcsec=float(config.likelihood.gp_correlation_length_arcsec),
@@ -647,6 +656,8 @@ def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.n
                   gp_knee_beta_low_index: likelihood.gp_knee_beta_low_start, gp_knee_gamma_index: likelihood.gp_knee_gamma,
                   sigma_gp_index: likelihood.gp_knee_sigma_gp_start_arcsec, ell_gp_index: likelihood.gp_knee_ell_gp_start_arcsec,
                   sigma_meas_index: likelihood.gp_knee_sigma_meas_start_arcsec}
+    # A sampled cosmology starts at the configured (fiducial) values.
+    starts.update({cosmology_index["Om0"]: model_config.cosmology.Om0, cosmology_index["w0"]: model_config.cosmology.w0})
     state.initial_theta = default_theta(specs)
     for index, value in starts.items():
         if index >= 0:

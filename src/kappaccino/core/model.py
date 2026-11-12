@@ -15,11 +15,6 @@ SHEAR_PROFILE = 14
 NFW_PROFILE = 12
 MASS_SHEET_PROFILE = 101    # not a Lenstool profile: uniform external convergence at the lens redshift
 CORED_POWER_LAW_PROFILE = 102   # not a Lenstool profile: member dPIE with a free 3D slope (lens.cored_power_law)
-DPIE_PROFILE_NAME = "DPIE_NIE_E"        # lenstronomy names (exact-image solver)
-SHEAR_PROFILE_NAME = "SHEAR"
-NFW_PROFILE_NAME = "NFW_ELLIPSE_CSE"
-MASS_SHEET_PROFILE_NAME = "CONVERGENCE"
-CORED_POWER_LAW_PROFILE_NAME = "CORED_POWER_LAW"     # no lenstronomy counterpart
 MEMBER_PROFILES = (DP_IE_PROFILE, CORED_POWER_LAW_PROFILE)   # member populations: the dPIE or the cored power law
 COMPONENT_FAMILY_LARGE = 0
 COMPONENT_FAMILY_SCALING = 1
@@ -454,8 +449,6 @@ class ModelState:
         ``core_radius_kpc``, ``cut_radius_kpc`` in kpc, ``v_disp`` in km s^-1, ...).
     packed_lens_spec : PackedLensSpec
         Per-component fixed values and the parameter index that overrides each field (-1 where the field is fixed).
-    lens_model_list : list of str
-        Profile name of each lens component.
     family_data : list of FamilyData
         The observed families, sorted by family id.
     images : ImageData
@@ -542,7 +535,6 @@ class ModelState:
     parameter_specs: list[ParameterSpec]
     base_components: list[dict[str, Any]]
     packed_lens_spec: PackedLensSpec
-    lens_model_list: list[str]
     family_data: list[FamilyData]
     images: ImageData
     potfiles: list[dict[str, Any]]

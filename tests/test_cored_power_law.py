@@ -212,9 +212,6 @@ def test_configuration_checks(synthetic_config):
         with_population(profile_type=CORED_POWER_LAW_PROFILE, slope_prior=dist.Uniform(0.8, 2.5)).validate()
     with pytest.raises(ValueError, match=r"inside \(1, 3\)"):
         with_population(profile_type=CORED_POWER_LAW_PROFILE, slope=3.2).validate()
-    config = with_population(profile_type=CORED_POWER_LAW_PROFILE)
-    with pytest.raises(ValueError, match="lenstronomy"):
-        replace(config, image_diagnostics=replace(config.image_diagnostics, exact_image_finder="lenstronomy")).validate()
     assert with_population(profile_type=DP_IE_PROFILE).validate() is not None
 
 

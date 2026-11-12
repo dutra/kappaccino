@@ -4,31 +4,53 @@ The folder holds ``run.yaml`` and the ``priors.yaml`` it names (:mod:`kappaccino
 resolved against the working directory, so run from the repository root::
 
     kappaccino catalogs/hera --dry-run
-    kappaccino catalogs/m0416/canucs2025 --profile fast --campaign nov11 --run-label fast
+    kappaccino catalogs/m0416/canucs2025 --profile fast
     kappaccino catalogs/tngc014/large --set sampling.warmup=1000 --set runtime.chains=8
 
-Outputs go to ``results/<campaign>/<name>/<run label>``; the campaign defaults to today's date (``nov11``), so pass
-``--campaign`` to resume a run on a later day.  The files the run read are copied to its ``inputs/`` folder the first
-time.
+Outputs go to ``results/<name>/<description>-<hash>``: :func:`describe` of the run (``w500s250t7_allblocks``,
+``w500s250t8_systemblocks_fast``) and six characters of a hash of its configuration (:func:`config_hash`), so every
+configuration has its own folder and running the same command again, on any day, resumes it.  ``--run-label`` names
+the folder by hand instead, and ``--results`` moves the tree.  The files the run read and the command are copied to
+the run's ``inputs/`` folder the first time.
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import shutil
 import time
 from dataclasses import replace
-from datetime import date
 from pathlib import Path
 
-RUN_LABEL = "smoothed-local-image-plane"
+# Likelihood (mode, kernel) -> its tag in the run label; the GRF with a knee spectrum (the cluster runs) has none.
+LIKELIHOOD_TAGS = {("gp_image_plane", "knee"): "", ("gp_image_plane", "image_plane"): "imagegp", ("smoothed", "image_plane"): "smoothed"}
 
 
-def today() -> str:
-    """The default campaign: today's date as month and day, e.g. ``nov11``."""
-    day = date.today()
-    return f"{day.strftime('%b').lower()}{day.day}"
+def describe(config, profiles=()) -> str:
+    """The default run label: NUTS warmup, samples and tree depth, then the GP blocks (GRF likelihood) or the likelihood,
+    the image catalog when it is not the one of ``priors.yaml``'s folder, ``uncertain`` with uncertain images, and the
+    profiles.  E.g. ``w500s250t7_allblocks``, ``w500s250t8_systemblocks_fast``, ``w500s250t8_smoothed_trusted_uncertain_fast``."""
+    sampling, likelihood = config.sampling, config.likelihood
+    parts = [f"w{sampling.warmup}s{sampling.samples}t{sampling.max_tree_depth}"]
+    tag = LIKELIHOOD_TAGS.get((likelihood.likelihood_mode, likelihood.gp_kernel), likelihood.likelihood_mode.replace("_", ""))
+    parts.append(f"{likelihood.gp_blocks}blocks" if not tag else tag)
+    images = Path(config.model.image_constraints.catalog_path)
+    if images.name != "images.yaml":
+        parts.append(images.stem)
+    if config.partition is not None:
+        parts.append("uncertain")
+    return "_".join([*parts, *profiles])
+
+
+def config_hash(config) -> str:
+    """Six hex characters identifying a configuration: a hash of everything the pipeline compares when it resumes a
+    run (the whole configuration but ``paths`` and the WBIC settings, which a finished run may add).  Equal hashes are
+    resumable runs; any change, a prior set with ``--set`` included, gives a new folder."""
+    from .pipeline import _without_wbic
+    payload = {key: value for key, value in _without_wbic(config.to_json_dict()).items() if key != "paths"}
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()[:6]
 
 
 def _segment(text: str) -> str:
@@ -80,9 +102,10 @@ def parser() -> argparse.ArgumentParser:
                    help="apply a profile of run.yaml (fast; jwst or hst for the figures' imaging), in order; repeatable")
     p.add_argument("--set", action="append", default=[], dest="overrides", metavar="SECTION.FIELD=VALUE",
                    help="override one field after the profiles, e.g. sampling.warmup=1000, runtime.skip_plots=true, "
-                        "search.warm_start=results/<campaign>/<name>/<run>, sampling.wbic=true; repeatable")
-    p.add_argument("--campaign", type=_segment, default=None, help="results/<campaign>/ (default today's date, e.g. nov11)")
-    p.add_argument("--run-label", type=_segment, default=RUN_LABEL, help=f"the run folder (default {RUN_LABEL})")
+                        "search.warm_start=results/<name>/<run>, sampling.wbic=true; repeatable")
+    p.add_argument("--run-label", type=_segment, default=None,
+                   help="the run folder (default <description>-<hash> of the run, e.g. w500s250t7_allblocks-3f9a1c)")
+    p.add_argument("--results", default="results", metavar="DIR", help="the results tree, DIR/<name>/<run> (default results)")
     p.add_argument("--chains", type=_positive_int, metavar="N", help="NUTS chains, one CPU device each (runtime.chains)")
     p.add_argument("--seed", type=int, metavar="N", help="random seed of the search, the sampler and the reporting draws (runtime.seed)")
     p.add_argument("--starts", type=_positive_int, metavar="N", help="starts of the initial search (search.n_starts)")
@@ -103,9 +126,9 @@ def parser() -> argparse.ArgumentParser:
     return p
 
 
-def build_config(cluster, *, profiles=(), overrides=(), campaign=None, run_label=RUN_LABEL, images=None):
+def build_config(cluster, *, profiles=(), overrides=(), run_label=None, images=None, results="results"):
     """The configuration of a cluster folder with the profiles and overrides, writing to
-    ``results/<campaign>/<name>/<run_label>`` (campaign None: :func:`today`), with ``images`` in place of the image
+    ``<results>/<name>/<run_label>`` (run_label None: ``<description>-<hash>``, :func:`describe` and :func:`config_hash`), with ``images`` in place of the image
     catalog of ``priors.yaml``.  CPU pinning follows the platform unless the files or ``--set`` give it.
 
     Returns
@@ -119,10 +142,10 @@ def build_config(cluster, *, profiles=(), overrides=(), campaign=None, run_label
     config = load_run(cluster, profiles, overrides)
     if images is not None:
         config = replace(config, model=replace(config.model, image_constraints=replace(config.model.image_constraints, catalog_path=images)))
-    campaign = campaign or today()
-    return replace(config,
-                   paths=replace(config.paths, output_dir=f"results/{campaign}/{config.paths.figure_prefix}", run_name=run_label),
-                   runtime=replace(config.runtime, cpu_threads_per_chain=threads if threads is not None else threads_per_chain_if_supported(2)))
+    config = replace(config, runtime=replace(config.runtime,
+                                             cpu_threads_per_chain=threads if threads is not None else threads_per_chain_if_supported(2)))
+    label = run_label or f"{describe(config, profiles)}-{config_hash(config)}"
+    return replace(config, paths=replace(config.paths, output_dir=str(Path(results) / config.paths.figure_prefix), run_name=label))
 
 
 def _fast_warning(config) -> None:
@@ -155,7 +178,7 @@ def main(argv=None) -> int:
     cpu_plan = resolve_cpu_plan(chains, method, threads)
     if not args.dry_run:
         configure_cpu_runtime(chains, method, threads)
-    config = build_config(args.cluster, profiles=args.profile, overrides=args.overrides, campaign=args.campaign,
+    config = build_config(args.cluster, profiles=args.profile, overrides=args.overrides, results=args.results,
                           run_label=args.run_label, images=args.images).validate()
     if args.dry_run:
         from .pipeline import dry_run

@@ -153,11 +153,19 @@ def test_command_line(monkeypatch, capsys):
     with pytest.raises(SystemExit):
         cli.main(["catalogs/nowhere"])
     assert "no run.yaml" in capsys.readouterr().err
-    config = cli.build_config("catalogs/as1063/diego2026", profiles=["fast"], overrides=["sampling.warmup=7"], campaign="c", run_label="r")
-    assert config.paths.output_dir == "results/c/as1063_jwst" and config.paths.run_name == "r" and config.sampling.warmup == 7
+    config = cli.build_config("catalogs/as1063/diego2026", profiles=["fast"], overrides=["sampling.warmup=7"], run_label="r", results="out")
+    assert config.paths.output_dir == "out/as1063_jwst" and config.paths.run_name == "r" and config.sampling.warmup == 7
     assert cli.main(["catalogs/hera", "--profile", "fast", "--dry-run"]) == 0
     assert '"dry_run": true' in capsys.readouterr().out
-    assert cli.build_config("catalogs/hera").paths.output_dir == f"results/{cli.today()}/hera"
+    # The default folder: results/<name>/<description>-<hash>, the same for the same configuration, new for any change.
+    hera, fast = cli.build_config("catalogs/hera"), cli.build_config("catalogs/hera", profiles=["fast"])
+    assert hera.paths.output_dir == "results/hera" and hera.paths.run_name == f"w500s250t7_allblocks-{cli.config_hash(hera)}"
+    assert fast.paths.run_name.startswith("w500s250t8_systemblocks_fast-")
+    assert cli.build_config("catalogs/hera").paths.run_name == hera.paths.run_name
+    prior = cli.build_config("catalogs/hera", overrides=["likelihood.lambda_b_prior=lognormal(10, 1) in [0.5, 80]"])
+    assert prior.paths.run_name.split("-")[0] == "w500s250t7_allblocks" and prior.paths.run_name != hera.paths.run_name
+    assert cli.build_config("catalogs/hera", overrides=["sampling.wbic=true"]).paths.run_name == hera.paths.run_name
+    assert cli.build_config("catalogs/hera", images="x/trusted.yaml").paths.run_name.startswith("w500s250t7_allblocks_trusted-")
     seen = {}
     monkeypatch.setattr(cli, "build_config", lambda *a, **k: seen.update(k) or (_ for _ in ()).throw(SystemExit(0)))
     with pytest.raises(SystemExit):

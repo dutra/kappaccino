@@ -17,9 +17,13 @@ kappaccino catalogs/m0416/canucs2025 --profile fast --profile jwst
 kappaccino catalogs/as1063/bergamini2019 --set sampling.warmup=1000 --set runtime.skip_plots=true
 ```
 
-Outputs go to `results/<campaign>/<name>/<run label>`, and the files the run read are copied to its `inputs/` folder.
-The campaign defaults to today's date (`nov11`) and the run label to `smoothed-local-image-plane`, so pass
-`--campaign` to resume a run on a later day.
+Each run goes to `results/<name>/<description>-<hash>`, for example `results/hera/w500s250t7_allblocks-3f9a1c`. The
+description gives the NUTS warmup, samples and tree depth, the GP blocks (or the likelihood when it is not the GRF),
+the image catalog when `--images` replaces it, `uncertain` with uncertain images, and the profiles. The hash is six
+characters of a hash of the whole configuration except its paths and WBIC settings, the part the pipeline checks
+when it resumes. The same command therefore resumes its run on any day, and any change, a prior set with `--set`
+included, starts a new folder. `--run-label NAME` names the folder by hand, and `--results DIR` moves the tree
+(`DIR/<name>/...`). The files the run read and the command are copied to the run's `inputs/` folder.
 `--images YAML` fits another image catalog in place of the one `priors.yaml` names (a degraded catalog, say).
 Images of unknown family are a `partition` section: `--set partition.catalog_path=uncertain.csv`, or
 `partition.catalog_path=null` for the untrusted images of the image catalog, with

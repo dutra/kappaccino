@@ -238,8 +238,11 @@ def aperture_dispersion_sq(slope, a, s, aperture, sigma0=1.0):
     inner = (4.0 / 3.0) * jnp.pi * rho[..., :1] * r[..., :1] ** 3     # the mass inside the first node (flat core)
     mass = inner + jnp.concatenate((jnp.zeros_like(shell[..., :1]),
                                     jnp.cumsum(0.5 * (shell[..., 1:] + shell[..., :-1]), axis=-1) * step), axis=-1)
-    m = jnp.minimum(r, aperture[..., None])
-    kernel = r2 * r - jnp.maximum(r2 - m * m, 0.0) ** 1.5
+    # r^3 - (r^2 - m^2)^(3/2) with m = min(r, R): r^3 inside the aperture.  The branch keeps the power away from 0,
+    # where its second derivative is infinite (a NaN Hessian through a zero tangent).
+    outside = r > aperture[..., None]
+    excess = jnp.where(outside, r2 - aperture[..., None] ** 2, 1.0)
+    kernel = r2 * r - jnp.where(outside, excess ** 1.5, 0.0)
     integrand = rho * mass / r2 * kernel * r                          # d / d ln r
     numerator = jnp.sum(0.5 * (integrand[..., 1:] + integrand[..., :-1]), axis=-1) * step[..., 0]
     projected = jnp.pi * amp * enclosed(aperture * aperture, a, s, slope)

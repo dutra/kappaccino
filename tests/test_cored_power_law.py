@@ -249,6 +249,9 @@ def test_aperture_dispersion_ratio_is_one_at_slope_two_and_grows_with_the_slope(
     h = 1e-6
     numeric = (cpl.aperture_dispersion_ratio(2.3 + h, a, s, aperture) - cpl.aperture_dispersion_ratio(2.3 - h, a, s, aperture)) / (2 * h)
     np.testing.assert_allclose(float(gradient), float(numeric), rtol=1e-6)
+    # NUTS mass seeding takes its Hessian in slope, core and cut: finite everywhere.
+    hessian = jax.hessian(lambda v: cpl.aperture_dispersion_ratio(v[0], v[1], v[2], aperture))(jnp.asarray([2.0, a, s]))
+    assert np.all(np.isfinite(np.asarray(hessian)))
 
 
 APERTURES = {"g1": 0.35, "g2": 0.2}

@@ -9,7 +9,8 @@ import jax.numpy as jnp
 import numpy as np
 
 from . import gp_image_plane as gp, gp_knee, smoothed as sl
-from ..lens import cored_power_law, lensing
+from ..lens import profiles as lens_profiles
+from ..lens.profiles import cored_power_law, dpie
 from ..lens.farfield import evaluate_farfield, member_farfield_geometry, slice_geometry
 from ..lens.cosmology import dpie_sigma0_factor_from_config, dpie_sigma0_factor_from_lensing_efficiency
 from ..core.model import (
@@ -17,7 +18,7 @@ from ..core.model import (
     SAFE_RADIUS_MARGIN_ARCSEC, SAFE_RADIUS_MARGIN_KPC, SHEAR_PROFILE, ModelState, PackedLensState,
     PackedLensValidity, apply_parameter_transforms_jax, log_mask,
 )
-from ..lens.profiles import critical_density_msun_kpc3, nfw_alpha_rs_arcsec, nfw_scale_density
+from ..lens.profiles.nfw import critical_density_msun_kpc3, nfw_alpha_rs_arcsec, nfw_scale_density
 
 BAD_LOG_LIKE = -1.0e30
 
@@ -229,7 +230,7 @@ class Evaluator:
         self.fixed_geometry_position = {int(c): i for i, c in enumerate(self.fixed_geometry_components)}
         if len(self.fixed_geometry_components):
             take = lambda v: jnp.asarray(np.asarray(v, dtype=float)[self.fixed_geometry_components])
-            self.fixed_geometry = lensing.grouped_dpie_geometry(self.xy[:, 0], self.xy[:, 1], take(packed_spec.e1_base), take(packed_spec.e2_base),
+            self.fixed_geometry = dpie.grouped_geometry(self.xy[:, 0], self.xy[:, 1], take(packed_spec.e1_base), take(packed_spec.e2_base),
                                                                     take(packed_spec.x_center_base), take(packed_spec.y_center_base))
         else:
             self.fixed_geometry = None
@@ -622,77 +623,38 @@ class Evaluator:
     # ------------------------------------------------------------------ lens fields
     def component_rows(self, xy: jnp.ndarray, packed: PackedLensState, components: np.ndarray, *, derivative: bool = False):
         """Per-component deflection rows (C, N, 2), Jacobians U = d alpha / d theta (C, N, 2, 2) and, with ``derivative``,
-        the spatial derivatives dU (C, N, 2, 2, 2).  dPIE components with fixed catalog geometry evaluated at the image
-        positions reuse the precomputed geometry; the other dPIEs use the full analytic kernel, cored power-law members
-        the quadrature kernel of ``kappaccino.lens.cored_power_law``, NFW halos the CSE kernel."""
+        the spatial derivatives dU (C, N, 2, 2, 2).  Each profile's components go through its kernel in one batch
+        (``kappaccino.lens.profiles``); dPIE components with fixed catalog geometry evaluated at the image positions
+        reuse the precomputed geometry."""
         x, y = xy[:, 0], xy[:, 1]
         components = np.asarray(components, dtype=np.int32)
         n = x.shape[0]
         if components.size == 0:
             empty = (jnp.zeros((0, n, 2)), jnp.zeros((0, n, 2, 2)))
             return empty + ((jnp.zeros((0, n, 2, 2, 2)),) if derivative else ())
-        profile = np.asarray(self.state.packed_lens_spec.profile_type)[components]
+        codes = np.asarray(self.state.packed_lens_spec.profile_type)[components]
+        # The grouping is static (profile codes and component indices are NumPy), so the compiled graph holds one
+        # batched kernel call per profile present and no branches.
+        groups = []
+        fixed = (codes == DP_IE_PROFILE) & (xy is self.xy) & np.isin(components, self.fixed_geometry_components)
+        if np.any(fixed):
+            index = components[fixed]
+            rows = np.asarray([self.fixed_geometry_position[int(c)] for c in index], dtype=np.int32)
+            geometry = jax.tree.map(lambda g: g[rows], self.fixed_geometry)
+            take = lambda value: jnp.take(jnp.asarray(value, dtype=jnp.float64), jnp.asarray(index), axis=0)
+            groups.append((fixed, dpie.grouped_fields_from_geometry[derivative](geometry, take(packed.sigma0), take(packed.Ra), take(packed.Rs))))
+        for code in sorted(set(codes.tolist())):
+            mask = (codes == code) & ~fixed
+            if np.any(mask):
+                groups.append((mask, lens_profiles.profile(code).grouped_fields(x, y, packed, components[mask], derivative=derivative)))
         alpha = jnp.zeros((components.size, n, 2), dtype=jnp.float64)
         u = jnp.zeros((components.size, n, 2, 2), dtype=jnp.float64)
         du = jnp.zeros((components.size, n, 2, 2, 2), dtype=jnp.float64) if derivative else None
-        at_images = xy is self.xy
-        dpie_mask = profile == DP_IE_PROFILE
-        fixed_mask = dpie_mask & at_images & np.isin(components, self.fixed_geometry_components)
-        variable_mask = dpie_mask & ~fixed_mask
-        take = lambda value, idx: jnp.take(jnp.asarray(value, dtype=jnp.float64), jnp.asarray(idx), axis=0)
-        if np.any(fixed_mask):
-            idx = components[fixed_mask]
-            geom_rows = np.asarray([self.fixed_geometry_position[int(c)] for c in idx], dtype=np.int32)
-            geom = jax.tree.map(lambda g: g[geom_rows], self.fixed_geometry)
-            a_rows, u_rows, du_rows = lensing.grouped_dpie_fields_from_geometry[derivative](geom, take(packed.sigma0, idx), take(packed.Ra, idx), take(packed.Rs, idx))
-            pos = jnp.asarray(np.flatnonzero(fixed_mask), dtype=jnp.int32)
-            alpha, u = alpha.at[pos].set(a_rows), u.at[pos].set(u_rows)
-            du = du.at[pos].set(du_rows) if derivative else du
-        if np.any(variable_mask):
-            idx = components[variable_mask]
-            a_rows, u_rows, du_rows = lensing.grouped_dpie_fields[derivative](x, y, take(packed.sigma0, idx), take(packed.Ra, idx), take(packed.Rs, idx),
-                                                                                  take(packed.e1, idx), take(packed.e2, idx), take(packed.center_x, idx), take(packed.center_y, idx))
-            pos = jnp.asarray(np.flatnonzero(variable_mask), dtype=jnp.int32)
-            alpha, u = alpha.at[pos].set(a_rows), u.at[pos].set(u_rows)
-            du = du.at[pos].set(du_rows) if derivative else du
-        cpl_mask = profile == CORED_POWER_LAW_PROFILE
-        if np.any(cpl_mask):
-            idx = components[cpl_mask]
-            a_rows, u_rows, du_rows = cored_power_law.grouped_cored_power_law_fields[derivative](
-                x, y, take(packed.sigma0, idx), take(packed.Ra, idx), take(packed.Rs, idx), take(packed.slope, idx),
-                take(packed.e1, idx), take(packed.e2, idx), take(packed.center_x, idx), take(packed.center_y, idx))
-            pos = jnp.asarray(np.flatnonzero(cpl_mask), dtype=jnp.int32)
-            alpha, u = alpha.at[pos].set(a_rows), u.at[pos].set(u_rows)
-            du = du.at[pos].set(du_rows) if derivative else du
-        nfw_mask = profile == NFW_PROFILE
-        if np.any(nfw_mask):
-            idx = components[nfw_mask]
-            a_rows, u_rows, du_rows = lensing.grouped_nfw_fields[derivative](x, y, take(packed.nfw_rs, idx), take(packed.alpha_rs, idx),
-                                                                                 take(packed.e1, idx), take(packed.e2, idx), take(packed.center_x, idx), take(packed.center_y, idx))
-            pos = jnp.asarray(np.flatnonzero(nfw_mask), dtype=jnp.int32)
-            alpha, u = alpha.at[pos].set(a_rows), u.at[pos].set(u_rows)
-            du = du.at[pos].set(du_rows) if derivative else du
-        shear_mask = profile == SHEAR_PROFILE
-        if np.any(shear_mask):
-            idx = jnp.asarray(components[shear_mask])
-            gamma1 = jnp.take(packed.gamma1, idx)[:, None]
-            gamma2 = jnp.take(packed.gamma2, idx)[:, None]
-            ones = jnp.ones_like(x)[None, :]
-            shear_alpha = jnp.stack((gamma1 * x[None] + gamma2 * y[None], gamma2 * x[None] - gamma1 * y[None]), -1)
-            # U = d alpha / d theta for the shear is the constant matrix [[gamma1, gamma2], [gamma2, -gamma1]]; dU = 0.
-            shear_u = jnp.stack((jnp.stack((gamma1 * ones, gamma2 * ones), -1), jnp.stack((gamma2 * ones, -gamma1 * ones), -1)), -2)
-            pos = jnp.asarray(np.flatnonzero(shear_mask), dtype=jnp.int32)
-            alpha, u = alpha.at[pos].set(shear_alpha), u.at[pos].set(shear_u)
-        sheet_mask = profile == MASS_SHEET_PROFILE
-        if np.any(sheet_mask):
-            idx = components[sheet_mask]
-            kappa = jnp.take(jnp.asarray(packed.kappa, dtype=jnp.float64), jnp.asarray(idx), axis=0)   # (c,) or (c, N)
-            kappa = jnp.broadcast_to(kappa if kappa.ndim == 2 else kappa[:, None], (idx.size, n))
-            # A uniform sheet about the reference origin: alpha = kappa theta, U = kappa I, dU = 0.
-            sheet_alpha = kappa[..., None] * xy[None, :, :]
-            sheet_u = kappa[..., None, None] * jnp.eye(2)[None, None]
-            pos = jnp.asarray(np.flatnonzero(sheet_mask), dtype=jnp.int32)
-            alpha, u = alpha.at[pos].set(sheet_alpha), u.at[pos].set(sheet_u)
+        for mask, (alpha_rows, u_rows, du_rows) in groups:
+            position = jnp.asarray(np.flatnonzero(mask), dtype=jnp.int32)
+            alpha, u = alpha.at[position].set(alpha_rows), u.at[position].set(u_rows)
+            if derivative:
+                du = du.at[position].set(du_rows)
         return (alpha, u, du) if derivative else (alpha, u)
 
     def total_fields_at(self, xy, packed: PackedLensState, components: np.ndarray | None = None, *, chunk: int = 16384):

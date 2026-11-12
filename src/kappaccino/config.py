@@ -407,7 +407,7 @@ class MemberPopulationConfig:
     :meth:`bergamini2019` and :meth:`neutral` build populations with published or scale-free priors.
 
     The members are dPIE halos (``profile_type`` 81) or cored power laws (``profile_type`` 102,
-    ``kappaccino.lens.cored_power_law``): the dPIE with a free 3D density slope :math:`\\gamma` between the core and
+    ``kappaccino.lens.profiles.cored_power_law``): the dPIE with a free 3D density slope :math:`\\gamma` between the core and
     the cut radius, :math:`\\rho \\propto r^{-\\gamma}`, at the dPIE's total mass for the same dispersion and radii.
     :math:`\\gamma = 2` is the dPIE; a smaller slope moves mass out of the center, a larger one moves mass in.  One
     slope holds for the whole population, sampled with ``slope_prior`` unless ``"slope"`` is in
@@ -476,7 +476,7 @@ class MemberPopulationConfig:
         of 295.2 km s^-1 at the BCG magnitude deprojected to a :math:`\\sigma_{LT}` prior of 248 km s^-1).
         For cored power-law members (``profile_type`` 102) the factor is multiplied by
         :math:`\\sigma_\\mathrm{ap}(\\gamma) / \\sigma_\\mathrm{ap}(2)`, the ratio of the member's aperture dispersion
-        to that of the dPIE with the same dispersion and radii (``kappaccino.lens.cored_power_law.aperture_dispersion_ratio``:
+        to that of the dPIE with the same dispersion and radii (``kappaccino.lens.profiles.cored_power_law.aperture_dispersion_ratio``:
         isotropic Jeans, light traces mass), so the dPIE calibration holds at slope 2.
     kinematics_aperture_arcsec : float or None, optional
         Cored power-law members only: radius of the circular aperture of the measured dispersions, in arcsec, for every

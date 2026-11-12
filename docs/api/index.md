@@ -28,6 +28,7 @@ The package is organized as:
 
 config
 priors
+profiles
 pipeline
 model_comparison
 results

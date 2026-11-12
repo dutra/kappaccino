@@ -330,17 +330,33 @@ def _credible_density_grid(points, *, grid_size=384):
     Work in covariance-whitened coordinates so thin/tilted contours are resolved.
     Select bandwidth by leave-one-out log density; use the smoothest candidate
     within one standard error of the best score, with a Scott-to-2*Scott bound.
+
+    Three to ``MIN_KDE_DRAWS - 1`` finite draws are too few for a density estimate: the grid then holds the Gaussian
+    of their mean and covariance (``bandwidth_factor`` is NaN), as in ``position_contours``.  None with fewer draws or
+    a singular covariance.
     """
     from scipy.special import logsumexp
+    from ..diagnostics.position_contours import MIN_KDE_DRAWS
     points = np.asarray(points, dtype=float)
     points = points[np.isfinite(points).all(axis=1)]
-    if len(points) < 10:
+    if len(points) < 3:
         return None
     covariance = np.cov(points.T)
     if np.linalg.matrix_rank(covariance) < 2:
         return None
     center = points.mean(axis=0)
     chol = np.linalg.cholesky(covariance)
+    if len(points) < MIN_KDE_DRAWS:
+        x = y = np.linspace(-6., 6., grid_size)
+        xx, yy = np.meshgrid(x, y)
+        density = np.exp(-.5*(xx*xx+yy*yy))/(2*np.pi)
+        area = (x[1]-x[0])**2
+        physical = np.stack((xx, yy), axis=-1) @ chol.T + center
+        # A 2D Gaussian holds the probability q above the density (1 - q) / (2 pi).
+        return dict(x=physical[..., 0], y=physical[..., 1], density=density,
+                    levels=[(1-q)/(2*np.pi) for q in (.954499736, .682689492)],
+                    cell_area=area, integrated_mass=float(density.sum()*area), bandwidth_factor=float('nan'),
+                    points_used=len(points))
     white = np.linalg.solve(chol, (points-center).T).T
     delta = white[:, None, :]-white[None, :, :]
     distances2 = np.sum(delta**2, axis=-1)

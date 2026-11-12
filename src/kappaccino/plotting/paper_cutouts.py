@@ -34,7 +34,8 @@ def resolve_panel(selector, systems):
 
 
 def write_paper_cutouts(config, state, draws, tables, figures, imaging, *, log=print):
-    """Create the selected figures after position and fold products are saved."""
+    """Create the selected figures after position and fold products are saved.  A figure with a panel that has no
+    saved posterior (an image recovered in fewer than three reporting draws) is skipped with a log line."""
     groups = [('small_lambda_posteriors', config.image_catalog.paper_small_lambda_cutouts),
               ('fold_cutouts', config.image_catalog.paper_fold_cutouts)]
     if not any(selectors for _, selectors in groups):
@@ -52,8 +53,9 @@ def write_paper_cutouts(config, state, draws, tables, figures, imaging, *, log=p
             image_labels=tuple(dict.fromkeys(identity for kind, identity, _ in resolved if kind == 'image')),
             system_ids=tuple(dict.fromkeys(identity for kind, identity, _ in resolved if kind != 'image')),
             draws=draws, log=log)
-        if data is None:
-            raise ValueError(f'Cannot render {stem}: selected posterior cutout diagnostics are unavailable')
+        if data is None:  # overview_cutout_data logged which panel has no saved posterior
+            log(f'[outputs] paper cutouts skipped: {stem}')
+            continue
         with plt.style.context(str(Path(__file__).with_name('style.mplstyle'))):
             fig = plt.figure(figsize=(2.05 * len(selectors), 2.05))
             try:

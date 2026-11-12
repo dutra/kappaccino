@@ -212,7 +212,26 @@ def test_smoothed_contours_preserve_probability_mass_and_resolve_thin_cloud():
         enclosed=grid['density'][grid['density']>=level].sum()*grid['cell_area']
         assert abs(enclosed-probability)<.002
     assert fd._credible_density_grid(np.zeros((20,2))) is None
-    assert fd._credible_density_grid(points[:8]) is None
+    assert fd._credible_density_grid(points[:2]) is None
+
+
+def test_few_draws_give_the_gaussian_of_their_mean_and_covariance():
+    import contourpy
+    from scipy.stats import chi2
+    rng=np.random.default_rng(5)
+    points=rng.normal(size=(8,2)) @ np.array([[.2, .18],[0.,.02]]) + [3.,-1.]
+    points[3]=np.nan  # a draw that did not recover the image
+    grid=fd._credible_density_grid(points,grid_size=256)
+    finite=points[np.isfinite(points).all(1)]
+    assert grid['points_used']==7 and np.isnan(grid['bandwidth_factor'])
+    assert abs(grid['integrated_mass']-1)<1e-6
+    precision=np.linalg.inv(np.cov(finite.T))
+    for level,probability in zip(grid['levels'],[.954499736,.682689492]):
+        enclosed=grid['density'][grid['density']>=level].sum()*grid['cell_area']
+        assert abs(enclosed-probability)<.002
+        (curve,)=contourpy.contour_generator(x=grid['x'],y=grid['y'],z=grid['density']).lines(level)
+        offset=curve-finite.mean(0)
+        np.testing.assert_allclose(np.einsum('ni,ij,nj->n',offset,precision,offset),chi2.ppf(probability,2),rtol=2e-3)
 
 
 def test_smoothed_contours_retain_a_resolved_second_mode():

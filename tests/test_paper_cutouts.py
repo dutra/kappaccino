@@ -59,3 +59,17 @@ def test_empty_selections_do_not_load_diagnostics(tmp_path, monkeypatch):
     monkeypatch.setattr(pc,'load_fold_data',lambda _:pytest.fail('disabled figure read diagnostics'))
     assert pc.write_paper_cutouts(NS(image_catalog=ImageCatalogCutoutConfig()),None,None,
                                  tmp_path,tmp_path,None)==[]
+
+
+def test_figure_without_a_saved_posterior_is_skipped_not_fatal(tmp_path, monkeypatch):
+    cfg = ImageCatalogCutoutConfig(paper_small_lambda_cutouts=('image:K34.b',), paper_fold_cutouts=('system:K6',))
+    config = NS(image_catalog=cfg, paths=NS(figure_prefix='test',run_name='test'))
+    monkeypatch.setattr(pc,'load_fold_data',lambda _:dict(systems=[system()]))
+    monkeypatch.setattr(pc,'overview_cutout_data',
+                        lambda *a, **k: None if k['image_labels'] else dict(images=[],systems=[system()]))
+    monkeypatch.setattr(pc,'render_overview_cutouts',lambda fig,*a,**k: fig.add_axes(k['image_rects'][0]))
+    lines=[]
+    paths=pc.write_paper_cutouts(config,NS(reference=(3,0,0)),None,tmp_path,tmp_path,
+                                ({},(),None,'m0416'),log=lines.append)
+    assert [path.name for path in paths]==['m0416_fold_cutouts.pdf']
+    assert '[outputs] paper cutouts skipped: small_lambda_posteriors' in lines

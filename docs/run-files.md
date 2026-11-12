@@ -33,6 +33,10 @@ The common fields have named options, applied after the profiles and before `--s
 `--starts`, `--warm-start RUN_DIR`, `--warmup`, `--samples`, `--tree-depth`, `--target-accept`, `--draws` (both
 reporting draw counts) and `--skip-plots`. `kappaccino --help` lists them with the field each sets.
 
+`--member-profile power-law` fits the members as cored power laws, the dPIE with a free 3D slope (one sampled slope
+per population), and `--member-slope G` holds that slope at G. In `priors.yaml` the same is `profile_type: 102` on a
+member population, with `slope` or `slope_prior`.
+
 | folder | name | profiles |
 |---|---|---|
 | `catalogs/hera` | hera | fast |

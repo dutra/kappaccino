@@ -30,8 +30,8 @@ LIKELIHOOD_TAGS = {("gp_image_plane", "knee"): "", ("gp_image_plane", "image_pla
 
 def describe(config, profiles=()) -> str:
     """The default run label: NUTS warmup, samples and tree depth, then the GP blocks (GRF likelihood) or the likelihood,
-    the image catalog when it is not the one of ``priors.yaml``'s folder, ``uncertain`` with uncertain images, and the
-    profiles.  E.g. ``w500s250t7_allblocks``, ``w500s250t8_systemblocks_fast``, ``w500s250t8_smoothed_trusted_uncertain_fast``."""
+    the image catalog when it is not the one of ``priors.yaml``'s folder, ``uncertain`` with uncertain images,
+    ``powerlaw`` with cored power-law members (and their slope when it is held fixed), and the profiles.  E.g. ``w500s250t7_allblocks``, ``w500s250t8_systemblocks_fast``, ``w500s250t8_smoothed_trusted_uncertain_fast``."""
     sampling, likelihood = config.sampling, config.likelihood
     parts = [f"w{sampling.warmup}s{sampling.samples}t{sampling.max_tree_depth}"]
     tag = LIKELIHOOD_TAGS.get((likelihood.likelihood_mode, likelihood.gp_kernel), likelihood.likelihood_mode.replace("_", ""))
@@ -41,6 +41,9 @@ def describe(config, profiles=()) -> str:
         parts.append(images.stem)
     if config.partition is not None:
         parts.append("uncertain")
+    if any(int(population.profile_type) == 102 for population in config.model.member_populations):
+        fixed = "slope" in config.scaling.fixed_relation_fields
+        parts.append("powerlaw" + (f"{config.model.member_populations[0].slope:g}" if fixed else ""))
     return "_".join([*parts, *profiles])
 
 
@@ -87,6 +90,13 @@ def _option_overrides(args) -> list[str]:
     return out + (["runtime.skip_plots=true"] if args.skip_plots else [])
 
 
+def _slope(text: str) -> float:
+    value = float(text)
+    if not 1.0 < value < 3.0:
+        raise argparse.ArgumentTypeError("must lie in (1, 3)")
+    return value
+
+
 def _folder(text: str) -> str:
     if not (Path(text) / "run.yaml").is_file():
         raise argparse.ArgumentTypeError(f"no run.yaml in {text!r}")
@@ -117,6 +127,12 @@ def parser() -> argparse.ArgumentParser:
     p.add_argument("--draws", type=_positive_int, metavar="N",
                    help="posterior draws behind every reported product (reporting.draws and reporting.image_draws)")
     p.add_argument("--skip-plots", action="store_true", help="no figures or tables after sampling (runtime.skip_plots)")
+    p.add_argument("--member-profile", choices=("dpie", "power-law"), default=None,
+                   help="the member halos: dpie, or power-law, the cored power law (the dPIE with a free 3D slope gamma, "
+                        "rho ~ r^-gamma between core and cut, at the dPIE's mass inside the cut), one sampled slope per "
+                        "population.  Default: what priors.yaml declares")
+    p.add_argument("--member-slope", type=_slope, default=None, metavar="G",
+                   help="power-law members: hold the slope at G, in (1, 3), instead of sampling it")
     p.add_argument("--images", default=None, metavar="YAML",
                    help="fit this image catalog instead of the one priors.yaml names (e.g. a degraded catalog). Images of "
                         "unknown family: --set partition.catalog_path=CSV (null for the untrusted images of the catalog), "
@@ -126,10 +142,12 @@ def parser() -> argparse.ArgumentParser:
     return p
 
 
-def build_config(cluster, *, profiles=(), overrides=(), run_label=None, images=None, results="results"):
+def build_config(cluster, *, profiles=(), overrides=(), run_label=None, images=None, results="results",
+                 member_profile=None, member_slope=None):
     """The configuration of a cluster folder with the profiles and overrides, writing to
     ``<results>/<name>/<run_label>`` (run_label None: ``<description>-<hash>``, :func:`describe` and :func:`config_hash`), with ``images`` in place of the image
-    catalog of ``priors.yaml``.  CPU pinning follows the platform unless the files or ``--set`` give it.
+    catalog of ``priors.yaml``.  ``member_profile`` ("dpie" or "power-law") sets the profile of every member population
+    (None keeps what ``priors.yaml`` declares), and ``member_slope`` holds the power-law slope fixed.  CPU pinning follows the platform unless the files or ``--set`` give it.
 
     Returns
     -------
@@ -142,6 +160,17 @@ def build_config(cluster, *, profiles=(), overrides=(), run_label=None, images=N
     config = load_run(cluster, profiles, overrides)
     if images is not None:
         config = replace(config, model=replace(config.model, image_constraints=replace(config.model.image_constraints, catalog_path=images)))
+    if member_profile is not None or member_slope is not None:
+        # Profile 102 is the cored power law (MemberPopulationConfig): one 3D slope per population, sampled or held fixed.
+        code = {"dpie": 81, "power-law": 102, None: None}[member_profile]
+        populations = tuple(replace(p, **({} if code is None else {"profile_type": code}),
+                                    **({} if member_slope is None else {"slope": float(member_slope)}))
+                            for p in config.model.member_populations)
+        if member_slope is not None and any(int(p.profile_type) != 102 for p in populations):
+            raise ValueError("--member-slope needs power-law members (--member-profile power-law, or profile_type 102 in priors.yaml).")
+        config = replace(config, model=replace(config.model, member_populations=populations))
+        if member_slope is not None and "slope" not in config.scaling.fixed_relation_fields:
+            config = replace(config, scaling=replace(config.scaling, fixed_relation_fields=(*config.scaling.fixed_relation_fields, "slope")))
     config = replace(config, runtime=replace(config.runtime,
                                              cpu_threads_per_chain=threads if threads is not None else threads_per_chain_if_supported(2)))
     label = run_label or f"{describe(config, profiles)}-{config_hash(config)}"
@@ -179,6 +208,7 @@ def main(argv=None) -> int:
     if not args.dry_run:
         configure_cpu_runtime(chains, method, threads)
     config = build_config(args.cluster, profiles=args.profile, overrides=args.overrides, results=args.results,
+                          member_profile=args.member_profile, member_slope=args.member_slope,
                           run_label=args.run_label, images=args.images).validate()
     if args.dry_run:
         from .pipeline import dry_run
@@ -192,7 +222,8 @@ def main(argv=None) -> int:
         for index, path in enumerate(input_files(args.cluster, args.profile)):
             shutil.copy2(path, inputs / f"{index}_{path.name}")
         (inputs / "command.json").write_text(json.dumps(
-            {"cluster": args.cluster, "profiles": args.profile, "overrides": args.overrides, "images": args.images}, indent=2))
+            {"cluster": args.cluster, "profiles": args.profile, "overrides": args.overrides, "images": args.images,
+             "member_profile": args.member_profile, "member_slope": args.member_slope}, indent=2))
     from .pipeline import run
     fast = "fast" in args.profile
     if fast:

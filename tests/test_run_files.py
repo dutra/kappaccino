@@ -186,3 +186,32 @@ def test_command_line(monkeypatch, capsys):
     assert built.search.warm_start == "results/a/hera/r" and (built.reporting.draws, built.reporting.image_draws) == (8, 8)
     swapped = cli.build_config("catalogs/hera", images="catalogs/ares/images.yaml", overrides=["partition.catalog_path=u.csv"])
     assert swapped.model.image_constraints.catalog_path == "catalogs/ares/images.yaml" and swapped.partition.catalog_path == "u.csv"
+
+
+def test_power_law_members(tmp_path, monkeypatch):
+    """The cored power-law members: from the command line, and declared in priors.yaml."""
+    from kappaccino import cli
+    monkeypatch.chdir(ROOT)
+    dpie = cli.build_config("catalogs/hera")
+    sampled = cli.build_config("catalogs/hera", member_profile="power-law").validate()
+    held = cli.build_config("catalogs/hera", member_profile="power-law", member_slope=2.3).validate()
+    assert dpie.model.member_populations[0].profile_type == 81 and "powerlaw" not in dpie.paths.run_name
+    assert sampled.model.member_populations[0].profile_type == 102 and "slope" not in sampled.scaling.fixed_relation_fields
+    assert sampled.paths.run_name.startswith("w500s250t7_allblocks_powerlaw-")
+    assert held.model.member_populations[0].slope == 2.3 and held.scaling.fixed_relation_fields[-1] == "slope"
+    assert held.paths.run_name.startswith("w500s250t7_allblocks_powerlaw2.3-")
+    assert len({dpie.paths.run_name, sampled.paths.run_name, held.paths.run_name}) == 3
+    with pytest.raises(ValueError, match="needs power-law members"):
+        cli.build_config("catalogs/hera", member_slope=2.3)
+    with pytest.raises(SystemExit):
+        cli.main(["catalogs/hera", "--member-profile", "power-law", "--member-slope", "3.5"])
+    priors = tmp_path / "priors.yaml"
+    priors.write_text(f"""
+extends: {ROOT / 'catalogs/hera/priors.yaml'}
+members:
+  potfile_1:
+    profile_type: 102
+    slope_prior: uniform(1.5, 2.5)
+""")
+    population = load_priors(priors)[0].member_populations[0]
+    assert population.profile_type == 102 and same(population.slope_prior, dist.Uniform(1.5, 2.5))

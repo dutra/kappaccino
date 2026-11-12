@@ -158,5 +158,23 @@ def test_command_line(monkeypatch, capsys):
     assert cli.main(["catalogs/hera", "--profile", "fast", "--dry-run"]) == 0
     assert '"dry_run": true' in capsys.readouterr().out
     assert cli.build_config("catalogs/hera").paths.output_dir == f"results/{cli.today()}/hera"
+    seen = {}
+    monkeypatch.setattr(cli, "build_config", lambda *a, **k: seen.update(k) or (_ for _ in ()).throw(SystemExit(0)))
+    with pytest.raises(SystemExit):
+        cli.main(["catalogs/hera", "--warmup", "100", "--samples", "50", "--tree-depth", "9", "--target-accept", "0.9",
+                  "--chains", "2", "--seed", "7", "--starts", "16", "--warm-start", "results/a/hera/r", "--draws", "8",
+                  "--skip-plots", "--set", "sampling.samples=60", "--dry-run"])
+    assert seen["overrides"] == ["runtime.chains=2", "runtime.seed=7", "search.n_starts=16", "search.warm_start=results/a/hera/r",
+                                 "sampling.warmup=100", "sampling.samples=50", "sampling.max_tree_depth=9",
+                                 "sampling.target_accept=0.9", "reporting.draws=8", "reporting.image_draws=8",
+                                 "runtime.skip_plots=true", "sampling.samples=60"]
+    with pytest.raises(SystemExit):
+        cli.main(["catalogs/hera", "--target-accept", "1.5"])
+    monkeypatch.undo()
+    monkeypatch.chdir(ROOT)
+    built = cli.build_config("catalogs/hera", overrides=seen["overrides"])
+    assert (built.sampling.warmup, built.sampling.samples, built.sampling.max_tree_depth, built.sampling.target_accept) == (100, 60, 9, 0.9)
+    assert (built.runtime.chains, built.runtime.seed, built.runtime.skip_plots, built.search.n_starts) == (2, 7, True, 16)
+    assert built.search.warm_start == "results/a/hera/r" and (built.reporting.draws, built.reporting.image_draws) == (8, 8)
     swapped = cli.build_config("catalogs/hera", images="catalogs/ares/images.yaml", overrides=["partition.catalog_path=u.csv"])
     assert swapped.model.image_constraints.catalog_path == "catalogs/ares/images.yaml" and swapped.partition.catalog_path == "u.csv"

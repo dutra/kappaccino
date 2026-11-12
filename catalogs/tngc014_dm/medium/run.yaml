@@ -1,0 +1,10 @@
+# How the medium tngc014_dm catalog is fitted: the settings of ../large/run.yaml.
+# kappaccino catalogs/tngc014_dm/medium [--profile fast] [--profile cosmography]
+extends: ../large/run.yaml
+name: tngc014_dm_medium
+priors: priors.yaml
+
+profiles:
+  # Cosmography: Om0 and w0 of flat wCDM sampled with the lens (priors_cosmography.yaml).
+  cosmography:
+    priors: priors_cosmography.yaml

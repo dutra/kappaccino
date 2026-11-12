@@ -21,6 +21,8 @@ catalogs/<cluster>/<source>/
 | `m0416/bergamini2023/` | m0416_bergamini2023 | images.yaml | members.cat | Bergamini et al. 2023 (2022 release): `source/obs_arcs.cat`, the par files; members.cat was `CM_cat_MACSJ0416.cat` |
 | `m0416/diego2024/` | (comparison only) | images.yaml (every rank), images.ecsv / .fits | | Diego et al. 2024 PEARLS Table B.1, `raw/` and the earlier BUFFALO/Flashlights table; images.yaml by `scripts/convert_diego2024_catalog.py` |
 | `m0416/master/` | (not an entry yet) | images.yaml | members.yaml | built from the three folders above, see below |
+| `tngc014/{small,medium,large}/` | tngc014 | images.yaml (20/40/69 systems) | members.yaml (50/100/246 members) | Shared truth in `tngc014/source/`; see `tngc014/README.md` |
+| `tngc014_dm/{small,medium,large}/` | tngc014_dm | images.yaml (20/40/69 systems) | members.yaml (50/100/246 members) | Shared truth in `tngc014_dm/source/`; see `tngc014_dm/README.md` |
 | `as1063/bergamini2019/` | as1063 | images.yaml | members.cat | Bergamini et al. 2019 RXC J2248: `source/obs_arcs.dat`, the par files |
 | `as1063/diego2026/` | as1063_jwst | images.yaml | members.yaml (Beauchesne 2025) | Diego et al. 2026 Table 1 (`raw/`), `image_mapping.json`, `validation.json` |
 | `as1063/caminha2016/` | (not an entry) | images.yaml | members.yaml (no BCG) | Caminha et al. 2016, model v2.0: `source/A1063_obs_arcs_v11.dat`, `members_95_160_nonan_cuts.cat`, par, region files; systems 50 and 51 have z = 0 (free in Lenstool) |

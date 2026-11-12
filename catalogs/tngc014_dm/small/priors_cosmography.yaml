@@ -1,0 +1,15 @@
+# Cosmography on the TNG-Cluster zoom 014 mock (dark matter only), small catalog: the priors of priors.yaml with the matter
+# density and the dark-energy equation of state of flat wCDM sampled with the lens.  The mock's distance ratios use
+# flat LCDM with Om0 = 0.3 (README.md), so the truth is Om0 = 0.3, w = -1.  H0 stays fixed: the image positions do not
+# constrain it.  Both start at the values of priors.yaml, which also set the fixed GRF redshift weights and the member
+# classification.
+# All 20 systems of this catalog have spectroscopic redshifts.
+extends: priors.yaml
+cosmology:
+  Ode0: null
+  Om0:
+    start: 0.3
+    prior: uniform(0.05, 0.95)
+  w0:
+    start: -1.0
+    prior: uniform(-2.0, -0.2)

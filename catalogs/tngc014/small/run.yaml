@@ -1,0 +1,10 @@
+# How the small tngc014 catalog is fitted: the settings of ../large/run.yaml.
+# kappaccino catalogs/tngc014/small [--profile fast] [--profile cosmography]
+extends: ../large/run.yaml
+name: tngc014_small
+priors: priors.yaml
+
+profiles:
+  # Cosmography: Om0 and w0 of flat wCDM sampled with the lens (priors_cosmography.yaml).
+  cosmography:
+    priors: priors_cosmography.yaml

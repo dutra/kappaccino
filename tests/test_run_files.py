@@ -4,17 +4,21 @@ from pathlib import Path
 
 import numpyro.distributions as dist
 import pytest
+import yaml
 
 from kappaccino import priors
 from kappaccino.config import DPIEHaloConfig, ShearHaloConfig
 from kappaccino.run_files import input_files, load_priors, load_run, parse_value
 
 ROOT = Path(__file__).resolve().parents[1]
-CLUSTERS = {"catalogs/hera": ("hera", ["fast"]), "catalogs/ares": ("ares", ["fast"]),
+CLUSTERS = {"catalogs/hera": ("hera", ["fast"]), "catalogs/ares": ("ares", ["fast"]), "catalogs/tngc014/large": ("tngc014", ["fast"]),
+            "catalogs/tngc014_dm/large": ("tngc014_dm", ["fast"]),
             "catalogs/as1063/bergamini2019": ("as1063", ["fast", "jwst"]),
             "catalogs/as1063/diego2026": ("as1063_jwst", ["fast", "hst"]),
             "catalogs/m0416/bergamini2023": ("m0416_bergamini2023", ["fast", "jwst"]),
             "catalogs/m0416/canucs2025": ("m0416_canucs2025", ["fast", "jwst"])}
+CLUSTERS.update({f"catalogs/{tag}/{size}": (f"{tag}_{size}", ["fast"])
+                 for tag in ("tngc014", "tngc014_dm") for size in ("small", "medium")})
 
 
 def same(a, b):
@@ -145,6 +149,31 @@ def test_input_files_follow_extends(monkeypatch):
     files = [str(p) for p in input_files("catalogs/as1063/diego2026")]
     assert files == ["catalogs/as1063/diego2026/run.yaml", "catalogs/as1063/bergamini2019/run.yaml",
                      "catalogs/as1063/diego2026/priors.yaml", "catalogs/as1063/bergamini2019/priors.yaml"]
+
+
+@pytest.mark.parametrize("tag", ["tngc014", "tngc014_dm"])
+def test_tng_catalog_sizes_are_nested_and_resolve(tag, monkeypatch):
+    monkeypatch.chdir(ROOT)
+    parent = ROOT / 'catalogs' / tag
+    assert not (parent / 'run.yaml').exists()
+    for filename, key, counts in [('images.yaml', 'systems', [20, 40, 69]),
+                                  ('members.yaml', 'members', [50, 100, 246])]:
+        previous = {}
+        for size, count in zip(('small', 'medium', 'large'), counts):
+            entries = yaml.safe_load((parent / size / filename).read_text())[key]
+            assert len(entries) == count
+            assert previous.keys() <= entries.keys()
+            assert all(entries[k] == v for k, v in previous.items())
+            previous = entries
+    for size in ('small', 'medium', 'large'):
+        config = load_run(parent / size, overrides=['paths.run_name=test']).validate()
+        assert Path(config.model.image_constraints.catalog_path).resolve() == parent / size / 'images.yaml'
+        assert Path(config.model.member_populations[0].catalog_path).resolve() == parent / size / 'members.yaml'
+        for quantity in ('kappa', 'gammax', 'gammay'):
+            assert Path(getattr(config.truth, f'{quantity}_true_fits')).resolve() == ROOT / 'data' / tag / f'{quantity}_z9.fits'
+        if size != 'large':
+            dependencies = {p.resolve() for p in input_files(parent / size)}
+            assert {parent / 'large/run.yaml', parent / 'large/priors.yaml'} <= dependencies
 
 
 def test_command_line(monkeypatch, capsys):

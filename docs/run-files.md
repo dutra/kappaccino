@@ -41,6 +41,12 @@ member population, with `slope` or `slope_prior`.
 |---|---|---|
 | `catalogs/hera` | hera | fast, cosmography |
 | `catalogs/ares` | ares | fast, cosmography |
+| `catalogs/tngc014/small` | tngc014_small | fast, cosmography |
+| `catalogs/tngc014/medium` | tngc014_medium | fast, cosmography |
+| `catalogs/tngc014/large` | tngc014 | fast, cosmography |
+| `catalogs/tngc014_dm/small` | tngc014_dm_small | fast, cosmography |
+| `catalogs/tngc014_dm/medium` | tngc014_dm_medium | fast, cosmography |
+| `catalogs/tngc014_dm/large` | tngc014_dm | fast, cosmography |
 | `catalogs/as1063/bergamini2019` | as1063 | fast, jwst, cosmography |
 | `catalogs/as1063/diego2026` | as1063_jwst | fast, hst, cosmography |
 | `catalogs/m0416/bergamini2023` | m0416_bergamini2023 | fast, jwst, cosmography |
@@ -148,9 +154,9 @@ and the NFW critical density from the sampled values; the distances are a 64-poi
 with astropy to $10^{-11}$ (`tests/test_cosmology.py`). The parameters are `cosmology.Om0` and `cosmology.w0`, in the
 block of the cluster-scale halos: the search draws them from their priors and optimizes them with the halos.
 
-Each cluster folder has a `priors_cosmography.yaml` that extends its `priors.yaml` with these priors, and a
+Each cluster folder, the TNG mocks included, has a `priors_cosmography.yaml` that extends its `priors.yaml` with these priors, and a
 `cosmography` profile that selects it: `kappaccino catalogs/hera --profile cosmography` (Hera was simulated with
-$\Omega_m = 0.24$, Ares with 0.272, both with $w = -1$).
+$\Omega_m = 0.24$, Ares with 0.272 and the TNG mocks were built with 0.3, all with $w = -1$).
 
 Three things stay at the start values: the redshift weights of the GRF and of the image-plane GP (they change by
 less than 2.5% over these priors), the member classification, and the quantities reported in physical units (masses,

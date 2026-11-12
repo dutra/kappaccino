@@ -289,7 +289,7 @@ second NUTS run on the tempered posterior that gives WBIC for model comparison. 
 the length of that run (see {doc}`model-comparison`).
 
 `RuntimeConfig` sets `seed`, `chains`, `nuts_chain_method` (`"parallel"`, `"sequential"` or `"vectorized"`),
-`cpu_threads_per_chain`, `resume` and `skip_plots`.
+`resume` and `skip_plots`.
 
 ## Run paths
 

@@ -103,15 +103,14 @@ def solver(*, production: bool, fast: bool, seed: int, likelihood_name: str, gp_
     of --fast apply to both presets."""
     from ..config import (ImageDiagnosticsConfig, LensClusterSolverConfig, MemberConfig, ReportingConfig, RuntimeConfig,
                           SamplingConfig, ScalingModelConfig, SearchConfig)
-    from ..cpu_runtime import threads_per_chain_if_supported
     # All-image blocks with the projection by default (2026-11-06), as full cluster runs: under system blocks the free lens
     # absorbed a quarter of the field (nov6b, .agents/nov6-mock-sigma-alpha-free-lens.md) and the fit lost the 600-1400
     # cross-system pairs at 2-15" that pin the knee and ell.  --fast keeps system blocks, about 5x cheaper per gradient.
     blocks = gp_blocks or ("system" if fast else "all")
     config = LensClusterSolverConfig(
-        # Chains x 2 cores on Linux, no pinning on macOS; plots on, because the recovery reads the solver's output tables.
+        # Plots on, because the recovery reads the solver's output tables.
         runtime=RuntimeConfig(seed=seed, chains=CHAINS, resume=True, numpyro_print_summary=True, nuts_chain_method="parallel",
-                              cpu_threads_per_chain=threads_per_chain_if_supported(2), skip_plots=False),
+                              skip_plots=False),
         search=SearchConfig(n_starts=128) if production else SearchConfig(n_starts=8),
         # Far-field member offsets pinned at the relation: their radius offsets never reach the likelihood and their velocity
         # offsets barely do, so they were sampled from the prior alone and set the orbit length (the softest directions,
@@ -289,17 +288,16 @@ def main(argv=None) -> int:
         parser().error("--gp-blocks applies to the grf_gp likelihood only")
     os.environ.setdefault("MPLBACKEND", "Agg")
     os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib-kappaccino-mock")
-    from ..cpu_runtime import configure_cpu_runtime, resolve_cpu_plan, threads_per_chain_if_supported
+    from ..cpu_runtime import configure_cpu_runtime, resolve_cpu_plan
     overrides = [f"{field}={getattr(args, name)}" for name, targets in FIELD_OPTIONS.items() if getattr(args, name) is not None
                  for field in targets] + args.overrides
     # The CPU devices are set before anything starts JAX (building a prior does).
     from ..run_files import _dotted
     runtime = _dotted(overrides).get("runtime") or {}
-    chains, threads = int(runtime.get("chains", CHAINS)), runtime.get("cpu_threads_per_chain", threads_per_chain_if_supported(2))
-    method = runtime.get("nuts_chain_method", "parallel")
-    cpu_plan = resolve_cpu_plan(chains, method, threads)
+    chains, method = int(runtime.get("chains", CHAINS)), runtime.get("nuts_chain_method", "parallel")
+    cpu_plan = resolve_cpu_plan(chains, method)
     if not args.dry_run:
-        configure_cpu_runtime(chains, method, threads)
+        configure_cpu_runtime(chains, method)
     config = build_config(args.preset, seed=args.seed, realizations=args.realizations, campaign=args.campaign,
                           output_dir=args.output_dir, mode=args.mode, fast=args.fast, likelihood_name=args.likelihood,
                           gp_blocks=args.gp_blocks, knotted=args.knotted_families, overrides=overrides).validate()
@@ -324,7 +322,7 @@ def main(argv=None) -> int:
           f"knotted_families={config.mock.n_knotted_families} sigma_def_arcsec={SIGMA_DEF_ARCSEC} members={config.mock.n_members} "
           f"n_starts={template.search.n_starts} warmup={template.sampling.warmup} samples={template.sampling.samples} "
           f"likelihood={args.likelihood} gp_blocks={template.likelihood.gp_blocks} chains={template.runtime.chains} "
-          f"cpus={cpu_plan.selected_cpu_ids} campaign_dir={campaign_dir}", flush=True)
+          f"campaign_dir={campaign_dir}", flush=True)
     start = time.monotonic()
     try:
         if args.rescore:

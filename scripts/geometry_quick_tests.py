@@ -5,7 +5,7 @@ posterior.
     python scripts/geometry_quick_tests.py                 # run all variants, at most --parallel at a time
     python scripts/geometry_quick_tests.py --summarize     # table of the sampler diagnostics from the logs
 
-Each run claims chains x 2 cores on Linux (run.xsh pins them, skipping cores other runs hold), so on 32 cores four
+Each run claims chains x 2 cores on Linux (the kappaccino command pins them, skipping cores other runs hold), so on 32 cores four
 runs fit side by side; starts are staggered so that each run sees the cores the previous one claimed.  Outputs go to
 results/<campaign>/<cluster>/<label>/, logs to results/<campaign>/logs/<label>.log.
 """
@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 # Cluster folders of the clusters below (outputs under their run.yaml name, the lower-case key).
 FOLDERS = {"AS1063": "catalogs/as1063/bergamini2019", "AS1063_JWST": "catalogs/as1063/diego2026"}
 
-# label, cluster, extra run.xsh overrides, what it tests
+# label, cluster, extra kappaccino overrides, what it tests
 VARIANTS = [
     # Defaults since 2026-11-04: dense block = globals + centered members, Student-t tails, log-normal BCG cut prior.
     ("h0_baseline", "AS1063", ["--set", "sampling.dense_offset_members=all", "--set", "scaling.member_deviation_tail=normal"], "old defaults: all offsets dense, normal tails"),
@@ -48,7 +48,6 @@ def parse_args():
     p.add_argument("--parallel", type=int, default=4, help="runs at the same time (each takes chains x 2 cores on Linux)")
     p.add_argument("--stagger", type=float, default=90.0, help="seconds between launches, so each run sees the cores already claimed")
     p.add_argument("--only", default="", help="comma list of labels to run (default all)")
-    p.add_argument("--xonsh", default=str(Path(sys.executable).with_name("xonsh")), help="xonsh of the environment")
     p.add_argument("--summarize", action="store_true", help="only print the comparison table from existing logs")
     return p.parse_args()
 
@@ -67,7 +66,7 @@ def run_all(args):
                 running.remove((label, proc))
         if queue and len(running) < args.parallel and time.time() - last_start >= args.stagger:
             label, cluster, extra, what = queue.pop(0)
-            command = [args.xonsh, "run.xsh", FOLDERS[cluster], "--campaign", args.campaign, "--run-label", label,
+            command = [sys.executable, "-m", "kappaccino", FOLDERS[cluster], "--campaign", args.campaign, "--run-label", label,
                        "--set", f"sampling.warmup={args.warmup}", "--set", f"sampling.samples={args.samples}",
                        "--set", "runtime.skip_plots=true", *extra]
             log = open(logs / f"{label}.log", "w")

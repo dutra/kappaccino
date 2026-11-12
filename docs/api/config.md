@@ -11,6 +11,7 @@ Run files
 .. autofunction:: kappaccino.run_files.load_priors
 .. autofunction:: kappaccino.run_files.read_run
 .. autofunction:: kappaccino.run_files.parse_value
+.. autofunction:: kappaccino.cli.main
 
 Top level
 ---------

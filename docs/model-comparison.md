@@ -28,7 +28,7 @@ result = run(config)
 From the launcher, set `sampling.wbic`:
 
 ```bash
-xonsh run.xsh catalogs/m0416/canucs2025 --run-label nfw --set sampling.wbic=true
+kappaccino catalogs/m0416/canucs2025 --run-label nfw --set sampling.wbic=true
 ```
 
 WBIC can be added to a finished run. Run the same configuration again under the same run name with `wbic=True` (or

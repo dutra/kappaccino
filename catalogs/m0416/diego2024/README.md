@@ -38,4 +38,4 @@ images = Table.read('data/JWST/M0416_Diego2024_PEARLS/images.ecsv')
 images = Table.read('data/JWST/M0416_Diego2024_PEARLS/images.fits', mask_invalid=False)
 ```
 
-No conversion to the solver's systems/families/knots YAML format has been made. Existing CANUCS inputs and `run.xsh` were not changed.
+No conversion to the solver's systems/families/knots YAML format has been made. Existing CANUCS inputs and run files were not changed.

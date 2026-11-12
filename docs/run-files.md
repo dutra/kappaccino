@@ -9,15 +9,17 @@ member catalog:
   figures, with named profiles layered on top.
 
 {func}`kappaccino.run_files.load_run` reads both into a {class}`~kappaccino.config.LensClusterSolverConfig`. The
-launcher runs a folder:
+`kappaccino` command (or `python -m kappaccino`, {mod}`kappaccino.cli`) runs a folder from the repository root:
 
 ```bash
-xonsh run.xsh catalogs/hera
-xonsh run.xsh catalogs/m0416/canucs2025 --profile fast --profile jwst
-xonsh run.xsh catalogs/as1063/bergamini2019 --set sampling.warmup=1000 --set runtime.skip_plots=true
+kappaccino catalogs/hera --dry-run
+kappaccino catalogs/m0416/canucs2025 --profile fast --profile jwst
+kappaccino catalogs/as1063/bergamini2019 --set sampling.warmup=1000 --set runtime.skip_plots=true
 ```
 
 Outputs go to `results/<campaign>/<name>/<run label>`, and the files the run read are copied to its `inputs/` folder.
+The campaign defaults to today's date (`nov11`) and the run label to `smoothed-local-image-plane`, so pass
+`--campaign` to resume a run on a later day.
 `--images YAML` fits another image catalog in place of the one `priors.yaml` names (a degraded catalog, say).
 Images of unknown family are a `partition` section: `--set partition.catalog_path=uncertain.csv`, or
 `partition.catalog_path=null` for the untrusted images of the image catalog, with

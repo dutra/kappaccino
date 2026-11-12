@@ -147,16 +147,14 @@ def build_config(cluster, *, profiles=(), overrides=(), run_label=None, images=N
     """The configuration of a cluster folder with the profiles and overrides, writing to
     ``<results>/<name>/<run_label>`` (run_label None: ``<description>-<hash>``, :func:`describe` and :func:`config_hash`), with ``images`` in place of the image
     catalog of ``priors.yaml``.  ``member_profile`` ("dpie" or "power-law") sets the profile of every member population
-    (None keeps what ``priors.yaml`` declares), and ``member_slope`` holds the power-law slope fixed.  CPU pinning follows the platform unless the files or ``--set`` give it.
+    (None keeps what ``priors.yaml`` declares), and ``member_slope`` holds the power-law slope fixed.
 
     Returns
     -------
     LensClusterSolverConfig
         Not validated.
     """
-    from .cpu_runtime import threads_per_chain_if_supported
-    from .run_files import load_run, read_run
-    threads = (read_run(cluster, profiles, overrides).get("runtime") or {}).get("cpu_threads_per_chain")
+    from .run_files import load_run
     config = load_run(cluster, profiles, overrides)
     if images is not None:
         config = replace(config, model=replace(config.model, image_constraints=replace(config.model.image_constraints, catalog_path=images)))
@@ -171,8 +169,6 @@ def build_config(cluster, *, profiles=(), overrides=(), run_label=None, images=N
         config = replace(config, model=replace(config.model, member_populations=populations))
         if member_slope is not None and "slope" not in config.scaling.fixed_relation_fields:
             config = replace(config, scaling=replace(config.scaling, fixed_relation_fields=(*config.scaling.fixed_relation_fields, "slope")))
-    config = replace(config, runtime=replace(config.runtime,
-                                             cpu_threads_per_chain=threads if threads is not None else threads_per_chain_if_supported(2)))
     label = run_label or f"{describe(config, profiles)}-{config_hash(config)}"
     return replace(config, paths=replace(config.paths, output_dir=str(Path(results) / config.paths.figure_prefix), run_name=label))
 
@@ -198,15 +194,14 @@ def main(argv=None) -> int:
     args = parser().parse_args(argv)
     args.overrides = [*_option_overrides(args), *args.overrides]
     os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib-kappaccino")
-    from .cpu_runtime import configure_cpu_runtime, resolve_cpu_plan, threads_per_chain_if_supported
+    from .cpu_runtime import configure_cpu_runtime, resolve_cpu_plan
     from .run_files import input_files, read_run
     # The CPU devices are set before anything starts JAX (building a prior does).
     runtime = read_run(args.cluster, args.profile, args.overrides).get("runtime") or {}
     chains, method = int(runtime.get("chains", 1)), runtime.get("nuts_chain_method", "parallel")
-    threads = runtime.get("cpu_threads_per_chain") or threads_per_chain_if_supported(2)
-    cpu_plan = resolve_cpu_plan(chains, method, threads)
+    cpu_plan = resolve_cpu_plan(chains, method)
     if not args.dry_run:
-        configure_cpu_runtime(chains, method, threads)
+        configure_cpu_runtime(chains, method)
     config = build_config(args.cluster, profiles=args.profile, overrides=args.overrides, results=args.results,
                           member_profile=args.member_profile, member_slope=args.member_slope,
                           run_label=args.run_label, images=args.images).validate()

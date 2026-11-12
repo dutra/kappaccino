@@ -295,6 +295,9 @@ def test_power_law_kinematics_use_the_jeans_ratio(synthetic_config, tmp_path):
     expected = -0.5 * np.sum(z ** 2) - np.sum(np.log(kinematics["log_err"])) - 0.5 * z.size * np.log(2 * np.pi)
     np.testing.assert_allclose(float(b.kinematics_log_likelihood(physical)), expected, rtol=1e-10)
     assert np.all(ratio > 1.0) and len(MEASURED) == len(components)
+    from kappaccino.pipeline import kinematics_table
+    table = kinematics_table(state, b, theta)
+    np.testing.assert_allclose(table["sigma_model_ap"], c * sigma * ratio, rtol=1e-10)      # the diagnostic uses the same model
     fixed = replace(power_law, model=replace(power_law.model, member_populations=(
         replace(power_law.model.member_populations[0], kinematics_aperture_arcsec=0.4),)))
     np.testing.assert_allclose(build_state(fixed.validate()).member_kinematics["aperture_arcsec"], 0.4)

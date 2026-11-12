@@ -443,23 +443,30 @@ class Evaluator:
         delta_v, _ = member_log_deviations(self.state.packed_lens_spec, physical)
         return v_disp * jnp.exp(delta_v)
 
-    def kinematics_log_likelihood(self, physical: jnp.ndarray) -> jnp.ndarray:
-        """The measured member dispersions (state.member_kinematics): sum over members of
-        log N(ln sigma_meas | ln(c sigma_i), e_i); zero when no kinematics source is on.  For a cored power-law member
-        c carries the Jeans ratio of its aperture dispersion to the dPIE's (``MemberPopulationConfig.kinematics_aperture_factor``)."""
+    def kinematics_model_dispersions(self, physical: jnp.ndarray) -> jnp.ndarray:
+        """Model aperture dispersions of the measured members (state.member_kinematics), km s^-1: c sigma_i, with c the
+        population's ``kinematics_aperture_factor`` and, for a cored power-law member, times the Jeans ratio of its
+        aperture dispersion to the dPIE's at its core, cut and aperture (``cored_power_law.aperture_dispersion_ratio``)."""
         kinematics = self.state.member_kinematics
-        if not kinematics:
-            return jnp.asarray(0.0, dtype=jnp.float64)
         components = np.asarray(kinematics["component_index"])
-        model = jnp.log(jnp.asarray(kinematics["aperture_factor"]) * self.component_dispersions(physical)[jnp.asarray(components)])
+        model = jnp.asarray(kinematics["aperture_factor"]) * self.component_dispersions(physical)[jnp.asarray(components)]
         power_law = np.asarray(self.state.packed_lens_spec.profile_type)[components] == CORED_POWER_LAW_PROFILE
         if np.any(power_law):
-            # The dPIE aperture factor times sigma_ap(gamma) / sigma_ap(2) at each member's core, cut and aperture.
             packed, _ = self.packed_state(physical, factor_per_image=1.0)
             index = jnp.asarray(components[power_law])
             ratio = cored_power_law.aperture_dispersion_ratio(jnp.take(packed.slope, index), jnp.take(packed.Ra, index), jnp.take(packed.Rs, index),
                                                               jnp.asarray(np.asarray(kinematics["aperture_arcsec"])[power_law]))
-            model = model.at[jnp.asarray(np.flatnonzero(power_law))].add(jnp.log(ratio))
+            model = model.at[jnp.asarray(np.flatnonzero(power_law))].multiply(ratio)
+        return model
+
+    def kinematics_log_likelihood(self, physical: jnp.ndarray) -> jnp.ndarray:
+        """The measured member dispersions (state.member_kinematics): sum over members of
+        log N(ln sigma_meas | ln sigma_model, e_i), with ``kinematics_model_dispersions``; zero when no kinematics source
+        is on."""
+        kinematics = self.state.member_kinematics
+        if not kinematics:
+            return jnp.asarray(0.0, dtype=jnp.float64)
+        model = jnp.log(self.kinematics_model_dispersions(physical))
         log_err = jnp.asarray(kinematics["log_err"])
         z = (jnp.log(jnp.asarray(kinematics["sigma"])) - model) / log_err
         return -0.5 * jnp.sum(z * z) - jnp.sum(jnp.log(log_err)) - 0.5 * z.size * jnp.log(2.0 * jnp.pi)

@@ -88,7 +88,7 @@ def hyperparameter_fisher(solver_config: LensClusterSolverConfig, truth: dict[st
     """The restricted Fisher matrix of the GP hyperparameters for one mock realization (module docstring)."""
     likelihood = solver_config.likelihood
     if likelihood.likelihood_mode != "gp_image_plane" or likelihood.gp_kernel != "knee":
-        raise ValueError("the Fisher pre-check needs the knee GP likelihood (run_mock.xsh --likelihood grf_gp)")
+        raise ValueError("the Fisher pre-check needs the knee GP likelihood (kappaccino-mock --likelihood grf_gp)")
     state = build_state(solver_config)
     evaluator = Evaluator(state, likelihood.likelihood_mode)
     layout = evaluator.gp

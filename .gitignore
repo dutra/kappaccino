@@ -23,7 +23,6 @@ plots/
 *.pkl
 *.egg-info/
 *.xsh
-!run_mock.xsh
 *.par
 data/*
 results/*

@@ -223,3 +223,16 @@ def test_fisher_precheck_matches_the_white_noise_closed_form(tmp_path):
     assert result["names"] == ["sigma_meas"] and result["dof"] == 2 * result["n_images"] - 2 * result["n_families"]
     assert row["fisher_sigma"] == pytest.approx(1.0 / np.sqrt(2.0 * result["dof"]), rel=0.03)
     assert 0.0 < row["prior_contraction"] < 1.0
+
+
+def test_mock_command_line(capsys):
+    from kappaccino.mock_validation import cli
+    config = cli.build_config("production", campaign="c", fast=True, overrides=["sampling.warmup=7", "reporting.draws=4",
+                                                                                  "reporting.image_draws=4"])
+    assert config.paths.run_name == "analytic_production_production_fast" and config.solver.sampling.warmup == 7
+    assert config.solver.reporting.draws == 4 and config.solver.likelihood.gp_blocks == "system" and config.mock.n_members == 150
+    assert cli.main(["--campaign", "c", "--chains", "2", "--warmup", "9", "--draws", "3", "--dry-run"]) == 0
+    printed = capsys.readouterr().out
+    assert '"dry_run": true' in printed and '"warmup": 9' in printed and '"chains": 2' in printed
+    with pytest.raises(SystemExit):
+        cli.main(["--campaign", "c", "--likelihood", "smoothed", "--gp-blocks", "all"])

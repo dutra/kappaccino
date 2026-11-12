@@ -95,9 +95,15 @@ class ReferenceFrameConfig:
 class CosmologyConfig:
     """Background cosmology of the lens model.
 
-    The lensing distances (JAX, ``jax_cosmology``) are those of a flat universe with matter density ``Om0`` and a
-    dark-energy equation of state ``w0``; ``class_name`` selects the astropy cosmology of the exact-image solver and
-    of the output maps.
+    The lensing distances (``kappaccino.lens.cosmology``, a Gauss-Legendre integral that agrees with astropy to
+    round-off) are those of a flat universe with matter density ``Om0`` and a dark-energy equation of state ``w0``;
+    ``class_name`` selects the astropy cosmology of the output maps.
+
+    ``Om0`` and ``w0`` are sampled when they have an entry in ``priors`` (cosmography): the fit then uses, at every
+    evaluation, the distance ratios :math:`D_{ls}/D_s` of each source redshift, the kpc per arcsec at the lens and the
+    NFW critical density of the sampled cosmology.  The positions do not constrain ``H0`` (it only sets the kpc per
+    arcsec), so it stays fixed.  The redshift weights of the GRF and of the image-plane GP, the member classification
+    and the quantities reported in physical units (masses, kpc) keep the fixed values below.
 
     Parameters
     ----------
@@ -116,12 +122,17 @@ class CosmologyConfig:
         astropy cosmology used by the exact-image solver, the convergence maps and the truth comparison:
         ``"FlatLambdaCDM"`` (ignores ``w0``) or ``"FlatwCDM"`` (uses ``w0``).  Any other value behaves as
         ``"FlatLambdaCDM"``.  Keep it consistent with ``w0``.  Default ``"FlatLambdaCDM"``.
+    priors : dict of str to numpyro distribution, optional
+        Priors of the sampled parameters, keyed by ``"Om0"`` (support inside (0, 1)) and ``"w0"`` (support below 0).  A
+        parameter without an entry is fixed at its field value, which is also where a sampled one starts.  With
+        ``"Om0"`` sampled, ``Ode0`` must be None (flat).  Default: empty (fixed cosmology).
     """
     H0: float = 70.0
     Om0: float = 0.3
     Ode0: float | None = None
     w0: float = -1.0
     class_name: str = "FlatLambdaCDM"
+    priors: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -2125,6 +2136,8 @@ def validate_config(config: LensClusterSolverConfig) -> None:
         raise ValueError("truth.truth_grid_size must be nonnegative.")
     if config.partition is not None:
         _validate_partition_config(config.partition, config)
+        if any(prior is not None for prior in config.model.cosmology.priors.values()):
+            raise ValueError("partition (uncertain images) is not supported with a sampled cosmology.")
 
 
 def _validate_partition_config(partition: PartitionConfig, config: LensClusterSolverConfig) -> None:
@@ -2195,6 +2208,21 @@ def _validate_model_config(model: LensModelConfig | None) -> None:
         raise ValueError("model.image_constraints is required.")
     if model.cosmology.H0 <= 0.0 or model.cosmology.Om0 < 0.0:
         raise ValueError("model.cosmology.H0 must be positive and Om0 nonnegative.")
+    cosmology_priors = {key: prior for key, prior in model.cosmology.priors.items() if prior is not None}
+    if set(cosmology_priors) - {"Om0", "w0"}:
+        raise ValueError(f"model.cosmology.priors: only Om0 and w0 can be sampled; got {sorted(cosmology_priors)}.")
+    for key, prior in cosmology_priors.items():
+        low, high = _bounded_prior(f"model.cosmology.priors[{key!r}]", prior)
+        allowed = (0.0, 1.0) if key == "Om0" else (-math.inf, 0.0)
+        if not (allowed[0] < low and high < allowed[1]):
+            raise ValueError(f"model.cosmology.priors[{key!r}] must have its support inside ({allowed[0]:g}, {allowed[1]:g}); got [{low:g}, {high:g}].")
+        start = float(getattr(model.cosmology, key))
+        if not low <= start <= high:
+            raise ValueError(f"model.cosmology.{key} = {start:g}, where the sampled parameter starts, lies outside its prior [{low:g}, {high:g}].")
+    if "Om0" in cosmology_priors and model.cosmology.Ode0 is not None:
+        raise ValueError("model.cosmology.Ode0 must be None when Om0 is sampled: the cosmology is flat, with dark energy 1 - Om0.")
+    if any(str(halo.id) == "cosmology" for halo in model.large_halos):
+        raise ValueError("a large halo cannot have the id 'cosmology'.")
     for halo in model.large_halos:
         if isinstance(halo, ShearHaloConfig):
             if int(halo.profile_type) != 14 or not math.isfinite(float(halo.gamma)) or halo.gamma < 0.0 or not math.isfinite(float(halo.angle_pos)):

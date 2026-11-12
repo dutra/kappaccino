@@ -39,12 +39,12 @@ member population, with `slope` or `slope_prior`.
 
 | folder | name | profiles |
 |---|---|---|
-| `catalogs/hera` | hera | fast |
-| `catalogs/ares` | ares | fast |
-| `catalogs/as1063/bergamini2019` | as1063 | fast, jwst |
-| `catalogs/as1063/diego2026` | as1063_jwst | fast, hst |
-| `catalogs/m0416/bergamini2023` | m0416_bergamini2023 | fast, jwst |
-| `catalogs/m0416/canucs2025` | m0416_canucs2025 | fast, jwst |
+| `catalogs/hera` | hera | fast, cosmography |
+| `catalogs/ares` | ares | fast, cosmography |
+| `catalogs/as1063/bergamini2019` | as1063 | fast, jwst, cosmography |
+| `catalogs/as1063/diego2026` | as1063_jwst | fast, hst, cosmography |
+| `catalogs/m0416/bergamini2023` | m0416_bergamini2023 | fast, jwst, cosmography |
+| `catalogs/m0416/canucs2025` | m0416_canucs2025 | fast, jwst, cosmography |
 
 ## Values
 
@@ -124,6 +124,38 @@ class. A number fixes it. A prior samples it from the prior's centre; `start` an
 
 `scaling` takes an optional `preset` (`bergamini2019` or `neutral`) and the fields of
 {class}`~kappaccino.config.ScalingModelConfig`.
+
+(cosmography)=
+### Cosmography
+
+A prior on `Om0` or `w0` under `cosmology` samples that parameter of the flat wCDM cosmology with the lens:
+
+```yaml
+cosmology:
+  H0: 70.0
+  Om0:
+    start: 0.3
+    prior: uniform(0.05, 0.95)
+  w0:
+    start: -1.0
+    prior: uniform(-2.0, -0.2)
+```
+
+The multiple images measure the ratios of $D_{ls}/D_s$ between families at different source redshifts, which depend
+on $\Omega_m$ and $w$ and not on $H_0$, so `H0` stays a number. `Ode0` must be absent or null (the cosmology is flat).
+At every likelihood evaluation the fit computes $D_{ls}/D_s$ of each source redshift, the kpc per arcsec at the lens
+and the NFW critical density from the sampled values; the distances are a 64-point Gauss–Legendre integral that agrees
+with astropy to $10^{-11}$ (`tests/test_cosmology.py`). The parameters are `cosmology.Om0` and `cosmology.w0`, in the
+block of the cluster-scale halos: the search draws them from their priors and optimizes them with the halos.
+
+Each cluster folder has a `priors_cosmography.yaml` that extends its `priors.yaml` with these priors, and a
+`cosmography` profile that selects it: `kappaccino catalogs/hera --profile cosmography` (Hera was simulated with
+$\Omega_m = 0.24$, Ares with 0.272, both with $w = -1$).
+
+Three things stay at the start values: the redshift weights of the GRF and of the image-plane GP (they change by
+less than 2.5% over these priors), the member classification, and the quantities reported in physical units (masses,
+kpc). A family with a photometric redshift sits at its catalog redshift, so cosmography should use spectroscopic
+families. Uncertain images (`partition`) are not supported with a sampled cosmology.
 
 ## run.yaml
 

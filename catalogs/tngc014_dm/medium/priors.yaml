@@ -1,0 +1,6 @@
+# The model of ../large/priors.yaml on the medium catalogs of this folder (README.md).
+extends: ../large/priors.yaml
+images: images.yaml
+
+members:
+  members: {catalog_path: members.yaml}

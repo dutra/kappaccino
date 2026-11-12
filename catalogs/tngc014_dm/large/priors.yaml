@@ -1,0 +1,47 @@
+# TNG-Cluster zoom 014 (halo 2571291), snapshot 73, yz projection, dark matter only: the lens is the dark matter of
+# the same halo (no gas, stars or black holes), not rescaled; theta_E = 34" at z_s = 6.  Positions are offsets about
+# (0, 0), the BCG.  The priors are those of ../../tngc014/large/priors.yaml, so the two fits differ only in the lens; keep the
+# two files in step.  See ../README.md.
+reference: {ra0_deg: 0.0, dec0_deg: 0.0}
+cosmology: {H0: 70.0, Om0: 0.3, Ode0: 0.7}
+z_lens: 0.38016786726023866
+images: images.yaml
+
+# One cluster-scale halo on the BCG, plus external shear: the light has one dominant peak.  The cluster_scale priors:
+# shape box up to ellipticite 0.8, core log-uniform 0.5-100 kpc, cut 1500 +- 300 kpc on 500-3000 kpc, v_disp
+# log-normal of mean v_disp and std 0.35 v_disp on 100-2200 km/s.  1100 km/s is the singular isothermal value for
+# theta_E = 40" at z_s = 6; the width covers 700-1500 km/s.  The centre is uniform within 10" (not the default 5"):
+# nothing ties the halo of a simulated cluster to its BCG that closely.
+halos:
+  "1": {preset: cluster_scale, x_centre: 0.0, y_centre: 0.0, v_disp: 1100.0, position_half_width_arcsec: 10.0}
+  S1: {profile: shear, preset: free}
+
+# Member priors at L* that come from no lens model (sigma* 200 +- 100 km/s, r_cut* log-uniform 2-100 kpc, alpha
+# 0.25 +- 0.10, beta 0.5 +- 0.25): the simulated galaxies need not follow the Bergamini et al. calibration, and their
+# Subfind dispersions rise with luminosity with a slope near 0.39.  L* is m_F125W = 19.0, M*_z = -22.2 at z = 0.38 in
+# the band of the catalog (rest-frame SDSS z); an assumed value, not measured on the simulation.
+members:
+  members:
+    catalog_path: members.yaml
+    preset: neutral
+    prior_mag0: 19.0
+    # The BCG is an independent dPIE, off the relation: its magnitude (13.75) counts the intracluster light and would
+    # put it near 700 km/s on the relation.  Centre, shape and 0.15 kpc core fixed at the light; v_disp 350 +- 100
+    # km/s; the cut radius a log-normal of median 60 kpc with width a factor 1.9, unbounded, as an excess above the
+    # softened core (1.49 kpc).
+    independent:
+      "1554408":
+        id: bcg_1554408
+        x_centre: fixed
+        y_centre: fixed
+        e1: fixed
+        e2: fixed
+        core_radius_kpc: fixed
+        v_disp: lognormal(mean=350.0, std=100.0) in [100.0, 700.0]
+        cut_excess_kpc: lognormal(mean=1.227 * 60.0 - 1.49, std=0.714 * 1.227 * 60.0)
+
+scaling:
+  preset: neutral
+  # The simulation's force softening, 1.48 kpc (0.28"), added in quadrature to every dPIE core so the member cusps
+  # match its resolution (the dPIE total mass is independent of the core).
+  softening_length_prior: lognormal(1.48, 0.15)

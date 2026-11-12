@@ -20,7 +20,7 @@ import numpy as np
 from ..likelihood import smoothed as sl
 from ..likelihood.evaluator import Evaluator
 from ..lens.farfield import evaluate_farfield_per_member
-from .model import ModelState
+from .model import CORED_POWER_LAW_PROFILE, ModelState
 from ..priors import split, to_scipy
 
 
@@ -97,11 +97,13 @@ def member_field_terms(state: ModelState, evaluator: Evaluator, physical: np.nda
     physical_jax = jnp.asarray(physical, dtype=jnp.float64)
     packed, _ = evaluator.packed_state(physical_jax)
     fields = evaluator.fields(physical_jax, packed, force_exact=True)
-    exact_alpha = np.asarray(fields["member_alpha"])                     # (M, N, 2) elliptical dPIE
+    exact_alpha = np.asarray(fields["member_alpha"])                     # (M, N, 2) elliptical member
     components = jnp.asarray(members.component_indices)
     circular_alpha = np.asarray(evaluate_farfield_per_member(
         evaluator.geometry, jnp.take(packed.sigma0, components, axis=0), jnp.take(packed.Ra, components),
-        jnp.take(packed.Rs, components))[0])                             # (M, N, 2) circular series
+        jnp.take(packed.Rs, components), slope=jnp.take(packed.slope, components),
+        power_law=np.asarray(state.packed_lens_spec.profile_type)[np.asarray(members.component_indices)] == CORED_POWER_LAW_PROFILE)[0])
+    # (M, N, 2): the circular series (dPIE) or the exact circular profile (cored power law)
     a = np.asarray(fields["jacobian"])
     scales = evaluator.error_scales(physical_jax)
     # The image-plane scale of each image's diagonal block: sigma_meas, plus sigma_gp under gp_image_plane.

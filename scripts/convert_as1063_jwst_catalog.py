@@ -92,7 +92,13 @@ def build():
         member = dict(ra=ra, dec=dec, mag={'F160W': [float(row['MAG_FITBEST']), float(row['MAG_FITERR'])]},
                       shape=[float(row['AFITBEST_IMAGE'])*scale, float(row['BFITBEST_IMAGE'])*scale, theta])
         if row['LOSVD'] > 0 and row['LOSVD_err'] > 0:
-            member['kinematics'] = [dict(source='B25', sigma=float(row['LOSVD']), err=float(row['LOSVD_err']))]
+            # sigma_e is measured within the half-light radius of the member's dPIE light fit (B25a sect. 4.2), which
+            # B25b (arXiv:2509.07777, sect. 3) writes as R_e = (3/4) sqrt(rc^2 + (10/3) rc rcut + rcut^2) (Eliasdottir et al.
+            # 2007).  RC_FITBEST and RCUT_FITBEST are read as arcsec: the only reading that gives galaxy-sized radii.
+            rc, rcut = float(row['RC_FITBEST']), float(row['RCUT_FITBEST'])
+            r_e = 0.75 * np.sqrt(rc * rc + 10.0 / 3.0 * rc * rcut + rcut * rcut)
+            member['kinematics'] = [dict(source='B25', sigma=float(row['LOSVD']), err=float(row['LOSVD_err']),
+                                         aperture_arcsec=round(float(r_e), 5))]
         members[str(row['NUMBER'])] = member
     sources = dict(B25=dict(reference='Beauchesne et al., arXiv:2509.07762, section 4.2; released Cluster_member_catalogue_full.fits',
                            quantity='sigma_e', notes='MUSE LOSVD within an elliptical half-light aperture; not central dPIE sigma.'))
@@ -101,7 +107,9 @@ def build():
                          'HST F160W photometry, not JWST photometry. BCG+ICL is a separate release and is absent here.\n'
                          'Fitted pixel axes converted to arcsec using the released image WCS (0.06 arcsec/pixel).\n'
                          'Angles transformed to west/north coordinates. Individual redshifts are absent in this FITS.\n'
-                         'No lens-model SIGMA_FITBEST, stellar masses or fitted radii used as kinematic measurements.')
+                         'No lens-model SIGMA_FITBEST, stellar masses or fitted radii used as kinematic measurements.\n'
+                         'Each B25 aperture_arcsec is the half-light radius of the dPIE light fit (RC/RCUT_FITBEST read as arcsec),\n'
+                         'R_e = (3/4) sqrt(rc^2 + (10/3) rc rcut + rcut^2), the aperture of sigma_e (B25a sect. 4.2, B25b sect. 3).')
     loaded = load_image_catalog(DEST / 'images.yaml')
     member_table = load_member_catalog(DEST / 'members.yaml', (0, 0., 0.))
     # Compare the loader results, rather than the intermediate dictionaries, to the input data.

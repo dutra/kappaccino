@@ -165,6 +165,7 @@ def member_scaling_table(state: ModelState, posterior: PosteriorResults) -> pd.D
         v_disp = sigma_ref * lum ** alpha * np.exp(dev_v[:, c])
         v_scaling = sigma_ref * lum ** alpha
         core, cut = core_ref * lum ** beta * np.exp(dev_r[:, c]), cut_ref * lum ** beta * np.exp(dev_r[:, c])
+        # The dPIE total mass; a cored power-law member has the same mass inside its cut radius, not the same total.
         mass = log10_dpie_mass_msun(v_disp, cut)
         row = {"potfile_id": pop, "catalog_id": record["catalog_id"], "component_index": c, "catalog_mag": record["catalog_mag"],
                "luminosity_ratio": lum, "member_class": "exact" if position in exact else "far-field",

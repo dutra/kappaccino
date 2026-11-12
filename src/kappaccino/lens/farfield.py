@@ -5,6 +5,10 @@ convention, expands as (M/R)[1 - c1/(2R) + c2/(8R^3) + ...] with monopole
 M = 2 sigma0 Ra Rs, c1 = Ra + Rs and c2 = c1 (Ra^2 + Rs^2).  Geometry arrays hold
 rhat/R, rhat/R^2 and rhat/R^4 with their first two spatial derivatives; only the
 parameter weights change during sampling.  All Jacobians are U = d alpha / d theta.
+
+Cored power-law members (``power_law``) have no series at a free slope; they use the exact circular profile
+(``kappaccino.lens.cored_power_law.circular_fields``) at the same separations, which costs a few elementwise
+operations per member and image.
 """
 from __future__ import annotations
 
@@ -84,17 +88,38 @@ def farfield_weights(geometry: FarFieldGeometry, sigma0, Ra, Rs):
     return mass[..., None] * jnp.stack((jnp.ones_like(c1), -0.5 * c1, 0.125 * c1 * (core ** 2 + cut ** 2)), axis=-1)
 
 
-def evaluate_farfield(geometry: FarFieldGeometry, sigma0, Ra, Rs) -> FarFieldFields:
-    """Member deflections and Jacobians, plus the member-summed Jacobian derivative."""
-    weights = farfield_weights(geometry, sigma0, Ra, Rs)
-    return FarFieldFields(jnp.einsum("mnk,mnki->mni", weights, geometry.deflection),
-                          jnp.einsum("mnk,mnkij->mnij", weights, geometry.jacobian),
-                          jnp.einsum("mnk,mnkijl->nijl", weights, geometry.jacobian_derivative))
+def _power_law_rows(geometry: FarFieldGeometry, sigma0, Ra, Rs, slope, members):
+    """Exact circular cored power-law fields of the far-field members ``members`` (static indices)."""
+    from .cored_power_law import circular_fields
+    shape = geometry.valid_separation.shape
+    index = jnp.asarray(members)
+    radius = jnp.take(geometry.separation, index, axis=0)
+    offset = jnp.take(geometry.deflection[:, :, 0], index, axis=0) * jnp.square(radius)[..., None]   # rhat/R times R^2
+    sigma0, Ra, Rs, slope = (jnp.take(_pair_parameter(value, shape), index, axis=0) for value in (sigma0, Ra, Rs, slope))
+    return circular_fields(offset[..., 0], offset[..., 1], sigma0, Ra, Rs, slope)
 
 
-def evaluate_farfield_per_member(geometry: FarFieldGeometry, sigma0, Ra, Rs):
-    """Per-member deflection, Jacobian and Jacobian derivative (for classification and audits)."""
+def evaluate_farfield_per_member(geometry: FarFieldGeometry, sigma0, Ra, Rs, *, slope=None, power_law=None):
+    """Per-member deflection, Jacobian and Jacobian derivative (for classification and audits).  ``power_law`` (bool,
+    one per member, static) marks cored power-law members, whose fields are the exact circular ones at ``slope``."""
     weights = farfield_weights(geometry, sigma0, Ra, Rs)
-    return (jnp.einsum("mnk,mnki->mni", weights, geometry.deflection),
-            jnp.einsum("mnk,mnkij->mnij", weights, geometry.jacobian),
-            jnp.einsum("mnk,mnkijl->mnijl", weights, geometry.jacobian_derivative))
+    alpha = jnp.einsum("mnk,mnki->mni", weights, geometry.deflection)
+    jacobian = jnp.einsum("mnk,mnkij->mnij", weights, geometry.jacobian)
+    derivative = jnp.einsum("mnk,mnkijl->mnijl", weights, geometry.jacobian_derivative)
+    members = np.flatnonzero(np.asarray(power_law, dtype=bool)) if power_law is not None else np.zeros(0, dtype=int)
+    if members.size:
+        rows = _power_law_rows(geometry, sigma0, Ra, Rs, slope, members)
+        alpha, jacobian, derivative = (full.at[jnp.asarray(members)].set(row) for full, row in zip((alpha, jacobian, derivative), rows))
+    return alpha, jacobian, derivative
+
+
+def evaluate_farfield(geometry: FarFieldGeometry, sigma0, Ra, Rs, *, slope=None, power_law=None) -> FarFieldFields:
+    """Member deflections and Jacobians, plus the member-summed Jacobian derivative (see
+    ``evaluate_farfield_per_member`` for ``slope`` and ``power_law``)."""
+    if power_law is None or not np.any(power_law):
+        weights = farfield_weights(geometry, sigma0, Ra, Rs)
+        return FarFieldFields(jnp.einsum("mnk,mnki->mni", weights, geometry.deflection),
+                              jnp.einsum("mnk,mnkij->mnij", weights, geometry.jacobian),
+                              jnp.einsum("mnk,mnkijl->nijl", weights, geometry.jacobian_derivative))
+    alpha, jacobian, derivative = evaluate_farfield_per_member(geometry, sigma0, Ra, Rs, slope=slope, power_law=power_law)
+    return FarFieldFields(alpha, jacobian, jnp.sum(derivative, axis=0))

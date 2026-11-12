@@ -14,6 +14,13 @@ DP_IE_PROFILE = 81          # Lenstool profile codes
 SHEAR_PROFILE = 14
 NFW_PROFILE = 12
 MASS_SHEET_PROFILE = 101    # not a Lenstool profile: uniform external convergence at the lens redshift
+CORED_POWER_LAW_PROFILE = 102   # not a Lenstool profile: member dPIE with a free 3D slope (lens.cored_power_law)
+DPIE_PROFILE_NAME = "DPIE_NIE_E"        # lenstronomy names (exact-image solver)
+SHEAR_PROFILE_NAME = "SHEAR"
+NFW_PROFILE_NAME = "NFW_ELLIPSE_CSE"
+MASS_SHEET_PROFILE_NAME = "CONVERGENCE"
+CORED_POWER_LAW_PROFILE_NAME = "CORED_POWER_LAW"     # no lenstronomy counterpart
+MEMBER_PROFILES = (DP_IE_PROFILE, CORED_POWER_LAW_PROFILE)   # member populations: the dPIE or the cored power law
 COMPONENT_FAMILY_LARGE = 0
 COMPONENT_FAMILY_SCALING = 1
 DEFAULT_SEARCH_PADDING = 8.0
@@ -37,6 +44,7 @@ class ParameterSpec:
     ``e1``, ``e2``, ``gamma1``, ``gamma2``, ``kappa`` dimensionless; ``core_radius_kpc``, ``cut_excess_kpc``,
     ``scale_radius_kpc``, ``cutkpc``, ``corekpc`` and ``softening_length_kpc`` kpc; ``v_disp`` and ``sigma`` km s^-1;
     ``log10_m200`` :math:`\\log_{10}(M_{200}/M_\\odot)`; ``alpha_sigma``, ``beta_radius`` dimensionless slopes;
+    ``slope`` the dimensionless 3D density slope of cored power-law members;
     ``velocity_log_scatter``, ``radius_log_scatter`` dimensionless scatters in :math:`\\ln\\sigma` and :math:`\\ln r`;
     ``velocity_offset``, ``radius_offset``, ``shape_e1_offset``, ``shape_e2_offset`` and the source ``beta_x``,
     ``beta_y`` dimensionless unit offsets; the error-model scales (``sigma_def``, ``sigma_meas``, ``sigma_sel``,
@@ -56,8 +64,8 @@ class ParameterSpec:
         The lens component or member population the parameter belongs to; ``"images"`` for error-model scales, the
         family id for source offsets, ``"softening_length"`` for the softening length.
     profile_type : int
-        Lenstool profile code of the component: 81 (dPIE), 12 (NFW), 14 (external shear), 101 (mass sheet); 0 for
-        parameters that are not lens parameters (error scales, sources, softening).
+        Lenstool profile code of the component: 81 (dPIE), 12 (NFW), 14 (external shear), 101 (mass sheet), 102
+        (cored power law); 0 for parameters that are not lens parameters (error scales, sources, softening).
     field : str
         The component field the parameter sets (for example ``"v_disp"``, ``"e1"``, ``"cut_excess_kpc"``,
         ``"sigma"``, ``"velocity_offset"``, ``"beta_x"``, ``"sigma_def"``).
@@ -191,16 +199,19 @@ class PackedLensSpec:
     # External convergence: the sheet's kappa for a source at infinite redshift (D_ls / D_s = 1).
     kappa_base: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=float))
     kappa_param_index: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=np.int32))
+    # Cored power-law members: the 3D density slope gamma (2 is the dPIE), one per population.
+    slope_base: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=float))
+    slope_param_index: np.ndarray = field(default_factory=lambda: np.asarray([], dtype=np.int32))
 
 
 class PackedLensState(NamedTuple):
     """Per-component kernel parameters.  Normalizations (sigma0, alpha_rs) carry the lensing efficiency of the source
     and have shape (component, image) in the likelihood or (component,) for a single source redshift."""
     profile_type: jnp.ndarray
-    sigma0: jnp.ndarray          # dPIE
+    sigma0: jnp.ndarray          # dPIE and cored power law (the dPIE-equivalent normalization)
     Ra: jnp.ndarray
     Rs: jnp.ndarray
-    e1: jnp.ndarray              # dPIE and NFW
+    e1: jnp.ndarray              # dPIE, cored power law and NFW
     e2: jnp.ndarray
     center_x: jnp.ndarray
     center_y: jnp.ndarray
@@ -209,6 +220,7 @@ class PackedLensState(NamedTuple):
     nfw_rs: jnp.ndarray          # NFW: scale radius (arcsec) and deflection at the scale radius (arcsec)
     alpha_rs: jnp.ndarray
     kappa: jnp.ndarray           # mass sheet: convergence seen by each source (efficiency applied)
+    slope: jnp.ndarray           # cored power law: 3D density slope gamma (2 elsewhere)
 
 
 class PackedLensValidity(NamedTuple):
@@ -442,6 +454,8 @@ class ModelState:
         ``core_radius_kpc``, ``cut_radius_kpc`` in kpc, ``v_disp`` in km s^-1, ...).
     packed_lens_spec : PackedLensSpec
         Per-component fixed values and the parameter index that overrides each field (-1 where the field is fixed).
+    lens_model_list : list of str
+        Profile name of each lens component.
     family_data : list of FamilyData
         The observed families, sorted by family id.
     images : ImageData
@@ -528,6 +542,7 @@ class ModelState:
     parameter_specs: list[ParameterSpec]
     base_components: list[dict[str, Any]]
     packed_lens_spec: PackedLensSpec
+    lens_model_list: list[str]
     family_data: list[FamilyData]
     images: ImageData
     potfiles: list[dict[str, Any]]

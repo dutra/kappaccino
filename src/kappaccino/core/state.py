@@ -25,8 +25,9 @@ from .inputs import (
 )
 from ..lens.cosmology import dpie_sigma0_factor_from_config, kpc_per_arcsec_from_config
 from .model import (
-    COMPONENT_FAMILY_LARGE, COMPONENT_FAMILY_SCALING, DP_IE_PROFILE, SHEAR_PROFILE,
-    FamilyData, ImageData, MemberModel, ModelState, PackedLensSpec, ParameterSpec, default_theta,
+    COMPONENT_FAMILY_LARGE, COMPONENT_FAMILY_SCALING, CORED_POWER_LAW_PROFILE, CORED_POWER_LAW_PROFILE_NAME, DP_IE_PROFILE,
+    DPIE_PROFILE_NAME, MEMBER_PROFILES, SHEAR_PROFILE,
+    SHEAR_PROFILE_NAME, FamilyData, ImageData, MemberModel, ModelState, PackedLensSpec, ParameterSpec, default_theta,
     physical_to_latent,
 )
 from ..priors import bounds, physical_center, split
@@ -91,13 +92,15 @@ def _sampled_fields(info) -> set[str]:
 
 
 def build_halo_parameter_specs(potentials: list[dict[str, Any]]):
-    """Specs and per-component (field, index) assignments for the large halos."""
+    """Specs, per-component (field, index) assignments, and lens model names for the large halos."""
     specs: list[ParameterSpec] = []
     assignments_by_component: list[list[tuple[str, int]]] = []
+    lens_model_list: list[str] = []
     for potential in potentials:
         potential_id = str(potential["id"])
         profile_type = int(potential["profil"])
         info = lens_profile(profile_type)
+        lens_model_list.append(info.name)
         assignments: list[tuple[str, int]] = []
         priors = dict(potential.get("priors", {}) or {})
         unknown = set(priors) - _sampled_fields(info)
@@ -111,29 +114,36 @@ def build_halo_parameter_specs(potentials: list[dict[str, Any]]):
         for field_name, prior in priors.items():
             _append_spec(specs, assignments, potential_id=potential_id, profile_type=profile_type, field_name=field_name, prior=prior)
         assignments_by_component.append(assignments)
-    return specs, assignments_by_component
+    return specs, assignments_by_component, lens_model_list
 
 
 # ----------------------------------------------------------------------------- member scaling
 def build_scaling_parameter_specs(potfiles: list[dict[str, Any]], scaling: Any, *, start_index: int = 0):
-    """Reference scaling parameters per population: sigma, cutkpc, corekpc, alpha_sigma, beta_radius."""
+    """Reference scaling parameters per population: sigma, cutkpc, corekpc, alpha_sigma, beta_radius, and the 3D slope
+    of a cored power-law population."""
     specs: list[ParameterSpec] = []
     indices_by_potfile: list[dict[str, int]] = []
+    lens_model_list: list[str] = []
+    names = {DP_IE_PROFILE: DPIE_PROFILE_NAME, CORED_POWER_LAW_PROFILE: CORED_POWER_LAW_PROFILE_NAME}
     for potfile in potfiles:
         potfile_id = str(potfile["id"])
-        if int(potfile["type"]) != DP_IE_PROFILE:
+        profile_type = int(potfile["type"])
+        if profile_type not in MEMBER_PROFILES:
             raise ValueError(f"Unsupported potfile type {potfile['type']} for {potfile_id}.")
+        lens_model_list.extend([names[profile_type]] * len(potfile["catalog_df"]))
         priors = {"sigma": potfile["sigma_prior"], "cutkpc": potfile["cutkpc_prior"], "corekpc": scaling.corekpc_prior,
-                  "alpha_sigma": scaling.alpha_sigma_prior, "beta_radius": scaling.beta_radius_prior}
+                  "alpha_sigma": scaling.alpha_sigma_prior, "beta_radius": scaling.beta_radius_prior, "slope": potfile.get("slope_prior")}
         field_index: dict[str, int] = {}
         fields = ("sigma", "cutkpc", "corekpc", "alpha_sigma", "beta_radius") if getattr(scaling, "fit_corekpc", True) else ("sigma", "cutkpc", "alpha_sigma", "beta_radius")
+        if profile_type == CORED_POWER_LAW_PROFILE:
+            fields = fields + ("slope",)
         fields = tuple(f for f in fields if f not in set(getattr(scaling, "fixed_relation_fields", ())))   # held at the nominal / prior centre
         for field_name in fields:
             field_index[field_name] = start_index + len(specs)
             specs.append(_prior_spec(f"{potfile_id}.{field_name}", sample_name(potfile_id, field_name), potfile_id, field_name,
-                                     priors[field_name], "scaling", profile_type=DP_IE_PROFILE))
+                                     priors[field_name], "scaling", profile_type=profile_type))
         indices_by_potfile.append(field_index)
-    return specs, indices_by_potfile
+    return specs, indices_by_potfile, lens_model_list
 
 
 def build_member_components(potfiles, reference, scaling_param_indices, *, start_component_index, scaling):
@@ -154,7 +164,7 @@ def build_member_components(potfiles, reference, scaling_param_indices, *, start
             ellipticite, angle_pos = catalog_shape_to_ellipticity(row.catalog_a, row.catalog_b, row.catalog_theta)
             component_index = start_component_index + len(components)
             components.append({
-                "id": f"{potfile['id']}.{row.id}", "profil": DP_IE_PROFILE,
+                "id": f"{potfile['id']}.{row.id}", "profil": int(potfile["type"]),
                 "x_centre": float(x_offsets[row_index]), "y_centre": float(y_offsets[row_index]),
                 "ellipticite": ellipticite, "angle_pos": angle_pos,
                 "core_radius_kpc": core_radius_kpc, "cut_radius_kpc": cut_radius_kpc,
@@ -170,6 +180,7 @@ def build_member_components(potfiles, reference, scaling_param_indices, *, start
                 "core_ref_param_index": int(param_index.get("corekpc", -1)),
                 "alpha_sigma_param_index": int(param_index.get("alpha_sigma", -1)),
                 "beta_radius_param_index": int(param_index.get("beta_radius", -1)),
+                "slope_base": float(potfile.get("slope_nominal", 2.0)), "slope_param_index": int(param_index.get("slope", -1)),
             })
             records.append({
                 "potfile_id": str(potfile["id"]), "potfile_order": int(potfile_order), "catalog_row_index": int(row_index),
@@ -210,7 +221,7 @@ def build_packed_lens_spec(base_components, component_assignments, scaling_assig
         cut_radius_excess_above_effective_core=np.zeros(n, dtype=bool),
         velocity_offset_param_index=ints(), velocity_scatter_param_index=ints(),
         scale_radius_kpc_base=floats(), log10_m200_base=floats(), scale_radius_param_index=ints(), log10_m200_param_index=ints(),
-        kappa_base=floats(), kappa_param_index=ints())
+        kappa_base=floats(), kappa_param_index=ints(), slope_base=floats(2.0), slope_param_index=ints())
     spec.ellipticity_soft_cap, spec.ellipticity_soft_width = floats(np.inf), floats(1.0)
     for idx, (component, assignments) in enumerate(zip(base_components, component_assignments)):
         if component.get("ellipticity_soft_cap") is not None:
@@ -243,8 +254,9 @@ def build_packed_lens_spec(base_components, component_assignments, scaling_assig
         spec.luminosity_ratio[idx] = float(item["luminosity_ratio"])
         for key in ("sigma_ref_base", "cut_ref_base", "core_ref_base", "alpha_sigma_base", "beta_radius_base",
                     "sigma_ref_param_index", "cut_ref_param_index", "core_ref_param_index",
-                    "alpha_sigma_param_index", "beta_radius_param_index"):
-            getattr(spec, key)[idx] = item[key]
+                    "alpha_sigma_param_index", "beta_radius_param_index", "slope_base", "slope_param_index"):
+            if key in item:
+                getattr(spec, key)[idx] = item[key]
     spec.cut_radius_excess_above_effective_core[:] = (
         (spec.profile_type == DP_IE_PROFILE) & (spec.component_family != COMPONENT_FAMILY_SCALING) & (spec.cut_radius_param_index >= 0))
     return spec
@@ -314,10 +326,25 @@ def source_sample_name(family_id: str, axis: str) -> str:
     return f"source_{safe}_beta_{axis}"
 
 
+def _kinematics_aperture(record: dict[str, Any], measurement: dict[str, Any], population) -> float:
+    """Aperture radius (arcsec) of one measured dispersion: the population's ``kinematics_aperture_arcsec``, else the
+    catalog's; a cored power-law population must have one (its Jeans correction depends on it)."""
+    if population.kinematics_aperture_arcsec is not None:
+        return float(population.kinematics_aperture_arcsec)
+    aperture = float(measurement.get("aperture_arcsec", np.nan))
+    if not np.isfinite(aperture) and int(population.profile_type) == CORED_POWER_LAW_PROFILE:
+        raise ValueError(f"member {record['potfile_id']}:{record['catalog_id']}: the {measurement['source']} dispersion has no "
+                         "aperture_arcsec in the catalog; a cored power-law population needs one (or set "
+                         "MemberPopulationConfig.kinematics_aperture_arcsec).")
+    return aperture
+
+
 def build_member_kinematics(records: list[dict[str, Any]], populations) -> dict[str, Any]:
     """The measured dispersions of the members on the scaling relations, from the sources each population turns on:
     component index, ln sigma_meas, the total log error e_i = sqrt((err_i / sigma_meas)^2 + systematic^2) and the
-    aperture factor per measurement.  A member may have one measurement among the sources turned on (two would count the
+    aperture factor and the aperture radius per measurement (``MemberPopulationConfig.kinematics_aperture_arcsec``, or
+    the catalog's ``aperture_arcsec`` of the measurement or its source; NaN if neither).  A cored power-law population
+    needs an aperture for every measurement.  A member may have one measurement among the sources turned on (two would count the
     same galaxy twice); a source turned on but found on no member is an error.  Empty when no source is on."""
     by_id = {str(p.id): p for p in populations}
     rows, found = [], {pid: set() for pid in by_id}
@@ -342,7 +369,8 @@ def build_member_kinematics(records: list[dict[str, Any]], populations) -> dict[
                 sigma=np.asarray([float(m["sigma"]) for _, m, _ in rows]),
                 err=np.asarray([float(m["err"]) for _, m, _ in rows]),
                 log_err=np.asarray([math.hypot(float(m["err"]) / float(m["sigma"]), float(p.kinematics_systematic)) for _, m, p in rows]),
-                aperture_factor=np.asarray([float(p.kinematics_aperture_factor) for _, _, p in rows]))
+                aperture_factor=np.asarray([float(p.kinematics_aperture_factor) for _, _, p in rows]),
+                aperture_arcsec=np.asarray([_kinematics_aperture(r, m, p) for r, m, p in rows]))
 
 
 # ----------------------------------------------------------------------------- state assembly
@@ -411,15 +439,16 @@ def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.n
     kpc_per_arcsec = kpc_per_arcsec_from_config(z_lens, cosmo_config)
     scaling = config.scaling
 
-    specs, component_assignments = build_halo_parameter_specs(potentials)
+    specs, component_assignments, lens_model_list = build_halo_parameter_specs(potentials)
     base_components = [{k: v for k, v in potential.items() if k != "priors"} for potential in potentials]
-    scaling_specs, scaling_param_indices = build_scaling_parameter_specs(potfiles, scaling, start_index=len(specs))
+    scaling_specs, scaling_param_indices, scaling_models = build_scaling_parameter_specs(potfiles, scaling, start_index=len(specs))
     for spec_item in scaling_specs:
         specs.append(spec_item)
     components, assignments, scaling_assignments, records = build_member_components(
         potfiles, reference, scaling_param_indices, start_component_index=len(base_components), scaling=scaling)
     base_components.extend(components)
     component_assignments.extend(assignments)
+    lens_model_list.extend(scaling_models)
 
     # Member hierarchy: population scatter(s), one sampled offset per member (and per radius in sigma_rcut mode), source scatter.
     n_components = len(base_components)
@@ -591,7 +620,7 @@ def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.n
     state = ModelState(
         run_name=str(config.paths.run_name or "cluster"), cosmo_config=cosmo_config, z_lens=z_lens,
         kpc_per_arcsec=float(kpc_per_arcsec), reference=reference, parameter_specs=specs,
-        base_components=base_components, packed_lens_spec=packed,
+        base_components=base_components, packed_lens_spec=packed, lens_model_list=lens_model_list,
         family_data=families, images=images, potfiles=potfiles, scaling_component_records=records,
         members=members, z_source_values=z_values, dpie_sigma0_factor_by_z=factor_by_z,
         softening_length_param_index=int(softening_index), sigma_def_param_index=int(sigma_def_index),

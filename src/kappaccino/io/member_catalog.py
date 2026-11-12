@@ -24,7 +24,8 @@ independent: its own dPIE, as a ``model.independent_member_halos`` entry with de
 it; exclude: kept for the record, not modelled), ``keep`` (true protects it from ``members.min_deflection_arcsec``;
 members with kinematics are always kept), ``p_member`` (prior probability, in (0, 1], that the galaxy belongs to the
 cluster, for example from a color classifier; see ``MemberConfig.membership``), ``kinematics`` (a list of measurements
-{source, sigma, err, sn, notes}, sigma and err in km/s), ``notes``.  Kinematics source: ``reference`` (required), ``quantity`` (sigma_ap: within a circular
+{source, sigma, err, sn, aperture_arcsec, notes}, sigma and err in km/s; ``aperture_arcsec`` on a measurement is its own
+aperture radius, for example the galaxy's half-light radius for a sigma_e, and replaces the source's), ``notes``.  Kinematics source: ``reference`` (required), ``quantity`` (sigma_ap: within a circular
 aperture of ``aperture_arcsec``; sigma_0: central, within R_e/8; sigma_e: within R_e), ``aperture_arcsec``, ``notes``.
 
 Member names are strings: YAML reads an unquoted 2526 as a number, so quote it; ``write_member_catalog`` quotes them.
@@ -53,7 +54,7 @@ OUTPUT_COLUMNS = ["id", "catalog_reference", "catalog_source", "ra", "dec", "cat
 TOP_KEYS = {"band", "kinematics_sources", "members", "notes"}
 MEMBER_KEYS = {"ra", "dec", "mag", "shape", "z", "role", "treatment", "keep", "p_member", "kinematics", "notes"}
 SOURCE_KEYS = {"reference", "quantity", "aperture_arcsec", "notes"}
-MEASUREMENT_KEYS = {"source", "sigma", "err", "sn", "notes"}
+MEASUREMENT_KEYS = {"source", "sigma", "err", "sn", "aperture_arcsec", "notes"}
 Z_KEYS = {"value", "kind"}
 ROLES = ("member", "bcg")
 TREATMENTS = ("relation", "independent", "exclude")
@@ -109,7 +110,7 @@ def load_member_catalog(path: str | Path, reference: tuple[int, float, float], *
           probability in (0, 1]; NaN when not given (always for ``.cat``);
         * ``catalog_kinematics`` (list of dict per member): each measurement's
           ``source``, ``reference``, ``quantity``, ``aperture_arcsec``
-          (arcsec; NaN if none), ``sigma`` and ``err`` (km s^-1) and ``sn``
+          (arcsec: the measurement's own, else the source's; NaN if none), ``sigma`` and ``err`` (km s^-1) and ``sn``
           (NaN if none); empty for ``.cat``;
         * ``catalog_notes`` (str).
 
@@ -247,7 +248,9 @@ def _member(name: Any, entry: Any, where: str, band: str, sources: dict[str, dic
         for key in ("sigma", "err"):
             if key not in measurement:
                 raise CatalogError(f"{here}: missing {key}.")
-        kinematics.append({"source": source, **sources[source],
+        own_aperture = ({"aperture_arcsec": _number(measurement["aperture_arcsec"], f"{here}.aperture_arcsec", positive=True)}
+                        if "aperture_arcsec" in measurement else {})
+        kinematics.append({"source": source, **sources[source], **own_aperture,
                            "sigma": _number(measurement["sigma"], f"{here}.sigma", positive=True),
                            "err": _number(measurement["err"], f"{here}.err", positive=True),
                            "sn": np.nan if "sn" not in measurement else _number(measurement["sn"], f"{here}.sn", positive=True)})

@@ -130,6 +130,63 @@ with `kinematics_aperture_factor` converting the aperture dispersion to the dPIE
 `IndependentMemberHaloConfig(population_id, catalog_id)` takes a member (usually a BCG) off the relation and gives it
 its own dPIE. Members with `treatment: independent` in the catalog are added automatically.
 
+(sec-member-profile)=
+#### Member profile: dPIE or cored power law
+
+`profile_type` chooses the members' mass profile. The default, `81`, is the dPIE. `102` is the cored power law (CPL),
+the dPIE with a free 3D density slope $\gamma$ between the core and the cut radius:
+
+$$
+\kappa(\xi) = A \left[(\xi^2 + a^2)^{-p} - (\xi^2 + s^2)^{-p}\right], \qquad p = \frac{\gamma - 1}{2},
+$$
+
+with the core $a$, the cut $s$ and the elliptical radius $\xi$ of the dPIE. The density falls as $r^{-\gamma}$
+between the core and the cut, and as $r^{-\gamma - 2}$ beyond the cut. At $\gamma = 2$ the CPL is the dPIE. The
+amplitude $A$ keeps the dPIE's projected mass inside the cut radius for the member's dispersion and radii. So the
+slope moves mass between the center and the edge of the cut, and the scaling relation keeps its meaning.
+
+- A slope below 2 is shallower than isothermal, toward an NFW-like cusp ($\gamma = 1$).
+- A slope above 2 is steeper, as in a member whose self-interacting dark matter core has collapsed.
+- A dark matter core, as in cored self-interacting dark matter, is the core radius $a$. Sample it with
+  `ScalingModelConfig.fit_corekpc` and a wide `corekpc_prior`.
+
+The population has one slope. `slope_prior` samples it (default uniform on 1.1–2.9). With `"slope"` in
+`ScalingModelConfig.fixed_relation_fields`, the slope is held at `slope`. The slope must lie in (1, 3).
+
+```python
+from dataclasses import replace
+
+population = replace(population, profile_type=102)                       # slope sampled, uniform on 1.1-2.9
+population = replace(population, profile_type=102, slope=2.4)             # with fixed_relation_fields=("slope",)
+```
+
+From the launcher, `--member-profile power-law` samples the slope and `--member-slope G` holds it at `G`.
+
+The kernel (`kappaccino.lens.cored_power_law`) evaluates the elliptical deflection and its derivatives by Gauss–Legendre
+quadrature of the integrals of Keeton (2001), to about $10^{-4}$ of the field. It costs about three times as much
+per exact member as the analytic dPIE. Far-field CPL members use the exact circular profile instead of the dPIE series.
+The `lenstronomy` image finder has no CPL profile, so `ImageDiagnosticsConfig.exact_image_finder` must be one of the
+JAX finders.
+
+Measured stellar dispersions (`kinematics_sources`) constrain the slope. The dispersions fix the mass inside a
+member's half-light radius, and the images fix the mass inside larger radii. For a CPL member, the model dispersion is
+the dPIE calibration `kinematics_aperture_factor` times the ratio $\sigma_\mathrm{ap}(\gamma)/\sigma_\mathrm{ap}(2)$.
+This ratio compares the member's aperture dispersion with that of the dPIE with the same dispersion parameter and
+radii. It comes from the isotropic Jeans equation, with light tracing mass, integrated over a circular aperture
+(`kappaccino.lens.cored_power_law.aperture_dispersion_ratio`). At slope 2 the ratio is 1. The aperture radius comes
+from the member catalog: each measurement's `aperture_arcsec`, else its source's. For dispersions measured inside a
+galaxy's half-light radius ($\sigma_e$), that is the galaxy's own radius. `kinematics_aperture_arcsec` replaces the
+catalog's aperture with one radius for every member, for sensitivity tests. A CPL population with kinematics needs an
+aperture for every measurement. At fixed mass inside the cut, a slope of 1.5 lowers the aperture dispersion by about
+17% and a slope of 2.6 raises it by about 30% (core 0.03", cut 2", aperture 0.3"), so the inferred slope depends on
+the apertures.
+
+For AS1063 (`catalogs/as1063/diego2026/members.yaml`), the 46 MUSE dispersions of Beauchesne et al. (2025a) are
+$\sigma_e$ values. Each carries the half-light radius of the galaxy's dPIE light fit,
+$R_e = \tfrac34\sqrt{r_c^2 + \tfrac{10}{3} r_c r_\mathrm{cut} + r_\mathrm{cut}^2}$, the aperture of Beauchesne
+et al. (2025b, Sect. 3). The released core and cut radii are read as arcsec, the only reading that gives galaxy-sized
+radii (median 0.11", about 0.55 kpc).
+
 ### Scaling relation and deviations
 
 `ScalingModelConfig` sets the slope priors (`alpha_sigma_prior`, `beta_radius_prior`: truncated normals, 0.27 ± 0.05
@@ -153,7 +210,7 @@ and 0.65 ± 0.15 by default), the member core prior (`corekpc_prior`) and how me
 
 `fixed_relation_fields`
 : Hold any of `sigma`, `cutkpc`, `alpha_sigma`, `beta_radius` at their nominal values, for tests against a published
-  relation.
+  relation, and `slope` (cored power-law members) at the population's `slope`.
 
 `softening_length_prior`
 : A softening length added in quadrature to the cores to match the resolution of an N-body simulation, e.g.
@@ -162,7 +219,8 @@ and 0.65 ± 0.15 by default), the member core prior (`corekpc_prior`) and how me
 ### Exact and far-field members
 
 Members close to an image are evaluated with the exact elliptical profile ("exact"); members far from every image use
-the circular far-field series of the dPIE ("far-field"), which is much cheaper. `MemberConfig` sets the split:
+the circular far-field series of the dPIE ("far-field"), which is much cheaper. Far-field cored power-law members use
+the exact circular profile. `MemberConfig` sets the split:
 
 `far_field_cut_radii`
 : A far-field member stays at least this many of its sampled cut radii from every image (default 3). During sampling

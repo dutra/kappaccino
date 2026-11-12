@@ -1,7 +1,7 @@
-"""Registry of the lens profiles the solver knows: Lenstool-style code, the fields a potential definition must carry,
-which pair of polar shape fields becomes a Cartesian pair, and which fields are sampled in log space.  Adding a profile
-means one entry here, a kernel in ``lensing``, the packing in ``Evaluator.packed_state`` and the per-component branch of
-``Evaluator.component_rows``."""
+"""Registry of the lens profiles the solver knows: Lenstool-style code, lenstronomy name, the fields a potential
+definition must carry, which pair of polar shape fields becomes a Cartesian pair, and which fields are sampled in
+log space.  Adding a profile means one entry here, a kernel in ``kappaccino.lens``, the packing in ``Evaluator.packed_state``
+and the per-component branch of ``Evaluator.component_rows`` and ``exact_images.packed_to_kwargs_lens``."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -9,8 +9,12 @@ import math
 from typing import Any
 
 import jax.numpy as jnp
+import numpy as np
 
-from ..core.model import DP_IE_PROFILE, MASS_SHEET_PROFILE, NFW_PROFILE, SHEAR_PROFILE
+from ..core.model import (
+    CORED_POWER_LAW_PROFILE, CORED_POWER_LAW_PROFILE_NAME, DP_IE_PROFILE, DPIE_PROFILE_NAME, MASS_SHEET_PROFILE, MASS_SHEET_PROFILE_NAME, NFW_PROFILE, NFW_PROFILE_NAME,
+    SHEAR_PROFILE, SHEAR_PROFILE_NAME,
+)
 
 G_KPC_KMS2_PER_MSUN = 4.30091e-6
 DELTA_200 = 200.0
@@ -19,6 +23,7 @@ DELTA_200 = 200.0
 @dataclass(frozen=True)
 class LensProfile:
     code: int
+    name: str                                   # lenstronomy model name (exact-image solver)
     required_fields: tuple[str, ...]            # numeric fields of a potential definition, besides id, profil and z_lens
     polar_shape: tuple[str, str] | None         # (amplitude, angle) pair sampled together ...
     cartesian_shape: tuple[str, str] | None     # ... as this Cartesian pair
@@ -27,23 +32,28 @@ class LensProfile:
 
 PROFILES: dict[int, LensProfile] = {
     DP_IE_PROFILE: LensProfile(
-        code=DP_IE_PROFILE, label="dPIE",
+        code=DP_IE_PROFILE, name=DPIE_PROFILE_NAME, label="dPIE",
         required_fields=("x_centre", "y_centre", "ellipticite", "angle_pos", "core_radius_kpc", "cut_radius_kpc", "v_disp"),
         polar_shape=("ellipticite", "angle_pos"), cartesian_shape=("e1", "e2")),
     NFW_PROFILE: LensProfile(
-        code=NFW_PROFILE, label="elliptical NFW",
+        code=NFW_PROFILE, name=NFW_PROFILE_NAME, label="elliptical NFW",
         required_fields=("x_centre", "y_centre", "ellipticite", "angle_pos", "log10_m200", "scale_radius_kpc"),
         polar_shape=("ellipticite", "angle_pos"), cartesian_shape=("e1", "e2")),
     SHEAR_PROFILE: LensProfile(
-        code=SHEAR_PROFILE, label="external shear",
+        code=SHEAR_PROFILE, name=SHEAR_PROFILE_NAME, label="external shear",
         required_fields=("gamma", "angle_pos"),
         polar_shape=("gamma", "angle_pos"), cartesian_shape=("gamma1", "gamma2")),
     MASS_SHEET_PROFILE: LensProfile(
-        code=MASS_SHEET_PROFILE, label="external convergence",
+        code=MASS_SHEET_PROFILE, name=MASS_SHEET_PROFILE_NAME, label="external convergence",
         required_fields=("kappa",), polar_shape=None, cartesian_shape=None),
+    # Members only (MemberPopulationConfig.profile_type): built by the scaling relation, never from a potential definition.
+    CORED_POWER_LAW_PROFILE: LensProfile(
+        code=CORED_POWER_LAW_PROFILE, name=CORED_POWER_LAW_PROFILE_NAME, label="cored power law",
+        required_fields=("x_centre", "y_centre", "ellipticite", "angle_pos", "core_radius_kpc", "cut_radius_kpc", "v_disp"),
+        polar_shape=("ellipticite", "angle_pos"), cartesian_shape=("e1", "e2")),
 }
 SUPPORTED_PROFILES = frozenset(PROFILES)
-ELLIPTICAL_PROFILES = frozenset({DP_IE_PROFILE, NFW_PROFILE})
+ELLIPTICAL_PROFILES = frozenset({DP_IE_PROFILE, NFW_PROFILE, CORED_POWER_LAW_PROFILE})
 
 
 def profile(code: int) -> LensProfile:
@@ -82,10 +92,27 @@ def nfw_alpha_rs_arcsec(rho_s_msun_kpc3, scale_radius_kpc, dpie_sigma0_factor):
     return 4.0 * rho_s_msun_kpc3 * scale_radius_kpc ** 2 * (1.0 - jnp.log(2.0)) * NFW_FACTOR_OVER_DPIE_FACTOR * dpie_sigma0_factor
 
 
-def nfw_angular_parameters(log10_m200: float, scale_radius_kpc: float, *, z_lens: float, z_source: float,
-                           cosmo_config: dict[str, Any], kpc_per_arcsec: float) -> tuple[float, float]:
-    """(r_s in arcsec, deflection at r_s in arcsec) for one halo."""
+def nfw_lenstronomy_parameters(log10_m200: float, scale_radius_kpc: float, *, z_lens: float, z_source: float,
+                               cosmo_config: dict[str, Any], kpc_per_arcsec: float) -> tuple[float, float]:
+    """(Rs in arcsec, alpha_Rs in arcsec) for one halo: the quantities lenstronomy's NFW profiles take."""
     from .cosmology import dpie_sigma0_factor_from_config
     rho_s, _ = nfw_scale_density(float(log10_m200), float(scale_radius_kpc), critical_density_msun_kpc3(z_lens, cosmo_config))
     factor = dpie_sigma0_factor_from_config(z_lens, z_source, cosmo_config)
     return float(scale_radius_kpc) / float(kpc_per_arcsec), float(nfw_alpha_rs_arcsec(rho_s, float(scale_radius_kpc), factor))
+
+
+def lenstronomy_kwargs(packed, index: int) -> dict[str, float]:
+    """Keyword arguments of component ``index`` for lenstronomy, from a packed state with scalar normalizations."""
+    code = int(np.asarray(packed.profile_type)[index])
+    f = lambda name: float(np.asarray(getattr(packed, name))[index])
+    if code == DP_IE_PROFILE:
+        return {"sigma0": f("sigma0"), "Ra": f("Ra"), "Rs": f("Rs"), "e1": f("e1"), "e2": f("e2"), "center_x": f("center_x"), "center_y": f("center_y")}
+    if code == NFW_PROFILE:
+        return {"Rs": f("nfw_rs"), "alpha_Rs": f("alpha_rs"), "e1": f("e1"), "e2": f("e2"), "center_x": f("center_x"), "center_y": f("center_y")}
+    if code == SHEAR_PROFILE:
+        return {"gamma1": f("gamma1"), "gamma2": f("gamma2")}
+    if code == MASS_SHEET_PROFILE:
+        return {"kappa": f("kappa"), "ra_0": 0.0, "dec_0": 0.0}
+    if code == CORED_POWER_LAW_PROFILE:
+        raise ValueError("lenstronomy has no cored power-law profile (code 102); solve images with the JAX finders.")
+    raise ValueError(f"Unsupported profile type {code}.")

@@ -202,7 +202,7 @@ def _scaling_value(state: ModelState, physical: np.ndarray, field: str) -> float
             return float(physical[index])
     # Held fixed (scaling.fixed_relation_fields): the base value carried by the packed spec, the same for every component.
     base = {"sigma": "sigma_ref_base", "cutkpc": "cut_ref_base", "corekpc": "core_ref_base",
-            "alpha_sigma": "alpha_sigma_base", "beta_radius": "beta_radius_base"}[field]
+            "alpha_sigma": "alpha_sigma_base", "beta_radius": "beta_radius_base", "slope": "slope_base"}[field]
     members = np.asarray(state.members.component_indices, dtype=int)
     if members.size == 0:
         raise KeyError(field)
@@ -352,10 +352,12 @@ def search_is_fragile(search: dict[str, Any]) -> bool:
 
 def kinematics_table(state: ModelState, evaluator: Evaluator, theta: np.ndarray) -> pd.DataFrame:
     """Measured against model aperture dispersions of the members in the kinematics term at ``theta``: one row per
-    member with sigma_meas, err, c sigma_model, ln(measured / model) and z = ln ratio / e (e the total log error)."""
+    member with sigma_meas, err, the model aperture dispersion (``Evaluator.kinematics_model_dispersions``), the model
+    sigma_LT, ln(measured / model) and z = ln ratio / e (e the total log error)."""
     k = state.member_kinematics
-    sigma = np.asarray(evaluator.component_dispersions(evaluator.physical(jnp.asarray(theta))))[k["component_index"]]
-    model = k["aperture_factor"] * sigma
+    physical = evaluator.physical(jnp.asarray(theta))
+    sigma = np.asarray(evaluator.component_dispersions(physical))[k["component_index"]]
+    model = np.asarray(evaluator.kinematics_model_dispersions(physical))      # with the Jeans ratio of power-law members
     ln_ratio = np.log(k["sigma"]) - np.log(model)
     return pd.DataFrame({"member": list(k["member_ids"]), "source": list(k["sources"]), "sigma_meas": k["sigma"], "err": k["err"],
                          "sigma_model_ap": model, "sigma_model_lt": sigma, "ln_ratio": ln_ratio, "z": ln_ratio / k["log_err"]})

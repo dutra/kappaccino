@@ -16,7 +16,7 @@ from ..plotting.block_corner import write_posterior_block_corner
 from ..config import LensClusterSolverConfig
 from ..diagnostics.image_recovery import fit_summary, image_recovery_tables
 from ..likelihood.evaluator import Evaluator
-from ..core.model import ModelState, PosteriorResults
+from ..core.model import CORED_POWER_LAW_PROFILE, ModelState, PosteriorResults
 from ..plotting.potfile import write_potfile_plots
 from ..plotting.members import write_member_diagnostic_plots
 from ..diagnostics.truth_recovery import compute_truth_recovery
@@ -195,8 +195,13 @@ def fixed_relation_values(state, member_table) -> dict[str, float]:
     out = {}
     if members.size == 0:
         return out
+    profile = np.asarray(state.packed_lens_spec.profile_type)
     for population in member_table["potfile_id"].unique():
         for field, attribute in base.items():
             if f"{population}.{field}" not in sampled:
                 out[f"{population}.{field}"] = float(np.asarray(getattr(state.packed_lens_spec, attribute), dtype=float)[members[0]])
+        # A cored power-law population with its 3D slope held fixed (scaling.fixed_relation_fields).
+        component = [int(r["component_index"]) for r in state.scaling_component_records if r["potfile_id"] == population]
+        if component and profile[component[0]] == CORED_POWER_LAW_PROFILE and f"{population}.slope" not in sampled:
+            out[f"{population}.slope"] = float(np.asarray(state.packed_lens_spec.slope_base, dtype=float)[component[0]])
     return out

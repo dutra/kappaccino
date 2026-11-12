@@ -104,6 +104,7 @@ with $L_i / L^\star = 10^{-0.4\,(m_i - \mathrm{mag0})}$ (magnitudes in the popul
 | `sigma` | km s$^{-1}$ | ln(km s$^{-1}$) | $\sigma^\star$, the dispersion of a member at the pivot. |
 | `cutkpc` | kpc | ln(kpc) | $r_\mathrm{cut}^\star$, the cut radius at the pivot. |
 | `corekpc` | kpc | ln(kpc) | $r_\mathrm{core}^\star$, the core radius at the pivot (when `ScalingModelConfig.fit_corekpc`). |
+| `slope` | dimensionless | dimensionless | $\gamma$, the 3D density slope of cored power-law members (profile 102; 2 is the dPIE). |
 | `alpha_sigma` | dimensionless | dimensionless | $\alpha$, the slope of $\ln\sigma$ in $\ln L$. |
 | `beta_radius` | dimensionless | dimensionless | $\beta$, the slope of $\ln r$ in $\ln L$. A constant mass-to-light ratio has $2\alpha + \beta = 1$; mock recovery reports $\gamma_{M/L} = 2\alpha + \beta - 1$ (dimensionless) as `gamma_ml`. |
 

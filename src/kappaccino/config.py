@@ -659,10 +659,6 @@ class RuntimeConfig:
         NumPyro chain method: ``"parallel"`` (chains run concurrently, one JAX device per chain; needs ``chains``
         visible JAX devices, e.g. via ``JAX_NUM_CPU_DEVICES``), ``"vectorized"`` (chains run concurrently on one
         device) or ``"sequential"`` (one chain at a time).  Default ``"parallel"``.
-    cpu_threads_per_chain : int or None, optional
-        Logical CPUs per concurrently running chain, positive.  Read by ``cpu_runtime.resolve_cpu_plan`` and
-        ``cpu_runtime.configure_cpu_runtime``, which a launcher calls before JAX starts, to pin the process to that
-        many CPUs per chain (Linux only); the pipeline itself does not apply it.  None pins nothing.  Default None.
     numpyro_print_summary : bool, optional
         Print a summary table of the global parameters after sampling.  Default False.
     """
@@ -672,7 +668,6 @@ class RuntimeConfig:
     skip_plots: bool = False
     quiet: bool = False
     nuts_chain_method: str = "parallel"
-    cpu_threads_per_chain: int | None = None
     numpyro_print_summary: bool = False
 
 
@@ -1787,6 +1782,8 @@ class LensClusterSolverConfig:
 
 
 CLASS_KEY = "_class"
+# Fields a saved ``config.json`` may still hold after their removal from the configuration; dropped on load.
+REMOVED_FIELDS = {"RuntimeConfig": ("cpu_threads_per_chain",)}       # CPU pinning, removed 2026-11-12
 
 
 def _hint_class(hint: Any) -> type | None:
@@ -1837,7 +1834,8 @@ def _from_jsonable(value: Any, hint: Any = Any) -> Any:
             else:
                 cls = _hint_class(hint)
             hints = get_type_hints(cls)
-            return cls(**{key: _from_jsonable(item, hints.get(key, Any)) for key, item in value.items() if key != CLASS_KEY})
+            dropped = (CLASS_KEY, *REMOVED_FIELDS.get(cls.__name__, ()))
+            return cls(**{key: _from_jsonable(item, hints.get(key, Any)) for key, item in value.items() if key not in dropped})
         if {"family", "log"} <= value.keys():
             from .priors import from_dict
             return from_dict(value)
@@ -1911,8 +1909,6 @@ def validate_config(config: LensClusterSolverConfig) -> None:
     _positive_int("chains", runtime.chains)
     if runtime.nuts_chain_method not in {"parallel", "sequential", "vectorized"}:
         raise ValueError("nuts_chain_method must be 'parallel', 'sequential', or 'vectorized'.")
-    if runtime.cpu_threads_per_chain is not None:
-        _positive_int("cpu_threads_per_chain", runtime.cpu_threads_per_chain)
     search = config.search
     _positive_int("search.n_starts", search.n_starts)
     _positive_int("search.lbfgs_max_iter", search.lbfgs_max_iter)

@@ -152,15 +152,10 @@ else:
 @pytest.mark.parametrize("cluster", ["catalogs/hera", "catalogs/as1063/bergamini2019"])
 def test_launcher_uses_resolved_runtime_before_cosmology(cluster):
     code = """
-from dataclasses import replace
-from pathlib import Path
-import os, sys
-path = Path('run.xsh').resolve()
-namespace = {'__file__': str(path), '__name__': 'cpu_launcher_test'}
-source = '\\n'.join(line for line in path.read_text().splitlines() if not line.startswith('$'))
-exec(compile(source, str(path), 'exec'), namespace)
+import os, shutil, sys
+from kappaccino import cli
 from jax._src import xla_bridge
-assert not xla_bridge.backends_are_initialized(), 'launcher initialized JAX before CPU setup'
+assert not xla_bridge.backends_are_initialized(), 'importing the launcher initialized JAX before CPU setup'
 def check_run(config, stage="both"):
     import jax
     assert config.runtime.chains == 2
@@ -168,7 +163,10 @@ def check_run(config, stage="both"):
     assert len(os.sched_getaffinity(0)) <= 4
 import kappaccino.pipeline as pipeline
 pipeline.run = check_run
-assert namespace['main'](['run.xsh', sys.argv[1], '--set', 'runtime.chains=2', '--set', 'runtime.cpu_threads_per_chain=2']) == 0
+try:
+    assert cli.main([sys.argv[1], '--campaign', 'pytest_cpu_launcher', '--set', 'runtime.chains=2', '--set', 'runtime.cpu_threads_per_chain=2']) == 0
+finally:
+    shutil.rmtree('results/pytest_cpu_launcher', ignore_errors=True)
 """
     subprocess.run([sys.executable, "-c", code, cluster], check=True, timeout=45,
                    env=dict(os.environ, PYTHONPATH=str(Path("src").resolve())))

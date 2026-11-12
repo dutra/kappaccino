@@ -1,4 +1,4 @@
-# How Hera is fitted.  xonsh run.xsh catalogs/hera [--profile fast]
+# How Hera is fitted.  kappaccino catalogs/hera [--profile fast]
 name: hera
 priors: priors.yaml
 

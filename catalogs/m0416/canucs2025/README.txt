@@ -14,7 +14,7 @@ members.cat   = the published member catalogue (clugal, 212 members) in the repo
                 reference. Its F160W magnitude, 19.6191, is from the Bergamini et al. photometry that every clugal magnitude copies.
 
 members.yaml  = members.cat as a YAML member catalog (src/kappaccino/member_catalog.py; scripts/convert_member_catalog.py), the
-                one run.xsh M0416_CANUCS2025 reads: band F160W, the two BCGs (2526 NE, 3158 SW) with role bcg, and the
+                one run.yaml reads: band F160W, the two BCGs (2526 NE, 3158 SW) with role bcg, and the
                 MUSE stellar velocity dispersions of 52 members (sigma_ap in a 0.8" aperture) from granata2026_m0416_kinematics.txt,
                 matched by position within 0.6" (median 0.24"). Members with kinematics are protected from the impact cut.
                 It reads to the same model as members.cat (identical likelihood and gradient at the start).
@@ -27,4 +27,4 @@ granata2026_m0416_kinematics.txt = the M0416 table of Granata et al. 2026, A&A (
 images.yaml   = the gold catalogue in the lenscluster YAML image format (scripts/convert_canucs_catalog.py): 83 systems, 15 with
                 knots, 111 knot-families, 303 images; system/knot/image from the published labels (K6c.2 = system K6, knot C,
                 image b); positions and z from the lenstool input (catalogue + about 20 mas, the frame of members.cat);
-                K6e images 1 and 3 renumbered by position to match the other K6 knots. run.xsh M0416_CANUCS2025 reads it.
+                K6e images 1 and 3 renumbered by position to match the other K6 knots. run.yaml reads it.

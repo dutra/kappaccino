@@ -8,7 +8,7 @@ import sys
 import time
 from pathlib import Path
 
-cores = 4  # NUTS chains; one JAX CPU device per chain (same budget as run.xsh).
+cores = 4  # NUTS chains; one JAX CPU device per chain (same budget as the cluster runs).
 seed_default = 12345
 output_dir_default = "validation_runs"
 # What the mock injects.  The measurement noise is the truth of the sampled independent scatter images.sigma_meas (every
@@ -73,7 +73,7 @@ from kappaccino.priors import truncated_lognormal
 
 VALID_PRESETS = ("smoke", "production")
 
-# Command-line likelihood names -> (LikelihoodConfig.likelihood_mode, gp_kernel), as in run.xsh.
+# Command-line likelihood names -> (LikelihoodConfig.likelihood_mode, gp_kernel), as in the cluster run.yaml files.
 LIKELIHOODS = {"grf_gp": ("gp_image_plane", "knee"), "gp_image_plane": ("gp_image_plane", "image_plane"),
                "smoothed": ("smoothed", "image_plane")}
 
@@ -82,19 +82,19 @@ def _usage() -> str:
     return ("Usage: xonsh run_mock.xsh --campaign NAME [--preset smoke|production] [--mode production|idealized] [--seed INT] "
             "[--realizations INT] [--output-dir PATH] [--likelihood grf_gp|gp_image_plane|smoothed] [--gp-blocks all|system|family] "
             "[--warmup N] [--samples N] [--knotted-families N] [--fast] [--fisher-only] [--aggregate-only] [--rescore] [--dry-run]\n"
-            "  --preset production: the solver settings of a full run.xsh run (256 search starts, 1000+250 NUTS draws); smoke: a few\n"
+            "  --preset production: the solver settings of a full cluster run (256 search starts, 1000+250 NUTS draws); smoke: a few\n"
             "          members and families, 8 starts, 100+100 draws at tree depth 6, for tests of the pipeline itself\n"
             "  --mode production: the solver uses the same priors as the real clusters (halo on the BCG light, Bergamini et al. 2019 member relation);\n"
             "  --mode idealized: priors centred on each realization's truth, which isolates the sampler and the likelihood\n"
-            "  --likelihood: grf_gp (default; the mass-field GRF with a knee spectrum plus the image-plane GP, as run.xsh), gp_image_plane\n"
+            "  --likelihood: grf_gp (default; the mass-field GRF with a knee spectrum plus the image-plane GP, as the cluster runs), gp_image_plane\n"
             "          (the image-plane GP alone, per family) or smoothed (the per-image source-plane floor sigma_def and sigma_meas)\n"
             "  --gp-blocks: grf_gp only: all (default: one shared field with translation, convergence and shear projected out, unlike\n"
-            "          full run.xsh runs), system (an independent field per system, no projection; the --fast default) or family\n"
+            "          full cluster runs), system (an independent field per system, no projection; the --fast default) or family\n"
             "  --knotted-families N: primary families that are galaxies with knots (default 5 for production, 1 for smoke)\n"
             "  --fisher-only: generate (or reuse) the mocks and forecast how well the GP hyperparameters are constrained (a Fisher\n"
             "          matrix at the truth), without running the solver; writes fisher.json per mock and fisher_precheck.csv\n"
             "  --warmup N, --samples N: NUTS draws per chain (override the preset or --fast)\n"
-            "  --fast: the exploratory settings of run.xsh --fast: far-field members allowed down to 2 cut radii from an image,\n"
+            "  --fast: the exploratory settings of the cluster fast profile: far-field members allowed down to 2 cut radii from an image,\n"
             "          classification at the current model, 500+250 draws at tree depth 8, system GP blocks, member shapes fixed")
 
 
@@ -169,12 +169,12 @@ def _parse_args(argv: list[str]) -> dict:
 
 def build_runtime(seed: int) -> RuntimeConfig:
     return RuntimeConfig(seed=seed, chains=cores, resume=True, numpyro_print_summary=True, nuts_chain_method="parallel",
-                         cpu_threads_per_chain=threads_per_chain_if_supported(2),   # same CPU budget as run.xsh: chains * 2 cores on Linux, no pinning on macOS
+                         cpu_threads_per_chain=threads_per_chain_if_supported(2),   # same CPU budget as the cluster runs: chains * 2 cores on Linux, no pinning on macOS
                          skip_plots=False)                     # recovery reads the solver's output tables
 
 
 def _likelihood(likelihood: str, gp_blocks: str) -> LikelihoodConfig:
-    """The likelihood of run.xsh build_config (keep the two in step): no selection term; the GRF of unmodelled mass with a
+    """The likelihood of the cluster run.yaml files (keep them in step): no selection term; the GRF of unmodelled mass with a
     knee spectrum (slope sampled on 2-6, knee 2.5-15" around 6") and the image-plane GP (ell 0.4-3" around 1"), with the
     priors centred on the mock's injection ranges (sigma_grf 0.06", sigma_gp 0.035" median); the shared field's
     translation, convergence and shear projected out on all blocks (system blocks, the --fast default, have no projection)."""
@@ -186,7 +186,7 @@ def _likelihood(likelihood: str, gp_blocks: str) -> LikelihoodConfig:
         gp_knee_scales_arcsec=(0.2, 100.0),
         lambda_b_prior=truncated_lognormal(6.0, 0.6, low=2.5, high=15.0),
         lambda_b_start_arcsec=6.0,
-        # Mock only (run.xsh keeps median 0.08", cap 0.5", and the library sigma_gp prior, median 0.10", cap 0.3"): the
+        # Mock only (the cluster runs keep median 0.08", cap 0.5", and the library sigma_gp prior, median 0.10", cap 0.3"): the
         # geometric centres of the mock's injection ranges, each range inside about one prior width of the median.
         sigma_grf_prior=truncated_lognormal(0.06, 0.5, high=0.3),
         sigma_grf_start_arcsec=0.06,
@@ -198,11 +198,11 @@ def _likelihood(likelihood: str, gp_blocks: str) -> LikelihoodConfig:
 
 
 def _solver(*, production: bool, fast: bool, seed: int, likelihood: str, gp_blocks: str | None) -> LensClusterSolverConfig:
-    """The solver template: the settings of run.xsh build_config (search, sampling, members, likelihood) plus what the mock
+    """The solver template: the settings of the cluster run.yaml files (search, sampling, members, likelihood) plus what the mock
     needs.  The lens model, with priors centred on the mock's truth, is attached per realization by the mock-validation
     pipeline.  The smoke preset keeps its small search and chains under --fast; the member and GP settings of --fast apply
     to both presets."""
-    # All-image blocks with the projection by default (2026-11-06), as full run.xsh runs: under system blocks the free lens
+    # All-image blocks with the projection by default (2026-11-06), as full cluster runs: under system blocks the free lens
     # absorbed a quarter of the field (nov6b, .agents/nov6-mock-sigma-alpha-free-lens.md) and the fit lost the 600-1400
     # cross-system pairs at 2-15" that pin the knee and ell.  --fast keeps system blocks, about 5x cheaper per gradient.
     blocks = gp_blocks or ("system" if fast else "all")
@@ -212,12 +212,12 @@ def _solver(*, production: bool, fast: bool, seed: int, likelihood: str, gp_bloc
         # Far-field member offsets pinned at the relation: their radius offsets never reach the likelihood and their velocity
         # offsets barely do, so they were sampled from the prior alone and set the orbit length (the softest directions,
         # 400-700 leapfrog steps per half orbit against the 255 cap, astrometric_bcg1as seed 12345).  Target accept 0.8 as
-        # run.xsh (the chains accepted 0.92-0.97 at 0.85, steps at 0.3-0.5 of the stiffness limit) and 1000 warmup.
+        # the cluster runs (the chains accepted 0.92-0.97 at 0.85, steps at 0.3-0.5 of the stiffness limit) and 1000 warmup.
         sampling=(SamplingConfig(warmup=2000, samples=500, max_tree_depth=10, target_accept=0.8, far_field_offsets="fixed") if production
                   else SamplingConfig(warmup=100, samples=100, max_tree_depth=6, target_accept=0.8, far_field_offsets="fixed")),
         likelihood=_likelihood(likelihood, blocks),
         # The 0.15 kpc member core is not a lensing observable; fixed at the truth value.  Normal member deviations: the
-        # mock's scatter is Gaussian, and the Student-t tails of run.xsh soften the posterior.
+        # mock's scatter is Gaussian, and the Student-t tails of the cluster runs soften the posterior.
         scaling=ScalingModelConfig(fit_corekpc=False, member_deviation_tail="normal"),
         # Centered deviations for the members the data pin, unit offsets for the rest, classification at the current model
         # (reclassified at the MAP), as for the observed clusters.
@@ -291,7 +291,7 @@ def _fast_mode_warning(solver) -> None:
             f"  - {solver.search.n_starts} search starts, {solver.sampling.warmup} warmup + {solver.sampling.samples} draws per chain "
             f"at tree depth {solver.sampling.max_tree_depth}, target accept {solver.sampling.target_accept:g}\n"
             f"  - GP covariance blocks: {solver.likelihood.gp_blocks}, projection {', '.join(solver.likelihood.gp_knee_project_modes) or 'off'} "
-            f"(full run.xsh runs use all blocks, without the projection)")
+            f"(full cluster runs use all blocks, without the projection)")
     Console(stderr=False).print(Panel(text, title="[bold]WARNING: --fast[/bold]", border_style="yellow", style="yellow", expand=False))
 
 

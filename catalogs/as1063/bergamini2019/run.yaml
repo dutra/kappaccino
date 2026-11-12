@@ -1,5 +1,5 @@
 # How AS1063 is fitted with the HST + MUSE catalog of Bergamini et al. 2019.
-# xonsh run.xsh catalogs/as1063/bergamini2019 [--profile fast] [--profile jwst]
+# kappaccino catalogs/as1063/bergamini2019 [--profile fast] [--profile jwst]
 name: as1063
 priors: priors.yaml
 

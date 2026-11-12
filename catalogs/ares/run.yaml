@@ -1,4 +1,4 @@
-# How Ares is fitted.  xonsh run.xsh catalogs/ares [--profile fast]
+# How Ares is fitted.  kappaccino catalogs/ares [--profile fast]
 name: ares
 priors: priors.yaml
 

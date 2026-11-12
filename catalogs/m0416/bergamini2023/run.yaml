@@ -1,5 +1,5 @@
 # How MACS J0416 is fitted with the HST + MUSE catalog of Bergamini et al. 2023.
-# xonsh run.xsh catalogs/m0416/bergamini2023 [--profile fast] [--profile jwst]
+# kappaccino catalogs/m0416/bergamini2023 [--profile fast] [--profile jwst]
 name: m0416_bergamini2023
 priors: priors.yaml
 

@@ -34,7 +34,7 @@ from kappaccino.core.state import build_state
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MARKER = "<!-- lenscluster benchmark -->"
-# Name -> (likelihood_mode, gp_kernel): the library default and the grf_gp model of run.xsh.
+# Name -> (likelihood_mode, gp_kernel): the library default and the grf_gp model of the cluster run.yaml files.
 LIKELIHOODS = {"smoothed": ("smoothed", "image_plane"), "grf_gp": ("gp_image_plane", "knee")}
 
 
@@ -64,7 +64,7 @@ def _workflow_url() -> str:
 
 
 def hera_config(catalog_root: Path, likelihood: str, output_dir: str) -> LensClusterSolverConfig:
-    """The HERA entry of run.xsh with library defaults elsewhere."""
+    """The Hera model of catalogs/hera/priors.yaml with library defaults elsewhere."""
     mode, kernel = LIKELIHOODS[likelihood]
     return LensClusterSolverConfig(
         model=LensModelConfig(

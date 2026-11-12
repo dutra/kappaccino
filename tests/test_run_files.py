@@ -145,3 +145,18 @@ def test_input_files_follow_extends(monkeypatch):
     files = [str(p) for p in input_files("catalogs/as1063/diego2026")]
     assert files == ["catalogs/as1063/diego2026/run.yaml", "catalogs/as1063/bergamini2019/run.yaml",
                      "catalogs/as1063/diego2026/priors.yaml", "catalogs/as1063/bergamini2019/priors.yaml"]
+
+
+def test_command_line(monkeypatch, capsys):
+    from kappaccino import cli
+    monkeypatch.chdir(ROOT)
+    with pytest.raises(SystemExit):
+        cli.main(["catalogs/nowhere"])
+    assert "no run.yaml" in capsys.readouterr().err
+    config = cli.build_config("catalogs/as1063/diego2026", profiles=["fast"], overrides=["sampling.warmup=7"], campaign="c", run_label="r")
+    assert config.paths.output_dir == "results/c/as1063_jwst" and config.paths.run_name == "r" and config.sampling.warmup == 7
+    assert cli.main(["catalogs/hera", "--profile", "fast", "--dry-run"]) == 0
+    assert '"dry_run": true' in capsys.readouterr().out
+    assert cli.build_config("catalogs/hera").paths.output_dir == f"results/{cli.today()}/hera"
+    swapped = cli.build_config("catalogs/hera", images="catalogs/ares/images.yaml", overrides=["partition.catalog_path=u.csv"])
+    assert swapped.model.image_constraints.catalog_path == "catalogs/ares/images.yaml" and swapped.partition.catalog_path == "u.csv"

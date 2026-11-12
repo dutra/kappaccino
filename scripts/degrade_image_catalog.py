@@ -142,7 +142,7 @@ def main(argv=None) -> int:
                         header=f"Degraded from {source} by scripts/degrade_image_catalog.py: trusted families {', '.join(trusted)}; "
                                f"magnitudes rescattered (seed {args.seed}).")
 
-    base = ["xonsh", "run.xsh", FOLDERS[args.cluster], "--campaign", CAMPAIGN, "--images", str(output / "trusted.yaml")]
+    base = ["kappaccino", FOLDERS[args.cluster], "--campaign", CAMPAIGN, "--images", str(output / "trusted.yaml")]
     commands = {"ignore": base + ["--run-label", f"{case}_ignore"],
                 "groups": base + ["--run-label", f"{case}_groups", "--set", f"partition.catalog_path={output / 'uncertain.csv'}"]}
     settings = {"cluster": args.cluster, "case": case, "source_catalog": str(source), "trusted": trusted,
@@ -151,7 +151,7 @@ def main(argv=None) -> int:
                 "mag_err_26": args.mag_err_26, "mag_err_floor": args.mag_err_floor,
                 "n_uncertain": len(rows), "n_hidden_families": len(systems) - len(trusted),
                 "commands": {k: shlex.join(v) for k, v in commands.items()},
-                "full_command": shlex.join(["xonsh", "run.xsh", FOLDERS[args.cluster], "--campaign", CAMPAIGN, "--run-label", "full"])}
+                "full_command": shlex.join(["kappaccino", FOLDERS[args.cluster], "--campaign", CAMPAIGN, "--run-label", "full"])}
     (output / "degrade.json").write_text(json.dumps(settings, indent=2) + "\n")
     print(f"{output}: {len(trusted)} trusted families ({', '.join(trusted)}), {len(rows)} uncertain images "
           f"from {settings['n_hidden_families']} hidden families and {len(moved)} counterimages")

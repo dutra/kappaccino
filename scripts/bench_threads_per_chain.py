@@ -6,7 +6,7 @@ script measures both for every (chains, threads per chain) layout that fits the 
 all-block covariances.  Each chain is a separate worker process pinned to its own cores (Linux), with XLA's thread pool
 and the BLAS pools set to that many threads before JAX starts; all workers compile first, then time together.
 
-It needs a saved init of the cluster (a run directory with init/artifacts, from `xonsh run.xsh ... --stage init`):
+It needs a saved init of the cluster (a run directory with init/artifacts, from `kappaccino <cluster folder> ... --stage init`):
 
     python scripts/bench_threads_per_chain.py results/<campaign>/m0416_canucs2025/<run>
     python scripts/bench_threads_per_chain.py <run> --chains 4 8 --threads 1 2 4 8 --blocks system all --seconds 30

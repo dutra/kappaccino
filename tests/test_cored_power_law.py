@@ -12,7 +12,7 @@ import pytest
 
 from kappaccino.core.model import CORED_POWER_LAW_PROFILE, DP_IE_PROFILE
 from kappaccino.core.state import build_state, with_member_classes
-from kappaccino.lens import cored_power_law as cpl, lensing
+from kappaccino.lens.profiles import cored_power_law as cpl, dpie, frame
 from kappaccino.lens.farfield import evaluate_farfield_per_member, member_farfield_geometry
 from kappaccino.likelihood.evaluator import Evaluator
 
@@ -34,8 +34,8 @@ def _relative(value, reference):
 @pytest.mark.parametrize("a,s", RADII)
 def test_slope_two_is_the_dpie(e1, e2, a, s):
     x, y = _points()
-    expected = lensing.dpie_fields(x, y, 0.7, a, s, e1, e2, 0.1, -0.2)
-    actual = cpl.cored_power_law_fields(x, y, 0.7, a, s, 2.0, e1, e2, 0.1, -0.2)
+    expected = dpie.fields(x, y, 0.7, a, s, e1, e2, 0.1, -0.2)
+    actual = cpl.fields(x, y, 0.7, a, s, 2.0, e1, e2, 0.1, -0.2)
     for value, reference, tolerance in zip(actual, expected, (1e-4, 1e-4, 1e-3)):   # the quadrature budget (PANEL_NODES)
         assert _relative(value, reference) < tolerance
 
@@ -46,8 +46,8 @@ def test_slope_two_is_the_dpie(e1, e2, a, s):
 def test_poisson_equation_and_symmetry(slope, e1, e2, a, s):
     """Half the trace of U is the convergence at the elliptical radius of the dPIE convention."""
     x, y = _points()
-    _, u, du = cpl.cored_power_law_fields(x, y, 0.7, a, s, slope, e1, e2, 0.0, 0.0)
-    phi, q = lensing.ellipticity_frame(e1, e2)
+    _, u, du = cpl.fields(x, y, 0.7, a, s, slope, e1, e2, 0.0, 0.0)
+    phi, q = frame.ellipticity_frame(e1, e2)
     xr, yr = x * jnp.cos(phi) + y * jnp.sin(phi), -x * jnp.sin(phi) + y * jnp.cos(phi)
     kappa = cpl.convergence(q * xr ** 2 + yr ** 2 / q, 0.7, a, s, slope)
     trace = 0.5 * (u[:, 0, 0] + u[:, 1, 1])
@@ -61,11 +61,11 @@ def test_poisson_equation_and_symmetry(slope, e1, e2, a, s):
 def test_derivatives_match_finite_differences(slope):
     x, y = _points(80, seed=5, low=-1.0, high=1.2)
     args = (0.7, 0.1, 3.0, slope, 0.25, 0.15, 0.1, -0.2)
-    alpha, u, du = cpl.cored_power_law_fields(x, y, *args)
+    alpha, u, du = cpl.fields(x, y, *args)
     h = 1e-5
     for axis, (dx, dy) in enumerate(((h, 0.0), (0.0, h))):
-        plus = cpl.cored_power_law_fields(x + dx, y + dy, *args)
-        minus = cpl.cored_power_law_fields(x - dx, y - dy, *args)
+        plus = cpl.fields(x + dx, y + dy, *args)
+        minus = cpl.fields(x - dx, y - dy, *args)
         assert _relative((plus[0] - minus[0]) / (2 * h), u[..., axis]) < 1e-6
         assert _relative((plus[1] - minus[1]) / (2 * h), du[..., axis]) < 1e-5
 
@@ -73,7 +73,7 @@ def test_derivatives_match_finite_differences(slope):
 def test_circular_kernel_matches_the_closed_form():
     x, y = _points()
     for slope in (1.2, 2.0, 2.8):
-        elliptical = cpl.cored_power_law_fields(x, y, 0.7, 0.05, 2.0, slope, 0.0, 0.0, 0.0, 0.0)
+        elliptical = cpl.fields(x, y, 0.7, 0.05, 2.0, slope, 0.0, 0.0, 0.0, 0.0)
         circular = cpl.circular_fields(x, y, 0.7, 0.05, 2.0, slope)
         for value, reference in zip(elliptical, circular):
             assert _relative(value, reference) < 1e-4
@@ -83,8 +83,8 @@ def test_circular_kernel_matches_the_closed_form():
 def test_mass_inside_the_cut_is_the_dpie_mass(slope):
     """Every slope keeps the dPIE's projected mass inside the cut radius (R alpha(R) is that mass over pi)."""
     a, s = 0.05, 2.0
-    dpie, _ = lensing.dpie_fields(jnp.asarray([s]), jnp.asarray([0.0]), 0.7, a, s, 0.0, 0.0, 0.0, 0.0, derivative=False)[:2]
-    np.testing.assert_allclose(float(cpl.circular_deflection(s, 0.7, a, s, slope)), float(dpie[0, 0]), rtol=1e-12)
+    alpha, _ = dpie.fields(jnp.asarray([s]), jnp.asarray([0.0]), 0.7, a, s, 0.0, 0.0, 0.0, 0.0, derivative=False)[:2]
+    np.testing.assert_allclose(float(cpl.circular_deflection(s, 0.7, a, s, slope)), float(alpha[0, 0]), rtol=1e-12)
 
 
 def test_dpie_total_mass_and_finite_far_fields():
@@ -105,7 +105,7 @@ def test_gradient_in_the_slope_matches_finite_differences():
     x, y = _points(50, seed=7, low=-1.0, high=1.0)
 
     def total(slope):
-        alpha, u, _ = cpl.cored_power_law_fields(x, y, 0.7, 0.1, 3.0, slope, 0.2, 0.1, 0.0, 0.0, derivative=False)
+        alpha, u, _ = cpl.fields(x, y, 0.7, 0.1, 3.0, slope, 0.2, 0.1, 0.0, 0.0, derivative=False)
         return jnp.sum(alpha ** 2) + jnp.sum(u ** 2)
 
     h = 1e-6

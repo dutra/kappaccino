@@ -45,7 +45,9 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from .lensing import ellipticity_frame
+from . import frame as _frame
+
+PARAMETERS = ("sigma0", "Ra", "Rs", "slope", "e1", "e2", "center_x", "center_y")   # PackedLensState fields, in kernel order
 
 SLOPE_LOWER = 1.0           # open bounds of the 3D slope gamma
 SLOPE_UPPER = 3.0
@@ -167,7 +169,7 @@ def _frame_fields(xr, yr, q, a, s, slope, derivative):
     return alpha, hessian, third
 
 
-def cored_power_law_fields(x, y, sigma0, a, s, slope, e1, e2, center_x, center_y, derivative=True):
+def fields(x, y, sigma0, a, s, slope, e1, e2, center_x, center_y, derivative=True):
     """alpha (N, 2), U = d alpha / d theta (N, 2, 2) and dU[..., i, j, l] = d U_ij / d theta_l (N, 2, 2, 2; None
     unless ``derivative``) of one elliptical CPL at points (x, y) (arcsec).
 
@@ -175,31 +177,26 @@ def cored_power_law_fields(x, y, sigma0, a, s, slope, e1, e2, center_x, center_y
     slope ``slope`` and the Cartesian ellipticity (e1, e2) of the dPIE kernel."""
     x, y = jnp.asarray(x, dtype=jnp.float64), jnp.asarray(y, dtype=jnp.float64)
     scale = jnp.broadcast_to(amplitude(jnp.asarray(sigma0, dtype=jnp.float64), a, s, slope), jnp.shape(x))
-    phi, q = ellipticity_frame(e1, e2)
-    c, sn = jnp.cos(phi), jnp.sin(phi)
-    rotation = jnp.array([[c, sn], [-sn, c]])                        # principal frame = rotation @ (theta - centre)
+    q, rotation = _frame.rotation(e1, e2)
+    c, sn = rotation[0, 0], rotation[0, 1]
     dx, dy = x - center_x, y - center_y
-    (ax, ay), (fxx, fxy, fyy), third = _frame_fields(dx * c + dy * sn, -dx * sn + dy * c, q, a, s, slope, derivative)
-    alpha = jnp.einsum("ai,na->ni", rotation, jnp.stack((ax, ay), -1)) * scale[:, None]
-    u_frame = jnp.stack((jnp.stack((fxx, fxy), -1), jnp.stack((fxy, fyy), -1)), -2)
-    u = jnp.einsum("ai,bj,nab->nij", rotation, rotation, u_frame) * scale[:, None, None]
+    (ax, ay), hessian, third = _frame_fields(dx * c + dy * sn, -dx * sn + dy * c, q, a, s, slope, derivative)
+    alpha = _frame.to_sky_vector(rotation, jnp.stack((ax, ay), -1)) * scale[:, None]
+    u = _frame.to_sky_matrix(rotation, _frame.symmetric(*hessian)) * scale[:, None, None]
     if not derivative:
         return alpha, u, None
     fxxx, fxxy, fxyy, fyyy = third
-    du_frame = jnp.stack((jnp.stack((jnp.stack((fxxx, fxxy), -1), jnp.stack((fxxy, fxyy), -1)), -2),
-                          jnp.stack((jnp.stack((fxxy, fxyy), -1), jnp.stack((fxyy, fyyy), -1)), -2)), -3)
-    du = jnp.einsum("ai,bj,ck,nabc->nijk", rotation, rotation, rotation, du_frame)
-    return alpha, u, du * scale[:, None, None, None]
+    du_frame = jnp.stack((_frame.symmetric(fxxx, fxxy, fxyy), _frame.symmetric(fxxy, fxyy, fyyy)), -3)
+    return alpha, u, _frame.to_sky_third(rotation, du_frame) * scale[:, None, None, None]
 
 
 # Batches over components (sigma0 per component, scalar or per point); ``derivative`` is static.
-grouped_cored_power_law_fields = {
-    True: jax.vmap(cored_power_law_fields, in_axes=(None, None, 0, 0, 0, 0, 0, 0, 0, 0)),
-    False: jax.vmap(functools.partial(cored_power_law_fields, derivative=False), in_axes=(None, None, 0, 0, 0, 0, 0, 0, 0, 0)),
+grouped_fields = {
+    True: jax.vmap(fields, in_axes=(None, None, 0, 0, 0, 0, 0, 0, 0, 0)),
+    False: jax.vmap(functools.partial(fields, derivative=False), in_axes=(None, None, 0, 0, 0, 0, 0, 0, 0, 0)),
 }
 
 
-# ----------------------------------------------------------------------------- stellar kinematics
 JEANS_NODES = 512            # log-spaced radii of the Jeans integrals, from 1e-3 of the smaller of core and aperture
 JEANS_SPAN = (1.0e-3, 1.0e3)  # to 1e3 cut radii
 

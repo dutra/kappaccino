@@ -59,11 +59,12 @@ def verify_geometry_and_profile():
     np.testing.assert_allclose(log_slope(1e-3, a=1e-6, s=1), -1, atol=.002)
     import jax
     jax.config.update("jax_enable_x64", True)
-    from kappaccino.lens.nie import DPIE_NIE_E
+    import jax.numpy as jnp
+    from kappaccino.lens.profiles import dpie
     e = (1-Q)/(1+Q)
     # On the major axis, X=xi/sqrt(q).
-    h = DPIE_NIE_E.hessian(radius/np.sqrt(Q), np.zeros_like(radius), 1, A, S, e, 0)
-    np.testing.assert_allclose((h[0]+h[3])/2, convergence(radius),
+    u = np.asarray(dpie.fields(jnp.asarray(radius/np.sqrt(Q)), jnp.zeros(radius.shape), 1.0, A, S, e, 0.0, 0.0, 0.0, derivative=False)[1])
+    np.testing.assert_allclose((u[:, 0, 0]+u[:, 1, 1])/2, convergence(radius),
                                rtol=3e-11, atol=2e-14)
 
 

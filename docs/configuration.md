@@ -162,7 +162,7 @@ population = replace(population, profile_type=102, slope=2.4)             # with
 
 With the `kappaccino` command, `--member-profile power-law` samples the slope and `--member-slope G` holds it at `G`.
 
-The kernel (`kappaccino.lens.cored_power_law`) evaluates the elliptical deflection and its derivatives by Gauss–Legendre
+The kernel (`kappaccino.lens.profiles.cored_power_law`) evaluates the elliptical deflection and its derivatives by Gauss–Legendre
 quadrature of the integrals of Keeton (2001), to about $10^{-4}$ of the field. It costs about three times as much
 per exact member as the analytic dPIE. Far-field CPL members use the exact circular profile instead of the dPIE series.
 
@@ -171,7 +171,7 @@ member's half-light radius, and the images fix the mass inside larger radii. For
 the dPIE calibration `kinematics_aperture_factor` times the ratio $\sigma_\mathrm{ap}(\gamma)/\sigma_\mathrm{ap}(2)$.
 This ratio compares the member's aperture dispersion with that of the dPIE with the same dispersion parameter and
 radii. It comes from the isotropic Jeans equation, with light tracing mass, integrated over a circular aperture
-(`kappaccino.lens.cored_power_law.aperture_dispersion_ratio`). At slope 2 the ratio is 1. The aperture radius comes
+(`kappaccino.lens.profiles.cored_power_law.aperture_dispersion_ratio`). At slope 2 the ratio is 1. The aperture radius comes
 from the member catalog: each measurement's `aperture_arcsec`, else its source's. For dispersions measured inside a
 galaxy's half-light radius ($\sigma_e$), that is the galaxy's own radius. `kinematics_aperture_arcsec` replaces the
 catalog's aperture with one radius for every member, for sensitivity tests. A CPL population with kinematics needs an

@@ -13,7 +13,7 @@ import pandas as pd
 from matplotlib.path import Path as MplPath
 from skimage.measure import find_contours
 
-from ..lens import lensing
+from ..lens.profiles import dpie
 from ..core.inputs import lenstool_shape_to_e1e2
 from ..lens.cosmology import dpie_sigma0_factor_from_config
 from .config import MockConfig
@@ -31,32 +31,65 @@ def lensing_efficiency(truth: MockTruth, z_source: float) -> float:
 
 
 class TruthLens(NamedTuple):
-    """The truth for one source redshift: the dPIE components as a static lens plus the injected mass field (its plane
-    waves, or None) times its redshift weight."""
-    state: lensing.StaticLensState
+    """The truth for one source redshift: the dPIE components plus the injected mass field (its plane waves, or None)
+    times its redshift weight."""
+    components: tuple[jnp.ndarray, ...]      # the dPIE kernel's parameters (dpie.PARAMETERS), each of shape (component,)
     field: tuple | None
     weight: float
 
 
+# Points per compiled call of the summed truth fields (about 0.4 kB per point while one component is evaluated).
+FIELD_CHUNK_POINTS = 1 << 18
+
+
+def _dpie_alpha_hessian(x, y, components):
+    """Deflection and Hessian (alpha_x, alpha_y, h_xx, h_xy, h_yx, h_yy) summed over the dPIE components at points
+    (x, y); traceable.  The components are accumulated one at a time, so the memory does not grow with their number."""
+    x, y = jnp.asarray(x, dtype=jnp.float64), jnp.asarray(y, dtype=jnp.float64)
+
+    def add(total, component):
+        alpha, u, _ = dpie.fields(x, y, *component, derivative=False)
+        return (total[0] + alpha, total[1] + u), None
+
+    (alpha, u), _ = jax.lax.scan(add, (jnp.zeros(x.shape + (2,)), jnp.zeros(x.shape + (2, 2))), components)
+    return alpha[..., 0], alpha[..., 1], u[..., 0, 0], u[..., 0, 1], u[..., 1, 0], u[..., 1, 1]
+
+
+_dpie_alpha_hessian_jit = jax.jit(_dpie_alpha_hessian)
+
+
+def _dpie_alpha_hessian_chunked(x: np.ndarray, y: np.ndarray, components) -> tuple[np.ndarray, ...]:
+    """The same on NumPy points of any number, in chunks of at most FIELD_CHUNK_POINTS (the last one padded, so one
+    shape is compiled per chunk size)."""
+    x, y = np.asarray(x, float).ravel(), np.asarray(y, float).ravel()
+    size = min(FIELD_CHUNK_POINTS, max(x.size, 1))
+    parts = []
+    for start in range(0, x.size, size):
+        xs, ys = x[start:start + size], y[start:start + size]
+        pad = size - xs.size
+        values = _dpie_alpha_hessian_jit(jnp.asarray(np.pad(xs, (0, pad), mode="edge")), jnp.asarray(np.pad(ys, (0, pad), mode="edge")), components)
+        parts.append([np.asarray(v, float)[:xs.size] for v in values])
+    return tuple(np.concatenate([part[i] for part in parts]) if parts else np.zeros(0) for i in range(6))
+
+
 def lens_state(truth: MockTruth, z_source: float, components: list[DPIEComponent] | None = None) -> TruthLens:
-    """All truth components as a static dPIE lens for one source redshift, with the
-    injected mass field weighted by D_ls / D_s relative to the field's reference redshift."""
+    """All truth components as dPIE kernel parameters for one source redshift, with the injected mass field weighted
+    by D_ls / D_s relative to the field's reference redshift."""
     factor = lensing_efficiency(truth, z_source)      # one cosmology evaluation per redshift, not one per component
-    kwargs = []
+    rows = []
     for c in (truth.components if components is None else components):
         ra, rs = c.core_radius_kpc / truth.kpc_per_arcsec, c.cut_radius_kpc / truth.kpc_per_arcsec
         e1, e2 = lenstool_shape_to_e1e2(c.ellipticite, c.angle_pos)
-        kwargs.append({"sigma0": float(c.v_disp) ** 2 * factor / ra, "Ra": float(ra), "Rs": float(rs), "e1": float(e1), "e2": float(e2),
-                       "center_x": float(c.x_centre), "center_y": float(c.y_centre)})
-    state = lensing.static_lens_state_from_kwargs([lensing.ORIGINAL_DPIE_PROFILE_NAME] * len(kwargs), kwargs)
+        rows.append((float(c.v_disp) ** 2 * factor / ra, float(ra), float(rs), float(e1), float(e2), float(c.x_centre), float(c.y_centre)))
+    packed = tuple(jnp.asarray(column, dtype=jnp.float64) for column in np.asarray(rows, dtype=float).reshape(-1, len(dpie.PARAMETERS)).T)
     if truth.field is None:
-        return TruthLens(state, None, 0.0)
-    return TruthLens(state, field_arrays(truth.field), factor / lensing_efficiency(truth, float(truth.field["reference_redshift"])))
+        return TruthLens(packed, None, 0.0)
+    return TruthLens(packed, field_arrays(truth.field), factor / lensing_efficiency(truth, float(truth.field["reference_redshift"])))
 
 
 def _alpha_hessian(lens: TruthLens, x, y):
     """Total deflection and Hessian at the points (traceable): the dPIE lens plus the weighted field."""
-    out = lensing.alpha_and_hessian(x, y, lens.state)
+    out = _dpie_alpha_hessian(x, y, lens.components)
     if lens.field is None:
         return out
     return tuple(a + b for a, b in zip(out, field_alpha_hessian(x, y, lens.field, lens.weight)))
@@ -80,8 +113,8 @@ def ray_shoot(lens: TruthLens, x: np.ndarray, y: np.ndarray) -> tuple[np.ndarray
     x, y = np.asarray(x, float).ravel(), np.asarray(y, float).ravel()
     n = max(RAY_SHOOT_PAD, int(math.ceil(x.size / RAY_SHOOT_PAD)) * RAY_SHOOT_PAD)
     xp, yp = np.pad(x, (0, n - x.size), mode="edge"), np.pad(y, (0, n - y.size), mode="edge")
-    bx, by = lensing.ray_shooting_tiled(jnp.asarray(xp), jnp.asarray(yp), lens.state, chunk_size=lensing.estimated_alpha_hessian_chunk_size(1.0))
-    bx, by = np.asarray(bx, float)[:x.size], np.asarray(by, float)[:x.size]
+    alpha_x, alpha_y, *_ = _dpie_alpha_hessian_chunked(xp, yp, lens.components)
+    bx, by = (xp - alpha_x)[:x.size], (yp - alpha_y)[:x.size]
     field = _field_tiled(lens, x, y)
     return (bx, by) if field is None else (bx - field[0], by - field[1])
 
@@ -127,9 +160,7 @@ def convergence_grid(lens: TruthLens, config: MockConfig, *, centre: tuple[float
     axis_x = np.linspace(centre[0] - window / 2, centre[0] + window / 2, n)
     axis_y = np.linspace(centre[1] - window / 2, centre[1] + window / 2, n)
     xx, yy = np.meshgrid(axis_x, axis_y)
-    chunk = lensing.estimated_alpha_hessian_chunk_size(1.0)
-    _, _, fxx, fxy, fyx, fyy = lensing.alpha_and_hessian_tiled(jnp.asarray(xx.ravel()), jnp.asarray(yy.ravel()), lens.state, chunk_size=chunk)
-    fxx, fxy, fyx, fyy = (np.asarray(v, float) for v in (fxx, fxy, fyx, fyy))
+    _, _, fxx, fxy, fyx, fyy = _dpie_alpha_hessian_chunked(xx.ravel(), yy.ravel(), lens.components)
     field = _field_tiled(lens, xx.ravel(), yy.ravel())
     if field is not None:
         fxx, fxy, fyx, fyy = fxx + field[2], fxy + field[3], fyx + field[4], fyy + field[5]

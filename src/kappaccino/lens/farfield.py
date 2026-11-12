@@ -1,13 +1,13 @@
 """Circular far-field series for distant members: fixed geometry times current weights.
 
-The deflection of a circular dPIE at separation R, in the active DPIE_NIE_E
-convention, expands as (M/R)[1 - c1/(2R) + c2/(8R^3) + ...] with monopole
+The deflection of a circular dPIE at separation R, in the convention of
+``profiles.dpie``, expands as (M/R)[1 - c1/(2R) + c2/(8R^3) + ...] with monopole
 M = 2 sigma0 Ra Rs, c1 = Ra + Rs and c2 = c1 (Ra^2 + Rs^2).  Geometry arrays hold
 rhat/R, rhat/R^2 and rhat/R^4 with their first two spatial derivatives; only the
 parameter weights change during sampling.  All Jacobians are U = d alpha / d theta.
 
 Cored power-law members (``power_law``) have no series at a free slope; they use the exact circular profile
-(``kappaccino.lens.cored_power_law.circular_fields``) at the same separations, which costs a few elementwise
+(``kappaccino.lens.profiles.cored_power_law.circular_fields``) at the same separations, which costs a few elementwise
 operations per member and image.
 """
 from __future__ import annotations
@@ -90,7 +90,7 @@ def farfield_weights(geometry: FarFieldGeometry, sigma0, Ra, Rs):
 
 def _power_law_rows(geometry: FarFieldGeometry, sigma0, Ra, Rs, slope, members):
     """Exact circular cored power-law fields of the far-field members ``members`` (static indices)."""
-    from .cored_power_law import circular_fields
+    from .profiles.cored_power_law import circular_fields
     shape = geometry.valid_separation.shape
     index = jnp.asarray(members)
     radius = jnp.take(geometry.separation, index, axis=0)

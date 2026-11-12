@@ -65,6 +65,33 @@ def test_nfw_kernel_matches_analytic_circular_halo_and_finite_differences():
         np.testing.assert_allclose(g[k], (total(e + step) - total(e - step)) / 2e-6, rtol=1e-5)
 
 
+def test_analytic_jacobian_derivative_matches_forward_mode():
+    """dU against two forward-mode derivatives of the kernel's own Jacobian: elliptical, flat and round halos, points
+    on the axes and at the centre, and a per-point normalization."""
+    rng = np.random.default_rng(8)
+    x = jnp.concatenate((jnp.asarray(rng.uniform(-60, 60, 40)), jnp.asarray([3.0, 3.0 + 1e-9, 20.0, 3.0])))
+    y = jnp.concatenate((jnp.asarray(rng.uniform(-60, 60, 40)), jnp.asarray([-4.0, -4.0, -4.0, 10.0])))
+    alpha_rs = jnp.asarray(rng.uniform(5, 15, x.size))
+    for e1, e2 in ((0.21, -0.13), (0.55, 0.3), (0.2, 0.0), (0.0, 0.0)):
+        parameters = (35.0, alpha_rs, e1, e2, 3.0, -4.0)
+
+        def jacobian_at(point, scale):
+            return nfw.fields(point[None, 0], point[None, 1], 35.0, scale, e1, e2, 3.0, -4.0, derivative=False)[1][0]
+
+        alpha, u, du = nfw.fields(x, y, *parameters)
+        expected = jax.vmap(jax.jacfwd(jacobian_at))(jnp.stack((x, y), -1), alpha_rs)
+        assert np.isfinite(np.asarray(du)).all()
+        np.testing.assert_allclose(du, expected, rtol=1e-11, atol=1e-13 * float(jnp.max(jnp.abs(expected))))
+        np.testing.assert_allclose(du, jnp.swapaxes(du, -1, -2), rtol=0, atol=1e-13 * float(jnp.max(jnp.abs(du))))   # symmetric in every pair
+        np.testing.assert_allclose(u, nfw.fields(x, y, *parameters, derivative=False)[1], rtol=1e-13, atol=1e-15)
+    # The parameter gradients of dU match those of the forward-mode version.
+    point = jnp.asarray([12.0, -7.0])
+    analytic = lambda p: nfw.fields(point[None, 0], point[None, 1], p[0], 9.0, p[1], p[2], p[3], p[4])[2][0]
+    forward = lambda p: jax.jacfwd(lambda xy: nfw.fields(xy[None, 0], xy[None, 1], p[0], 9.0, p[1], p[2], p[3], p[4], derivative=False)[1][0])(point)
+    p = jnp.asarray([35.0, 0.21, -0.13, 3.0, -4.0])
+    np.testing.assert_allclose(jax.jacfwd(analytic)(p), jax.jacfwd(forward)(p), rtol=1e-9, atol=1e-13)
+
+
 def test_nfw_physical_normalization_matches_astropy():
     # alpha(r_s) = 4 kappa_s theta_s (1 - ln 2), with kappa_s = rho_s r_s / Sigma_crit, from astropy distances and constants.
     import astropy.units as u

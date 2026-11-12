@@ -3,7 +3,7 @@ ellipticity in the convergence.  The 44-term set matches the NFW to about one pa
 
 Deflection, Jacobian and its derivative are linear in ``alpha_rs``, the deflection at the scale radius, so the kernel is
 evaluated with unit normalization and scaled afterwards; the normalization may vary per point (per image).  The
-derivative of the Jacobian is two forward-mode derivatives of the analytic Hessian.
+derivative of the Jacobian is analytic, like the Jacobian.
 
 The second half of the module converts a halo's :math:`M_{200}` and scale radius to the kernel's ``rs`` and
 ``alpha_rs``."""
@@ -61,30 +61,65 @@ def _cse_set_hessian(x, y, q):
     return jnp.sum(fxx, axis=0), jnp.sum(fxy, axis=0), jnp.sum(fyy, axis=0)
 
 
+def _cse_set_hessian_and_third(x, y, q):
+    """(f_xx, f_xy, f_yy) and the third derivatives (f_xxx, f_xxy, f_xyy, f_yyy) of the same set: the derivatives of
+    Oguri (2021), eqs. 21-23, in x and y, written out term by term and summed.
+
+    With :math:`\\psi^2 = q^2 (s^2 + x^2) + y^2`, :math:`B = \\psi + q^2 s`, :math:`C = \\psi + s` and
+    :math:`\\phi = C^2 + (1 - q^2) x^2`, each term is :math:`f_{xx} = P (1 + T_1 - T_2)` and
+    :math:`f_{yy} = P (1 + T_3 - T_4)` with :math:`P \\propto 1 / \\phi`, :math:`T_1 = q^2 s (q^2 s^2 + y^2) / \\psi^3`,
+    :math:`T_2 = 2 x^2 B^2 / (\\psi^2 \\phi)`, :math:`T_3 = q^2 s (s^2 + x^2) / \\psi^3` and
+    :math:`T_4 = 2 y^2 C^2 / (\\psi^2 \\phi)`; the third derivatives follow from the product rule with
+    :math:`\\partial \\ln P = -\\partial \\ln \\phi`.  No term divides by x or y, so the axes and the centre are regular."""
+    a, s = _CSE_A[:, None] / q, _CSE_S[:, None]
+    root = jnp.sqrt(q)
+    xq, yq = x[None, :] * root, y[None, :] * root
+    q2 = q * q
+    psi = jnp.sqrt(q2 * (s * s + xq * xq) + yq * yq)
+    b, c = psi + q2 * s, psi + s
+    phi = c * c + (1.0 - q2) * xq * xq
+    inv_psi, inv_phi = 1.0 / psi, 1.0 / phi
+    pre = a * q2 / s * inv_phi                                 # extra q from the two sqrt(q) coordinate factors
+    psi_x, psi_y = q2 * xq * inv_psi, yq * inv_psi
+    dln_phi_x, dln_phi_y = (2.0 * c * psi_x + 2.0 * (1.0 - q2) * xq) * inv_phi, 2.0 * c * psi_y * inv_phi
+    dln_psi_x, dln_psi_y = psi_x * inv_psi, psi_y * inv_psi
+    inv_psi3 = inv_psi ** 3
+    w = inv_psi * inv_psi * inv_phi                            # 1 / (psi^2 phi)
+    t1 = q2 * s * (q2 * s * s + yq * yq) * inv_psi3
+    t2 = 2.0 * xq * xq * b * b * w
+    t3 = q2 * s * (s * s + xq * xq) * inv_psi3
+    t4 = 2.0 * yq * yq * c * c * w
+    gxx, gyy = 1.0 + t1 - t2, 1.0 + t3 - t4
+    fxy = -pre * xq * yq * (q2 * s * inv_psi3 + 2.0 * b * c * w)
+    t1_x, t1_y = -3.0 * t1 * dln_psi_x, 2.0 * q2 * s * yq * inv_psi3 - 3.0 * t1 * dln_psi_y
+    t2_x = 4.0 * xq * b * (b + xq * psi_x) * w - t2 * (2.0 * dln_psi_x + dln_phi_x)
+    t2_y = 4.0 * xq * xq * b * psi_y * w - t2 * (2.0 * dln_psi_y + dln_phi_y)
+    t3_x, t3_y = 2.0 * q2 * s * xq * inv_psi3 - 3.0 * t3 * dln_psi_x, -3.0 * t3 * dln_psi_y
+    t4_x = 4.0 * yq * yq * c * psi_x * w - t4 * (2.0 * dln_psi_x + dln_phi_x)
+    t4_y = 4.0 * yq * c * (c + yq * psi_y) * w - t4 * (2.0 * dln_psi_y + dln_phi_y)
+    third = (pre * (t1_x - t2_x - dln_phi_x * gxx), pre * (t1_y - t2_y - dln_phi_y * gxx),
+             pre * (t3_x - t4_x - dln_phi_x * gyy), pre * (t3_y - t4_y - dln_phi_y * gyy))
+    total = lambda value: jnp.sum(value, axis=0)
+    # One more sqrt(q) for the third coordinate derivative.
+    return (total(pre * gxx), total(fxy), total(pre * gyy)), tuple(root * total(value) for value in third)
+
+
 def fields(x, y, rs, alpha_rs, e1, e2, center_x, center_y, derivative=True):
     """alpha (N, 2), U = d alpha / d theta (N, 2, 2) and dU[..., i, j, l] = d U_ij / d theta_l (N, 2, 2, 2; None unless
     ``derivative``) of one elliptical NFW with scale radius ``rs`` (arcsec) and deflection ``alpha_rs`` at the scale radius."""
     scale = jnp.broadcast_to(jnp.asarray(alpha_rs, dtype=jnp.float64), jnp.shape(x))
     q, rotation = _frame.rotation(e1, e2)
     c, s = rotation[0, 0], rotation[0, 1]
-
-    def halo_frame(points):
-        return ((points[:, 0] - center_x) * c + (points[:, 1] - center_y) * s) / rs, (-(points[:, 0] - center_x) * s + (points[:, 1] - center_y) * c) / rs
-
-    def jacobian(points):
-        xr, yr = halo_frame(points)
-        u_frame = _frame.symmetric(*_cse_set_hessian(xr, yr, q)) * (_NFW_UNIT_NORMALIZATION / rs)
-        return _frame.to_sky_matrix(rotation, u_frame)
-
-    xy = jnp.stack((x, y), -1)
-    fx, fy = _cse_set_deflection(*halo_frame(xy), q)
+    xr, yr = ((x - center_x) * c + (y - center_y) * s) / rs, (-(x - center_x) * s + (y - center_y) * c) / rs
+    fx, fy = _cse_set_deflection(xr, yr, q)
     alpha = _frame.to_sky_vector(rotation, jnp.stack((fx, fy), -1)) * (_NFW_UNIT_NORMALIZATION * scale[:, None])
-    u = jacobian(xy) * scale[:, None, None]
     if not derivative:
-        return alpha, u, None
-    du = jnp.stack([jax.jvp(jacobian, (xy,), (jnp.broadcast_to(jnp.asarray(direction), xy.shape),))[1]
-                    for direction in ((1.0, 0.0), (0.0, 1.0))], -1)
-    return alpha, u, du * scale[:, None, None, None]
+        u_frame = _frame.symmetric(*_cse_set_hessian(xr, yr, q))
+        return alpha, _frame.to_sky_matrix(rotation, u_frame) * (_NFW_UNIT_NORMALIZATION / rs) * scale[:, None, None], None
+    hessian, (fxxx, fxxy, fxyy, fyyy) = _cse_set_hessian_and_third(xr, yr, q)
+    u = _frame.to_sky_matrix(rotation, _frame.symmetric(*hessian)) * (_NFW_UNIT_NORMALIZATION / rs) * scale[:, None, None]
+    du_frame = jnp.stack((_frame.symmetric(fxxx, fxxy, fxyy), _frame.symmetric(fxxy, fxyy, fyyy)), -3)
+    return alpha, u, _frame.to_sky_third(rotation, du_frame) * (_NFW_UNIT_NORMALIZATION / (rs * rs)) * scale[:, None, None, None]
 
 
 # Batches over components; the ``derivative`` flag is static, so each variant is its own vmapped function.

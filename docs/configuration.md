@@ -160,13 +160,11 @@ population = replace(population, profile_type=102)                       # slope
 population = replace(population, profile_type=102, slope=2.4)             # with fixed_relation_fields=("slope",)
 ```
 
-From the launcher, `--member-profile power-law` samples the slope and `--member-slope G` holds it at `G`.
+With the `kappaccino` command, `--member-profile power-law` samples the slope and `--member-slope G` holds it at `G`.
 
 The kernel (`kappaccino.lens.cored_power_law`) evaluates the elliptical deflection and its derivatives by Gauss–Legendre
 quadrature of the integrals of Keeton (2001), to about $10^{-4}$ of the field. It costs about three times as much
 per exact member as the analytic dPIE. Far-field CPL members use the exact circular profile instead of the dPIE series.
-The `lenstronomy` image finder has no CPL profile, so `ImageDiagnosticsConfig.exact_image_finder` must be one of the
-JAX finders.
 
 Measured stellar dispersions (`kinematics_sources`) constrain the slope. The dispersions fix the mass inside a
 member's half-light radius, and the images fix the mass inside larger radii. For a CPL member, the model dispersion is

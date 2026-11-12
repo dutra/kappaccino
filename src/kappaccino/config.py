@@ -1938,10 +1938,6 @@ def validate_config(config: LensClusterSolverConfig) -> None:
     bad = set(getattr(config.scaling, "fixed_relation_fields", ())) - {"sigma", "cutkpc", "alpha_sigma", "beta_radius", "slope"}
     if bad:
         raise ValueError(f"scaling.fixed_relation_fields: unknown fields {sorted(bad)}; allowed: sigma, cutkpc, alpha_sigma, beta_radius, slope.")
-    if (any(int(p.profile_type) == 102 for p in config.model.member_populations)
-            and config.image_diagnostics.exact_image_finder == "lenstronomy"):
-        raise ValueError("image_diagnostics.exact_image_finder='lenstronomy' cannot model cored power-law members (profile_type 102); "
-                         "use 'global-jax', 'local-lm' or 'local-lm-adaptive'.")
     members = config.members
     _positive("members.far_field_cut_radii", members.far_field_cut_radii)
     if members.cut_radius_inflation < 1.0 or not math.isfinite(members.cut_radius_inflation):

@@ -25,9 +25,8 @@ from .inputs import (
 )
 from ..lens.cosmology import dpie_sigma0_factor_from_config, kpc_per_arcsec_from_config
 from .model import (
-    COMPONENT_FAMILY_LARGE, COMPONENT_FAMILY_SCALING, CORED_POWER_LAW_PROFILE, CORED_POWER_LAW_PROFILE_NAME, DP_IE_PROFILE,
-    DPIE_PROFILE_NAME, MEMBER_PROFILES, SHEAR_PROFILE,
-    SHEAR_PROFILE_NAME, FamilyData, ImageData, MemberModel, ModelState, PackedLensSpec, ParameterSpec, default_theta,
+    COMPONENT_FAMILY_LARGE, COMPONENT_FAMILY_SCALING, CORED_POWER_LAW_PROFILE, DP_IE_PROFILE, MEMBER_PROFILES, SHEAR_PROFILE,
+    FamilyData, ImageData, MemberModel, ModelState, PackedLensSpec, ParameterSpec, default_theta,
     physical_to_latent,
 )
 from ..priors import bounds, physical_center, split
@@ -92,15 +91,13 @@ def _sampled_fields(info) -> set[str]:
 
 
 def build_halo_parameter_specs(potentials: list[dict[str, Any]]):
-    """Specs, per-component (field, index) assignments, and lens model names for the large halos."""
+    """Specs and per-component (field, index) assignments for the large halos."""
     specs: list[ParameterSpec] = []
     assignments_by_component: list[list[tuple[str, int]]] = []
-    lens_model_list: list[str] = []
     for potential in potentials:
         potential_id = str(potential["id"])
         profile_type = int(potential["profil"])
         info = lens_profile(profile_type)
-        lens_model_list.append(info.name)
         assignments: list[tuple[str, int]] = []
         priors = dict(potential.get("priors", {}) or {})
         unknown = set(priors) - _sampled_fields(info)
@@ -114,7 +111,7 @@ def build_halo_parameter_specs(potentials: list[dict[str, Any]]):
         for field_name, prior in priors.items():
             _append_spec(specs, assignments, potential_id=potential_id, profile_type=profile_type, field_name=field_name, prior=prior)
         assignments_by_component.append(assignments)
-    return specs, assignments_by_component, lens_model_list
+    return specs, assignments_by_component
 
 
 # ----------------------------------------------------------------------------- member scaling
@@ -123,14 +120,11 @@ def build_scaling_parameter_specs(potfiles: list[dict[str, Any]], scaling: Any, 
     of a cored power-law population."""
     specs: list[ParameterSpec] = []
     indices_by_potfile: list[dict[str, int]] = []
-    lens_model_list: list[str] = []
-    names = {DP_IE_PROFILE: DPIE_PROFILE_NAME, CORED_POWER_LAW_PROFILE: CORED_POWER_LAW_PROFILE_NAME}
     for potfile in potfiles:
         potfile_id = str(potfile["id"])
         profile_type = int(potfile["type"])
         if profile_type not in MEMBER_PROFILES:
             raise ValueError(f"Unsupported potfile type {potfile['type']} for {potfile_id}.")
-        lens_model_list.extend([names[profile_type]] * len(potfile["catalog_df"]))
         priors = {"sigma": potfile["sigma_prior"], "cutkpc": potfile["cutkpc_prior"], "corekpc": scaling.corekpc_prior,
                   "alpha_sigma": scaling.alpha_sigma_prior, "beta_radius": scaling.beta_radius_prior, "slope": potfile.get("slope_prior")}
         field_index: dict[str, int] = {}
@@ -143,7 +137,7 @@ def build_scaling_parameter_specs(potfiles: list[dict[str, Any]], scaling: Any, 
             specs.append(_prior_spec(f"{potfile_id}.{field_name}", sample_name(potfile_id, field_name), potfile_id, field_name,
                                      priors[field_name], "scaling", profile_type=profile_type))
         indices_by_potfile.append(field_index)
-    return specs, indices_by_potfile, lens_model_list
+    return specs, indices_by_potfile
 
 
 def build_member_components(potfiles, reference, scaling_param_indices, *, start_component_index, scaling):
@@ -439,16 +433,15 @@ def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.n
     kpc_per_arcsec = kpc_per_arcsec_from_config(z_lens, cosmo_config)
     scaling = config.scaling
 
-    specs, component_assignments, lens_model_list = build_halo_parameter_specs(potentials)
+    specs, component_assignments = build_halo_parameter_specs(potentials)
     base_components = [{k: v for k, v in potential.items() if k != "priors"} for potential in potentials]
-    scaling_specs, scaling_param_indices, scaling_models = build_scaling_parameter_specs(potfiles, scaling, start_index=len(specs))
+    scaling_specs, scaling_param_indices = build_scaling_parameter_specs(potfiles, scaling, start_index=len(specs))
     for spec_item in scaling_specs:
         specs.append(spec_item)
     components, assignments, scaling_assignments, records = build_member_components(
         potfiles, reference, scaling_param_indices, start_component_index=len(base_components), scaling=scaling)
     base_components.extend(components)
     component_assignments.extend(assignments)
-    lens_model_list.extend(scaling_models)
 
     # Member hierarchy: population scatter(s), one sampled offset per member (and per radius in sigma_rcut mode), source scatter.
     n_components = len(base_components)
@@ -620,7 +613,7 @@ def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.n
     state = ModelState(
         run_name=str(config.paths.run_name or "cluster"), cosmo_config=cosmo_config, z_lens=z_lens,
         kpc_per_arcsec=float(kpc_per_arcsec), reference=reference, parameter_specs=specs,
-        base_components=base_components, packed_lens_spec=packed, lens_model_list=lens_model_list,
+        base_components=base_components, packed_lens_spec=packed,
         family_data=families, images=images, potfiles=potfiles, scaling_component_records=records,
         members=members, z_source_values=z_values, dpie_sigma0_factor_by_z=factor_by_z,
         softening_length_param_index=int(softening_index), sigma_def_param_index=int(sigma_def_index),

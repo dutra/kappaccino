@@ -1,4 +1,4 @@
-"""CPU planning and fresh-process backend/worker setup, without lens inference."""
+"""CPU setup and fresh-process backend/worker setup, without lens inference."""
 import json
 import os
 from pathlib import Path
@@ -12,47 +12,20 @@ from kappaccino import cpu_runtime as cpu
 
 @pytest.mark.parametrize("chains", [1, 2, 4, 8])
 @pytest.mark.parametrize("method", ["parallel", "sequential", "vectorized"])
-def test_budget_follows_concurrent_chain_count(monkeypatch, chains, method):
-    monkeypatch.setattr(cpu, "_ACTIVE_PLAN", None)
-    # A fake six-CPU affinity mask, also on platforms without CPU affinity (macOS): the plan's arithmetic is the same.
-    monkeypatch.setattr(cpu, "affinity_supported", lambda: True)
-    monkeypatch.setattr(os, "sched_getaffinity", lambda _: {8, 9, 10, 11, 12, 13}, raising=False)
-    monkeypatch.setattr(cpu, "_physical_core_order", lambda ids: tuple(ids))
-    plan = cpu.resolve_cpu_plan(chains, method, 2)
-    expected = min(6, 2 * (1 if method == "sequential" else chains))
-    assert len(plan.selected_cpu_ids) == expected
-    assert set(plan.selected_cpu_ids) <= {8, 9, 10, 11, 12, 13}
-    assert plan.chains == chains  # Never silently reduce chains to fit CPUs.
+def test_devices_and_blas_follow_chain_method(chains, method):
+    plan = cpu.resolve_cpu_plan(chains, method)
+    assert plan.chains == chains
     assert plan.jax_cpu_devices == (chains if method == "parallel" else 1)
-    assert plan.blas_threads == 1
+    assert plan.blas_threads == (1 if method == "parallel" and chains > 1 else None)
 
 
-def test_none_preserves_available_allocation(monkeypatch):
-    monkeypatch.setattr(cpu, "_ACTIVE_PLAN", None)
-    monkeypatch.setattr(cpu, "affinity_supported", lambda: True)
-    monkeypatch.setattr(os, "sched_getaffinity", lambda _: {5, 7, 19}, raising=False)
-    plan = cpu.resolve_cpu_plan(2, threads_per_chain=None)
-    assert plan.selected_cpu_ids == (5, 7, 19)
-    assert plan.blas_threads == 1
-
-
-@pytest.mark.parametrize("chains,method,expected", [(4, "parallel", 1), (1, "parallel", None), (4, "sequential", None)])
-def test_parallel_blas_limit_without_affinity(monkeypatch, chains, method, expected):
-    monkeypatch.setattr(cpu, "_ACTIVE_PLAN", None)
-    monkeypatch.setattr(cpu, "affinity_supported", lambda: False)
-    plan = cpu.resolve_cpu_plan(chains, method, None)
-    assert plan.selected_cpu_ids == plan.available_cpu_ids
-    assert plan.blas_threads == expected
-
-
-def test_parallel_backend_without_affinity_limits_loaded_and_future_blas():
+def test_parallel_backend_limits_loaded_and_future_blas():
     code = """
 import os
 import numpy as np
 from threadpoolctl import threadpool_info
 from kappaccino import cpu_runtime as cpu
-cpu.affinity_supported = lambda: False
-plan = cpu.configure_cpu_runtime(4, 'parallel', None)
+plan = cpu.configure_cpu_runtime(4, 'parallel')
 assert plan.blas_threads == 1
 assert all(os.environ[name] == '1' for name in cpu._BLAS_VARIABLES)
 import jax
@@ -63,52 +36,50 @@ result = jax.pmap(jnp.linalg.cholesky)(jnp.asarray(np.stack([a] * 4)))
 np.testing.assert_allclose(result, np.stack([np.linalg.cholesky(a)] * 4), rtol=1e-12)
 blas = [p['num_threads'] for p in threadpool_info() if p['user_api'] == 'blas']
 assert set(blas) <= {1}          # empty where threadpoolctl cannot see the BLAS (Apple Accelerate); the variables above still hold
-assert cpu.configure_cpu_runtime(4, 'parallel', None) == plan
+assert cpu.configure_cpu_runtime(4, 'parallel') == plan
 """
     env = dict(os.environ, PYTHONPATH=str(Path('src').resolve()), OMP_NUM_THREADS='4', OPENBLAS_NUM_THREADS='4')
     subprocess.run([sys.executable, '-c', code], env=env, check=True, timeout=60)
 
 
 @pytest.mark.parametrize("value", [0, -1, True, 1.5, "2"])
-def test_reject_invalid_thread_budgets(value):
+def test_reject_invalid_chain_counts(value):
     with pytest.raises(ValueError, match="positive integer"):
-        cpu.resolve_cpu_plan(4, threads_per_chain=value)
+        cpu.resolve_cpu_plan(value)
 
 
-def test_prefer_physical_cores_within_allowed_mask(monkeypatch):
-    def read(path):
-        logical = int(str(path).split('/cpu/cpu')[1].split('/')[0])
-        return '0' if path.name == 'physical_package_id' else str(logical % 2)
-    monkeypatch.setattr(Path, "read_text", read)
-    assert cpu._physical_core_order([0, 1, 2, 3]) == (0, 1, 2, 3)
-    assert cpu._physical_core_order([0, 2, 3]) == (0, 3, 2)
+def test_reject_unknown_chain_method():
+    with pytest.raises(ValueError, match="chain method"):
+        cpu.resolve_cpu_plan(4, "threaded")
 
 
-@pytest.mark.skipif(not cpu.affinity_supported(), reason="needs CPU affinity (os.sched_getaffinity), Linux only")
 @pytest.mark.parametrize("chains", [1, 2, 4])
 def test_fresh_backend_and_spawned_worker_follow_resolved_chains(tmp_path, chains):
     script = tmp_path / "cpu_spawn_check.py"
     script.write_text('''
 import json, multiprocessing, os
 from kappaccino.cpu_runtime import configure_cpu_runtime
+def cpus():
+    return sorted(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else None
 def inspect_backend():
     import jax
     import jax.numpy as jnp
     from threadpoolctl import threadpool_info
     n = len(jax.devices('cpu'))
     values = jax.pmap(lambda x: x*x + 1)(jnp.arange(n))
-    return dict(devices=n, cpus=sorted(os.sched_getaffinity(0)),
-                values=values.tolist(), blas=[p['num_threads'] for p in threadpool_info() if p['user_api']=='blas'])
+    return dict(devices=n, cpus=cpus(), values=values.tolist(),
+                blas=[p['num_threads'] for p in threadpool_info() if p['user_api']=='blas'])
 def child(q):
     q.put(inspect_backend())
 if __name__ == '__main__':
     import sys
     chains = int(sys.argv[1])
-    plan = configure_cpu_runtime(chains, 'parallel', 1)
+    before = cpus()
+    plan = configure_cpu_runtime(chains, 'parallel')
     parent = inspect_backend()
-    assert configure_cpu_runtime(chains, 'parallel', 1) == plan
+    assert configure_cpu_runtime(chains, 'parallel') == plan
     try:
-        configure_cpu_runtime(chains + 1, 'parallel', 1)
+        configure_cpu_runtime(chains + 1, 'parallel')
     except RuntimeError:
         pass
     else:
@@ -117,7 +88,7 @@ if __name__ == '__main__':
     q = ctx.Queue(); p = ctx.Process(target=child, args=(q,))
     p.start(); result = q.get(timeout=45); p.join(timeout=45)
     assert p.exitcode == 0
-    print(json.dumps(dict(plan=plan.to_dict(), parent=parent, child=result)))
+    print(json.dumps(dict(plan=plan.to_dict(), before=before, parent=parent, child=result)))
 ''')
     env = dict(os.environ, PYTHONPATH=str(Path("src").resolve()))
     # Deliberately start with a different device count: typed config wins.
@@ -128,8 +99,9 @@ if __name__ == '__main__':
     assert report["parent"] == report["child"]
     assert report["parent"]["devices"] == chains
     assert report["parent"]["values"] == [i*i+1 for i in range(chains)]
-    assert len(report["parent"]["cpus"]) == min(chains, len(report["plan"]["available_cpu_ids"]))
-    assert report["parent"]["blas"] and set(report["parent"]["blas"]) == {1}
+    assert report["parent"]["cpus"] == report["before"]              # the process is not pinned
+    if chains > 1:
+        assert set(report["parent"]["blas"]) <= {1}
 
 
 def test_late_backend_setup_fails_actionably():
@@ -138,7 +110,7 @@ import jax
 jax.devices('cpu')
 from kappaccino.cpu_runtime import configure_cpu_runtime
 try:
-    configure_cpu_runtime(1, 'parallel', 1)
+    configure_cpu_runtime(1, 'parallel')
 except RuntimeError as error:
     assert 'before JAX backend initialization' in str(error)
 else:
@@ -148,7 +120,6 @@ else:
                    env=dict(os.environ, PYTHONPATH=str(Path("src").resolve())))
 
 
-@pytest.mark.skipif(not cpu.affinity_supported(), reason="needs CPU affinity (os.sched_getaffinity), Linux only")
 @pytest.mark.parametrize("cluster", ["catalogs/hera", "catalogs/as1063/bergamini2019"])
 def test_launcher_uses_resolved_runtime_before_cosmology(cluster):
     code = """
@@ -156,15 +127,16 @@ import os, shutil, sys
 from kappaccino import cli
 from jax._src import xla_bridge
 assert not xla_bridge.backends_are_initialized(), 'importing the launcher initialized JAX before CPU setup'
+before = sorted(os.sched_getaffinity(0)) if hasattr(os, 'sched_getaffinity') else None
 def check_run(config, stage="both"):
     import jax
     assert config.runtime.chains == 2
     assert len(jax.devices('cpu')) == 2
-    assert len(os.sched_getaffinity(0)) <= 4
+    assert (sorted(os.sched_getaffinity(0)) if before is not None else None) == before      # not pinned
 import kappaccino.pipeline as pipeline
 pipeline.run = check_run
 try:
-    assert cli.main([sys.argv[1], '--results', 'results/pytest_cpu_launcher', '--set', 'runtime.chains=2', '--set', 'runtime.cpu_threads_per_chain=2']) == 0
+    assert cli.main([sys.argv[1], '--results', 'results/pytest_cpu_launcher', '--set', 'runtime.chains=2']) == 0
 finally:
     shutil.rmtree('results/pytest_cpu_launcher', ignore_errors=True)
 """
@@ -172,27 +144,10 @@ finally:
                    env=dict(os.environ, PYTHONPATH=str(Path("src").resolve())))
 
 
-def test_plan_prefers_idle_cores():
-    import kappaccino.cpu_runtime as cpu
-    idle = cpu.resolve_cpu_plan(4, "parallel", 2, avoid=set(), load={})
-    if len(idle.available_cpu_ids) < 2 * len(idle.selected_cpu_ids):
-        pytest.skip("not enough CPUs to test load-aware pinning")
-    busy = {c: 1.0 for c in idle.selected_cpu_ids}                 # the default choice is fully loaded
-    shifted = cpu.resolve_cpu_plan(4, "parallel", 2, avoid=set(), load=busy)
-    assert not set(shifted.selected_cpu_ids) & set(idle.selected_cpu_ids)
-    assert len(shifted.selected_cpu_ids) == len(idle.selected_cpu_ids)
-    assert cpu.resolve_cpu_plan(4, "parallel", 2, avoid=set(), load={}) == idle   # deterministic on an idle machine
-
-
-def test_plan_skips_cores_claimed_by_other_runs():
-    import kappaccino.cpu_runtime as cpu
-    base = cpu.resolve_cpu_plan(4, "parallel", 2, avoid=set(), load={})
-    if len(base.available_cpu_ids) < 2 * len(base.selected_cpu_ids):
-        pytest.skip("not enough CPUs to test disjoint pinning")
-    other = cpu.resolve_cpu_plan(4, "parallel", 2, avoid=set(base.selected_cpu_ids), load={})
-    assert not set(other.selected_cpu_ids) & set(base.selected_cpu_ids)
-    assert len(other.selected_cpu_ids) == len(base.selected_cpu_ids)
-    # When every core is claimed the plan falls back to sharing rather than failing.
-    crowded = cpu.resolve_cpu_plan(4, "parallel", 2, avoid=set(base.available_cpu_ids), load={})
-    assert len(crowded.selected_cpu_ids) == len(base.selected_cpu_ids)
-    assert cpu._parse_cpu_list("0-3,8,10-11") == {0, 1, 2, 3, 8, 10, 11}
+def test_saved_config_with_removed_pinning_field_loads():
+    from kappaccino.config import LensClusterSolverConfig, RuntimeConfig, _from_jsonable
+    runtime = _from_jsonable({"seed": 3, "chains": 2, "cpu_threads_per_chain": 2}, RuntimeConfig)
+    assert runtime == RuntimeConfig(seed=3, chains=2)
+    payload = LensClusterSolverConfig().to_json_dict()
+    payload["runtime"]["cpu_threads_per_chain"] = 2
+    assert LensClusterSolverConfig.from_json_dict(payload).to_json_dict() == LensClusterSolverConfig().to_json_dict()

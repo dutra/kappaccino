@@ -1,0 +1,54 @@
+# How the TNG-Cluster zoom 014 mock is fitted.  kappaccino catalogs/tngc014/large [--profile fast] [--profile cosmography]
+name: tngc014
+priors: priors.yaml
+
+runtime: {seed: 12345, chains: 4, resume: true, numpyro_print_summary: true, nuts_chain_method: parallel}
+
+likelihood:
+  # The GRF of unmodelled mass with a knee spectrum plus the image-plane GP; see catalogs/hera/run.yaml for the priors.
+  # The catalog noise is 0.03" per axis; sigma_meas is sampled.
+  likelihood_mode: gp_image_plane
+  gp_kernel: knee
+  sigma_sel_prior: null
+  gp_blocks: all
+  gp_knee_project_modes: [translation, convergence, shear]
+  gp_knee_gamma: 4.0
+  gp_knee_gamma_prior: null
+  gp_knee_scales_arcsec: [0.2, 100.0]
+  lambda_b_prior: lognormal(20.0, 1.0) in [0.5, 80.0]
+  lambda_b_start_arcsec: 20.0
+  sigma_grf_prior: lognormal(0.08, 0.5) in [1.0e-4, 0.5]
+  sigma_grf_start_arcsec: 0.08
+  gp_knee_ell_gp_prior: lognormal(1.0, 0.4) in [0.4, 3.0]
+  gp_knee_ell_gp_start_arcsec: 1.0
+
+search: {n_starts: 256, halo_method: lbfgs, member_method: lbfgs}
+sampling: {warmup: 500, samples: 250, max_tree_depth: 7, target_accept: 0.8}
+
+# Direct (centered) deviations for the members the data pin, unit offsets for the rest.
+members: {centering: auto}
+
+# The particle maps at z_s = 9, written by geometric_telescope/scripts/fit_tngc014.py from
+# data/tngc014/tngc014_snap73_yz_lens_maps.h5.
+truth:
+  kappa_true_fits: ../../../data/tngc014/kappa_z9.fits
+  gammax_true_fits: ../../../data/tngc014/gammax_z9.fits
+  gammay_true_fits: ../../../data/tngc014/gammay_z9.fits
+
+# No imaging: the mock has catalogs and lens maps only.
+reporting: {draws: 64, image_draws: 64, extra_images: true}
+
+profiles:
+  # Cosmography: Om0 and w0 of flat wCDM sampled with the lens (priors_cosmography.yaml).
+  cosmography:
+    priors: priors_cosmography.yaml
+  # Exploratory: far-field members down to 2 cut radii, classified at the current model with 3x headroom on the cut
+  # radius, system blocks, member shapes fixed at the catalog, 8 draws and no extra-image search.  Check the audit's
+  # far-field error before trusting a fast run.
+  fast:
+    likelihood: {gp_blocks: system, gp_knee_project_modes: []}
+    sampling: {max_tree_depth: 8}
+    members: {far_field_cut_radii: 2.0, classification_prior_quantile: null, min_deflection_arcsec: null, cut_radius_inflation: 3.0}
+    scaling: {member_shape_scatter: null}
+    image_diagnostics: {fold_pair_max_separation_arcsec: 3.0}
+    reporting: {draws: 8, image_draws: 8, extra_images: false}

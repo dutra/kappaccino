@@ -6,7 +6,8 @@ constraints) with the settings of each stage: output paths (:class:`RunPathsConf
 (:class:`RuntimeConfig`), the initial search (:class:`SearchConfig`), NUTS sampling (:class:`SamplingConfig`), member
 classification (:class:`MemberConfig`), the member scaling relation (:class:`ScalingModelConfig`), the likelihood and
 error model (:class:`LikelihoodConfig`) and the output diagnostics (:class:`ImageDiagnosticsConfig`,
-:class:`TruthRecoveryConfig`, :class:`ImageCatalogCutoutConfig`).  Every class is a frozen dataclass; change a field
+:class:`TruthRecoveryConfig`, :class:`ImageCatalogCutoutConfig`) and the posterior draws behind them
+(:class:`ReportingConfig`).  Every class is a frozen dataclass; change a field
 with :func:`dataclasses.replace` or :meth:`LensClusterSolverConfig.with_updates`, and check a finished configuration
 with :meth:`LensClusterSolverConfig.validate`.
 
@@ -1299,12 +1300,12 @@ class LikelihoodConfig:
     gp_floor_arcsec: float = 0.0015
     gp_kernel: str = "image_plane"
     gp_reference_redshift: float = 2.0
-    # Knee kernel: gp_knee.py, .agents/gp-knee-plan.md.  gp_blocks "system" is run.xsh --fast; "family" is for
+    # Knee kernel: gp_knee.py, .agents/gp-knee-plan.md.  gp_blocks "system" is the fast profile of the cluster run.yaml files; "family" is for
     # regression.  Sites: images.sigma_grf, images.lambda_b (lambda_t), images.gp_knee_gamma, images.sigma_gp,
     # images.ell_gp, images.sigma_meas.
     gp_blocks: str = "all"
     gp_knee_gamma: float = 4.0
-    # run.xsh uses dist.TruncatedNormal(4, 0.5, low=2, high=6): the slope of an NFW-like cusp, within a quarter of n.
+    # The cluster run.yaml files fix the slope at 4; sampled, normal(4, 0.5) in [2, 6] is the slope of an NFW-like cusp.
     gp_knee_gamma_prior: Any | None = field(default_factory=lambda: dist.Uniform(2.0, 6.0))
     gp_knee_gamma_step: float = 0.25
     # With the long end at 100" and the halos free (all-image blocks), the field took the halo-scale misfit: sigma_grf
@@ -1350,34 +1351,25 @@ class LikelihoodConfig:
 class ImageDiagnosticsConfig:
     """Exact-image solver and posterior image diagnostics written after sampling.
 
-    The best fit's model images are found with ``exact_image_finder``; posterior draws always use one batched local
-    Levenberg-Marquardt (LM) solve started at the observed positions, without fallback.  Predicted images are matched to
-    the observed ones within ``match_tolerance_arcsec``.
+    Every reporting draw's model images are found with ``exact_image_finder``; the lens-only images (without the GRF
+    conditional mean) use one batched local Levenberg-Marquardt (LM) solve started at the observed positions, without
+    fallback.  Predicted images are matched to the observed ones within ``match_tolerance_arcsec``.
 
     Parameters
     ----------
-    fold_max_draws : int, optional
-        Largest number of posterior draws for the fold contours and critical bands, between 1
-        and 128.  Default ``128``.
     fold_pair_max_separation_arcsec : float, optional
         Largest separation of a candidate fold image pair (same family, model-verified), in arcsec.  Positive.
         Default ``5.0``.
-    posterior_image_diagnostic_draws : int, optional
-        Number of posterior draws, evenly spaced, for which the exact images are recomputed in the image recovery
-        tables.  Nonnegative; ``0`` reports the best fit only.  Default ``32``.
     exact_image_min_distance_arcsec : float, optional
-        ``"lenstronomy"``: its ``min_distance``, in arcsec.  ``"local-lm-adaptive"``: starting half-size of the 3 x 3
-        box of fallback starts (at most ``exact_image_lm_trust_radius_arcsec``).  Default ``0.5``.
+        ``"local-lm-adaptive"``: starting half-size of the 3 x 3 box of fallback starts (at most
+        ``exact_image_lm_trust_radius_arcsec``), in arcsec.  Default ``0.5``.
     exact_image_precision_limit : float, optional
-        ``"lenstronomy"``: its ``precision_limit``.  LM solvers: lower limit of the source-plane tolerance of
-        convergence, in arcsec.  Default ``1e-2``.
-    exact_image_num_iter_max : int, optional
-        ``"lenstronomy"``: its ``num_iter_max``.  Default ``100``.
+        Lower limit of the source-plane tolerance of convergence of the LM solvers, in arcsec.  Default ``1e-2``.
     exact_image_finder : str, optional
-        Finder of the best fit's images: ``"global-jax"`` (seeds from a coarse grid over each family window, one
+        Finder of each reporting draw's images: ``"global-jax"`` (seeds from a coarse grid over each family window, one
         batched LM solve; also reports extra model images), ``"local-lm-adaptive"`` (LM from the observed positions,
-        with a shrinking-box fallback for images not found), ``"local-lm"`` (LM from the observed positions) or
-        ``"lenstronomy"`` (lenstronomy's image-position solver).  Default ``"global-jax"``.
+        with a shrinking-box fallback for images not found) or ``"local-lm"`` (LM from the observed positions).
+        Default ``"global-jax"``.
     exact_image_grid_pitch_arcsec : float, optional
         ``"global-jax"``: pitch of the coarse grid over each family window, in arcsec.  Positive.  Default ``0.5``.
     exact_image_fine_pitch_arcsec : float, optional
@@ -1393,7 +1385,19 @@ class ImageDiagnosticsConfig:
         ``"global-jax"``: margin added around each family's image span to form its search window, in arcsec.  Default
         ``3.0``.
     exact_image_min_separation_arcsec : float, optional
-        Two roots closer than this, in arcsec, are one image.  Default ``0.05``.
+        Local solver: two observed images that converge onto roots closer than this, in arcsec, are one model image.
+        Default ``0.05``.
+    exact_image_root_residual_arcsec : float, optional
+        ``"global-jax"``: a candidate root is polished with Newton steps and accepted only when its source-plane residual
+        is below this, in arcsec.  Points on a critical curve with the source just outside (or inside) the caustic stall at
+        a residual equal to the caustic offset, so a loose tolerance would accept them; a true image converges to round-
+        off.  A fold pair 0.001" apart comes from a source about 1e-8" inside its caustic, so the tolerance sits well
+        below that.  Default ``1e-11``.
+    exact_image_root_separation_arcsec : float, optional
+        ``"global-jax"``: two accepted roots closer than this, in arcsec, are one image; below the separation of the
+        tightest fold pairs to be resolved (0.001").  Default ``1e-4``.
+    exact_image_polish_iterations : int, optional
+        ``"global-jax"``: Newton iterations polishing each candidate root.  Default ``40``.
     exact_image_displacement_tol_arcsec : float, optional
         LM convergence tolerance on the step and the source-plane residual, in arcsec; a ``"global-jax"`` root must
         meet it in both planes.  Default ``1e-4``.
@@ -1410,16 +1414,10 @@ class ImageDiagnosticsConfig:
     match_tolerance_arcsec : float, optional
         Largest distance between a predicted and an observed image for a match, in arcsec; unmatched predictions are
         extra images.  Default ``5.0``.
-    posterior_diagnostic_draws : int, optional
-        Number of joint posterior draws, besides the best, for the member field diagnostics and the covariance error
-        plots.  Nonnegative; ``0`` reports the best fit only.  Default ``32``.
     """
-    fold_max_draws: int = 128
     fold_pair_max_separation_arcsec: float = 5.0
-    posterior_image_diagnostic_draws: int = 32
     exact_image_min_distance_arcsec: float = 0.5
     exact_image_precision_limit: float = 1.0e-2
-    exact_image_num_iter_max: int = 100
     exact_image_finder: str = "global-jax"
     exact_image_grid_pitch_arcsec: float = 0.5
     exact_image_fine_pitch_arcsec: float = 0.1
@@ -1427,13 +1425,15 @@ class ImageDiagnosticsConfig:
     exact_image_seed_tolerance_pitches: float = 3.0
     exact_image_window_margin_arcsec: float = 3.0
     exact_image_min_separation_arcsec: float = 0.05
+    exact_image_root_residual_arcsec: float = 1.0e-11
+    exact_image_root_separation_arcsec: float = 1.0e-4
+    exact_image_polish_iterations: int = 40
     exact_image_displacement_tol_arcsec: float = 1.0e-4
     exact_image_identification_tol_arcsec: float = 1.0e-3
     exact_image_lm_max_iter: int = 100
     exact_image_lm_trust_radius_arcsec: float = 1.0
     exact_image_adaptive_max_levels: int = 8
     match_tolerance_arcsec: float = 5.0
-    posterior_diagnostic_draws: int = 32
 
 
 @dataclass(frozen=True)
@@ -1451,9 +1451,6 @@ class TruthRecoveryConfig:
         :math:`\\det A` and magnification.  Default None.
     gammay_true_fits : str or pathlib.Path or None, optional
         FITS map of the true shear component :math:`\\gamma_2`.  Default None.
-    posterior_truth_recovery_draws : int, optional
-        Number of random posterior draws, besides the posterior median, mapped for the 16th and 84th percentiles.
-        Nonnegative.  Default ``16``.
     truth_grid_size : int, optional
         Largest number of pixels per side of the comparison grid (the true map's footprint, resampled).  Nonnegative;
         ``0`` keeps the native grid.  Default ``256``.
@@ -1466,7 +1463,6 @@ class TruthRecoveryConfig:
     kappa_true_fits: str | Path | None = None
     gammax_true_fits: str | Path | None = None
     gammay_true_fits: str | Path | None = None
-    posterior_truth_recovery_draws: int = 16
     truth_grid_size: int = 256
     caustic_source_redshift: float = 9.0
 
@@ -1528,12 +1524,6 @@ class ImageCatalogCutoutConfig:
         Suffix appended to the cluster mass figure name and related products, e.g. ``"_jwst"``.  Default ``""``.
     rgb : RGBDisplayConfig, optional
         Display overrides.  Default: ``RGBDisplayConfig()`` (recipe defaults).
-    critical_band_draws : int, optional
-        Posterior draws of the best chain, evenly spaced and including the best draw, behind the z = 9 critical curve
-        and its 16-84% band on the RGB overview.  At least 1.  Default ``32``.
-    contour_draws : int, optional
-        Posterior draws, evenly spaced and including the best draw, whose solved image positions give the
-        recovered-position contours.  At least 10 (the density estimate needs them).  Default ``256``.
     mode : str, optional
         Not read by the current pipeline.  Default ``"full"``.
     dpi : int or None, optional
@@ -1553,8 +1543,6 @@ class ImageCatalogCutoutConfig:
     bands: tuple[str, ...] | None = None
     figure_suffix: str = ""
     rgb: RGBDisplayConfig = field(default_factory=RGBDisplayConfig)
-    critical_band_draws: int = 32
-    contour_draws: int = 256
     mode: str = "full"
     dpi: int | None = None
     max_side_pixels: int | None = None
@@ -1643,6 +1631,36 @@ class PartitionConfig:
 
 
 @dataclass(frozen=True)
+class ReportingConfig:
+    """The posterior draws behind every reported product.
+
+    One set of random posterior draws (over all chains, chosen with ``runtime.seed``) is evaluated once, each draw with
+    its own GRF conditional mean, and every figure, table and results macro is a median over those draws with its 16th
+    to 84th percentile range.  No product uses the single best sample.
+
+    The image positions, residuals, RMS and recovered counts are cheap (a local solve from the observed positions, about
+    0.1 s per draw) and need many draws: the median RMS of 64 draws scatters by about 0.01" between draw sets on Hera.
+    They use ``image_draws`` draws; the maps, curves and other products use the first ``draws`` of them (one seeded
+    shuffle of the posterior, so the product draws are a subset of the image draws).
+
+    Parameters
+    ----------
+    draws : int, optional
+        Number of draws behind the maps, curves, masses and the other products (all of them when the posterior has
+        fewer).  Positive.  Default ``64``.
+    image_draws : int, optional
+        Number of draws behind the image positions, residuals, RMS and recovered counts, solved with the local solver.
+        At least ``draws``.  Default ``256``.
+    extra_images : bool, optional
+        Run the global image search on the ``draws`` product draws to find extra (unobserved) model images, at about
+        15 s (Hera) to 140 s (Ares) per draw.  Default True.
+    """
+    draws: int = 64
+    image_draws: int = 256
+    extra_images: bool = True
+
+
+@dataclass(frozen=True)
 class LensClusterSolverConfig:
     """Complete configuration of a kappaccino run.
 
@@ -1668,6 +1686,8 @@ class LensClusterSolverConfig:
         Exact-image solver and posterior image diagnostics.  Default: ``ImageDiagnosticsConfig()``.
     truth : TruthRecoveryConfig, optional
         Truth comparison and critical-curve redshift.  Default: ``TruthRecoveryConfig()``.
+    reporting : ReportingConfig, optional
+        The posterior draws behind the reported products.  Default: ``ReportingConfig()``.
     image_catalog : ImageCatalogCutoutConfig, optional
         Imaging for the figures.  Default: ``ImageCatalogCutoutConfig()``.
     partition : PartitionConfig or None, optional
@@ -1683,6 +1703,7 @@ class LensClusterSolverConfig:
     likelihood: LikelihoodConfig = field(default_factory=LikelihoodConfig)
     image_diagnostics: ImageDiagnosticsConfig = field(default_factory=ImageDiagnosticsConfig)
     truth: TruthRecoveryConfig = field(default_factory=TruthRecoveryConfig)
+    reporting: ReportingConfig = field(default_factory=ReportingConfig)
     image_catalog: ImageCatalogCutoutConfig = field(default_factory=ImageCatalogCutoutConfig)
     partition: PartitionConfig | None = None
 
@@ -2085,30 +2106,27 @@ def validate_config(config: LensClusterSolverConfig) -> None:
         raise ValueError("source_position_prior_mean_arcsec requires two finite coordinates.")
     _positive("source_position_prior_sigma_arcsec", likelihood.source_position_prior_sigma_arcsec)
     diagnostics = config.image_diagnostics
-    count = diagnostics.posterior_diagnostic_draws
-    if isinstance(count, bool) or not isinstance(count, Integral) or count < 0:
-        raise ValueError("image_diagnostics.posterior_diagnostic_draws must be a nonnegative integer.")
-    if not isinstance(diagnostics.fold_max_draws, int) or not 1 <= diagnostics.fold_max_draws <= 128:
-        raise ValueError("image_diagnostics.fold_max_draws must be an integer between 1 and 128.")
-    draws = config.image_catalog.critical_band_draws
+    draws = config.reporting.draws
     if isinstance(draws, bool) or not isinstance(draws, Integral) or draws < 1:
-        raise ValueError("image_catalog.critical_band_draws must be a positive integer.")
-    draws = config.image_catalog.contour_draws
-    if isinstance(draws, bool) or not isinstance(draws, Integral) or draws < 10:
-        raise ValueError("image_catalog.contour_draws must be an integer of at least 10.")
+        raise ValueError("reporting.draws must be a positive integer.")
+    image_draws = config.reporting.image_draws
+    if isinstance(image_draws, bool) or not isinstance(image_draws, Integral) or image_draws < draws:
+        raise ValueError("reporting.image_draws must be an integer of at least reporting.draws.")
     if not math.isfinite(diagnostics.fold_pair_max_separation_arcsec) or diagnostics.fold_pair_max_separation_arcsec <= 0:
         raise ValueError("image_diagnostics.fold_pair_max_separation_arcsec must be finite and positive.")
-    if int(diagnostics.posterior_image_diagnostic_draws) < 0:
-        raise ValueError("image_diagnostics.posterior_image_diagnostic_draws must be nonnegative.")
-    if diagnostics.exact_image_finder not in {"global-jax", "lenstronomy", "local-lm", "local-lm-adaptive"}:
-        raise ValueError("image_diagnostics.exact_image_finder must be 'global-jax', 'lenstronomy', 'local-lm', or 'local-lm-adaptive'.")
+    if diagnostics.exact_image_finder not in {"global-jax", "local-lm", "local-lm-adaptive"}:
+        raise ValueError("image_diagnostics.exact_image_finder must be 'global-jax', 'local-lm', or 'local-lm-adaptive'.")
     _positive("image_diagnostics.exact_image_grid_pitch_arcsec", diagnostics.exact_image_grid_pitch_arcsec)
     _positive("image_diagnostics.exact_image_fine_pitch_arcsec", diagnostics.exact_image_fine_pitch_arcsec)
     if diagnostics.exact_image_fine_pitch_arcsec > diagnostics.exact_image_grid_pitch_arcsec:
         raise ValueError("image_diagnostics.exact_image_fine_pitch_arcsec must not exceed the coarse grid pitch.")
+    _positive("image_diagnostics.exact_image_root_residual_arcsec", diagnostics.exact_image_root_residual_arcsec)
+    _positive("image_diagnostics.exact_image_root_separation_arcsec", diagnostics.exact_image_root_separation_arcsec)
+    if int(diagnostics.exact_image_polish_iterations) < 1:
+        raise ValueError("image_diagnostics.exact_image_polish_iterations must be positive.")
     _positive("image_diagnostics.exact_image_seed_tolerance_pitches", diagnostics.exact_image_seed_tolerance_pitches)
-    if int(config.truth.posterior_truth_recovery_draws) < 0 or int(config.truth.truth_grid_size) < 0:
-        raise ValueError("truth.posterior_truth_recovery_draws and truth.truth_grid_size must be nonnegative.")
+    if int(config.truth.truth_grid_size) < 0:
+        raise ValueError("truth.truth_grid_size must be nonnegative.")
     if config.partition is not None:
         _validate_partition_config(config.partition, config)
 

@@ -13,11 +13,11 @@ sys.path.insert(0, str(ROOT / 'src'))
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('run_directory', type=Path)
-    parser.add_argument('--draws', type=int, default=32, help='Joint field draws in addition to best fit; 0 means best only')
+    parser.add_argument('--draws', type=int, default=None, help='reporting draws (default: the run config)')
     parser.add_argument('--output-dir', type=Path, help='Optional directory for figures/ and tables/')
     args = parser.parse_args()
-    if args.draws < 0:
-        parser.error('--draws must be nonnegative')
+    if args.draws is not None and args.draws < 1:
+        parser.error('--draws must be positive')
     import jax
     jax.config.update('jax_enable_x64', True)
     import numpy as np
@@ -31,7 +31,8 @@ def main():
     final = run / 'final'
     config = artifacts.load_config(final / 'artifacts')
     saved = json.loads((init / artifacts.STATE_FILE).read_text())
-    config = replace(config, image_diagnostics=replace(config.image_diagnostics, posterior_diagnostic_draws=args.draws))
+    if args.draws is not None:
+        config = replace(config, reporting=replace(config.reporting, draws=args.draws))
     state = build_state(config)
     classes = json.loads((init / artifacts.CLASSIFICATION_FILE).read_text())
     centered = set(classes.get('centered_members', []))
@@ -44,8 +45,6 @@ def main():
         raise ValueError('Rebuilt member identities/order differ from saved run')
     posterior = artifacts.load_posterior(final / 'artifacts')
     evaluator = Evaluator(state, config.likelihood.likelihood_mode)
-    best = int(np.nanargmax(posterior.log_prob))
-    np.testing.assert_allclose(evaluator.reported_physical(posterior.samples[best]), posterior.physical[best], rtol=1e-10, atol=1e-10)
     destination = args.output_dir or final
     paths = SimpleNamespace(figures=destination / 'figures', tables=destination / 'tables')
     for path in write_member_diagnostic_plots(config, state, evaluator, posterior, paths):

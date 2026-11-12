@@ -7,11 +7,38 @@ radial interpolation for display with a C2, curl-free Hermite interpolant.
 import jax
 import jax.numpy as jnp
 import numpy as np
-from scipy.interpolate import BPoly, CubicSpline
+from scipy.interpolate import BPoly, CubicSpline, PPoly
 
 from ..likelihood import gp_knee
 
-PLOT_FIELD_VERSION = 'potential-consistent-hermite-v2-shared-field'   # v2: system-block runs use the all-block twin
+PLOT_FIELD_VERSION = 'potential-consistent-hermite-v3-jax'   # v2: system-block runs use the all-block twin; v3: JAX evaluation
+
+
+CHUNK = 4096   # points per compiled call; the last chunk is padded so only one shape is compiled
+
+
+@jax.jit
+def _smooth_fields(points, xy, u, coefficients, breaks, origin_second):
+    """Unscaled field sum_m [c_T(r) u_m + c_T'(r)/r (d.u_m) d] and its Jacobian at ``points`` from the images ``xy``
+    with coefficients ``u``; ``coefficients`` (6, interval) are the power-basis pieces of the quintic Hermite c_T on
+    ``breaks``.  Also returns the largest separation, for the table-range check."""
+    d = points[:, None] - xy[None]
+    r = jnp.sqrt(jnp.sum(d * d, axis=-1))
+    index = jnp.clip(jnp.searchsorted(breaks, r, side='right') - 1, 0, coefficients.shape[1] - 1)
+    t = r - breaks[index]
+    c = coefficients[:, index]                                  # (6, point, image), highest power first
+    ct = ((((c[0] * t + c[1]) * t + c[2]) * t + c[3]) * t + c[4]) * t + c[5]
+    first = (((5 * c[0] * t + 4 * c[1]) * t + 3 * c[2]) * t + 2 * c[3]) * t + c[4]
+    second = ((20 * c[0] * t + 12 * c[1]) * t + 6 * c[2]) * t + 2 * c[3]
+    near = r > 1e-10
+    safe = jnp.maximum(r, 1e-10)
+    f = jnp.where(near, first / safe, origin_second)
+    g = jnp.where(near, (second - first / safe) / safe ** 2, 0.)
+    du = jnp.einsum('pmi,mi->pm', d, u)
+    value = jnp.einsum('pm,ma->pa', ct, u) + jnp.einsum('pm,pma->pa', f * du, d)
+    deriv = (jnp.einsum('pm,ma,pmc->pac', f, u, d) + jnp.einsum('pm,pma,mc->pac', f, d, u)
+             + jnp.sum(f * du, axis=1)[:, None, None] * jnp.eye(2) + jnp.einsum('pm,pma,pmc->pac', g * du, d, d))
+    return value, deriv, jnp.max(r)
 
 
 class SmoothPlotDeflection:
@@ -28,6 +55,9 @@ class SmoothPlotDeflection:
         second = CubicSpline(self.r, ct, bc_type=((1, 0.), 'not-a-knot'))(self.r, 2)
         self.ct = BPoly.from_derivatives(self.r, np.column_stack([ct,slope,second]))
         self.ct1, self.ct2 = self.ct.derivative(1), self.ct.derivative(2)
+        power = PPoly.from_bernstein_basis(self.ct)
+        self.coefficients, self.breaks = jnp.asarray(power.c), jnp.asarray(power.x)
+        self.origin_second = float(self.ct2(0.))
         self.xy = np.asarray(layout['xy'])
         self.mask = np.asarray(layout['mask'], bool)
         self.blocks = np.asarray(layout['block_of_family'], int)
@@ -58,26 +88,20 @@ class SmoothPlotDeflection:
         self.u=u.reshape(n_blocks,size,2)
 
     def __call__(self,x,y,families):
-        points=np.column_stack([np.asarray(x),np.asarray(y)])
-        families=np.asarray(families,int)
+        points=np.column_stack([np.asarray(x,float).ravel(),np.asarray(y,float).ravel()])
+        families=np.asarray(families,int).ravel()
         delta=np.empty_like(points);jac=np.empty((len(points),2,2))
         for block in np.unique(self.blocks[families]):
             rows=np.flatnonzero(self.blocks[families]==block)
-            xy=self.xy[block,self.mask[block]];u=self.u[block,self.mask[block]]
-            d=points[rows,None]-xy[None]
-            r=np.linalg.norm(d,axis=-1)
-            if np.any(r>self.r[-1]):
-                raise ValueError('Plotting GRF separation exceeds the saved covariance table')
-            ct=self.ct(r);first=self.ct1(r);second=self.ct2(r)
-            safe=np.maximum(r,1e-10)
-            f=np.where(r>1e-10,first/safe,self.ct2(0.))
-            g=np.where(r>1e-10,(second-first/safe)/safe**2,0.)
-            du=np.einsum('pmi,mi->pm',d,u)
-            value=np.einsum('pm,ma->pa',ct,u)+np.einsum('pm,pma->pa',f*du,d)
-            deriv=(np.einsum('pm,ma,pmc->pac',f,u,d)
-                   +np.einsum('pm,pma,mc->pac',f,d,u)
-                   +np.einsum('pm->p',f*du)[:,None,None]*np.eye(2)
-                   +np.einsum('pm,pma,pmc->pac',g*du,d,d))
+            xy=jnp.asarray(self.xy[block,self.mask[block]]);u=jnp.asarray(self.u[block,self.mask[block]])
+            value=np.empty((len(rows),2));deriv=np.empty((len(rows),2,2))
+            for start in range(0,len(rows),CHUNK):
+                chunk=points[rows[start:start+CHUNK]];n=len(chunk)
+                padded=np.pad(chunk,((0,CHUNK-n),(0,0)),mode='edge')
+                v,j,reach=_smooth_fields(jnp.asarray(padded),xy,u,self.coefficients,self.breaks,self.origin_second)
+                if float(reach)>self.r[-1]:
+                    raise ValueError('Plotting GRF separation exceeds the saved covariance table')
+                value[start:start+n],deriv[start:start+n]=np.asarray(v)[:n],np.asarray(j)[:n]
             value=self.amplitude*value-self.affine_offset[block]-points[rows]@self.affine_jacobian[block].T
             deriv=self.amplitude*deriv-self.affine_jacobian[block]
             weight=self.weights[families[rows]]

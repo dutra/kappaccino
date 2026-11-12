@@ -1,7 +1,8 @@
-"""Conditional shared-field diagnostics at the highest-log-probability saved draw.
+"""Conditional shared-field diagnostics over random posterior draws.
 
-Maps retain the fitted projection and source positions. The displayed spectrum
-is the homogeneous prior kernel before projection, not the map's Fourier power.
+Each draw's field is conditioned at that draw and the maps are per-pixel medians over the draws.  Maps retain the
+fitted projection and source positions.  The displayed spectrum is the homogeneous prior kernel before projection
+(median and 16-84% over the same draws), not the map's Fourier power.
 """
 from pathlib import Path
 import json
@@ -102,6 +103,7 @@ def render_grf(data, output):
      else:cb.set_ticks([-.06,-.03,0,.03,.06]);cb.ax.xaxis.set_major_formatter(matplotlib.ticker.FormatStrFormatter('%.2f'))
     # Equal-height spectrum with inset labels, matching the map panels.
     ax=fig.add_axes([.655,bottom,.235,height]);order=np.argsort(wave);ax.loglog(wave[order],power[order],color='#0072B2',lw=1.4)
+    if 'delta2_kappa_q16' in data:ax.fill_between(wave[order],data['delta2_kappa_q16'][order],data['delta2_kappa_q84'][order],color='#0072B2',alpha=.2,lw=0)
     ax.axvline(turnover,color='#D55E00',ls='--',lw=.8)
     ax.set(xlim=(wave.min(),wave.max()),xlabel='',ylabel='')
     ax.xaxis.label.set_size(8);ax.yaxis.label.set_size(9);ax.yaxis.tick_left();ax.yaxis.set_label_position('left');ax.yaxis.labelpad=3;ax.set_xticks([1,10,100]);ax.set_xticklabels(['1','10','100']);ax.yaxis.set_major_locator(LogLocator(base=10,numticks=5));ax.tick_params(which='both',top=True,right=True);ax.grid(False)
@@ -143,54 +145,71 @@ def render_gp(a, output):
     out2=output;fig.savefig(out2,dpi=400);plt.close(fig)
 
 
-def compute_fields(config, state, evaluator, posterior, *, step=.3, chunk=384):
-    """Evaluate the fitted shared GRF and image GP without refitting or sampling."""
+def draw_gp_fields(state, e, theta, points, *, chunk=384):
+    """One posterior draw's image-GP conditional-mean displacement on ``points`` and at the images, and its field
+    hyperparameters (``e`` the shared-field evaluator, ``theta`` the draw in its coordinates)."""
     import jax.numpy as jnp
     from scipy.linalg import cho_solve
-    from scipy.integrate import simpson
-    best = int(np.nanargmax(posterior.log_prob))
-    theta = posterior.samples[best]
-    np.testing.assert_allclose(evaluator.reported_physical(theta), posterior.physical[best], rtol=1e-8, atol=1e-8)
-    e = evaluator._padded_evaluator()
     st = e.statistics(jnp.asarray(theta)); scales = e.error_scales(st['physical'])
     xy = np.column_stack([state.images.x_obs, state.images.y_obs]); n = len(xy)
     np.testing.assert_array_equal(np.asarray(e.gp['slots'])[0], np.arange(n))
     residual = np.asarray(st['fields']['backprojected'] - st['source_by_family'][np.asarray(state.images.family_index_per_image)])
     v = cho_solve((np.asarray(st['family_cholesky'])[0], True), residual.ravel()).reshape(n, 2)
-    jacobian = np.asarray(st['fields']['jacobian'])
-    u = np.einsum('nji,nj->ni', jacobian, v)
+    u = np.einsum('nji,nj->ni', np.asarray(st['fields']['jacobian']), v)
     sigma, ell = float(scales['sigma_gp']), float(scales['ell_gp'])
-    def kernel(points):
-        return sigma**2*np.exp(-np.sum((points[:,None]-xy[None])**2, axis=-1)/(2*ell**2))
+    def kernel(q):
+        return sigma**2*np.exp(-np.sum((q[:,None]-xy[None])**2, axis=-1)/(2*ell**2))
     np.testing.assert_allclose(kernel(xy), np.asarray(e.gp_kernel_blocks(st['physical'], scales)['k_img'])[0], atol=1e-12)
+    mean = np.concatenate([kernel(points[start:start+chunk])@u for start in range(0, len(points), chunk)])
+    return dict(mean=mean, at_images=kernel(xy)@u, sigma=sigma, ell=ell, lambda_b=float(scales['lambda_b']),
+                gamma=float(scales['gp_knee_gamma']), sigma_grf=float(scales['sigma_grf']))
+
+
+def knee_power(k, knee, gamma, sigma_grf):
+    """Prior convergence power P_kappa(k) of the knee spectrum, normalized so that its log-k integral is pi sigma_grf^2."""
+    from scipy.integrate import simpson
+    shape = 1/(1+(k*knee/(2*np.pi))**gamma)
+    power = shape*np.pi*sigma_grf**2/simpson(shape, x=np.log(k))
+    np.testing.assert_allclose(simpson(power, x=np.log(k))/np.pi, sigma_grf**2, rtol=1e-12)
+    return power
+
+
+def compute_fields(config, state, draws, *, step=.5, log=print):
+    """The shared GRF and image GP maps over the reporting draws (``reporting.draws.ReportingDraws``), each draw's
+    fields conditioned at that draw: per-pixel medians, with the 16th and 84th percentiles of the GRF convergence; the
+    medians of the field hyperparameters; and the median and 16-84% of the prior knee spectrum over the same draws.
+    The convergences are at the GRF reference redshift.  No refitting or sampling."""
+    from ..core.utils import progress
+    e, samples = draws.shared()
+    e = e._padded_evaluator()
+    xy = np.column_stack([state.images.x_obs, state.images.y_obs])
     x = np.arange(xy[:,0].min()-8, xy[:,0].max()+8, step)
     y = np.arange(xy[:,1].min()-8, xy[:,1].max()+8, step)
     xx, yy = np.meshgrid(x, y); points = np.c_[xx.ravel(), yy.ravel()]
-    correction = e.gp_deflection_correction(theta)
-    weight = float(e.gp_weights_per_family[0])
-    grf, mean = [], []
-    for start in range(0, len(points), chunk):
-        q = points[start:start+chunk]; count = len(q)
-        padded = np.pad(q, ((0,chunk-count),(0,0)), mode='edge')
-        fields = correction(padded[:,0], padded[:,1], np.zeros(chunk, dtype=int))
-        grf.append(np.asarray((fields[2]+fields[5])/(2*weight))[:count])
-        mean.append(kernel(q)@u)
-    grf = np.concatenate(grf).reshape(xx.shape)
     zref = float(state.gp_reference_redshift)
-    packed = e.packed_state_for_z(st['physical'], zref)
-    _, hessian = e.total_fields_at(points, packed, chunk=2048)
-    param = np.trace(hessian, axis1=1, axis2=2).reshape(xx.shape)/2
-    knee, gamma, sig = (float(scales[k]) for k in ('lambda_b','gp_knee_gamma','sigma_grf'))
+    maps = draws.grid_maps('field maps', xx, yy, zref, log=log)
     lo, hi = config.likelihood.gp_knee_scales_arcsec
     k = np.geomspace(2*np.pi/hi, 2*np.pi/lo, 12001)
-    shape = 1/(1+(k*knee/(2*np.pi))**gamma)
-    power = shape*np.pi*sig**2/simpson(shape, x=np.log(k))
-    np.testing.assert_allclose(simpson(power, x=np.log(k))/np.pi, sig**2, rtol=1e-12)
-    data = dict(x=x,y=y,xy=xy,parametric=param,grf=grf,total=param+grf,
-                mean=np.concatenate(mean).reshape(*xx.shape,2),at_images=kernel(xy)@u,
-                sigma=sigma,ell=ell,draw_index=best,reference_redshift=zref,gamma=gamma,
+    per_draw = []
+    for theta in progress(samples, desc='GP field draws'):
+        fields = draw_gp_fields(state, e, theta, points)
+        fields['power'] = knee_power(k, fields['lambda_b'], fields['gamma'], fields['sigma_grf'])
+        per_draw.append(fields)
+    stack = {key: np.stack([d[key] for d in per_draw]) for key in per_draw[0]}
+    grid = xx.shape
+    median = lambda key: np.median(stack[key], axis=0)
+    grf = maps['kappa_grf'].astype(float)
+    grf16, grf50, grf84 = np.percentile(grf, [16, 50, 84], axis=0)
+    power16, power, power84 = np.percentile(stack['power'], [16, 50, 84], axis=0)
+    knee = float(median('lambda_b'))
+    data = dict(x=x,y=y,xy=xy,parametric=np.median(maps['kappa_parametric'], axis=0).astype(float),grf=grf50,
+                grf_q16=grf16,grf_q84=grf84,total=np.median(maps['kappa'], axis=0).astype(float),
+                mean=median('mean').reshape(*grid,2),at_images=median('at_images'),
+                sigma=float(median('sigma')),ell=float(median('ell')),draw_indices=np.asarray(draws.indices),
+                reference_redshift=zref,gamma=float(median('gamma')),
                 turnover_kpc=knee*state.kpc_per_arcsec,wavelength_kpc=2*np.pi/k*state.kpc_per_arcsec,
-                delta2_kappa=k*k*power/(2*np.pi),k_arcsec_inverse=k,P_kappa_arcsec2=power)
+                delta2_kappa=k*k*power/(2*np.pi),delta2_kappa_q16=k*k*power16/(2*np.pi),
+                delta2_kappa_q84=k*k*power84/(2*np.pi),k_arcsec_inverse=k,P_kappa_arcsec2=power)
     for key, value in data.items():
         if not np.all(np.isfinite(value)):
             raise ValueError(f'Nonfinite field diagnostic: {key}')
@@ -202,14 +221,15 @@ def write_field_plots(config, state, evaluator, posterior, paths, *, log=print):
     import matplotlib.pyplot as plt
     if not getattr(evaluator, 'gp_knee', False):
         return []
-    from ..likelihood.grf_fields import shared_evaluator_and_posterior, shared_field_evaluator, shared_grf_label
+    from ..likelihood.grf_fields import shared_field_evaluator, shared_grf_label
+    from ..reporting.draws import reporting_draws
     if shared_field_evaluator(evaluator) is None:
         log('[outputs] shared field maps skipped: no active knee-spectrum GRF')
         return []
     field_label = shared_grf_label(evaluator)
-    evaluator, posterior = shared_evaluator_and_posterior(evaluator, posterior)
-    log(f'[outputs] computing shared GRF and GP diagnostic maps from the best saved draw ({field_label})')
-    data = compute_fields(config, state, evaluator, posterior)
+    draws = reporting_draws(config, evaluator, posterior)
+    log(f'[outputs] computing shared GRF and GP diagnostic maps over {len(draws)} posterior draws ({field_label})')
+    data = compute_fields(config, state, draws, log=log)
     paths.tables.mkdir(parents=True, exist_ok=True); paths.figures.mkdir(parents=True, exist_ok=True)
     prefix = f'{config.paths.figure_prefix}_' if config.paths.figure_prefix else ''
     save_arrays(paths.tables / 'conditional_field_maps.h5', **data)
@@ -217,10 +237,10 @@ def write_field_plots(config, state, evaluator, posterior, paths, *, log=print):
                paths.figures / f'{prefix}gp_correction_correlation.pdf']
     with plt.rc_context():
         render_grf(data, outputs[0]); render_gp(data, outputs[1])
-    provenance = dict(draw_index=int(data['draw_index']), reference_redshift=float(data['reference_redshift']),
-                      conditioning='highest-log-probability saved draw; fitted source positions and projection retained',
-                      spectrum='homogeneous kernel before projection; Delta_kappa^2=k^2 P_kappa/(2 pi)',
-                      map='conditional mean, not posterior average or significance', field=field_label,
+    provenance = dict(draw_indices=np.asarray(data['draw_indices']).tolist(), reference_redshift=float(data['reference_redshift']),
+                      conditioning='each random posterior draw conditioned at itself; fitted source positions and projection retained',
+                      spectrum='homogeneous kernel before projection; Delta_kappa^2=k^2 P_kappa/(2 pi); median and 16-84% over the draws',
+                      map='per-pixel median over the draws of each draw\'s conditional mean; grf_q16/grf_q84 the 16-84% range', field=field_label,
                       nonpositive_total_pixels=int(np.sum(data['total']<=0)),
                       nonpositive_display='masked in the logarithmic total-convergence panel')
     (paths.tables / 'conditional_field_maps.json').write_text(json.dumps(provenance, indent=2))

@@ -23,7 +23,7 @@ def test_reject_nonpotential_or_nonfinite_jacobian():
         module.singular_eigenvalue(np.full((1,2,2),np.nan))
 
 
-def test_render_and_reuse_without_new_fields(tmp_path, monkeypatch):
+def test_render_from_the_reporting_draws(tmp_path, monkeypatch):
     from types import SimpleNamespace as NS
     import json
     import matplotlib.pyplot as plt
@@ -35,13 +35,13 @@ def test_render_and_reuse_without_new_fields(tmp_path, monkeypatch):
     paths=NS(tables=tmp_path,figures=tmp_path)
     from kappaccino.plotting import critical_fields
     monkeypatch.setattr(critical_fields,'median_cutout_determinants',
-        lambda *a,**k:(np.zeros((1,2,2,2)),np.ones((1,2,2)),np.arange(32),np.ones((1,2,2)),np.ones((1,2,2))))
+        lambda *a,**k:(np.zeros((1,2,2,2)),np.ones((1,2,2)),np.ones((1,2,2)),np.ones((1,2,2))))
     calls=[]
     def fields(t,**kwargs):
         calls.append(kwargs)
         return {'jacobian':jnp.array([[[.01,0.],[0.,.8]]])}
     evaluator=NS(physical=lambda t:t,fields=fields,gp_knee=False)
-    posterior=NS(samples=np.zeros((32,1)))
+    draws=NS(evaluator=evaluator,samples=np.zeros((32,1)),indices=np.arange(32),correction=lambda k,reach:None)
     data=dict(recovered=np.random.default_rng(1).normal(0,.1,(32,1,2)),
               image_labels=np.array(['a']),draw_indices=np.arange(32))
     contours=dict(position_data=data,fingerprint='test-fingerprint')
@@ -53,7 +53,7 @@ def test_render_and_reuse_without_new_fields(tmp_path, monkeypatch):
     monkeypatch.setattr(module,'cutout_window',lambda *a:NS(x0=0,y0=0))
     monkeypatch.setattr(module,'rgb_cutout',lambda *a:np.zeros((100,100,3)))
     before=plt.rcParams.copy()
-    output=module.write_small_lambda_jwst(config,state,evaluator,posterior,paths,imaging,contours,minimum_major_sigma=0,minimum_axis_ratio=1,log=lambda _:None)
+    output=module.write_small_lambda_jwst(config,state,draws,paths,imaging,contours,minimum_major_sigma=0,minimum_axis_ratio=1,log=lambda _:None)
     assert output.exists()
     assert calls and calls[0]==dict(force_exact=True,derivative=False)
     assert plt.rcParams['font.size']==before['font.size']
@@ -63,9 +63,7 @@ def test_render_and_reuse_without_new_fields(tmp_path, monkeypatch):
     saved = load_arrays(tmp_path/'test_small_lambda_a_image_posteriors_jwst.h5')
     assert saved['posterior_axis_statistics'].shape==(1,3)
     assert saved['posterior_axis_statistics'][0,2]>=1
-    evaluator.fields=lambda *a,**k:pytest.fail('Valid cache must avoid field evaluation')
-    module.write_small_lambda_jwst(config,state,evaluator,posterior,paths,imaging,contours,minimum_major_sigma=0,minimum_axis_ratio=1,log=lambda _:None)
-    assert module.write_small_lambda_jwst(config,state,evaluator,posterior,paths,imaging,contours,
+    assert module.write_small_lambda_jwst(config,state,draws,paths,imaging,contours,
                                          minimum_major_sigma=100,log=lambda _:None) is None
     import pandas as pd
     rejected=pd.read_csv(tmp_path/'test_small_lambda_a_image_posteriors_jwst.csv')

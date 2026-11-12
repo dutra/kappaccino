@@ -26,18 +26,6 @@ class MemberDiagnostics:
     provenance: dict
 
 
-def diagnostic_draw_indices(log_prob, count):
-    """Best first, followed by at most count evenly spaced other joint draws."""
-    log_prob = np.asarray(log_prob)
-    if not np.isfinite(log_prob).any():
-        raise ValueError("No finite posterior draw for member diagnostics")
-    best = int(np.nanargmax(np.where(np.isfinite(log_prob), log_prob, -np.inf)))
-    others = np.flatnonzero(np.isfinite(log_prob) & (np.arange(len(log_prob)) != best))
-    take = min(count, len(others))
-    selected = others[np.linspace(0, len(others)-1, take, dtype=int)] if take else []
-    return np.asarray([best, *selected], dtype=int)
-
-
 def deviation_draws(state, physical):
     """Use the model's physical deviation mapping, including centering and mass modes."""
     components = jnp.asarray(state.members.component_indices)
@@ -135,7 +123,9 @@ def reporting_fields(evaluator, theta):
 
 
 def compute_member_diagnostics(state, evaluator, posterior, config, *, log=print):
-    """Build one shared dataset; no inference or mutation of the member classes."""
+    """Build one shared dataset over the reporting draws; no inference or mutation of the member classes.  Field
+    quantities are medians over the draws (the member errors also keep their 16-84% and maximum)."""
+    from ..reporting.draws import reporting_draws
     records = state.scaling_component_records
     ids = list(state.members.member_ids)
     by_component = {int(r['component_index']): r for r in records}
@@ -145,10 +135,9 @@ def compute_member_diagnostics(state, evaluator, posterior, config, *, log=print
     table.insert(0, 'member_id', ids)
     table.loc[table.ellipticite <= 1e-10, 'angle_pos'] = np.nan
     table['member_class'] = np.where(np.isin(np.arange(len(ids)), state.members.exact_positions), 'exact', 'far-field')
-    count = config.image_diagnostics.posterior_diagnostic_draws
-    indices = diagnostic_draw_indices(posterior.log_prob, count)
-    samples = np.asarray(posterior.samples)[indices]
-    log(f'[diagnostics] fields at best draw {indices[0]} plus {len(indices)-1} joint draws')
+    draws = reporting_draws(config, evaluator, posterior)
+    indices, samples = np.asarray(draws.indices), np.asarray(draws.samples)
+    log(f'[diagnostics] member fields at {len(indices)} posterior draws')
     batch = jax.jit(jax.vmap(lambda t: reporting_fields(evaluator, t)))
     blocks = []
     for start in range(0, len(samples), 4):
@@ -165,35 +154,39 @@ def compute_member_diagnostics(state, evaluator, posterior, config, *, log=print
     variables.update(nearest_member_arcsec='Nearest member (arcsec)', neighbor_density_arcsec2=r'$\Sigma_5$ (arcsec$^{-2}$)',
                      ellipticite='Catalog ellipticity', angle_pos='Catalog position angle (deg)',
                      deflection='Maximum member deflection (arcsec)', shear='Maximum member shear')
-    table['deflection'], table['shear'] = fields['deflection'][0], fields['shear'][0]
-    best_physical = evaluator.physical(jnp.asarray(samples[0]))
+    table['deflection'], table['shear'] = np.median(fields['deflection'], axis=0), np.median(fields['shear'], axis=0)
+    physical_draws = [evaluator.physical(jnp.asarray(theta)) for theta in samples]
     z = float(config.truth.caustic_source_redshift)
     skipped = {}
     if z <= state.z_lens:
         skipped['environment_kappa'] = 'Diagnostic source redshift is not behind lens'
     else:
-        packed = evaluator.packed_state_for_z(best_physical, z)
         components = np.arange(evaluator.n_components, dtype=np.int32)
         # Evaluate rows at member centers in bounded point blocks, without third derivatives.
-        row_fields = jax.jit(lambda points: evaluator.component_rows(points, packed, components, derivative=False)[1])
-        kappas = []
-        for start in range(0, len(xy), 64):
-            points = xy[start:start+64]
-            padded = np.pad(points, ((0, 64-len(points)), (0, 0)), mode='edge')
-            u = np.asarray(row_fields(jnp.asarray(padded)))[:, :len(points)]
-            k = .5*np.trace(u, axis1=-2, axis2=-1)
-            own = np.asarray(state.members.component_indices)[start:start+len(points)]
-            kappas.extend(k.sum(axis=0)-k[own, np.arange(len(points))])
-        from ..likelihood.grf_fields import shared_grf_fields
-        _, grf_u = shared_grf_fields(evaluator, samples[0], z, xy)
-        table['environment_kappa'] = np.asarray(kappas) + .5*np.trace(grf_u, axis1=-2, axis2=-1)
+        row_fields = jax.jit(lambda points, packed: evaluator.component_rows(points, packed, components, derivative=False)[1])
+        environment = []
+        for k_draw, physical in enumerate(physical_draws):
+            packed = evaluator.packed_state_for_z(physical, z)
+            kappas = []
+            for start in range(0, len(xy), 64):
+                points = xy[start:start+64]
+                padded = np.pad(points, ((0, 64-len(points)), (0, 0)), mode='edge')
+                u = np.asarray(row_fields(jnp.asarray(padded), packed))[:, :len(points)]
+                k = .5*np.trace(u, axis1=-2, axis2=-1)
+                own = np.asarray(state.members.component_indices)[start:start+len(points)]
+                kappas.extend(k.sum(axis=0)-k[own, np.arange(len(points))])
+            _, grf_u = draws.jacobians(k_draw, xy, z)
+            environment.append(np.asarray(kappas) + .5*np.trace(grf_u, axis1=-2, axis2=-1))
+        table['environment_kappa'] = np.median(environment, axis=0)
         variables['environment_kappa'] = rf'Environmental $\kappa$ ($z_s={z:g}$; self excluded)'
-    packed = evaluator.packed_state(best_physical)[0]
+    packed_draws = [evaluator.packed_state(physical)[0] for physical in physical_draws]
     profile = np.asarray(state.packed_lens_spec.profile_type)
     family = np.asarray(state.packed_lens_spec.component_family)
     halos = np.flatnonzero((family == 0) & np.isin(profile, [DP_IE_PROFILE, NFW_PROFILE]))
     if len(halos):
-        centers = np.column_stack((np.asarray(packed.center_x)[halos], np.asarray(packed.center_y)[halos]))
+        # Halo geometry: the median over draws of each halo's centre and ellipticity.
+        median = lambda name: np.median([np.asarray(getattr(packed, name))[halos] for packed in packed_draws], axis=0)
+        centers = np.column_stack((median('center_x'), median('center_y')))
         separation = distance.cdist(xy, centers)
         for col, c in enumerate(halos):
             name = str(state.base_components[c]['id'])
@@ -205,7 +198,7 @@ def compute_member_diagnostics(state, evaluator, posterior, config, *, log=print
         table['nearest_halo_id'] = [str(state.base_components[halos[i]]['id']) for i in nearest]
         table['nearest_halo_arcsec'] = separation[np.arange(len(xy)), nearest]
         delta = xy-centers[nearest]
-        e1, e2 = np.asarray(packed.e1)[halos][nearest], np.asarray(packed.e2)[halos][nearest]
+        e1, e2 = median('e1')[nearest], median('e2')[nearest]
         phi = .5*np.arctan2(e2, e1)
         azimuth = np.abs((np.arctan2(delta[:, 1], delta[:, 0])-phi+np.pi/2) % np.pi-np.pi/2)
         defined = (np.hypot(e1, e2) > 1e-10) & (np.linalg.norm(delta, axis=1) > 1e-10)
@@ -240,20 +233,19 @@ def compute_member_diagnostics(state, evaluator, posterior, config, *, log=print
         q = np.quantile(fields[key], [.16, .5, .84], axis=0)
         for label, values in zip(('p16', 'median', 'p84'), q):
             table[f'{key}_{label}'] = values
-        table[f'{key}_best'] = fields[key][0]
         table[f'{key}_max'] = fields[key].max(axis=0)
     separation = distance.cdist(xy, image_xy).min(axis=1)
     ratio = separation[None]/fields['cut_radius']
     table['guard_ratio_min'] = ratio.min(axis=0)
-    table['guard_ratio_best'] = ratio[0]
+    table['guard_ratio_median'] = np.median(ratio, axis=0)
     images = pd.DataFrame(dict(image_label=state.images.image_labels, family_id=np.asarray(state.images.family_ids)[np.asarray(state.images.family_index_per_image)],
                                x_obs_arcsec=image_xy[:, 0], y_obs_arcsec=image_xy[:, 1]))
-    provenance = dict(selected_draw_indices=indices.tolist(), best_draw_index=int(indices[0]), variable_definitions=variables,
+    provenance = dict(selected_draw_indices=indices.tolist(), variable_definitions=variables,
                       environment_source_redshift=z, skipped_variables=skipped, prior_predictive_draws=len(priors), prior_seed=173,
                       tolerance=float(config.members.template_tolerance), guard_cut_radii=float(evaluator.guard_cut_radii),
                       source_definition='sampled-model physical source, held fixed for exact reporting',
                       algorithm_revision='member-diagnostics-v1',
-                      reference_geometry='best-fit model; deflection/shear at individual image source redshifts',
+                      reference_geometry='medians over the reporting draws; deflection/shear at individual image source redshifts',
                       neighbor_catalog='modeled population members; independent halos and dropped members excluded',
                       excluded_variable_rows={key: int((~np.isfinite(table[key].to_numpy(float))).sum()) for key in variables},
                       halo_angle_definition='absolute angle modulo 180 degrees, folded to 0–90 degrees',

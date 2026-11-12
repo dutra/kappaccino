@@ -33,7 +33,7 @@ def resolve_panel(selector, systems):
     return kind, system['system_id'], system
 
 
-def write_paper_cutouts(config, state, evaluator, posterior, tables, figures, imaging, *, log=print):
+def write_paper_cutouts(config, state, draws, tables, figures, imaging, *, log=print):
     """Create the selected figures after position and fold products are saved."""
     groups = [('small_lambda_posteriors', config.image_catalog.paper_small_lambda_cutouts),
               ('fold_cutouts', config.image_catalog.paper_fold_cutouts)]
@@ -51,7 +51,7 @@ def write_paper_cutouts(config, state, evaluator, posterior, tables, figures, im
         data = overview_cutout_data(tables, config.paths.figure_prefix,
             image_labels=tuple(dict.fromkeys(identity for kind, identity, _ in resolved if kind == 'image')),
             system_ids=tuple(dict.fromkeys(identity for kind, identity, _ in resolved if kind != 'image')),
-            state=state, evaluator=evaluator, posterior=posterior, log=log)
+            draws=draws, log=log)
         if data is None:
             raise ValueError(f'Cannot render {stem}: selected posterior cutout diagnostics are unavailable')
         with plt.style.context(str(Path(__file__).with_name('style.mplstyle'))):

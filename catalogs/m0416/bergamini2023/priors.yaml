@@ -1,0 +1,105 @@
+# MACS J0416 with the HST + MUSE catalog of Bergamini et al. 2023 (237 spectroscopic images in 88 families; the files
+# are their 2022 release), transcribed from source/Bergamini22_MACS0416_Normal.par: four dark-matter dPIE halos with
+# their prior boxes, a free foreground galaxy and four fixed hot-gas clumps.  Radii are given there in arcsec.
+reference: {ra0_deg: 64.0381417, dec0_deg: -24.0674722}
+cosmology: {H0: 70.0, Om0: 0.3, Ode0: 0.7}
+z_lens: 0.396
+images: images.yaml
+
+halos:
+  # NE halo: Bergamini's start sits at the BCG-N; its ellipticity and angle are free in their boxes.
+  "1":
+    x_centre:
+      start: 0.13392
+      prior: uniform(-15.0, 15.0)
+    y_centre:
+      start: -0.04501
+      prior: uniform(-15.0, 15.0)
+    ellipticite: 0.8
+    angle_pos: -35.7557
+    shape: {ellipticity: [0.2, 0.9], angle: [-180.0, 180.0]}
+    core_radius_kpc:
+      start: 13.5871 * arcsec
+      prior: loguniform(0.5, 20.0 * arcsec)
+    cut_radius_kpc: 2000.0 * arcsec
+    v_disp:
+      start: 650.0
+      prior: lognormal(mean=675.0, std=325.0) in [350.0, inf]
+  # SW halo.
+  "2":
+    x_centre:
+      start: 20.29565
+      prior: uniform(15.0, 30.0)
+    y_centre:
+      start: -35.83494
+      prior: uniform(-45.0, -30.0)
+    ellipticite: 0.6417
+    angle_pos: -55.3798
+    shape: {ellipticity: [0.2, 0.9], angle: [-90.0, 90.0]}
+    core_radius_kpc:
+      start: 14.416 * arcsec
+      prior: loguniform(0.5, 25.0 * arcsec)
+    cut_radius_kpc: 2000.0 * arcsec
+    v_disp:
+      start: 805.1496
+      prior: lognormal(mean=775.0, std=425.0) in [350.0, inf]
+  # Third halo, round.
+  "3":
+    x_centre: uniform(-55.0, -25.0)
+    y_centre: uniform(0.0, 30.0)
+    ellipticite: 0.0
+    angle_pos: 0.0
+    core_radius_kpc:
+      start: 13.5871 * arcsec
+      prior: loguniform(0.5, 35.0 * arcsec)
+    cut_radius_kpc: 2000.0 * arcsec
+    v_disp:
+      start: 650.0
+      prior: lognormal(mean=400.0, std=350.0) in [50.0, inf]
+  # Fourth halo, south-west.
+  "4":
+    x_centre:
+      start: 28.772
+      prior: uniform(-10.0, 50.0)
+    y_centre:
+      start: -39.454
+      prior: uniform(-75.0, -15.0)
+    ellipticite: 0.9
+    angle_pos: 134.202
+    shape: {ellipticity: [0.2, 0.9], angle: [0.0, 180.0]}
+    core_radius_kpc:
+      start: 10.671 * arcsec
+      prior: loguniform(0.5, 20.0 * arcsec)
+    cut_radius_kpc: 2000.0 * arcsec
+    v_disp:
+      start: 476.784
+      prior: lognormal(mean=550.0, std=450.0) in [100.0, inf]
+  # Foreground galaxy, at the cluster redshift as in Bergamini et al. 2022.
+  "5":
+    x_centre: 31.96420
+    y_centre: -65.55168
+    ellipticite: 0.0
+    angle_pos: 0.0
+    core_radius_kpc: 0.01
+    cut_radius_kpc: 33.6321 * arcsec
+    v_disp:
+      start: 235.2454
+      prior: lognormal(mean=200.0, std=150.0) in [50.0, inf]
+    cut_excess_kpc: loguniform(5.0 * arcsec - 0.01, 100.0 * arcsec - 0.01)
+  # Hot-gas clumps from the X-ray model, fixed.
+  gas1: {x_centre: -18.137002925379967, y_centre: -12.133967959650562, ellipticite: 0.11802924806826215, angle_pos: -156.7566690854322,
+         core_radius_kpc: 149.2054944000091 * arcsec, cut_radius_kpc: 149.82423360000914 * arcsec, v_disp: 433.0248792121149}
+  gas2: {x_centre: 30.787477074623045, y_centre: -48.67185595965274, ellipticite: 0.4166205427409096, angle_pos: -71.5005491699657,
+         core_radius_kpc: 34.77330048000212 * arcsec, cut_radius_kpc: 165.77093760001011 * arcsec, v_disp: 248.99144885049094}
+  gas3: {x_centre: -2.3693869253788935, y_centre: -1.2627359596498962, ellipticite: 0.4248370668779292, angle_pos: -54.743768197790125,
+         core_radius_kpc: 8.281737600000504 * arcsec, cut_radius_kpc: 37.5947433600023 * arcsec, v_disp: 101.7305750041091}
+  gas4: {x_centre: -20.12861892537998, y_centre: 14.74104004035109, ellipticite: 0.4013796817764777, angle_pos: -49.32427500520669,
+         core_radius_kpc: 51.67495680000315 * arcsec, cut_radius_kpc: 52.337385600003195 * arcsec, v_disp: 281.8472712670227}
+
+# Neutral member priors at L* (see catalogs/as1063/bergamini2019/priors.yaml), m* = -23 + mu(z = 0.396) = 18.66.
+# Bergamini et al. 2023 found sigma 248 +- 28 km/s and r_cut 56 +- 30 kpc at the BCG magnitude 17.02 with a fixed slope
+# of 0.3, i.e. 158 km/s and 29 kpc at m*, inside these priors.  Galaxy 8971 is on the relation.
+members:
+  potfile_1: {catalog_path: members.cat, preset: neutral, prior_mag0: 18.66}
+
+scaling: {preset: neutral}

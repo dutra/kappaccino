@@ -4,12 +4,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
-from jaxtronomy.LensModel.Profiles.nie_e import NIE_E, _atan_sqrt_ratio
-from jaxtronomy.LensModel.Profiles.dpie_nie_e import DPIE_NIE_E
-from lenstronomy.LensModel.Profiles.nie_e import NIE_E as NumNIE
-from lenstronomy.LensModel.Profiles.dpie_nie_e import DPIE_NIE_E as NumDPIE
-from jaxtronomy.LensModel.Profiles.nie import NIE
-from jaxtronomy.LensModel.Profiles.dpie_nie import DPIENIE
+from kappaccino.lens.nie import DPIE_NIE_E, NIE_E, _atan_sqrt_ratio
 
 jax.config.update('jax_enable_x64', True)
 
@@ -40,8 +35,8 @@ def reference_dpie(x,y,sigma,a,b,e1,e2):
     return tuple(i-o for i,o in zip(ai,ao)),pi-po
 
 
-@pytest.mark.parametrize('profile,numpy_profile,reference,is_dpie',[(NIE_E,NumNIE,reference_nie,False),(DPIE_NIE_E,NumDPIE,reference_dpie,True)])
-def test_values_high_precision_and_numpy(profile,numpy_profile,reference,is_dpie):
+@pytest.mark.parametrize('profile,reference,is_dpie',[(NIE_E,reference_nie,False),(DPIE_NIE_E,reference_dpie,True)])
+def test_values_high_precision(profile,reference,is_dpie):
     rng=np.random.default_rng(385)
     with mp.workdps(80):
         for i in range(80):
@@ -54,8 +49,6 @@ def test_values_high_precision_and_numpy(profile,numpy_profile,reference,is_dpie
             expected,pot=reference(x,y,*args)
             np.testing.assert_allclose(profile.derivatives(x,y,*args),np.array(expected,float),rtol=3e-14,atol=2e-15)
             np.testing.assert_allclose(profile.function(x,y,*args),float(pot),rtol=3e-14,atol=1e-13)
-            for method in ['derivatives','function','hessian']:
-                np.testing.assert_allclose(getattr(profile,method)(x,y,*args),getattr(numpy_profile,method)(x,y,*args),rtol=3e-14,atol=2e-13)
 
 
 @pytest.mark.parametrize('e1,e2',[(0.,0.),(1e-14,-1e-14),(.1,.2),(-.4,.2)])
@@ -102,23 +95,6 @@ def test_series_switch_derivatives():
                 f=jax.grad(f)
 
 
-def test_registered_models_and_legacy_names():
-    from jaxtronomy.LensModel.lens_model import LensModel as JaxModel
-    from jaxtronomy.LensModel.lens_model_bulk import LensModelBulk
-    from lenstronomy.LensModel.lens_model import LensModel as NumModel
-    kwargs=[dict(sigma0=2.,Ra=.2,Rs=8.,e1=0.,e2=0.)]
-    for model in [JaxModel(['DPIE_NIE_E']),NumModel(['DPIE_NIE_E'])]:
-        assert np.isfinite(model.alpha(.2,.3,kwargs)).all()
-        assert np.isfinite(model.hessian(.2,.3,kwargs)).all()
-    for cls in [JaxModel,NumModel]:
-        model=cls(['NIE_E'])
-        assert np.isfinite(model.alpha(.2,.3,[dict(theta_E=2.,s_scale=.2,e1=0.,e2=0.)])).all()
-    LensModelBulk(unique_lens_model_list=['DPIE_NIE_E','NIE_E'], multi_plane=False)
-    # Existing names remain available, with their original circular approximation.
-    assert np.isfinite(NIE().derivatives(1.,2.,3.,0.,0.,.2)).all()
-    assert np.isfinite(DPIENIE.derivatives(1.,2.,3.,.2,8.,0.,0.)).all()
-
-
 @pytest.mark.parametrize('profile,reference,args', [
     (NIE_E, reference_nie, (2., .15, -.2, .3)),
     (NIE_E, reference_nie, (2., .3, 0., .3)),
@@ -141,15 +117,12 @@ def test_spatial_hessian_high_precision(profile, reference, args):
 
 
 def test_spherical_mass_conventions():
-    from lenstronomy.LensModel.Profiles.nie import NIE as LegacyNIE
-    from lenstronomy.LensModel.Profiles.dpie_nie import DPIENIE as LegacyDPIE
-    r = np.array([0., .1, 1., 100.])
-    for profile, old, args in [
-        (NIE_E, LegacyNIE(), (2., .1, .2, .3)),
-        (DPIE_NIE_E, LegacyDPIE(), (2., .3, 8., .1, .2)),
-    ]:
-        np.testing.assert_allclose(profile.mass_3d_lens(r, *args),
-                                   old.mass_3d_lens(r, *args), rtol=2e-13, atol=2e-14)
+    # The 3D mass is the integral of 4 pi r^2 times the density.
+    r = jnp.array([0., .1, 1., 100.])
+    for profile, args in [(NIE_E, (2., .1, .2, .3)), (DPIE_NIE_E, (2., .3, 8., .1, .2))]:
+        dm = jax.vmap(jax.grad(lambda radius: profile.mass_3d_lens(radius, *args)))(r)
+        np.testing.assert_allclose(dm, 4 * np.pi * r**2 * profile.density_lens(r, *args), rtol=2e-13, atol=2e-14)
+        assert float(profile.mass_3d_lens(0., *args)) == 0.
 
 
 def test_all_parameter_derivatives_and_centers():

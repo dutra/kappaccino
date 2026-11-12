@@ -4,6 +4,14 @@
 .. automodule:: kappaccino.config
    :no-members:
 
+Run files
+---------
+
+.. autofunction:: kappaccino.run_files.load_run
+.. autofunction:: kappaccino.run_files.load_priors
+.. autofunction:: kappaccino.run_files.read_run
+.. autofunction:: kappaccino.run_files.parse_value
+
 Top level
 ---------
 

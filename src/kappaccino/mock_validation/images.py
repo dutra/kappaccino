@@ -39,7 +39,7 @@ class TruthLens(NamedTuple):
 
 
 def lens_state(truth: MockTruth, z_source: float, components: list[DPIEComponent] | None = None) -> TruthLens:
-    """All truth components as a static dPIE lens for one source redshift (lenstronomy kwargs, our kernel), with the
+    """All truth components as a static dPIE lens for one source redshift, with the
     injected mass field weighted by D_ls / D_s relative to the field's reference redshift."""
     factor = lensing_efficiency(truth, z_source)      # one cosmology evaluation per redshift, not one per component
     kwargs = []

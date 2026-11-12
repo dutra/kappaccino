@@ -28,9 +28,8 @@ At a high level, `kappaccino` includes:
 python -m pip install -e .
 ```
 
-The dependencies include two forks installed from GitHub branches: `jaxtronomy` from
-`dutra/JAXtronomy@feat-pseudojaffe-compact-profiles` (the JAX lens profiles) and `lenstronomy` from
-`dutra/lenstronomy@feat-lenscluster-models` (the exact-image solver and plotting).
+`lenstronomy` and `jaxtronomy` come from the `main` branches of their upstream repositories; only the source-light
+scripts use them.
 
 The image and member catalogs of the supported clusters are under `catalogs/`. Imaging is not tracked; fetch it with
 `python scripts/download_imaging.py download` (see the installation page of the documentation). Fits run without

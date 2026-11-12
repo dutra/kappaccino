@@ -81,26 +81,27 @@ def test_system_blocks_use_the_shared_twin(monkeypatch):
     assert reporting_fields.shared_field_evaluator(run) is twin
 
 
-def test_observed_stretch_uses_corrected_jacobian():
+def test_observed_stretch_uses_the_jacobian_with_the_field():
     import pandas as pd
     from kappaccino.plotting.mass_figure import arc_direction_table
     # Parametric stretch is x, but the conditional mass field changes it to y.
     image=SimpleNamespace(image_labels=['a'],x_obs=np.array([0.]),y_obs=np.array([0.]),
-                          family_index_per_image=np.array([0]))
-    def correction(x,y,f):
-        return x*0,y*0,x*0-.6,x*0,x*0,x*0+.7
-    e=SimpleNamespace(gp_knee=True,state=SimpleNamespace(images=image),physical=lambda p:p,
-        fields=lambda *a,**k:{'jacobian':np.array([np.diag([.1,.8])])},
-        gp_deflection_correction=lambda theta:correction)
-    result=arc_direction_table(e,np.zeros(1),pd.DataFrame({'image_label':['a']}))
+                          family_index_per_image=np.array([0]),family_ids=('f',))
+    class Draws:
+        evaluator=SimpleNamespace(state=SimpleNamespace(images=image,family_data=[SimpleNamespace(family_id='f',z_source=2.)]))
+        def __len__(self):return 2
+        def jacobians(self,k,xy,z):
+            parametric=np.eye(2)-np.diag([.1,.8])
+            return parametric[None],np.diag([-.6,.7])[None]
+    result=arc_direction_table(Draws(),pd.DataFrame({'image_label':['a']}))
     np.testing.assert_allclose(result[['e_arc_x','e_arc_y']],[[0.,1.]])
     np.testing.assert_allclose(result.s_arc,.1)
 
 
-def test_physical_median_reconstructs_gp_sources(monkeypatch):
+def test_latent_from_physical_reconstructs_gp_sources(monkeypatch):
     import jax.numpy as jnp
     from kappaccino.core import model
-    from kappaccino.likelihood.grf_fields import posterior_median_theta
+    from kappaccino.likelihood.grf_fields import latent_from_physical
     monkeypatch.setattr(model, 'convert_theta_to_latent', lambda p,s:np.array(p,copy=True))
     e=SimpleNamespace(gp_knee=True,state=SimpleNamespace(parameter_specs=[],images=SimpleNamespace(
         source_x_param_index=np.array([1]),source_y_param_index=np.array([2]))),
@@ -111,7 +112,7 @@ def test_physical_median_reconstructs_gp_sources(monkeypatch):
                                       'centroid':jnp.array([[t[0],t[0]]])}}
     e.reported_physical=lambda t:jnp.array([t[0],2*t[1]+t[0],2*t[2]+t[0]])
     p=SimpleNamespace(physical=np.array([[1.,10.,14.],[5.,12.,17.],[9.,20.,18.]]))
-    theta=posterior_median_theta(e,p)
+    theta=latent_from_physical(e,np.median(p.physical,axis=0))
     np.testing.assert_allclose(theta,[5.,3.5,6.])
     np.testing.assert_allclose(e.reported_physical(theta),np.median(p.physical,axis=0))
 

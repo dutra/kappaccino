@@ -10,14 +10,15 @@ import pandas as pd
 import pytest
 
 from kappaccino import pipeline
-from kappaccino.config import ImageDiagnosticsConfig, PartitionConfig, RuntimeConfig, SamplingConfig, SearchConfig
+from kappaccino.config import ImageDiagnosticsConfig, PartitionConfig, ReportingConfig, RuntimeConfig, SamplingConfig, SearchConfig
 from kappaccino.likelihood.evaluator import Evaluator
-from kappaccino.diagnostics.exact_images import ExactImageSolver, packed_to_kwargs_lens
+from kappaccino.diagnostics.exact_images import ExactImageSolver
 from kappaccino.partition import add_uncertain_images, write_partition_outputs
 from kappaccino.partition import catalog_evidence as ce, groups, inputs, lens_evidence as le
 from kappaccino.likelihood import smoothed as sl
 from kappaccino.core.state import build_state
 from kappaccino.io.hdf5 import load_arrays
+from conftest import _brute_force_images as brute_force_images
 
 SOURCES = [(2.0, (0.5, 0.3)), (3.0, (-1.0, 0.8)), (2.5, (2.0, -1.5))]       # (z, source position) of the new sources
 COLORS = {0: (24.0, 23.5, 23.3), 1: (25.0, 24.2, 23.6), 2: (23.8, 23.7, 23.65), "trusted": (24.5, 24.0, 23.0)}
@@ -26,9 +27,7 @@ BANDS = ("F090W", "F150W", "F200W")
 
 def _images_of(solver, evaluator, physical, z, source, *, min_magnification=0.3):
     packed = evaluator.packed_state_for_z(physical, z)
-    _, equation = solver.lenstronomy_model(z)
-    x, y = equation.image_position_from_source(*source, packed_to_kwargs_lens(packed), min_distance=0.1, search_window=80,
-                                               num_iter_max=50, precision_limit=1e-10)
+    x, y = brute_force_images(solver, packed, source, (0.0, 0.0), 40.0, pitch=0.1)
     mu = solver.magnification(packed, x, y)
     keep = np.abs(mu) > min_magnification
     return np.asarray(x)[keep], np.asarray(y)[keep], np.sign(mu[keep]).astype(int)
@@ -417,7 +416,7 @@ def test_final_stage_samples_the_lens_with_the_uncertain_images(synthetic_config
                      runtime=RuntimeConfig(seed=3, chains=1, nuts_chain_method="sequential", resume=True, skip_plots=True),
                      search=SearchConfig(n_starts=2, member_starts=1, lbfgs_max_iter=20, polish_max_iter=5),
                      sampling=SamplingConfig(warmup=5, samples=5, max_tree_depth=3),
-                     image_diagnostics=ImageDiagnosticsConfig(posterior_image_diagnostic_draws=0)).validate()
+                     reporting=ReportingConfig(draws=1, image_draws=1, extra_images=False)).validate()
     result = pipeline.run(config)
     assert result.state.uncertain_images is not None and result.posterior.samples.shape[1] == result.init.state.n_parameters
     saved = load_arrays(result.paths.final.artifacts / groups.OUTPUT_FILE)

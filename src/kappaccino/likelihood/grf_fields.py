@@ -4,7 +4,7 @@ This does not alter the likelihood covariance. A family- or system-specific GP c
 define one cluster-wide mass map, so the maps use one shared field.  For a run sampled
 with system blocks it is rebuilt after sampling: an all-block twin of the run's model
 (same parameters, hyperparameters and physical sources; the field-wide translation,
-convergence and shear projected out as in a full run) gives the conditional mean of a
+convergence and shear projected out) gives the conditional mean of a
 single field over every image.
 """
 import copy
@@ -166,10 +166,14 @@ def shared_grf_fields(evaluator, theta, z_source, xy, *, chunk=1024):
     return alpha, jacobian
 
 
-def posterior_median_theta(evaluator, posterior):
-    """Coordinatewise physical posterior median, including physical sources.
+def posterior_map_draws(samples, count, seed):
+    """``count`` random posterior draws (all of them when there are fewer), in chain order, for a posterior-mean map.
 
-    Whitened source coordinates are model dependent: their median is not the
-    coordinate representation of the median physical source positions.
-    """
-    return latent_from_physical(evaluator, np.median(np.asarray(posterior.physical), axis=0))
+    A map of the parametric model plus the field's conditional mean has to be averaged over draws: the conditional
+    mean fits the residuals its parameter vector leaves, and a coordinatewise median of the parameters is not a
+    posterior state, so its residuals, and the field conditioned on them, belong to no fitted model."""
+    samples = np.asarray(samples)
+    chosen = np.random.default_rng(seed).choice(len(samples), size=min(int(count), len(samples)), replace=False)
+    return samples[np.sort(chosen)]
+
+

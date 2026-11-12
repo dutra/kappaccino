@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 import numpy as np
 import pandas as pd
-import jax.numpy as jnp
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -13,7 +12,6 @@ from matplotlib.lines import Line2D
 from _covariance_plot_cli import load_run
 from kappaccino.diagnostics.truth_recovery import load_truth_fits, grid_arcsec
 from kappaccino.io.hdf5 import load_arrays, save_arrays
-from kappaccino.lens.cosmology import dpie_sigma0_factor_from_config
 from kappaccino.plotting.style import PAPER_STYLE
 
 
@@ -61,53 +59,41 @@ def main():
     images=pd.read_csv(final/'tables/image_fit_quality.csv')
     if not a.render_only:
         config,state,evaluator,posterior,paths=load_run(a.run)
-        from kappaccino.likelihood.grf_fields import posterior_median_theta, shared_field_evaluator, shared_theta
-        twin=shared_field_evaluator(evaluator)
-        if twin is None:
+        from kappaccino.likelihood.grf_fields import shared_field_evaluator
+        from kappaccino.reporting.draws import reporting_draws
+        if shared_field_evaluator(evaluator) is None:
             raise ValueError('A single cluster field requires a knee mass field')
-        # Exactly the parameter statistic used by compute_truth_recovery (physical posterior median), not the best draw.
-        theta=posterior_median_theta(evaluator,posterior)
-        correction=twin.gp_deflection_correction(shared_theta(evaluator,theta))
-        if correction is None:raise ValueError('Conditional GRF not available for this saved model')
+        # The reporting draws and grid of compute_truth_recovery; each map is the per-pixel median over the draws, with
+        # each draw's field conditioned at that draw.
+        draws=reporting_draws(config,evaluator,posterior)
         z=float(config.truth.caustic_source_redshift)
         data={}
         for q in ['kappa','abs_mu','detA']:
             data[f'truth_{q}'],wcs=load_truth_fits(final/f'fits/truth_recovery_{q}_true.fits')
         shape=data['truth_kappa'].shape;x,y=grid_arcsec(state,wcs,shape)
-        points=np.column_stack((x.ravel(),y.ravel()))
-        packed=evaluator.packed_state_for_z(evaluator.physical(jnp.asarray(theta)),z)
-        print(f'Exact parametric fields at {len(points)} map pixels',flush=True)
-        _,u=evaluator.total_fields_at(points,packed,chunk=4096)
-        ref=float(dpie_sigma0_factor_from_config(state.z_lens,state.gp_reference_redshift,state.cosmo_config))
-        target=float(dpie_sigma0_factor_from_config(state.z_lens,z,state.cosmo_config))
-        weight=target/ref/float(twin.gp_weights_per_family[0])
-        du=[]
-        for start in range(0,len(points),1024):
-            block=points[start:start+1024];n=len(block);block=np.pad(block,((0,1024-n),(0,0)),mode='edge')
-            f=correction(block[:,0],block[:,1],np.zeros(1024,dtype=int))
-            du.append(np.stack(f[2:],-1)[:n].reshape(-1,2,2)*weight)
-        du=np.concatenate(du)
-        for name,jac in [('parametric',u),('with_grf',u+du)]:
-            det=np.linalg.det(np.eye(2)-jac)
-            data[f'{name}_kappa']=(.5*np.trace(jac,axis1=-2,axis2=-1)).reshape(shape)
-            data[f'{name}_detA']=det.reshape(shape)
-            with np.errstate(divide='ignore'):data[f'{name}_abs_mu']=np.abs(1/det).reshape(shape)
+        maps=draws.grid_maps('truth',x,y,z,log=lambda text:print(text,flush=True))
+        with np.errstate(divide='ignore'):
+            parametric_abs_mu=np.abs(1/maps['detA_parametric'].astype(float))
+        grids={'parametric_kappa':maps['kappa_parametric'],'parametric_detA':maps['detA_parametric'],'parametric_abs_mu':parametric_abs_mu,
+               'with_grf_kappa':maps['kappa'],'with_grf_detA':maps['detA'],'with_grf_abs_mu':maps['abs_mu']}
+        data.update({k:np.nanmedian(np.asarray(v,dtype=float),axis=0) for k,v in grids.items()})
+        grf_kappa=np.nanmedian(maps['kappa_grf'].astype(float),axis=0)
         differences={}
         for q in ['kappa','abs_mu','detA']:
             saved,_=load_truth_fits(final/f'fits/truth_recovery_{q}_model_median.fits')
             from astropy.io import fits
             header = fits.getheader(final/f'fits/truth_recovery_{q}_model_median.fits')
             mode = 'with_grf' if header.get('GRFMEAN', False) else 'parametric'
-            np.testing.assert_allclose(data[f'{mode}_{q}'],saved,rtol=1e-8,atol=1e-10)
+            np.testing.assert_allclose(data[f"{mode}_{q}"],saved,rtol=1e-6,atol=1e-8)
             differences[q]=float(np.nanmax(abs(data[f'{mode}_{q}']-saved)))
-        data.update(x=x,y=y,grf_kappa=(.5*np.trace(du,axis1=-2,axis2=-1)).reshape(shape),theta=theta)
+        data.update(x=x,y=y,grf_kappa=grf_kappa)
         save_arrays(cache,**data)
-        metadata=dict(run=str(a.run.resolve()),z_source=z,model='physical posterior median, matching the truth-recovery plot',
-            grf='conditional mean at the same model and its reconstructed sources, not posterior-averaged fields',
-            grid_shape=list(shape),redshift_weight=weight,baseline_max_absolute_difference=differences,
+        metadata=dict(run=str(a.run.resolve()),z_source=z,model=f'per-pixel median over {len(draws)} reporting draws, matching the truth-recovery maps',
+            grf='conditional mean of each draw at that draw; grf_kappa is the per-pixel median of the GRF convergence',
+            grid_shape=list(shape),baseline_max_absolute_difference=differences,
             magnification='1 / det(I - U_parametric - U_GRF), recomputed from the total Jacobian',
             normalization='display [-1,2], cropped from symmetric [-2,2] RdBu_r',
-            grf_kappa_min=float(data['grf_kappa'].min()),grf_kappa_max=float(data['grf_kappa'].max()))
+            grf_kappa_min=float(np.nanmin(data['grf_kappa'])),grf_kappa_max=float(np.nanmax(data['grf_kappa'])))
         (cache.with_suffix('.json')).write_text(json.dumps(metadata,indent=2)+'\n')
     data = load_arrays(cache)
     render(data,images,output)

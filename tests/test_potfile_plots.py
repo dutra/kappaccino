@@ -30,7 +30,7 @@ def test_run_outputs_create_potfile_corner(tmp_path, monkeypatch):
     samples, specs = fixture_draws()
     posterior = SimpleNamespace(samples=samples, physical=samples, log_prob=np.zeros(len(samples)))
     state = SimpleNamespace(parameter_specs=specs)
-    config = SimpleNamespace(paths=SimpleNamespace(figure_prefix="hera"), image_diagnostics=None)
+    config = SimpleNamespace(paths=SimpleNamespace(figure_prefix="hera"), image_diagnostics=None, reporting=SimpleNamespace(draws=2, extra_images=False), runtime=SimpleNamespace(seed=0))
     paths = SimpleNamespace(tables=tmp_path / "tables", figures=tmp_path / "figures")
     monkeypatch.setattr(outputs, "posterior_summary_table", lambda *args: pd.DataFrame())
     monkeypatch.setattr(outputs, "classification_table", lambda *args: pd.DataFrame())
@@ -104,7 +104,7 @@ def test_uniform_global_prior_and_coordinate_transforms(tmp_path):
     from kappaccino.plotting.plots import plot_corner
     specs = [make_spec(f'halo.{field}', field, dist.Uniform(-1., 1.), 'large') for field in ('x', 'y')]
     draws = np.random.default_rng(4).uniform(-.8, .8, (100, 2))
-    path = plot_corner(draws, specs, tmp_path/'global.pdf', best=draws[0])
+    path = plot_corner(draws, specs, tmp_path/'global.pdf')
     assert path.is_file()
     assert 'support boundary' in json.loads(path.with_suffix('.json').read_text())['uniform_joint_prior']
     spec = make_spec('halo.v', 'v', dist.LogNormal(0., 1.))

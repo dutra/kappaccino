@@ -7,8 +7,7 @@ import math
 import jax
 import jax.numpy as jnp
 import numpy as np
-from jaxtronomy.LensModel.Profiles.dpie_nie_e import DPIE_NIE_E as DPIENIE
-from jaxtronomy.LensModel.Profiles.nie_e import _atan_sqrt_ratio, _geometry as _nie_geometry
+from .nie import DPIE_NIE_E as DPIENIE, _atan_sqrt_ratio, _geometry as _nie_geometry
 
 ORIGINAL_DPIE_PROFILE_NAME = "DPIE_NIE_E"
 SHEAR_PROFILE_NAME = "SHEAR"

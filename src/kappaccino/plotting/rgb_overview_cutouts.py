@@ -11,7 +11,7 @@ from ..io.hdf5 import load_arrays
 
 
 
-def overview_cutout_data(tables, prefix, *, image_labels=(), system_ids=(), state=None, evaluator=None, posterior=None, log=print):
+def overview_cutout_data(tables, prefix, *, image_labels=(), system_ids=(), draws=None, log=print):
     """Reuse saved image draws and fold geometry, never run an image search."""
     image_labels,system_ids=tuple(image_labels),tuple(system_ids)
     if not image_labels and not system_ids:
@@ -71,15 +71,13 @@ def overview_cutout_data(tables, prefix, *, image_labels=(), system_ids=(), stat
                 item['critical']={key:critical[key][matches[0]] for key in ('median_determinant','lower','upper')}
         images.append(item)
     if any('critical' not in item for item in images):
-        if state is None or evaluator is None or posterior is None:
+        if draws is None:
             raise ValueError('Selected RGB cutouts require source-redshift critical fields')
         # Explicit launcher selections are independent of the standalone uncertainty cuts.
-        import json
         from .critical_fields import median_cutout_determinants
-        fingerprint=json.loads((tables/'posterior_overview_positions.json').read_text())['fingerprint']
-        _,median,_,lower,upper=median_cutout_determinants(state,evaluator,posterior,
+        _,median,lower,upper=median_cutout_determinants(draws,
             [item['center'] for item in images],[item['fov'] for item in images],
-            [item['z'] for item in images],draw_indices,tables/f'{prefix}_rgb_inset_critical.h5',fingerprint,log=log)
+            [item['z'] for item in images],tables/f'{prefix}_rgb_inset_critical.h5',log=log)
         for i,item in enumerate(images):
             item['critical']=dict(median_determinant=median[i],lower=lower[i],upper=upper[i])
     return dict(images=images,systems=systems)

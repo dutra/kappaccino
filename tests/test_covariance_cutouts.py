@@ -30,7 +30,7 @@ def test_quadratic_contour_linear_limit_and_curved_map():
 
 def test_exact_geometry_and_derivatives(synthetic_config):
     state = build_state(synthetic_config); evaluator = Evaluator(state)
-    g = cc.best_geometry(state, evaluator, state.initial_theta)
+    g = cc.draw_geometry(state, evaluator, state.initial_theta)
     solver = ExactImageSolver(evaluator, synthetic_config.image_diagnostics)
     for i in [0, 2]:  # different source redshifts
         family = state.family_data[int(state.images.family_index_per_image[i])]
@@ -49,13 +49,15 @@ def test_small_catalog_pdf_and_style(synthetic_config, tmp_path, monkeypatch):
     state=build_state(synthetic_config); evaluator=Evaluator(state)
     # FamilyData order is not necessarily the flattened image-family order.
     state.family_data = list(reversed(state.family_data))
-    posterior=SimpleNamespace(samples=np.array([state.initial_theta]), log_prob=np.array([0.]))
+    posterior=SimpleNamespace(samples=np.array([state.initial_theta]), physical=np.array([np.asarray(evaluator.physical(state.initial_theta))]))
+    from kappaccino.reporting.draws import ReportingDraws
+    draws=ReportingDraws(evaluator, posterior, 1, 0)
     paths=SimpleNamespace(tables=tmp_path/'tables',figures=tmp_path/'figures')
     wcs=WCS(naxis=2);wcs.wcs.crpix=[1000,1000];wcs.wcs.crval=list(state.reference[1:]);wcs.wcs.cdelt=[-.05/3600,.05/3600];wcs.wcs.ctype=['RA---TAN','DEC--TAN']
     band=SimpleNamespace(wcs=wcs,shape=(2000,2000),pixel_scale_arcsec=.05,path=tmp_path/'synthetic.fits')
     monkeypatch.setattr(cc,'rgb_cutout',lambda *args: np.full((120,120,3),.2))
     style=dict(plt.rcParams)
-    path=cc.write_covariance_cutouts(synthetic_config,state,evaluator,posterior,paths,({'F814W':band},('F814W',),None,'toy'))
+    path=cc.write_covariance_cutouts(synthetic_config,state,draws,paths,({'F814W':band},('F814W',),None,'toy'))
     assert path.read_bytes().startswith(b'%PDF')
     assert dict(plt.rcParams)==style
     metadata=json.loads((paths.tables/'small_lambda_covariance_cutouts.json').read_text())
@@ -88,7 +90,7 @@ def test_output_reuses_loaded_imaging(monkeypatch, synthetic_config, tmp_path, c
     monkeypatch.setattr(chain_traces,'trace_data',lambda *a:None)
     monkeypatch.setattr(outputs,'compute_truth_recovery',lambda *a,**k:None)
     monkeypatch.setattr(outputs,'image_recovery_tables',lambda *a,**k:{'image_fit_quality':pd.DataFrame({'image':['a']}),'image_count_recovery':pd.DataFrame(),'image_recovery_extra_images':pd.DataFrame()})
-    monkeypatch.setattr(outputs,'fit_summary',lambda *a:{'observed_image_count':1})
+    monkeypatch.setattr(outputs,'fit_summary',lambda *a,**k:{'observed_image_count':1})
     imaging=cluster if cluster in {"hera","ares"} else "test-imaging"
     def load(image_config, *args):
         if missing_hst and not image_config.figure_suffix:
@@ -97,7 +99,7 @@ def test_output_reuses_loaded_imaging(monkeypatch, synthetic_config, tmp_path, c
         return (None,bands,None,imaging)
     monkeypatch.setattr(cutouts,'load_cluster_imaging',load)
     monkeypatch.setattr(mass_figure,'render_cluster_mass_figure',lambda *a,**k:None)
-    calls=[];monkeypatch.setattr(outputs,'write_covariance_cutouts',lambda *a,**k:calls.append(a[5]))
+    calls=[];monkeypatch.setattr(outputs,'write_covariance_cutouts',lambda *a,**k:calls.append(a[4]))
     from kappaccino.diagnostics import position_contours
     monkeypatch.setattr(position_contours,"load_or_compute_contours",lambda *a,**k:None)
     from kappaccino.plotting import small_lambda_jwst
@@ -113,11 +115,11 @@ def test_output_reuses_loaded_imaging(monkeypatch, synthetic_config, tmp_path, c
     outputs.write_outputs(config,state,evaluator,posterior,{},paths,log=lambda _:None)
     # One RGB critical overview per loaded imaging variant, named by its instrument.
     assert len(rgb_calls)==expected
-    assert sorted(call[7].name for call in rgb_calls)==sorted(
+    assert sorted(call[6].name for call in rgb_calls)==sorted(
         ("jwst" if call[0].image_catalog.figure_suffix=="_jwst" else "hst")+"_rgb_critical_z9.pdf" for call in rgb_calls)
-    assert any(call[7].name=="jwst_rgb_critical_z9.pdf" for call in rgb_calls)==(cluster in {"m0416","as1063"})
+    assert any(call[6].name=="jwst_rgb_critical_z9.pdf" for call in rgb_calls)==(cluster in {"m0416","as1063"})
     assert len(lambda_calls)==(1 if cluster in {"m0416","as1063"} else 0)
-    assert all(call[5][3] is imaging for call in lambda_calls)
+    assert all(call[4][3] is imaging for call in lambda_calls)
     assert len(fold_calls)==1 and len(fold_renders)==expected
     assert len(calls)==expected and all(call[3] is imaging for call in calls)
 

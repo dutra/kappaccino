@@ -2,8 +2,9 @@
 
 Every fit is described by one frozen dataclass, {class}`~kappaccino.config.LensClusterSolverConfig`. It groups the
 lens model, the likelihood, the search and the sampler, the run paths and the figure options. Build it, call
-`validate()`, and pass it to {func}`kappaccino.pipeline.run`. Build it in Python, as on this page, or read the lens
-model from a Lenstool parameter file (see {ref}`lenstool-par`). Change a field of a frozen config with
+`validate()`, and pass it to {func}`kappaccino.pipeline.run`. Build it in Python, as on this page, read the lens
+model from a Lenstool parameter file (see {ref}`lenstool-par`), or declare it in a cluster folder's `priors.yaml` and
+`run.yaml` (see {doc}`run-files`). Change a field of a frozen config with
 `dataclasses.replace`:
 
 ```python

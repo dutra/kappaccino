@@ -1,0 +1,19 @@
+# How AS1063 is fitted with the JWST catalog of Diego et al. 2026; JWST figures by default.
+# xonsh run.xsh catalogs/as1063/diego2026 [--profile fast] [--profile hst]
+extends: ../bergamini2019/run.yaml
+name: as1063_jwst
+priors: priors.yaml
+
+image_catalog:
+  image_dir: ../../../data/imaging/as1063/dja_v7.5
+  bands: [F115W, F150W, F200W, F444W]
+  rgb: {q: 80.0, stretch: 20.0}
+  figure_suffix: _jwst
+
+profiles:
+  hst:
+    image_catalog:
+      image_dir: ../../../data/imaging/as1063/buffalo
+      bands: [F435W, F606W, F814W, F105W, F125W, F140W, F160W]
+      rgb: {q: null, stretch: null}
+      figure_suffix: ""

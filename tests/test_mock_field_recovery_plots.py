@@ -5,12 +5,11 @@ from kappaccino.mock_validation.field_recovery_plots import plot_field_recovery
 from kappaccino.io.hdf5 import save_arrays
 
 
-def test_aggregate_field_recovery_uses_median_model_and_mock_bins(tmp_path):
+def test_aggregate_field_recovery_uses_posterior_mean_and_mock_bins(tmp_path):
     output=tmp_path/'aggregate_plots';output.mkdir()
     for seed, n, value in [(1,3,1.),(2,1,3.)]:
         save_arrays(output/f'seed_{seed:08d}_posterior_fields.h5',xy=np.zeros((n,2)),
-                 truth_images=np.ones(4*n),median_parameter_images=np.full(4*n,value),
-                 mean_images=np.full(4*n,999.),within_variance_images=np.full(4*n,.04),
+                 truth_images=np.ones(4*n),mean_images=np.full(4*n,value),within_variance_images=np.full(4*n,.04),
                  between_variance_images=np.full(4*n,.05))
     campaign=SimpleNamespace(root=tmp_path,seeds=[1,2,3])
     path=plot_field_recovery(campaign,output)
@@ -18,7 +17,7 @@ def test_aggregate_field_recovery_uses_median_model_and_mock_bins(tmp_path):
     assert len(list(output.glob('*.pdf')))==1
     rows=pd.read_csv(output/'mock_grf_gp_field_recovery.csv')
     np.testing.assert_allclose(rows.posterior_sd,.3)
-    assert set(rows['median'])=={1.,3.}
+    assert set(rows['posterior_mean'])=={1.,3.}
     bins=pd.read_csv(output/'mock_grf_gp_field_recovery_bins.csv')
     # Unequal image counts must not overweight mock 1.
     np.testing.assert_allclose(bins.recovered_mean,2.)

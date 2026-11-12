@@ -11,7 +11,7 @@ import pytest
 
 from kappaccino.io import artifacts
 from kappaccino import pipeline
-from kappaccino.config import ImageDiagnosticsConfig, RuntimeConfig, SamplingConfig, SearchConfig
+from kappaccino.config import ReportingConfig, ImageDiagnosticsConfig, RuntimeConfig, SamplingConfig, SearchConfig
 from kappaccino.likelihood.evaluator import Evaluator
 from kappaccino.core.state import build_state
 
@@ -19,7 +19,7 @@ from kappaccino.core.state import build_state
 def _fast(config):
     return replace(config, runtime=RuntimeConfig(seed=3, chains=2, nuts_chain_method="sequential", resume=True),
                    search=SearchConfig(n_starts=2, member_starts=1, lbfgs_max_iter=30, polish_max_iter=20), sampling=SamplingConfig(warmup=10, samples=10, max_tree_depth=4),
-                   image_diagnostics=ImageDiagnosticsConfig(posterior_image_diagnostic_draws=2))
+                   reporting=ReportingConfig(draws=2))
 
 
 def test_single_stage_end_to_end(synthetic_config, monkeypatch):

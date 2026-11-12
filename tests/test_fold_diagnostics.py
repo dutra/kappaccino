@@ -10,6 +10,29 @@ from astropy.wcs import WCS
 from kappaccino.plotting import fold_pairs as fd
 
 
+class FakeDraws:
+    """Reporting draws: ``shared()`` gives the evaluator and samples, ``correction(k)`` the GRF of draw k and
+    ``grid_maps`` per-draw maps from ``maps(samples, x, y, z)``."""
+    key = 'test'
+
+    def __init__(self, evaluator, samples, *, field=None, maps=None):
+        self.evaluator, self.samples = evaluator, np.asarray(samples, dtype=float)
+        self.indices, self.field, self.maps = np.arange(len(self.samples)), field, maps
+        self.has_field = field is not None
+
+    def __len__(self):
+        return len(self.samples)
+
+    def shared(self):
+        return self.evaluator, self.samples
+
+    def correction(self, k, reach):
+        return self.field(self.samples[k])
+
+    def grid_maps(self, name, x, y, z, log=print):
+        return self.maps(self.samples, x, y, z)
+
+
 def test_pair_identity_parity_family_and_separation():
     xy=np.array([[0., 0.], [0., 1.], [0., 1.1], [0., 1.2], [10., 0.], [10., 2.]])
     families=np.array([0,0,1,1,2,2]);labels=np.array(['b','a','c','d','e','f']);det=np.array([1,-1,1,1,1,-1])
@@ -57,7 +80,7 @@ def test_fold_render_style_and_all_draw_accounting(synthetic_config,tmp_path,mon
               separation=1.,fov=4.,relative=rel,positions=rng.normal(size=(n,2,2))*.1,
               critical=np.tile(curve,(n,1,1)),source_root_residual=np.zeros(n),failures=[],
               normal=np.array([0.,1.]),origin=np.zeros(2),seeds=curve)
-    data=dict(pairs=[pair],best_draw=0,draw_indices=list(range(n)))
+    data=dict(pairs=[pair],draw_indices=list(range(n)))
     fd.save_fold_data(data,tmp_path)
     assert json.loads((tmp_path/'fold_pairs_source_caustics.json').read_text())['pairs'][0]['source_draws_total']==n
     wcs=WCS(naxis=2);wcs.wcs.crpix=[1000,1000];wcs.wcs.crval=[0,0];wcs.wcs.cdelt=[-.05/3600,.05/3600];wcs.wcs.ctype=['RA---TAN','DEC--TAN']
@@ -95,8 +118,11 @@ def test_compute_all_draws_including_no_pair(synthetic_config, monkeypatch):
                           family_data=[SimpleNamespace(family_id='f',z_source=2.)])
     samples=np.array([[-.02],[.03]])
     positions=np.array([[[np.nan,np.nan],[np.nan,np.nan]],[[0.,-np.sqrt(.06)],[0.,np.sqrt(.06)]]])
-    monkeypatch.setattr(fd,'posterior_image_positions',lambda *args,**kwargs:positions)
-    result=fd.compute_fold_diagnostics(synthetic_config,state,FoldEvaluator(),SimpleNamespace(samples=samples,log_prob=[0.,1.]),log=lambda _:None)
+    from kappaccino.diagnostics import position_contours
+    monkeypatch.setattr(position_contours,'position_draws',lambda draws,tables:dict(recovered=positions,image_labels=np.array(['a','b'])))
+    # det A = y for every draw: the median critical curve is y = 0, between the two images.
+    draws=FakeDraws(FoldEvaluator(),samples,maps=lambda s,x,y,z:{'detA_parametric':np.stack([y]*len(s))})
+    result=fd.compute_fold_diagnostics(synthetic_config,state,draws,None,log=lambda _:None)
     assert not result['plot_presentation']['gp_displacement_overlay']
     assert len(result['pairs'])==1
     pair=result['pairs'][0]
@@ -111,43 +137,6 @@ def test_separation_validation(synthetic_config,bad):
     config=replace(synthetic_config,image_diagnostics=replace(synthetic_config.image_diagnostics,fold_pair_max_separation_arcsec=bad))
     with pytest.raises(ValueError,match='fold_pair'):
         config.validate()
-
-
-def test_standard_finder_once_per_draw_and_label_mapping(synthetic_config, monkeypatch):
-    from kappaccino.core.state import build_state
-    from kappaccino.likelihood.evaluator import Evaluator
-    from kappaccino.diagnostics.exact_images import ExactImageSolver
-    state=build_state(synthetic_config); evaluator=Evaluator(state)
-    state.family_data=list(reversed(state.family_data))
-    calls=[]
-    def local(self,images,families,packed,sources):
-        calls.append([str(f.family_id) for f in families])
-        result=[]
-        for family in families:
-            x=np.asarray(family.x_obs);y=np.asarray(family.y_obs)
-            mask=np.ones(len(x),dtype=bool);mask[0]=False
-            result.append(dict(matched_model_x_arcsec=x+.01,matched_model_y_arcsec=y+.02,recovered_image_mask=mask))
-        return result
-    monkeypatch.setattr(ExactImageSolver,'predict_all_local',local)
-    monkeypatch.setattr(ExactImageSolver,'predict_all_global',lambda *args:pytest.fail('No global search allowed'))
-    posterior=SimpleNamespace(samples=np.array([state.initial_theta,state.initial_theta]))
-    positions=fd.posterior_image_positions(synthetic_config,state,evaluator,posterior,log=lambda _:None)
-    assert len(calls)==2 and calls[0]==list(map(str,state.images.family_ids))
-    for family in state.family_data:
-        for k,label in enumerate(family.image_labels):
-            i=state.images.image_labels.index(label)
-            if k==0:assert np.isnan(positions[:,i]).all()
-            else:np.testing.assert_allclose(positions[:,i],np.tile([family.x_obs[k]+.01,family.y_obs[k]+.02],(2,1)))
-
-
-@pytest.mark.parametrize('count,best',[(1,0),(17,8),(128,64),(1000,373),(10000,7777)])
-@pytest.mark.parametrize('limit', [32, 128])
-def test_fold_draw_cap_is_reproducible_and_includes_best(count,best,limit):
-    indices=fd.fold_draw_indices(count,best,limit)
-    assert len(indices)==min(count,limit)
-    assert len(set(indices))==len(indices)
-    assert best in indices and indices.min()>=0 and indices.max()<count
-    np.testing.assert_array_equal(indices,fd.fold_draw_indices(count,best,limit))
 
 
 def test_system_knots_include_nonfold_knot_without_cross_system_or_recovery_filter(synthetic_config, tmp_path, monkeypatch):
@@ -189,19 +178,14 @@ systems:
             return np.tile(seeds,(len(sources),1,1)), sources, np.zeros(len(sources)), np.zeros(len(sources),dtype=int)
         return fields, None, relative
     monkeypatch.setattr(fd, '_kernels', kernels)
-    calls=[]
-    def missing_family(config, state, evaluator, posterior, *, family_ids, log):
-        calls.append(family_ids)
-        roots=np.zeros((len(posterior.samples),len(labels),2));roots[:,3]=np.nan
-        return roots
-    monkeypatch.setattr(fd, 'posterior_image_positions', missing_family)
+    roots=np.zeros((2,len(labels),2));roots[:,3]=np.nan     # the image recovery missed S1B.b in both draws
     curve=np.column_stack((np.linspace(-2,2,97),np.zeros(97)))
     pair=dict(labels=labels[:2], family_id='S1A', z_source=2., separation=1., fov=4.,
               observed=np.array([[0.,-.5],[0.,.5]]), positions=np.zeros((2,2,2)), relative=np.zeros((2,2)),
-              normal=np.array([0.,1.]), origin=np.zeros(2), seeds=curve, critical=np.tile(curve,(2,1,1)), failures=[])
-    data=dict(pairs=[pair], best_draw=1, draw_indices=[1,3])
-    result=fd.add_system_knots(config,state,Evaluator(),SimpleNamespace(samples=np.arange(4.)[:,None],log_prob=np.arange(4.)),data,log=lambda _:None)
-    assert calls == [['S1B']]
+              normal=np.array([0.,1.]), origin=np.zeros(2), seeds=curve, critical=np.tile(curve,(2,1,1)), failures=[],
+              reference_tangent=np.array([1.,0.]))
+    data=dict(pairs=[pair], draw_indices=[1,3])
+    result=fd.add_system_knots(config,state,FakeDraws(Evaluator(),[[1.],[3.]]),data,roots,log=lambda _:None)
     assert len(result['systems'])==1
     system=result['systems'][0]
     assert system['system_id']=='S1' and system['knot_ids']==['A','B']
@@ -241,11 +225,10 @@ def test_smoothed_contours_retain_a_resolved_second_mode():
     assert len(segments)==2
 
 
-def test_grf_cartesian_sources_and_caustic_use_same_fixed_translation():
+def test_grf_cartesian_sources_and_median_caustic():
     import jax.numpy as jnp
     class Evaluator:
         n_components = 1
-        calls = 0
         def physical(self, t): return t
         def source_positions(self, t): return jnp.array([[.4, t[0]]])
         def packed_state_for_z(self, p, z): return p
@@ -254,26 +237,22 @@ def test_grf_cartesian_sources_and_caustic_use_same_fixed_translation():
             alpha = jnp.stack([-x, y-y*y/2], axis=-1)[None]
             hessian = jnp.zeros((1,len(points),2,2)).at[0,:,0,0].set(-1.).at[0,:,1,1].set(1-y)
             return alpha, hessian
-        def gp_deflection_correction(self, t):
-            self.calls += 1
-            def correction(x, y, families):
-                zero = np.zeros_like(x)
-                return zero, .2*y+.03, zero, zero, zero, zero+.2
-            return correction
+    def field(theta):
+        def correction(x, y, families):
+            zero = np.zeros_like(x)
+            return zero, .2*y+.03, zero, zero, zero, zero+.2
+        return correction
     curve = np.array([[-1., .2], [0., .2], [1., .2], [np.nan, np.nan]])
-    system = dict(system_id='toy', family_ids=['A'], anchor_family_id='A', z_source=2.,
-        critical_grf_best=curve, relative=np.zeros((2,1,2)))
-    data = dict(systems=[system], draw_indices=[0,1], best_draw=1)
-    evaluator = Evaluator()
-    posterior = SimpleNamespace(samples=np.array([[-.07],[.01]]), log_prob=np.array([0.,1.]))
-    state = SimpleNamespace(images=SimpleNamespace(family_ids=['A']))
-    fd.add_grf_source_frames(state,evaluator,posterior,data,log=lambda _:None)
-    np.testing.assert_allclose(system['source_cartesian_grf'][:,0], [[0.,-.08],[0.,0.]], atol=1e-12)
-    np.testing.assert_allclose(system['caustic_grf_best'][:3], [[-2.4,-.06],[-.4,-.06],[1.6,-.06]], atol=1e-12)
-    assert np.isnan(system['caustic_grf_best'][3]).all()
+    system = dict(system_id='toy', family_ids=['A'], anchor_family_id='A', z_source=2., center=np.zeros(2), fov=4.,
+        critical_grf_median=curve, relative=np.zeros((2,1,2)))
+    data = dict(systems=[system], draw_indices=[0,1])
+    state = SimpleNamespace(images=SimpleNamespace(family_ids=['A'], x_obs=np.zeros(1), y_obs=np.zeros(1)))
+    fd.add_grf_source_frames(state, FakeDraws(Evaluator(), [[-.07],[.01]], field=field), data, log=lambda _: None)
+    # Origin: the median over draws of the mean source, (0.4, -0.03).
+    np.testing.assert_allclose(system['source_cartesian_grf'][:,0], [[0.,-.04],[0.,.04]], atol=1e-12)
+    np.testing.assert_allclose(system['caustic_grf_median'][:3], [[-2.4,-.02],[-.4,-.02],[1.6,-.02]], atol=1e-12)
+    assert np.isnan(system['caustic_grf_median'][3]).all()
     np.testing.assert_array_equal(system['relative'], np.zeros((2,1,2)))
-    fd.add_grf_source_frames(state,evaluator,posterior,data,log=lambda _:None)
-    assert evaluator.calls == 1
 
 
 def test_grf_critical_crossings_shift_resolution_and_missing_branches():
@@ -336,16 +315,14 @@ def test_caustic_anchor_does_not_connect_missing_curve_segments():
 def test_aligned_sources_follow_each_draw_grf_caustic(monkeypatch):
     import jax.numpy as jnp
     class Evaluator:
-        calls=0
         def physical(self,t): return t
         def source_positions(self,t): return jnp.array([[.4,t[0]+.01]])
         def packed_state_for_z(self,p,z): return p
-        def gp_deflection_correction(self,t):
-            self.calls+=1
-            def correction(x,y,families):
-                z=np.zeros_like(x)
-                return z,.2*y+.03,z,z,z,z+.2
-            return correction
+    def field(theta):
+        def correction(x,y,families):
+            z=np.zeros_like(x)
+            return z,.2*y+.03,z,z,z,z+.2
+        return correction
     def fields(p,q):
         x,y=q.T
         beta=jnp.column_stack([2*x,y*y/2+p[0]])
@@ -353,40 +330,32 @@ def test_aligned_sources_follow_each_draw_grf_caustic(monkeypatch):
         return beta,a
     monkeypatch.setattr(fd,'_kernels',lambda e:(fields,None,None))
     curve=np.column_stack([np.linspace(-1,1,97),np.full(97,.2)])
-    system=dict(system_id='toy',family_ids=['A'],anchor_family_id='A',z_source=2.,
+    system=dict(system_id='toy',family_ids=['A'],anchor_family_id='A',z_source=2.,center=np.zeros(2),fov=4.,
         origin=np.zeros(2),normal=np.array([0.,1.]),critical_grf_local_draws=np.tile(curve,(2,1,1)),
         relative=np.zeros((2,1,2)))
-    data=dict(systems=[system],draw_indices=[0,1],best_draw=1)
-    state=SimpleNamespace(images=SimpleNamespace(family_ids=['A']))
-    evaluator=Evaluator()
-    posterior=SimpleNamespace(samples=np.array([[-3.],[4.]]))
-    fd.add_caustic_aligned_sources(state,evaluator,posterior,data,log=lambda _:None)
+    data=dict(systems=[system],draw_indices=[0,1])
+    state=SimpleNamespace(images=SimpleNamespace(family_ids=['A'],x_obs=np.zeros(1),y_obs=np.zeros(1)))
+    fd.add_caustic_aligned_sources(state,FakeDraws(Evaluator(),[[-3.],[4.]],field=field),data,log=lambda _:None)
     np.testing.assert_allclose(system['source_aligned_grf'][:,0],[[.4,.06],[.4,.06]],atol=1e-12)
-    np.testing.assert_allclose(system['caustic_aligned_grf_best'][:,1],0.,atol=1e-12)
-    fd.add_caustic_aligned_sources(state,evaluator,posterior,data,log=lambda _:None)
-    assert evaluator.calls==2
+    np.testing.assert_allclose(system['caustic_aligned_grf_median'][:,1],0.,atol=1e-12)
 
 
-def test_prepare_fold_plot_upgrades_old_cache_and_records_gravitational_display(monkeypatch):
+def test_prepare_fold_plot_records_gravitational_display(monkeypatch):
     calls=[]
-    def knots(config,state,evaluator,posterior,data,**kwargs):
+    def knots(config,state,draws,data,image_positions,**kwargs):
         calls.append('knots');data['systems']=[];return data
-    def grf(state,evaluator,posterior,data,**kwargs):
-        calls.append('grf');return data
+    def curves(state,draws,data,**kwargs):
+        calls.append('curves');return data
     monkeypatch.setattr(fd,'add_system_knots',knots)
-    monkeypatch.setattr(fd,'add_best_grf_critical_curves',grf)
-    state=SimpleNamespace(images=SimpleNamespace(system_ids=['S']),gp_blocks='all')
-    evaluator=SimpleNamespace(gp_knee=True,sigma_grf_index=0,gp_knee_spectrum='knee',state=state)   # an all-block run: its own shared field
+    monkeypatch.setattr(fd,'add_median_critical_curves',curves)
+    state=SimpleNamespace(images=SimpleNamespace(system_ids=['S']))
     data=dict(pairs=[])
-    fd.prepare_fold_plot_data(None,state,evaluator,None,data)
-    assert calls==['knots','grf']
+    fd.prepare_fold_plot_data(None,state,SimpleNamespace(has_field=True),data,image_positions=None)
+    assert calls==['knots','curves']
     presentation=data['plot_presentation']
     assert not presentation['gp_displacement_overlay']
     assert not presentation['model_image_markers']
     assert presentation['grf_interpolation_version']==fd.PLOT_FIELD_VERSION
-    calls.clear()
-    fd.prepare_fold_plot_data(None,state,evaluator,None,data)
-    assert calls==['grf']  # Existing system geometry is reused.
 
 
 def test_standard_system_render_retains_latest_style_and_ignores_cached_gp(synthetic_config,tmp_path,monkeypatch):
@@ -401,11 +370,11 @@ def test_standard_system_render_retains_latest_style_and_ignores_cached_gp(synth
     system=dict(system_id='S',image_ids=['a','b'],family_ids=['S1'],knot_ids=['A'],labels=['a','b'],
         image_family_index=np.array([0,0]),center=np.zeros(2),fov=4.,z_source=2.,
         observed=observed,positions=positions,relative=source,source_cartesian_grf=source,source_aligned_grf=source,
-        caustic_aligned_grf_best=curve,caustic_grf_best=curve,
-        critical=np.tile(curve,(n,1,1)),critical_parametric_best=curve+[0.,.2],critical_grf_best=curve,
+        caustic_aligned_grf_median=curve,caustic_grf_median=curve,
+        critical=np.tile(curve,(n,1,1)),critical_parametric_median=curve+[0.,.2],critical_grf_median=curve,
         critical_grf_draws=np.tile(curve,(n,1,1)),normal=np.array([0.,1.]),origin=np.zeros(2),seeds=curve,
         gp_adjusted_mean_positions=positions+100.,gp_displacement_covariance=np.zeros((n,2,2,2)))
-    data=dict(systems=[system],pairs=[],best_draw=0,draw_indices=list(range(n)))
+    data=dict(systems=[system],pairs=[],draw_indices=list(range(n)))
     wcs=WCS(naxis=2);wcs.wcs.crpix=[1000,1000];wcs.wcs.crval=[0,0]
     wcs.wcs.cdelt=[-.05/3600,.05/3600];wcs.wcs.ctype=['RA---TAN','DEC--TAN']
     band=SimpleNamespace(wcs=wcs,shape=(2000,2000),pixel_scale_arcsec=.05)

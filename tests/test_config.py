@@ -5,7 +5,7 @@ from dataclasses import replace
 import pytest
 
 from kappaccino.io import artifacts
-from kappaccino.config import ImageDiagnosticsConfig, MemberConfig, SamplingConfig
+from kappaccino.config import ImageDiagnosticsConfig, MemberConfig, ReportingConfig, SamplingConfig
 
 
 def test_config_validates_and_round_trips(tmp_path, synthetic_config):
@@ -15,7 +15,7 @@ def test_config_validates_and_round_trips(tmp_path, synthetic_config):
 
 
 @pytest.mark.parametrize("bad", [
-    dict(image_diagnostics=ImageDiagnosticsConfig(posterior_image_diagnostic_draws=-1)),
+    dict(reporting=ReportingConfig(draws=0)),
     dict(image_diagnostics=ImageDiagnosticsConfig(exact_image_finder="newton")),
     dict(sampling=SamplingConfig(warmup=0)),
     dict(members=MemberConfig(far_field_cut_radii=0.0)),

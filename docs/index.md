@@ -26,6 +26,7 @@ tutorials
 :caption: User guide
 
 catalogs
+run-files
 configuration
 likelihoods
 pipeline

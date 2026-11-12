@@ -39,13 +39,10 @@ ROOT = Path(__file__).resolve().parents[1]
 CAMPAIGN = "uncertain_images"
 
 
-def load_run_module():
-    """run.xsh as a module (xonsh's import hook), for the cluster entries and build_config."""
-    from xonsh.main import setup
-    setup()
-    sys.path[:0] = [str(ROOT), str(ROOT / "src")]
-    import run
-    return run
+FOLDERS = {"HERA": "catalogs/hera", "ARES": "catalogs/ares"}     # their run.yaml and priors.yaml
+# --likelihood names -> (LikelihoodConfig.likelihood_mode, gp_kernel)
+LIKELIHOODS = {"grf_gp": ("gp_image_plane", "knee"), "gp_image_plane": ("gp_image_plane", "image_plane"),
+               "smoothed": ("smoothed", "image_plane")}
 
 
 def lens_fit(config, *, starts: int, seed: int, log) -> dict:
@@ -112,7 +109,7 @@ def main(argv=None) -> int:
     parser.add_argument("--seeds", default="0,1,2", help="comma-separated seeds of the trusted choice and the noise (default 0,1,2)")
     parser.add_argument("--counterimages", type=int, default=0, help="trusted families that lose one image each (default 0)")
     parser.add_argument("--starts", type=int, default=16, help="prior starts of the lens fit (default 16)")
-    parser.add_argument("--likelihood", default="smoothed", help="run.xsh likelihood name (default smoothed)")
+    parser.add_argument("--likelihood", default="smoothed", choices=sorted(LIKELIHOODS), help="likelihood (default smoothed)")
     parser.add_argument("--draws", type=int, default=200, help="joint draws of the partition at the optimum (default 200)")
     parser.add_argument("--campaign", default=CAMPAIGN, help=f"results/<campaign>/<cluster> (default {CAMPAIGN})")
     parser.add_argument("--redo", action="store_true", help="refit cases that already have results")
@@ -120,17 +117,25 @@ def main(argv=None) -> int:
 
     sys.path[:0] = [str(ROOT / "src")]
     from kappaccino.cpu_runtime import configure_cpu_runtime
-    configure_cpu_runtime(1, "sequential", None)             # before run.xsh builds its priors (and starts JAX)
-    run = load_run_module()
+    configure_cpu_runtime(1, "sequential", None)             # before the run files build their priors (and start JAX)
+    from kappaccino.run_files import load_run
     from kappaccino.pipeline import RunLog
     root = ROOT / "results" / args.campaign / args.cluster.lower()
     root.mkdir(parents=True, exist_ok=True)
 
     def config_for(label: str, image_catalog: str | None = None, uncertain: str | None = None):
-        config = run.build_config(args.cluster, cores=1, campaign_name=args.campaign, run_label=label, likelihood=args.likelihood, fast=True,
-                                  image_catalog=image_catalog, uncertain_images=uncertain)
-        return replace(config, runtime=replace(config.runtime, chains=1, nuts_chain_method="sequential", cpu_threads_per_chain=None,
-                                               skip_plots=True)).validate()
+        mode, kernel = LIKELIHOODS[args.likelihood]
+        overrides = [f"likelihood.likelihood_mode={mode}", f"likelihood.gp_kernel={kernel}",
+                     f"paths.output_dir=results/{args.campaign}/{args.cluster.lower()}", f"paths.run_name={label}",
+                     "runtime.chains=1", "runtime.nuts_chain_method=sequential", "runtime.cpu_threads_per_chain=null",
+                     "runtime.skip_plots=true"]
+        if uncertain is not None:
+            overrides.append(f"partition.catalog_path={uncertain}")
+        config = load_run(FOLDERS[args.cluster], ["fast"], overrides)
+        if image_catalog is not None:
+            config = replace(config, model=replace(config.model, image_constraints=replace(config.model.image_constraints,
+                                                                                             catalog_path=image_catalog)))
+        return config.validate()
 
     def done(label: str) -> bool:
         return not args.redo and (root / label / "final" / "artifacts" / "fast_fit.json").exists()

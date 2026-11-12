@@ -15,9 +15,9 @@ from kappaccino.core.state import build_state
 
 
 @pytest.mark.parametrize('selection', [True, False])
-def test_covariance_outputs_and_best_only(synthetic_config, tmp_path, selection):
+def test_covariance_outputs_with_one_draw(synthetic_config, tmp_path, selection):
     config = replace(synthetic_config,
-                     image_diagnostics=replace(synthetic_config.image_diagnostics, posterior_diagnostic_draws=0))
+                     reporting=replace(synthetic_config.reporting, draws=1))
     if not selection:
         config = replace(config, likelihood=replace(config.likelihood, sigma_sel_prior=None))
     state = build_state(config)
@@ -27,17 +27,18 @@ def test_covariance_outputs_and_best_only(synthetic_config, tmp_path, selection)
                                 log_prob=np.arange(40.), grouped_samples=samples.reshape(2, 20, -1))
     paths = SimpleNamespace(figures=tmp_path / 'figures', tables=tmp_path / 'tables')
     style = dict(plt.rcParams)
-    outputs = write_covariance_plots(config, state, evaluator, posterior, paths, log=lambda _: None)
+    from kappaccino.reporting.draws import reporting_draws
+    outputs = write_covariance_plots(config, state, reporting_draws(config, evaluator, posterior), posterior, paths, log=lambda _: None)
     assert len(outputs) == 2 and all(p.is_file() for p in outputs)
     assert dict(plt.rcParams) == style
     metadata = json.loads((paths.tables / 'covariance_errors_both_planes.json').read_text())
-    assert metadata['posterior_draw_indices'] == [39]
+    assert len(metadata['posterior_draw_indices']) == 1
     assert metadata['plane'] == 'both'
     table = pd.read_csv(paths.tables / 'covariance_errors_both_planes.csv')
     source = table[table.plane == 'source'].reset_index(drop=True)
     image = table[table.plane == 'image'].reset_index(drop=True)
     for component in ['measurement', 'selection', 'model', 'total']:
-        np.testing.assert_allclose(image[component+'_arcsec'] * image.singular_value_best,
+        np.testing.assert_allclose(image[component+'_arcsec'] * image.singular_value_median,
                                    source[component+'_arcsec'], atol=1e-14)
     np.testing.assert_allclose(table.total_p16_arcsec, table.total_p84_arcsec)
     if not selection:

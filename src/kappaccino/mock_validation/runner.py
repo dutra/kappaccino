@@ -37,7 +37,6 @@ def convergence_verdict(diagnostics: dict[str, Any]) -> tuple[bool, list[str]]:
     if n_eff is None or not np.isfinite(n_eff) or n_eff < CONVERGENCE_MIN_NEFF:
         reasons.append(f"min n_eff {n_eff if n_eff is None else f'{n_eff:.0f}'} < {CONVERGENCE_MIN_NEFF:.0f}")
     return not reasons, reasons
-M2D_POSTERIOR_DRAWS = 24
 
 
 def campaign_root(config: MockValidationConfig) -> Path:
@@ -91,7 +90,7 @@ def posterior_columns(state: ModelState, evaluator, posterior: PosteriorResults)
     return columns
 
 
-def parameter_recovery(columns: dict[str, np.ndarray], truth: dict[str, float], best_index: int, *, positive: set[str] = frozenset()) -> pd.DataFrame:
+def parameter_recovery(columns: dict[str, np.ndarray], truth: dict[str, float], *, positive: set[str] = frozenset()) -> pd.DataFrame:
     """Per parameter: quantiles, bias, the truth's percentile rank, 68% and 95% coverage.  ``scored`` marks the rows that
     count towards coverage: a finite truth that lies inside the parameter's support (a positive parameter whose truth is
     zero, e.g. an injected scatter of zero, can never be covered and is reported but not scored)."""
@@ -103,7 +102,7 @@ def parameter_recovery(columns: dict[str, np.ndarray], truth: dict[str, float], 
         q025, q16, median, q84, q975 = np.quantile(finite, [0.025, 0.16, 0.5, 0.84, 0.975])
         t = truth.get(name, np.nan)
         scored = bool(np.isfinite(t)) and not (name in positive and t <= 0.0)
-        rows.append({"parameter": name, "truth": t, "best_fit": float(values[best_index]), "q025": float(q025), "q16": float(q16), "median": float(median),
+        rows.append({"parameter": name, "truth": t, "q025": float(q025), "q16": float(q16), "median": float(median),
                      "q84": float(q84), "q975": float(q975), "bias": float(median - t), "fractional_bias": float((median - t) / t) if np.isfinite(t) and t != 0 else np.nan,
                      "truth_percentile": float(np.mean(finite <= t)) if np.isfinite(t) else np.nan,
                      "covered_68": bool(q16 <= t <= q84) if scored else False, "covered_95": bool(q025 <= t <= q975) if scored else False, "scored": scored})
@@ -112,7 +111,7 @@ def parameter_recovery(columns: dict[str, np.ndarray], truth: dict[str, float], 
 
 def magnification_recovery(truth: dict[str, Any], magnification: pd.DataFrame) -> pd.DataFrame:
     """Per image: truth magnification at the true, observed and recovered model positions; model magnification at the
-    observed and recovered positions (best fit and posterior quantiles); fractional errors at the observed position."""
+    observed and recovered positions (median and quantiles over the reporting draws); fractional errors at the observed position."""
     truth_images = pd.DataFrame(truth["images"])[["image_label", "family_id", "x_true_arcsec", "y_true_arcsec", "magnification_true", "magnification_true_at_obs"]]
     merged = truth_images.merge(magnification.drop(columns=[c for c in ("family_id",) if c in magnification]), on="image_label", how="left")
     merged["magnification_true_at_model_position"] = np.nan
@@ -205,8 +204,9 @@ def model_groups(state: ModelState, config_model, physical_row: np.ndarray, name
     return {"halo": large("halo"), "bcg": large("bcg"), "members": tuple(np.asarray(a, dtype=float) for a in (v, core, cut, xs, ys))}
 
 
-def m2d_recovery(state: ModelState, config_model, posterior: PosteriorResults, truth: dict[str, Any], *, max_draws: int = M2D_POSTERIOR_DRAWS) -> pd.DataFrame:
-    """Aperture masses about the true halo centre: model quantiles and model/truth ratios per component group."""
+def m2d_recovery(state: ModelState, config_model, physical: np.ndarray, truth: dict[str, Any]) -> pd.DataFrame:
+    """Aperture masses about the true halo centre over the reporting draws (``physical``, (draw, parameter)): model
+    quantiles and model/truth ratios per component group."""
     radii = np.asarray(APERTURE_RADII_KPC)
     kpc = float(truth["kpc_per_arcsec"])
     centre = (float(truth["halo"]["x_centre"]) * kpc, float(truth["halo"]["y_centre"]) * kpc)
@@ -214,8 +214,7 @@ def m2d_recovery(state: ModelState, config_model, posterior: PosteriorResults, t
     images = pd.DataFrame(truth.get("images", []))
     outer = float(np.hypot(images["x_true_arcsec"] - truth["halo"]["x_centre"], images["y_true_arcsec"] - truth["halo"]["y_centre"]).max() * kpc) if len(images) else np.nan
     name_index = {spec.name: i for i, spec in enumerate(state.parameter_specs)}
-    physical = np.asarray(posterior.physical, dtype=float)
-    draws = physical[np.unique(np.linspace(0, len(physical) - 1, min(int(max_draws), len(physical))).astype(int))]
+    draws = np.asarray(physical, dtype=float)
     per_group = {g: [] for g in (*COMPONENT_GROUPS, "total")}
     for row in progress(draws, desc="aperture draws"):
         for group, profile in aperture_profiles(radii, model_groups(state, config_model, row, name_index), centre_kpc=centre).items():
@@ -242,18 +241,19 @@ def write_recovery(recovery_dir: Path, result: pipeline.RunResult, solver_config
     recovery_dir.mkdir(parents=True, exist_ok=True)
     state, evaluator, posterior = result.state, result.evaluator, result.posterior
     tables = result.paths.final.tables
-    best_index = int(np.nanargmax(np.asarray(posterior.log_prob)))
+    from ..reporting.draws import reporting_draws
+    draws = reporting_draws(solver_config, evaluator, posterior)
     columns = posterior_columns(state, evaluator, posterior)
     pivot = float(state.potfiles[0]["mag0"]) if state.potfiles else None
     truth_values = parameter_truth(truth, solver_pivot_magnitude=pivot)
     positive = {spec.name for spec in state.parameter_specs if spec.log}
-    parameters = parameter_recovery(columns, truth_values, best_index, positive=positive)
+    parameters = parameter_recovery(columns, truth_values, positive=positive)
     magnification = magnification_recovery(truth, pd.read_csv(tables / "model_magnification.csv"))
     relation = relation_recovery(state, posterior, truth_values)
     image_fit = pd.read_csv(tables / "image_fit_quality.csv")
     residual_draws = pd.read_csv(tables / "posterior_image_residual_draws.csv")
     member_table = member_scaling_table(state, posterior)
-    m2d = m2d_recovery(state, solver_config.model, posterior, truth)
+    m2d = m2d_recovery(state, solver_config.model, draws.physical, truth)
     for name, frame in (("parameter_recovery", parameters), ("magnification_recovery", magnification), ("m2d_aperture_recovery", m2d)):
         frame.to_csv(recovery_dir / f"{name}.csv", index=False)
     fit = json.loads((tables / "run_summary.json").read_text()).get("fit", {})
@@ -277,8 +277,8 @@ def write_recovery(recovery_dir: Path, result: pipeline.RunResult, solver_config
         "m2d": m2d.to_dict("records"),
     }
     (recovery_dir / RECOVERY_FILE).write_text(json.dumps(payload, indent=1, default=_json_default))
-    log(f"[recovery] seed={seed} images recovered {fit.get('recovered_image_count')}/{fit.get('observed_image_count')} "
-        f"rms={fit.get('image_rms_arcsec')} coverage_68={payload['coverage_68']} coverage_95={payload['coverage_95']} "
+    log(f"[recovery] seed={seed} images recovered {(fit.get('recovered_image_count') or {}).get('median')}/{fit.get('observed_image_count')} "
+        f"rms={(fit.get('image_rms_arcsec') or {}).get('median')} coverage_68={payload['coverage_68']} coverage_95={payload['coverage_95']} "
         f"over {len(scored)} scored parameters, max_r_hat={diagnostics.get('max_r_hat')}")
     return payload
 

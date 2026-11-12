@@ -1,0 +1,151 @@
+# MACS J0416 with the CANUCS gold catalog (Rihtarsic et al. 2025): 303 spectroscopic images in 83 systems, 15 with
+# knots, NIRCam positions in the frame of their lens model; their member catalog (with galaxy 8971 on the relation),
+# their independent halos and reference centre.
+reference: {ra0_deg: 64.03821668520617, dec0_deg: -24.06750122335985}
+cosmology: {H0: 70.0, Om0: 0.3, Ode0: 0.7}
+z_lens: 0.396
+images: images.yaml
+
+# The four dPIE components and shape limits of the CANUCS model
+# (hlsp_canucs_jwst-hst_multi_macs0416-lenstool-param_multi_v1_model.txt), with physical priors in place of their
+# starts and uniform boxes.  Halos 1 and 2 sit on the NE and SW BCGs (galaxies 2526 and 3158), halo 3 on the NW member
+# group; halo 4 has no light counterpart.  Centres: truncated normals; halos 2 and 4 get disjoint boxes so they cannot
+# swap.  Cut radii fixed at 2000" (10.7 Mpc), as in the published models: the images reach ~270 kpc, so a free cut
+# slides along its degeneracy with v_disp.  Every parameter starts at its prior centre.
+halos:
+  # NE BCG.  The box reaches ellipticite 0.94 and a smooth cap takes over at 0.9 (a hard bound at 0.9 set the NUTS step
+  # size).  Centre width 1.5" around the BCG; the data put the halo 3" south of it.
+  "1":
+    x_centre: normal(0.2, 1.5) in [-5.8, 6.2]
+    y_centre: normal(0.0, 1.5) in [-6.0, 6.0]
+    shape: {ellipticity: [0.2, 0.94], angle: [100.0, 180.0], soft_cap: 0.9}
+    core_radius_kpc: loguniform(10.0, 100.0)
+    cut_radius_kpc: 2000.0 * arcsec
+    v_disp:
+      start: 650.0
+      prior: lognormal(mean=650.0, std=150.0) in [400.0, 1000.0]
+  # SW BCG; the data put the halo 2.2" north of it.
+  "2":
+    x_centre: normal(20.3, 1.5) in [15.3, 25.3]
+    y_centre: normal(-35.8, 1.5) in [-40.8, -30.8]
+    shape: {ellipticity: [0.2, 0.9], angle: [90.0, 170.0]}
+    core_radius_kpc: loguniform(10.0, 100.0)
+    cut_radius_kpc: 2000.0 * arcsec
+    v_disp:
+      start: 650.0
+      prior: lognormal(mean=650.0, std=150.0) in [400.0, 1000.0]
+  # NW group, round.
+  "3":
+    x_centre: normal(-33.0, 3.0) in [-39.0, -27.0]
+    y_centre: normal(9.0, 3.0) in [3.0, 15.0]
+    ellipticite: 0.0
+    angle_pos: 0.0
+    core_radius_kpc: loguniform(5.0, 100.0)
+    cut_radius_kpc: 2000.0 * arcsec
+    v_disp:
+      start: 400.0
+      prior: lognormal(mean=400.0, std=150.0) in [150.0, 800.0]
+  # South, dark.  Room in the south: the better basin put it at y = -43 against the old -40 edge.  A group-scale prior
+  # (core 5-40 kpc, v_disp 300 +- 100) pressed on the core cap and lost 13.5 in log L at the init (2026-11-05).
+  "4":
+    x_centre: normal(22.0, 10.0) in [0.0, 40.0]
+    y_centre: normal(-48.0, 5.0) in [-62.0, -35.0]
+    shape: {ellipticity: [0.2, 0.94], angle: [0.0, 180.0], soft_cap: 0.9}
+    core_radius_kpc: loguniform(5.0, 150.0)
+    cut_radius_kpc: 2000.0 * arcsec
+    v_disp:
+      start: 400.0
+      prior: lognormal(mean=400.0, std=150.0) in [150.0, 800.0]
+  # Foreground galaxy.
+  "5":
+    x_centre: 31.96420
+    y_centre: -65.55168
+    ellipticite: 0.0
+    angle_pos: 0.0
+    core_radius_kpc: 0.0001 * arcsec
+    cut_radius_kpc: 33.6321 * arcsec
+    v_disp:
+      start: 235.2454
+      prior: loguniform(50.0, 350.0)
+    cut_excess_kpc: loguniform(5.0 * arcsec - 0.0001 * arcsec, 100.0 * arcsec - 0.0001 * arcsec)
+  # Two round southern components at the cluster redshift, where the shared mass field had its strongest positive peaks:
+  # the z = 0.736 background galaxy of Chirivi et al. 2018 (F160W 19.8) and a dark lump with no galaxy within 5".
+  los736:
+    x_centre: 38.5
+    y_centre: -48.2
+    ellipticite: 0.0
+    angle_pos: 0.0
+    core_radius_kpc: 0.0001 * arcsec
+    cut_radius_kpc: (5.0 * 100.0) ** 0.5 * arcsec
+    v_disp:
+      start: 120.0
+      prior: loguniform(30.0, 350.0)
+    cut_excess_kpc: loguniform(5.0 * arcsec - 0.0001 * arcsec, 100.0 * arcsec - 0.0001 * arcsec)
+  dark_s:
+    x_centre: 0.5
+    y_centre: -57.0
+    ellipticite: 0.0
+    angle_pos: 0.0
+    core_radius_kpc: 0.0001 * arcsec
+    cut_radius_kpc: (5.0 * 300.0) ** 0.5 * arcsec
+    v_disp:
+      start: 150.0
+      prior: loguniform(30.0, 500.0)
+    cut_excess_kpc: loguniform(5.0 * arcsec - 0.0001 * arcsec, 300.0 * arcsec - 0.0001 * arcsec)
+  # The four fixed hot-gas clumps of ../bergamini2023/priors.yaml, identical in the CANUCS configuration.
+  gas1: {x_centre: -18.137002925379967, y_centre: -12.133967959650562, ellipticite: 0.11802924806826215, angle_pos: -156.7566690854322,
+         core_radius_kpc: 149.2054944000091 * arcsec, cut_radius_kpc: 149.82423360000914 * arcsec, v_disp: 433.0248792121149}
+  gas2: {x_centre: 30.787477074623045, y_centre: -48.67185595965274, ellipticite: 0.4166205427409096, angle_pos: -71.5005491699657,
+         core_radius_kpc: 34.77330048000212 * arcsec, cut_radius_kpc: 165.77093760001011 * arcsec, v_disp: 248.99144885049094}
+  gas3: {x_centre: -2.3693869253788935, y_centre: -1.2627359596498962, ellipticite: 0.4248370668779292, angle_pos: -54.743768197790125,
+         core_radius_kpc: 8.281737600000504 * arcsec, cut_radius_kpc: 37.5947433600023 * arcsec, v_disp: 101.7305750041091}
+  gas4: {x_centre: -20.12861892537998, y_centre: 14.74104004035109, ellipticite: 0.4013796817764777, angle_pos: -49.32427500520669,
+         core_radius_kpc: 51.67495680000315 * arcsec, cut_radius_kpc: 52.337385600003195 * arcsec, v_disp: 281.8472712670227}
+  # External shear, free amplitude and angle: not in the CANUCS configuration, but worth +35 in the lens log L for 2
+  # parameters, and it moves the mass field's knee from 15" to 5".
+  shear: {profile: shear, preset: free, gamma_upper: 0.3}
+
+members:
+  # Neutral priors at L* as for ../bergamini2023.  The MUSE stellar dispersions of 52 members (Granata et al. 2026,
+  # source G26 in members.yaml) are off: with them on, the mass field shut off and the image-plane GP took the residual
+  # at its 3" cap (2026-11-02).  To use them: kinematics_sources: [G26].
+  potfile_1:
+    catalog_path: members.yaml
+    preset: neutral
+    prior_mag0: 18.66
+    # The two BCGs (2526 on halo 1, 3158 on halo 2) are independent dPIEs, off the relation: on it, their velocity
+    # offsets traded against the relation's normalization (R-hat 4.6).  Centre, round shape and 0.15 kpc core fixed at
+    # the light; v_disp and r_cut free around Bergamini et al. 2023, 248 km/s and 56 kpc at the BCG magnitude.  The cut
+    # radius is a log-normal around 56 kpc with width a factor 1.9, unbounded, as an excess above the core.
+    independent:
+      "2526":
+        id: bcg_2526
+        x_centre: fixed
+        y_centre: fixed
+        e1: fixed
+        e2: fixed
+        core_radius_kpc: fixed
+        v_disp: lognormal(mean=250.0, std=50.0) in [100.0, 400.0]
+        cut_excess_kpc: lognormal(mean=1.227 * 56.0 - 0.15, std=0.714 * 1.227 * 56.0)
+      "3158":
+        id: bcg_3158
+        x_centre: fixed
+        y_centre: fixed
+        e1: fixed
+        e2: fixed
+        core_radius_kpc: fixed
+        v_disp: lognormal(mean=250.0, std=50.0) in [100.0, 400.0]
+        cut_excess_kpc: lognormal(mean=1.227 * 56.0 - 0.15, std=0.714 * 1.227 * 56.0)
+
+scaling:
+  preset: neutral
+  # A Faber-Jackson slope prior (L ~ sigma^4): with 0.25 +- 0.10 on 0-0.5 two of four chains sat at 0.45-0.49.
+  alpha_sigma_prior: normal(0.25, 0.05) in [0.1, 0.4]
+  # Student-t deviations: five members needed cut radii ~10x off the relation.
+  member_deviation_tail: student_t
+  member_deviation_dof: 4.0
+  # The member core sat at 0.67-0.77 kpc at the starts.
+  corekpc_prior: lognormal(0.15, 1.0) in [0.01, 10.0]
+  # Exact members' shapes sampled around the CANUCS DR1 light shapes: +25 in log L over the fixed light shapes for
+  # changes of ~0.02 in e.
+  member_shape_scatter: 0.1

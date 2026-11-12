@@ -11,7 +11,7 @@ import pytest
 from kappaccino.io import artifacts
 from kappaccino import pipeline
 from kappaccino.inference import sampling
-from kappaccino.config import ImageDiagnosticsConfig, RuntimeConfig, SamplingConfig, SearchConfig
+from kappaccino.config import ReportingConfig, ImageDiagnosticsConfig, RuntimeConfig, SamplingConfig, SearchConfig
 from kappaccino.likelihood.evaluator import Evaluator
 from kappaccino.inference.search import chain_starts
 from kappaccino.core.state import build_state, convert_member_centering, with_member_classes
@@ -78,7 +78,7 @@ def test_chain_starts_and_hessian_use_the_converted_modes(synthetic_config, monk
                      search=SearchConfig(nuts_start_max_iter=0, n_starts=6, member_starts=3, lbfgs_max_iter=30, polish_max_iter=20, mode_margin=1.0e9,
                                          mode_parameter_tolerance=1.0e-9, max_chain_modes=3),
                      sampling=SamplingConfig(warmup=5, samples=5, max_tree_depth=3),
-                     image_diagnostics=ImageDiagnosticsConfig(posterior_image_diagnostic_draws=2),
+                     reporting=ReportingConfig(draws=2),
                      members=replace(synthetic_config.members, centering="exact"))
     captured = {}
     real = pipeline.convert_search_centering
@@ -128,7 +128,7 @@ def test_a_misplaced_chain_start_is_reported(synthetic_config, monkeypatch, tmp_
                      runtime=RuntimeConfig(seed=5, chains=2, nuts_chain_method="sequential", resume=True),
                      search=SearchConfig(nuts_start_max_iter=0, n_starts=4, member_starts=2, lbfgs_max_iter=30, polish_max_iter=20),
                      sampling=SamplingConfig(warmup=5, samples=5, max_tree_depth=3),
-                     image_diagnostics=ImageDiagnosticsConfig(posterior_image_diagnostic_draws=2),
+                     reporting=ReportingConfig(draws=2),
                      members=replace(synthetic_config.members, centering="exact"))
 
     class _ReachedNUTS(Exception):

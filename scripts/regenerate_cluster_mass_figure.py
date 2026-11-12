@@ -60,12 +60,9 @@ def main():
         raise ValueError("Rebuilt parameter order differs from saved run")
     evaluator = Evaluator(state, config.likelihood.likelihood_mode)
     posterior = artifacts.load_posterior(final / "artifacts")
-    log_prob = np.asarray(posterior.log_prob)
-    if not np.isfinite(log_prob).any():
-        raise ValueError("Saved posterior has no finite best-fit draw")
-    best_index = int(np.nanargmax(log_prob))
-    theta = np.asarray(posterior.samples[best_index])
-    np.testing.assert_allclose(evaluator.reported_physical(theta), posterior.physical[best_index], rtol=1e-10, atol=1e-10)
+    from kappaccino.reporting.draws import reporting_draws
+    draws = reporting_draws(config, evaluator, posterior)
+    log = lambda x: print(x, flush=True)
     catalog = pd.read_csv(final / "tables" / "image_fit_quality.csv", dtype={"image_label": str})
     try:
         extra = pd.read_csv(final / "tables" / "image_recovery_extra_images.csv", dtype={"family_id": str})
@@ -74,14 +71,15 @@ def main():
     position_contours = None
     if args.imaging == 'jwst' or config.image_catalog.figure_suffix == '_jwst':
         from kappaccino.diagnostics.position_contours import load_or_compute_contours
-        position_contours = load_or_compute_contours(config, state, evaluator, posterior, extra, final / 'tables', log=lambda x: print(x,flush=True))
+        position_contours = load_or_compute_contours(config, state, draws, extra, final / 'tables', log=log)
     imaging = load_cluster_imaging(config.image_catalog, config.model, config.paths.run_name)
     plt.style.use(str(ROOT / "src" / "kappaccino" / "plotting" / "style.mplstyle"))
     output = plots.figure_path(final / "figures", f"image_catalog_family_cluster_mass{config.image_catalog.figure_suffix}.pdf", config.paths.figure_prefix)
-    print(f"Rendering saved draw {best_index}: {output}", flush=True)
-    provenance = render_cluster_mass_figure(evaluator, theta, catalog, extra, imaging,
+    print(f"Rendering the median over {len(draws)} posterior draws: {output}", flush=True)
+    provenance = render_cluster_mass_figure(draws, catalog, extra, imaging,
         z_source=float(config.truth.caustic_source_redshift), kappa_true_fits=config.truth.kappa_true_fits,
-        figure_path=output, tables_dir=final / "tables", fits_dir=final / "fits", artifact_suffix=config.image_catalog.figure_suffix, position_contours=position_contours, posterior=posterior)
+        figure_path=output, tables_dir=final / "tables", fits_dir=final / "fits", artifact_suffix=config.image_catalog.figure_suffix,
+        position_contours=position_contours, log=log)
     print(json.dumps(provenance["arc_directions"], indent=2))
     # The RGB critical-curve overview, as in write_outputs: the simulated HST frames of Hera and Ares, or the JWST mosaics of M0416.
     cluster_name = imaging[3].lower()
@@ -89,9 +87,8 @@ def main():
     if simulated_hst or (config.image_catalog.figure_suffix == "_jwst" and cluster_name == "m0416"):
         from kappaccino.plotting.jwst_rgb import render_rgb_critical
         critical_name = "hst_rgb_critical_z9.pdf" if simulated_hst else "jwst_rgb_critical_z9.pdf"
-        render_rgb_critical(config, state, evaluator, theta, catalog, extra, imaging,
-                            plots.figure_path(final / "figures", critical_name, config.paths.figure_prefix), final / "tables",
-                            best_index=best_index, posterior=posterior, log=lambda x: print(x, flush=True))
+        render_rgb_critical(config, state, draws, catalog, extra, imaging,
+                            plots.figure_path(final / "figures", critical_name, config.paths.figure_prefix), final / "tables", log=log)
 
 
 if __name__ == "__main__":

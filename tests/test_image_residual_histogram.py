@@ -1,10 +1,10 @@
-"""Posterior histogram counts use all draws; the legacy summary helper conditions on recovery count."""
+"""The residual histogram over the reporting draws."""
 from __future__ import annotations
 
 import numpy as np
 import pandas as pd
 
-from kappaccino.plotting.plots import plot_image_residual_histogram, posterior_residual_spread
+from kappaccino.plotting.plots import plot_image_residual_histogram
 
 
 def _draws(counts):
@@ -15,19 +15,10 @@ def _draws(counts):
     return pd.DataFrame(rows)
 
 
-def test_spread_uses_only_draws_with_the_best_count_and_flags_more():
-    spread = posterior_residual_spread(_draws([3, 3, 3, 2, 4]), best_count=3)
-    assert spread["draws_total"] == 5 and spread["draws_used"] == 3 and spread["draws_more_than_best"] == 1
-    assert 0.1 < spread["median_q16"] <= spread["median_q84"] < 0.3 and spread["rms_q16"] <= spread["rms_q84"]
-    empty = posterior_residual_spread(None, best_count=3)
-    assert empty["draws_used"] == 0 and np.isnan(empty["rms_q16"])
-
-
-def test_histogram_renders_with_error_bars_and_warning(tmp_path):
+def test_histogram_renders_from_the_draws(tmp_path):
     image_df = pd.DataFrame({"image_residual_arcsec": [0.1, 0.2, 0.3, np.nan], "image_recovery_status": ["recovered"] * 3 + ["not_recovered"]})
-    messages = []
-    path = plot_image_residual_histogram(image_df, tmp_path / "h.pdf", draws=_draws([3, 3, 3, 2, 4]), log=messages.append)
-    assert path.is_file() and any("recovered more images than the best fit" in m for m in messages)
+    path = plot_image_residual_histogram(image_df, tmp_path / "h.pdf", draws=_draws([3, 3, 3, 2, 4]))
+    assert path.is_file()
 
 
 def test_posterior_bin_counts_include_empty_draws_and_exclude_unrecovered():

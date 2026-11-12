@@ -149,7 +149,7 @@ else:
 
 
 @pytest.mark.skipif(not cpu.affinity_supported(), reason="needs CPU affinity (os.sched_getaffinity), Linux only")
-@pytest.mark.parametrize("cluster", ["HERA", "AS1063"])
+@pytest.mark.parametrize("cluster", ["catalogs/hera", "catalogs/as1063/bergamini2019"])
 def test_launcher_uses_resolved_runtime_before_cosmology(cluster):
     code = """
 from dataclasses import replace
@@ -161,8 +161,6 @@ source = '\\n'.join(line for line in path.read_text().splitlines() if not line.s
 exec(compile(source, str(path), 'exec'), namespace)
 from jax._src import xla_bridge
 assert not xla_bridge.backends_are_initialized(), 'launcher initialized JAX before CPU setup'
-build = namespace['build_runtime']
-namespace['build_runtime'] = lambda cores: replace(build(cores), chains=2, cpu_threads_per_chain=2)
 def check_run(config, stage="both"):
     import jax
     assert config.runtime.chains == 2
@@ -170,7 +168,7 @@ def check_run(config, stage="both"):
     assert len(os.sched_getaffinity(0)) <= 4
 import kappaccino.pipeline as pipeline
 pipeline.run = check_run
-assert namespace['main'](['run.xsh', sys.argv[1]]) == 0
+assert namespace['main'](['run.xsh', sys.argv[1], '--set', 'runtime.chains=2', '--set', 'runtime.cpu_threads_per_chain=2']) == 0
 """
     subprocess.run([sys.executable, "-c", code, cluster], check=True, timeout=45,
                    env=dict(os.environ, PYTHONPATH=str(Path("src").resolve())))

@@ -1,0 +1,22 @@
+# Hera (FF-SIMS): an N-body cluster at z = 0.507.  Positions are offsets about (0, 0), as in hera_lenscluster.par.
+reference: {ra0_deg: 0.0, dec0_deg: 0.0}
+cosmology: {H0: 72.0, Om0: 0.24, Ode0: 0.76}
+z_lens: 0.507
+images: images.yaml
+
+# One cluster-scale halo at each light peak, plus external shear.  The cluster_scale priors: centre uniform within 5",
+# shape box up to ellipticite 0.8, core log-uniform 0.5-100 kpc, cut 1500 +- 300 kpc on 500-3000 kpc, v_disp log-normal
+# of mean v_disp and std 0.35 v_disp on 100-2200 km/s.
+halos:
+  "1": {preset: cluster_scale, x_centre: 19.54080009, y_centre: 2.37820005, v_disp: 800.0}
+  "2": {preset: cluster_scale, x_centre: 0.001, y_centre: 0.003, v_disp: 700.0}
+  S1: {profile: shear, preset: free}
+
+# The brightest cluster galaxies stay on the scaling relation.  L* is m_F160W = 19.82 at z = 0.5.
+members:
+  potfile_1: {catalog_path: members.yaml, preset: bergamini2019, prior_mag0: 19.82}
+
+scaling:
+  # The simulation's softening, 2.3 h^-1 kpc = 3.19 kpc, added in quadrature to every dPIE core so the member cusps
+  # match its resolution (the dPIE total mass is independent of the core).
+  softening_length_prior: lognormal(2.3 / 0.72, 0.15)

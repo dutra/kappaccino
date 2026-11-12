@@ -118,7 +118,9 @@ cosmology:
 
 @pytest.mark.parametrize("folder, om0", [("catalogs/hera", 0.24), ("catalogs/ares", 0.272), ("catalogs/as1063/bergamini2019", 0.3),
                                          ("catalogs/as1063/diego2026", 0.3), ("catalogs/m0416/bergamini2023", 0.3),
-                                         ("catalogs/m0416/canucs2025", 0.3)])
+                                         ("catalogs/m0416/canucs2025", 0.3),
+                                         *[(f"catalogs/{tag}/{size}", 0.3) for tag in ("tngc014", "tngc014_dm")
+                                           for size in ("small", "medium", "large")]])
 def test_cluster_cosmography_profiles(folder, om0, monkeypatch):
     monkeypatch.chdir(ROOT)
     fixed = load_run(folder, overrides=["paths.run_name=t"]).validate()

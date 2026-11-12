@@ -1,0 +1,820 @@
+# Mock multiple images built on 2026-11-11 by geometric_telescope/scripts/build_tngc014_mock.py.
+# TNG-Cluster zoom 014 (halo 2571291), snapshot 73 (z = 0.3802), yz projection. Simulated cluster: positions are offsets about (0, 0) in degrees, x = -ra*3600, y = dec*3600 arcsec in the lens-map frame. Flat LCDM H0=70 Om0=0.3. Systems S<n> have images tied to a satellite (see their notes).
+# Observed version: Gaussian position noise of 0.03 arcsec per axis; images within 3.0 arcsec of the BCG or with |mu| < 0.25 removed; 12% of systems have photometric z.
+format: lenscluster-images/1
+notes: 'Observed mock catalog; truth in source/images_truth.yaml and source/images_truth.csv.'
+defaults: {shape: [0.3, 0.3, 0.0], mag_err: 0.05}
+systems:
+  '1':
+    z: 1.1673
+    notes: 'class=wide; n_images=3; min_sep=25.56 arcsec'
+    images:
+      a: {ra: 0.009357563, dec: 0.002221068, parity: 1, mag: 25.28}
+      b: {ra: 0.004553095, dec: 0.007806662, parity: -1, mag: 25.52}
+      c: {ra: -0.002296609, dec: 0.009666283, parity: 1, mag: 25.65}
+  '2':
+    z: 1.1745
+    notes: 'class=wide; n_images=4; min_sep=10.52 arcsec'
+    images:
+      a: {ra: 0.003047760, dec: -0.005788027, parity: 1, mag: 25.67}
+      b: {ra: 0.000137053, dec: -0.005590152, parity: -1, mag: 25.96}
+      c: {ra: 0.002277249, dec: 0.001191039, parity: -1, mag: 26.63}
+      d: {ra: -0.008801517, dec: 0.004662190, parity: 1, mag: 26.87}
+  '3':
+    z: 1.3795
+    notes: 'class=wide; n_images=4; min_sep=16.18 arcsec'
+    images:
+      a: {ra: -0.004360182, dec: 0.004661399, parity: 1, mag: 25.88}
+      b: {ra: 0.000110094, dec: 0.005229697, parity: -1, mag: 26.43}
+      c: {ra: -0.003871305, dec: -0.001387284, parity: -1, mag: 26.64}
+      d: {ra: 0.009882233, dec: -0.006055740, parity: 1, mag: 27.1}
+  '4':
+    z: 1.5146
+    notes: 'class=wide; n_images=4; min_sep=38.27 arcsec'
+    images:
+      a: {ra: 0.003930225, dec: 0.005715781, parity: -1, mag: 26.06}
+      b: {ra: -0.006572936, dec: 0.007288365, parity: 1, mag: 26.2}
+      c: {ra: 0.008683343, dec: -0.004008497, parity: 1, mag: 26.2}
+      d: {ra: -0.002076162, dec: -0.003398724, parity: -1, mag: 26.77}
+  '5':
+    z: 1.5221
+    notes: 'class=wide; n_images=4; min_sep=11.37 arcsec'
+    images:
+      a: {ra: -0.004068820, dec: 0.003517009, parity: 1, mag: 25.17}
+      b: {ra: -0.001112260, dec: 0.004630222, parity: -1, mag: 25.75}
+      c: {ra: -0.004454891, dec: 0.000257110, parity: -1, mag: 25.88}
+      d: {ra: 0.010716740, dec: -0.006971607, parity: 1, mag: 27.47}
+  '6':
+    z: 1.8638
+    notes: 'class=wide; n_images=4; min_sep=40.40 arcsec'
+    images:
+      a: {ra: -0.008621660, dec: 0.005459107, parity: 1, mag: 26.9}
+      b: {ra: 0.007805759, dec: -0.006618728, parity: 1, mag: 27.0}
+      c: {ra: 0.003040436, dec: 0.004432727, parity: -1, mag: 27.01}
+      d: {ra: -0.003340475, dec: -0.005294737, parity: -1, mag: 27.31}
+  '7':
+    z: 1.754
+    z_err: 0.176
+    notes: 'class=wide; n_images=4; min_sep=30.54 arcsec; photometric redshift'
+    images:
+      a: {ra: 0.002459235, dec: 0.006941651, parity: -1, mag: 25.03}
+      b: {ra: -0.006034004, dec: 0.006884511, parity: 1, mag: 25.08}
+      c: {ra: 0.010324043, dec: -0.005554427, parity: 1, mag: 25.52}
+      d: {ra: -0.003452156, dec: -0.003207456, parity: -1, mag: 25.81}
+  '8':
+    z: 2.0806
+    notes: 'class=wide; n_images=3; min_sep=9.04 arcsec'
+    images:
+      a: {ra: -0.001188977, dec: 0.003776655, parity: -1, mag: 24.44}
+      b: {ra: 0.011641574, dec: -0.008540493, parity: 1, mag: 25.72}
+      c: {ra: -0.000976165, dec: 0.001272756, parity: 1, mag: 25.96}
+  '9':
+    z: 2.1795
+    notes: 'class=wide; n_images=3; min_sep=16.01 arcsec'
+    images:
+      a: {ra: -0.001020723, dec: 0.005136670, parity: -1, mag: 26.61}
+      b: {ra: 0.011838616, dec: -0.008161271, parity: 1, mag: 27.58}
+      c: {ra: -0.000709309, dec: 0.000711965, parity: 1, mag: 28.11}
+  '10':
+    z: 2.3571
+    notes: 'class=wide; n_images=4; min_sep=34.98 arcsec'
+    images:
+      a: {ra: 0.006003045, dec: 0.005190822, parity: -1, mag: 27.3}
+      b: {ra: 0.008473447, dec: -0.004197433, parity: 1, mag: 27.53}
+      c: {ra: -0.009010206, dec: 0.008567254, parity: 1, mag: 27.92}
+      d: {ra: -0.001617782, dec: -0.004989397, parity: -1, mag: 28.21}
+  '11':
+    z: 2.5212
+    notes: 'class=wide; n_images=4; min_sep=18.30 arcsec'
+    images:
+      a: {ra: 0.004816111, dec: -0.007066454, parity: 1, mag: 24.47}
+      b: {ra: -0.000243005, dec: -0.007346111, parity: -1, mag: 24.64}
+      c: {ra: 0.004214825, dec: 0.002536819, parity: -1, mag: 25.16}
+      d: {ra: -0.011472007, dec: 0.006839300, parity: 1, mag: 25.42}
+  '12':
+    z: 2.439
+    z_err: 0.212
+    notes: 'class=wide; n_images=4; min_sep=36.79 arcsec; photometric redshift'
+    images:
+      a: {ra: -0.010805557, dec: 0.001988575, parity: 1, mag: 25.39}
+      b: {ra: -0.004691331, dec: -0.007801106, parity: -1, mag: 25.7}
+      c: {ra: 0.006052704, dec: -0.009678112, parity: 1, mag: 25.83}
+      d: {ra: 0.000675013, dec: 0.000896189, parity: -1, mag: 26.74}
+  '13':
+    z: 2.5877
+    notes: 'class=wide; n_images=4; min_sep=12.29 arcsec'
+    images:
+      a: {ra: 0.002042326, dec: 0.010556868, parity: -1, mag: 24.17}
+      b: {ra: -0.001365378, dec: 0.010585672, parity: 1, mag: 24.32}
+      c: {ra: 0.013229476, dec: -0.003478135, parity: 1, mag: 25.6}
+      d: {ra: -0.001716180, dec: -0.001129421, parity: -1, mag: 25.95}
+  '14':
+    z: 2.6065
+    notes: 'class=wide; n_images=4; min_sep=26.16 arcsec'
+    images:
+      a: {ra: -0.002162815, dec: -0.007784579, parity: -1, mag: 24.41}
+      b: {ra: 0.005100638, dec: -0.008181692, parity: 1, mag: 24.69}
+      c: {ra: 0.003044768, dec: 0.002520136, parity: -1, mag: 24.97}
+      d: {ra: -0.011452581, dec: 0.005456659, parity: 1, mag: 25.14}
+  '15':
+    z: 2.6488
+    notes: 'class=wide; n_images=4; min_sep=13.02 arcsec'
+    images:
+      a: {ra: 0.007141824, dec: 0.000851009, parity: -1, mag: 23.43}
+      b: {ra: 0.007301255, dec: -0.002771295, parity: 1, mag: 24.11}
+      c: {ra: 0.000262229, dec: -0.005115653, parity: -1, mag: 25.22}
+      d: {ra: -0.010603546, dec: 0.009488408, parity: 1, mag: 25.67}
+  '16':
+    z: 2.7825
+    notes: 'class=wide; n_images=3; min_sep=8.59 arcsec'
+    images:
+      a: {ra: -0.003469071, dec: -0.011658254, parity: -1, mag: 24.63}
+      b: {ra: -0.001135313, dec: -0.012209819, parity: 1, mag: 25.08}
+      c: {ra: -0.013172951, dec: -0.002864172, parity: 1, mag: 26.85}
+  '17':
+    z: 2.9513
+    notes: 'class=wide; n_images=4; min_sep=21.95 arcsec'
+    images:
+      a: {ra: 0.007008717, dec: 0.002248668, parity: -1, mag: 24.68}
+      b: {ra: 0.007304243, dec: -0.003845005, parity: 1, mag: 25.1}
+      c: {ra: 0.000006865, dec: -0.005601482, parity: -1, mag: 25.93}
+      d: {ra: -0.010829043, dec: 0.009284450, parity: 1, mag: 26.21}
+  '18':
+    z: 3.2885
+    notes: 'class=wide; n_images=4; min_sep=10.14 arcsec'
+    images:
+      a: {ra: -0.002741130, dec: 0.008612323, parity: 1, mag: 23.5}
+      b: {ra: 0.000049252, dec: 0.008956493, parity: -1, mag: 23.88}
+      c: {ra: -0.004001491, dec: -0.001870397, parity: -1, mag: 24.92}
+      d: {ra: 0.013286393, dec: -0.006283124, parity: 1, mag: 24.99}
+  '19':
+    z: 3.3994
+    notes: 'class=wide; n_images=4; min_sep=34.96 arcsec'
+    images:
+      a: {ra: 0.006637010, dec: 0.004795447, parity: -1, mag: 25.36}
+      b: {ra: 0.008260893, dec: -0.004783274, parity: 1, mag: 25.55}
+      c: {ra: -0.010295254, dec: 0.008966555, parity: 1, mag: 26.18}
+      d: {ra: -0.001375883, dec: -0.005877905, parity: -1, mag: 26.18}
+  '20':
+    z: 3.4816
+    notes: 'class=wide; n_images=4; min_sep=41.42 arcsec'
+    images:
+      a: {ra: 0.007951162, dec: -0.007835394, parity: 1, mag: 27.22}
+      b: {ra: -0.010444597, dec: 0.006049327, parity: 1, mag: 27.24}
+      c: {ra: 0.003783408, dec: 0.004804644, parity: -1, mag: 27.4}
+      d: {ra: -0.003524588, dec: -0.006926647, parity: -1, mag: 27.48}
+  '21':
+    z: 4.3215
+    notes: 'class=wide; n_images=3; min_sep=11.35 arcsec'
+    images:
+      a: {ra: -0.001701373, dec: 0.004676857, parity: -1, mag: 26.19}
+      b: {ra: -0.001285272, dec: 0.001547165, parity: 1, mag: 27.7}
+      c: {ra: 0.013589624, dec: -0.009670323, parity: 1, mag: 27.78}
+  '22':
+    z: 7.3503
+    notes: 'class=wide; n_images=4; min_sep=49.93 arcsec'
+    images:
+      a: {ra: 0.006099779, dec: 0.008634942, parity: -1, mag: 25.81}
+      b: {ra: 0.010828965, dec: -0.005328992, parity: 1, mag: 27.23}
+      c: {ra: -0.009246643, dec: 0.009478949, parity: 1, mag: 27.49}
+      d: {ra: -0.003012199, dec: -0.005554501, parity: -1, mag: 28.12}
+  '23':
+    z: 1.1538
+    notes: 'class=intermediate; n_images=3; min_sep=4.19 arcsec'
+    images:
+      a: {ra: -0.003933107, dec: -0.009507707, parity: -1, mag: 25.17}
+      b: {ra: -0.002846886, dec: -0.009923125, parity: 1, mag: 25.33}
+      c: {ra: -0.008819531, dec: -0.005725492, parity: 1, mag: 26.41}
+  '24':
+    z: 0.989
+    z_err: 0.13
+    notes: 'class=intermediate; n_images=3; min_sep=7.66 arcsec; photometric redshift'
+    images:
+      a: {ra: -0.005968964, dec: -0.009008511, parity: -1, mag: 24.9}
+      b: {ra: -0.007685854, dec: -0.007743428, parity: 1, mag: 25.17}
+      c: {ra: -0.002289521, dec: -0.010736532, parity: 1, mag: 25.64}
+  '25':
+    z: 1.2417
+    notes: 'class=intermediate; n_images=3; min_sep=3.73 arcsec'
+    images:
+      a: {ra: -0.006756469, dec: -0.008054469, parity: -1, mag: 23.15}
+      b: {ra: -0.007549479, dec: -0.007395998, parity: 1, mag: 23.79}
+      c: {ra: -0.000365301, dec: -0.010908213, parity: 1, mag: 25.53}
+  '26':
+    z: 1.075
+    z_err: 0.135
+    notes: 'class=intermediate; n_images=4; min_sep=3.55 arcsec; photometric redshift'
+    images:
+      a: {ra: 0.006536105, dec: 0.000466806, parity: 1, mag: 22.72}
+      b: {ra: 0.006334638, dec: 0.001457649, parity: -1, mag: 23.4}
+      c: {ra: -0.000116101, dec: -0.002674516, parity: -1, mag: 26.01}
+      d: {ra: -0.007254924, dec: 0.007935689, parity: 1, mag: 26.11}
+  '27':
+    z: 1.5361
+    notes: 'class=intermediate; n_images=3; min_sep=7.52 arcsec'
+    images:
+      a: {ra: 0.008908532, dec: 0.010824192, parity: 1, mag: 22.49}
+      b: {ra: 0.007314436, dec: 0.012191419, parity: -1, mag: 23.87}
+      c: {ra: 0.004504428, dec: 0.013660487, parity: 1, mag: 24.4}
+  '28':
+    z: 1.5475
+    notes: 'class=intermediate; n_images=3; min_sep=3.11 arcsec'
+    images:
+      a: {ra: 0.008967289, dec: 0.008828365, parity: 1, mag: 22.0}
+      b: {ra: 0.008416894, dec: 0.009483697, parity: -1, mag: 22.13}
+      c: {ra: -0.000459073, dec: 0.012893970, parity: 1, mag: 25.05}
+  '29':
+    z: 1.5913
+    notes: 'class=intermediate; n_images=4; min_sep=4.94 arcsec'
+    images:
+      a: {ra: -0.000382007, dec: 0.007383550, parity: -1, mag: 25.46}
+      b: {ra: -0.001750611, dec: 0.007328020, parity: 1, mag: 25.74}
+      c: {ra: 0.011364983, dec: -0.004961734, parity: 1, mag: 27.82}
+      d: {ra: -0.002619571, dec: -0.001085822, parity: -1, mag: 27.87}
+  '30':
+    z: 1.6232
+    notes: 'class=intermediate; n_images=3; min_sep=5.29 arcsec'
+    images:
+      a: {ra: 0.003490612, dec: 0.012304721, parity: -1, mag: 23.9}
+      b: {ra: 0.002000632, dec: 0.012348959, parity: 1, mag: 24.07}
+      c: {ra: 0.012391937, dec: 0.003225237, parity: 1, mag: 25.72}
+  '31':
+    z: 1.7667
+    notes: 'class=intermediate; n_images=3; min_sep=5.07 arcsec'
+    images:
+      a: {ra: -0.007977006, dec: -0.004791594, parity: -1, mag: 24.86}
+      b: {ra: -0.008645842, dec: -0.003567990, parity: 1, mag: 25.45}
+      c: {ra: 0.005622770, dec: -0.010303791, parity: 1, mag: 27.96}
+  '32':
+    z: 2.1113
+    notes: 'class=intermediate; n_images=3; min_sep=8.00 arcsec'
+    images:
+      a: {ra: 0.009343515, dec: 0.008278702, parity: -1, mag: 23.21}
+      b: {ra: 0.010534764, dec: 0.006410571, parity: 1, mag: 23.75}
+      c: {ra: -0.003097955, dec: 0.012752113, parity: 1, mag: 25.14}
+  '33':
+    z: 2.5354
+    notes: 'class=intermediate; n_images=5; min_sep=3.53 arcsec'
+    images:
+      a: {ra: -0.004261451, dec: 0.003447912, parity: 1, mag: 22.67}
+      b: {ra: -0.004659425, dec: 0.002560625, parity: -1, mag: 23.01}
+      c: {ra: -0.002836068, dec: 0.004716511, parity: -1, mag: 23.4}
+      d: {ra: 0.012770633, dec: -0.008329829, parity: 1, mag: 26.8}
+      e: {ra: -0.001239868, dec: 0.001010992, parity: 1, mag: 27.18}
+  '34':
+    z: 2.6197
+    notes: 'class=intermediate; n_images=3; min_sep=5.26 arcsec'
+    images:
+      a: {ra: 0.001230384, dec: -0.003102462, parity: -1, mag: 24.83}
+      b: {ra: 0.001092573, dec: -0.001632826, parity: 1, mag: 25.83}
+      c: {ra: -0.010790556, dec: 0.010631214, parity: 1, mag: 26.12}
+  '35':
+    z: 3.8973
+    notes: 'class=intermediate; n_images=3; min_sep=4.51 arcsec'
+    images:
+      a: {ra: -0.001247375, dec: -0.012536271, parity: 1, mag: 22.38}
+      b: {ra: -0.002459323, dec: -0.012303622, parity: -1, mag: 22.39}
+      c: {ra: -0.013860582, dec: -0.002248863, parity: 1, mag: 24.92}
+  '36':
+    z: 4.8482
+    notes: 'class=intermediate; n_images=3; min_sep=3.80 arcsec'
+    images:
+      a: {ra: -0.001382828, dec: 0.003386429, parity: -1, mag: 26.15}
+      b: {ra: -0.001285209, dec: 0.002327379, parity: 1, mag: 26.89}
+      c: {ra: 0.013496083, dec: -0.010217152, parity: 1, mag: 28.05}
+  '37':
+    z: 2.0313
+    notes: 'class=cusp; n_images=3; min_sep=0.36 arcsec'
+    images:
+      a: {ra: 0.008266538, dec: 0.013600936, parity: -1, mag: 19.72}
+      b: {ra: 0.008192644, dec: 0.013647982, parity: 1, mag: 20.04}
+      c: {ra: 0.008419140, dec: 0.013491920, parity: 1, mag: 20.85}
+  '38':
+    z: 2.8247
+    notes: 'class=cusp; n_images=5; min_sep=2.03 arcsec'
+    images:
+      a: {ra: 0.010444020, dec: 0.011900764, parity: 1, mag: 20.94}
+      b: {ra: 0.010062402, dec: 0.012290273, parity: -1, mag: 21.37}
+      c: {ra: 0.011628070, dec: 0.010534302, parity: 1, mag: 21.76}
+      d: {ra: 0.011147379, dec: 0.011161189, parity: -1, mag: 22.16}
+      e: {ra: 0.005922541, dec: 0.015110161, parity: 1, mag: 23.18}
+  '39':
+    z: 3.9094
+    notes: 'class=cusp; n_images=6; min_sep=0.41 arcsec'
+    images:
+      a: {ra: -0.001632708, dec: -0.011438278, parity: -1, mag: 23.02}
+      b: {ra: -0.000012259, dec: -0.011697361, parity: 1, mag: 23.24}
+      c: {ra: 0.000763467, dec: -0.011774759, parity: 1, mag: 24.75}
+      d: {ra: -0.013777086, dec: 0.000361899, parity: 1, mag: 25.15}
+      e: {ra: 0.000640926, dec: -0.011811270, parity: -1, mag: 25.77}
+      f: {ra: 0.000635870, dec: -0.011692246, parity: 1, mag: 27.54}
+  '40':
+    z: 4.0851
+    notes: 'class=cusp; n_images=7; min_sep=0.59 arcsec'
+    images:
+      a: {ra: -0.004942998, dec: 0.003287489, parity: 1, mag: 20.02}
+      b: {ra: -0.004871937, dec: 0.003415185, parity: -1, mag: 20.07}
+      c: {ra: -0.004483914, dec: 0.004088436, parity: 1, mag: 20.59}
+      d: {ra: -0.005091975, dec: 0.002945982, parity: -1, mag: 20.78}
+      e: {ra: -0.003091325, dec: 0.005294833, parity: -1, mag: 22.21}
+      f: {ra: 0.013774726, dec: -0.008985891, parity: 1, mag: 25.3}
+      g: {ra: -0.001240720, dec: 0.001056460, parity: 1, mag: 25.96}
+  '41':
+    z: 4.2413
+    notes: 'class=cusp; n_images=7; min_sep=0.48 arcsec'
+    knots: [A, B]
+    images:
+      a:
+        parity: 1
+        knots:
+          A: {ra: -0.004934505, dec: 0.003249401, mag: 22.46}
+          B: {ra: -0.004904588, dec: 0.003202067, mag: 21.76}
+      b:
+        parity: -1
+        knots:
+          A: {ra: -0.004888529, dec: 0.003365230, mag: 22.71}
+          B: {ra: -0.004872995, dec: 0.003262418, mag: 22.28}
+      c:
+        parity: -1
+        knots:
+          A: {ra: -0.005033397, dec: 0.003042628, mag: 23.3}
+          B: {ra: -0.004936795, dec: 0.003131954, mag: 22.66}
+      d:
+        parity: 1
+        knots:
+          A: {ra: -0.004298525, dec: 0.004340647, mag: 23.78}
+          B: {ra: -0.003952029, dec: 0.004597520, mag: 24.48}
+      e:
+        parity: -1
+        knots:
+          A: {ra: -0.003265749, dec: 0.005228949, mag: 24.92}
+          B: {ra: -0.003580040, dec: 0.004909147, mag: 23.41}
+      f:
+        parity: 1
+        knots:
+          A: {ra: 0.013854743, dec: -0.009036019, mag: 28.2}
+          B: {ra: 0.013881145, dec: -0.009054689, mag: 29.2}
+      g:
+        parity: 1
+        knots:
+          A: {ra: -0.001258170, dec: 0.001089212, mag: 28.84}
+          B: {ra: -0.001280258, dec: 0.001081276, mag: 29.8}
+  '42':
+    z: 4.3388
+    notes: 'class=cusp; n_images=5; min_sep=0.43 arcsec'
+    images:
+      a: {ra: 0.012084129, dec: 0.010816420, parity: 1, mag: 20.53}
+      b: {ra: 0.012171415, dec: 0.010709184, parity: -1, mag: 20.91}
+      c: {ra: 0.011850838, dec: 0.011168362, parity: -1, mag: 22.36}
+      d: {ra: 0.012955135, dec: 0.009560915, parity: 1, mag: 23.87}
+      e: {ra: 0.004874605, dec: 0.016112409, parity: 1, mag: 24.64}
+  '43':
+    z: 5.8158
+    notes: 'class=cusp; n_images=3; min_sep=1.06 arcsec'
+    images:
+      a: {ra: 0.013642472, dec: 0.011297233, parity: 1, mag: 21.16}
+      b: {ra: 0.013451057, dec: 0.011532819, parity: -1, mag: 22.46}
+      c: {ra: 0.013236208, dec: 0.011829144, parity: 1, mag: 24.15}
+  '44':
+    z: 6.6815
+    notes: 'class=cusp; n_images=7; min_sep=0.37 arcsec'
+    images:
+      a: {ra: 0.006576071, dec: -0.002053333, parity: 1, mag: 20.59}
+      b: {ra: 0.006567164, dec: -0.002167288, parity: -1, mag: 20.65}
+      c: {ra: 0.006592222, dec: -0.001700187, parity: -1, mag: 22.43}
+      d: {ra: 0.006442696, dec: -0.002834929, parity: 1, mag: 23.34}
+      e: {ra: 0.003135449, dec: -0.005652910, parity: -1, mag: 24.47}
+      f: {ra: -0.013113502, dec: 0.010615954, parity: 1, mag: 26.58}
+      g: {ra: 0.001462546, dec: -0.000845680, parity: 1, mag: 27.43}
+  '45':
+    z: 1.0174
+    notes: 'class=fold; n_images=4; min_sep=0.83 arcsec'
+    knots: [A, B]
+    images:
+      a:
+        parity: -1
+        knots:
+          A: {ra: 0.005984953, dec: 0.001521042, mag: 22.12}
+          B: {ra: 0.005644893, dec: 0.002109044, mag: 25.33}
+      b:
+        parity: 1
+        knots:
+          A: {ra: 0.006045998, dec: 0.001313551, mag: 22.93}
+          B: {ra: 0.006103045, dec: 0.000929762, mag: 25.57}
+      c:
+        parity: 1
+        knots:
+          A: {ra: -0.005726276, dec: 0.007274747, mag: 26.83}
+          B: {ra: -0.005787718, dec: 0.007202710, mag: 27.84}
+      d:
+        parity: -1
+        knots:
+          A: {ra: -0.000109569, dec: -0.001445618, mag: 27.13}
+          B: {ra: -0.000111038, dec: -0.001539849, mag: 27.97}
+  '46':
+    z: 1.1276
+    notes: 'class=fold; n_images=3; min_sep=0.30 arcsec'
+    images:
+      a: {ra: 0.000783942, dec: -0.001516433, parity: 1, mag: 23.85}
+      b: {ra: 0.000791265, dec: -0.001596558, parity: -1, mag: 24.21}
+      c: {ra: -0.007764786, dec: 0.007673575, parity: 1, mag: 27.9}
+  '47':
+    z: 1.6686
+    notes: 'class=fold; n_images=3; min_sep=0.41 arcsec'
+    knots: [A, B]
+    images:
+      a:
+        parity: -1
+        knots:
+          A: {ra: -0.007920263, dec: -0.002656888, mag: 21.37}
+          B: {ra: -0.007786627, dec: -0.002909843, mag: 24.0}
+      b:
+        parity: 1
+        knots:
+          A: {ra: -0.007965116, dec: -0.002561731, mag: 21.58}
+          B: {ra: -0.008021538, dec: -0.002351099, mag: 24.56}
+      c:
+        parity: 1
+        knots:
+          A: {ra: 0.006782457, dec: -0.009472814, mag: 26.41}
+          B: {ra: 0.006804301, dec: -0.009440548, mag: 27.41}
+  '48':
+    z: 1.6858
+    notes: 'class=fold; n_images=3; min_sep=1.10 arcsec'
+    images:
+      a: {ra: 0.003485910, dec: 0.013071042, parity: 1, mag: 20.25}
+      b: {ra: 0.003775112, dec: 0.013036622, parity: -1, mag: 21.14}
+      c: {ra: 0.012115223, dec: 0.005086641, parity: 1, mag: 25.18}
+  '49':
+    z: 1.7336
+    notes: 'class=fold; n_images=3; min_sep=2.04 arcsec'
+    knots: [A, C]
+    images:
+      a:
+        parity: -1
+        knots:
+          A: {ra: 0.009594612, dec: 0.010326553, mag: 21.27}
+          C: {ra: 0.009319651, dec: 0.010598776, mag: 23.53}
+      b:
+        parity: 1
+        knots:
+          A: {ra: 0.009931828, dec: 0.009884848, mag: 22.04}
+          C: {ra: 0.010056320, dec: 0.009696112, mag: 24.14}
+      c:
+        parity: 1
+        knots:
+          A: {ra: 0.003303006, dec: 0.014153695, mag: 24.48}
+          C: {ra: 0.003200640, dec: 0.014130002, mag: 25.51}
+  '50':
+    z: 1.8422
+    notes: 'class=fold; n_images=4; min_sep=0.53 arcsec'
+    knots: [A, B]
+    images:
+      a:
+        parity: -1
+        knots:
+          A: {ra: -0.001326083, dec: 0.007074056, mag: 20.99}
+          B: {ra: -0.000961758, dec: 0.007097911, mag: 23.95}
+      b:
+        parity: 1
+        knots:
+          A: {ra: -0.001486172, dec: 0.007079716, mag: 21.11}
+          B: {ra: -0.001827746, dec: 0.007027583, mag: 23.79}
+      c:
+        parity: -1
+        knots:
+          A: {ra: -0.003471752, dec: -0.001096948, mag: 25.04}
+          B: {ra: -0.003488534, dec: -0.001132609, mag: 26.06}
+      d:
+        parity: 1
+        knots:
+          A: {ra: 0.011844661, dec: -0.005957202, mag: 25.38}
+          B: {ra: 0.011819681, dec: -0.005965323, mag: 26.37}
+  '51':
+    z: 2.0395
+    notes: 'class=fold; n_images=3; min_sep=2.90 arcsec'
+    images:
+      a: {ra: 0.009392084, dec: 0.006978670, parity: -1, mag: 24.49}
+      b: {ra: 0.009810617, dec: 0.006304320, parity: 1, mag: 25.38}
+      c: {ra: -0.004200744, dec: 0.012061507, parity: 1, mag: 27.68}
+  '52':
+    z: 2.1295
+    notes: 'class=fold; n_images=3; min_sep=0.37 arcsec'
+    knots: [A, B]
+    images:
+      a:
+        parity: -1
+        knots:
+          A: {ra: 0.002090935, dec: 0.012532548, mag: 20.99}
+          B: {ra: 0.002908782, dec: 0.012547790, mag: 25.7}
+      b:
+        parity: 1
+        knots:
+          A: {ra: 0.001985156, dec: 0.012521729, mag: 21.05}
+          B: {ra: 0.001298753, dec: 0.012502573, mag: 25.46}
+      c:
+        parity: 1
+        knots:
+          A: {ra: 0.013511609, dec: 0.000491959, mag: 26.1}
+          B: {ra: 0.013486226, dec: 0.000552971, mag: 27.07}
+  '53':
+    z: 2.2227
+    notes: 'class=fold; n_images=3; min_sep=0.72 arcsec'
+    knots: [A, B]
+    images:
+      a:
+        parity: 1
+        knots:
+          A: {ra: -0.001503341, dec: -0.010965639, mag: 22.9}
+          B: {ra: -0.001207170, dec: -0.011072422, mag: 25.14}
+      b:
+        parity: -1
+        knots:
+          A: {ra: -0.001693828, dec: -0.010934116, mag: 23.05}
+          B: {ra: -0.001962030, dec: -0.010910339, mag: 25.35}
+      c:
+        parity: 1
+        knots:
+          A: {ra: -0.012555336, dec: -0.001015593, mag: 26.99}
+          B: {ra: -0.012548294, dec: -0.001076113, mag: 27.99}
+  '54':
+    z: 2.3091
+    notes: 'class=fold; n_images=3; min_sep=1.22 arcsec'
+    knots: [A, B, C]
+    images:
+      a:
+        parity: 1
+        knots:
+          A: {ra: 0.000201879, dec: -0.010058308, mag: 21.22}
+          B: {ra: 0.000991745, dec: -0.010132432, mag: 24.57}
+          C: {ra: 0.000833155, dec: -0.010148401, mag: 24.18}
+      b:
+        parity: -1
+        knots:
+          A: {ra: -0.000128998, dec: -0.010022021, mag: 22.06}
+          B: {ra: -0.000855756, dec: -0.009861266, mag: 23.61}
+          C: {ra: -0.000728135, dec: -0.009940155, mag: 22.85}
+      c:
+        parity: 1
+        knots:
+          A: {ra: -0.012465754, dec: 0.001787324, mag: 25.61}
+          B: {ra: -0.012442213, dec: 0.001826737, mag: 26.61}
+          C: {ra: -0.012448368, dec: 0.001752621, mag: 26.61}
+  '55':
+    z: 2.5642
+    notes: 'class=fold; n_images=4; min_sep=2.92 arcsec'
+    images:
+      a: {ra: -0.008668474, dec: -0.001890105, parity: 1, mag: 24.74}
+      b: {ra: -0.008370118, dec: -0.002647924, parity: -1, mag: 25.04}
+      c: {ra: 0.008483920, dec: -0.010101746, parity: 1, mag: 27.36}
+      d: {ra: 0.000097943, dec: 0.000879111, parity: -1, mag: 28.46}
+  '56':
+    z: 3.113
+    notes: 'class=fold; n_images=3; min_sep=2.70 arcsec'
+    images:
+      a: {ra: 0.004311950, dec: 0.014364556, parity: -1, mag: 23.12}
+      b: {ra: 0.003583647, dec: 0.014527109, parity: 1, mag: 24.65}
+      c: {ra: 0.014036528, dec: 0.003847921, parity: 1, mag: 26.44}
+  '57':
+    z: 3.1936
+    notes: 'class=fold; n_images=5; min_sep=1.07 arcsec'
+    images:
+      a: {ra: 0.010790782, dec: 0.006076185, parity: 1, mag: 22.53}
+      b: {ra: 0.010939484, dec: 0.005812429, parity: -1, mag: 22.58}
+      c: {ra: 0.011247452, dec: 0.005175429, parity: 1, mag: 23.67}
+      d: {ra: 0.010168252, dec: 0.007143061, parity: -1, mag: 23.96}
+      e: {ra: -0.005317091, dec: 0.012678487, parity: 1, mag: 25.89}
+  '58':
+    z: 3.396
+    notes: 'class=fold; n_images=4; min_sep=0.58 arcsec'
+    knots: [A, B]
+    images:
+      a:
+        parity: -1
+        knots:
+          A: {ra: 0.000927962, dec: 0.011468171, mag: 22.39}
+          B: {ra: 0.001328692, dec: 0.011431080, mag: 24.68}
+      b:
+        parity: 1
+        knots:
+          A: {ra: 0.000758360, dec: 0.011471633, mag: 22.5}
+          B: {ra: 0.000384216, dec: 0.011420499, mag: 24.94}
+      c:
+        parity: 1
+        knots:
+          A: {ra: 0.013958851, dec: -0.003614819, mag: 26.75}
+          B: {ra: 0.013904512, dec: -0.003622062, mag: 27.75}
+      d:
+        parity: -1
+        knots:
+          A: {ra: -0.001786030, dec: -0.001118490, mag: 27.15}
+          B: {ra: -0.001833463, dec: -0.001166195, mag: 28.22}
+  '59':
+    z: 3.7547
+    notes: 'class=fold; n_images=3; min_sep=1.96 arcsec'
+    knots: [A, B, C]
+    images:
+      a:
+        parity: 1
+        knots:
+          A: {ra: 0.007658185, dec: 0.014911557, mag: 22.17}
+          B: {ra: 0.007296160, dec: 0.015127034, mag: 24.98}
+          C: {ra: 0.007471288, dec: 0.015020033, mag: 24.27}
+      b:
+        parity: -1
+        knots:
+          A: {ra: 0.008097785, dec: 0.014618383, mag: 23.18}
+          B: {ra: 0.008400576, dec: 0.014472114, mag: 25.07}
+          C: {ra: 0.008256974, dec: 0.014545734, mag: 24.76}
+      c:
+        parity: 1
+        knots:
+          A: {ra: 0.013216194, dec: 0.009229121, mag: 25.17}
+          B: {ra: 0.013150395, dec: 0.009400423, mag: 26.08}
+          C: {ra: 0.013185317, dec: 0.009330207, mag: 26.13}
+  'S1':
+    z: 1.063
+    notes: 'class=subhalo; n_images=6; min_sep=0.80 arcsec; subhalo 1554439: images a,d,e,f; subhalo 1554499: images a,b,c,f; subhalo 1554606: images a,b'
+    images:
+      a: {ra: -0.006913640, dec: -0.011015055, parity: 1, mag: 23.27, notes: 'subhalo 1554439 (shift without it: 0.59 arcsec); subhalo 1554499 (shift without it: 0.70 arcsec); subhalo 1554606 (shift without it: vanishes)'}
+      b: {ra: -0.007119265, dec: -0.010918197, parity: -1, mag: 23.66, notes: 'subhalo 1554499 (shift without it: 0.89 arcsec); subhalo 1554606 (shift without it: vanishes)'}
+      c: {ra: -0.007656084, dec: -0.010584198, parity: 1, mag: 24.14, notes: 'subhalo 1554499 (shift without it: 0.99 arcsec)'}
+      d: {ra: -0.005231015, dec: -0.011875578, parity: 1, mag: 24.6, notes: 'subhalo 1554439 (shift without it: vanishes)'}
+      e: {ra: -0.005630304, dec: -0.011483279, parity: -1, mag: 25.15, notes: 'subhalo 1554439 (shift without it: vanishes)'}
+      f: {ra: -0.006111942, dec: -0.012025243, parity: -1, mag: 27.0, notes: 'subhalo 1554439 (shift without it: vanishes); subhalo 1554499 (shift without it: vanishes)'}
+  'S2':
+    z: 1.938
+    notes: 'class=subhalo; n_images=6; min_sep=0.86 arcsec; subhalo 1554469: images a,b,e,f; subhalo 1554487: images a,e'
+    images:
+      a: {ra: 0.003829026, dec: -0.003649906, parity: -1, mag: 25.03, notes: 'subhalo 1554469 (shift without it: vanishes); subhalo 1554487 (shift without it: vanishes)'}
+      b: {ra: 0.004146413, dec: -0.004082485, parity: -1, mag: 25.4, notes: 'subhalo 1554469 (shift without it: vanishes)'}
+      c: {ra: -0.010874913, dec: 0.008826995, parity: 1, mag: 26.55}
+      d: {ra: 0.001318033, dec: -0.000777827, parity: 1, mag: 26.83}
+      e: {ra: 0.003893587, dec: -0.002700191, parity: -1, mag: 27.14, notes: 'subhalo 1554469 (shift without it: vanishes); subhalo 1554487 (shift without it: vanishes)'}
+      f: {ra: 0.004121434, dec: -0.003842138, parity: 1, mag: 28.54, notes: 'subhalo 1554469 (shift without it: vanishes)'}
+  'S3':
+    z: 1.9826
+    notes: 'class=subhalo; n_images=7; min_sep=0.32 arcsec; subhalo 1554439: images a,b; subhalo 1554489: images c,e,f,g'
+    images:
+      a: {ra: -0.005960094, dec: -0.013388456, parity: 1, mag: 22.59, notes: 'subhalo 1554439 (shift without it: vanishes)'}
+      b: {ra: -0.006395647, dec: -0.013238540, parity: -1, mag: 22.89, notes: 'subhalo 1554439 (shift without it: vanishes)'}
+      c: {ra: -0.009313936, dec: -0.011410964, parity: 1, mag: 23.97, notes: 'subhalo 1554489 (shift without it: vanishes)'}
+      d: {ra: -0.010767704, dec: -0.010070552, parity: 1, mag: 24.43}
+      e: {ra: -0.009521424, dec: -0.011034681, parity: -1, mag: 25.35, notes: 'subhalo 1554489 (shift without it: vanishes)'}
+      f: {ra: -0.009837821, dec: -0.011225832, parity: -1, mag: 25.92, notes: 'subhalo 1554489 (shift without it: vanishes)'}
+      g: {ra: -0.009789045, dec: -0.011156587, parity: 1, mag: 26.91, notes: 'subhalo 1554489 (shift without it: vanishes)'}
+  'S4':
+    z: 2.1023
+    notes: 'class=subhalo; n_images=7; min_sep=0.93 arcsec; subhalo 1554614: images b; subhalo 1554717: images c,e,f; subhalo 1554777: images g'
+    knots: [A, B, C]
+    images:
+      a:
+        parity: 1
+        knots:
+          A: {ra: 0.009404316, dec: 0.011696993, mag: 22.64}
+          B: {ra: 0.010117658, dec: 0.010941565, mag: 24.74}
+          C: {ra: 0.010035181, dec: 0.011087753, mag: 25.1}
+      b:
+        parity: -1
+        notes: 'subhalo 1554614 (shift without it: 4.14 arcsec)'
+        knots:
+          A: {ra: 0.008030465, dec: 0.012928850, mag: 24.44}
+          B: {ra: 0.007881510, dec: 0.013075972, mag: 26.9}
+          C: {ra: 0.007890677, dec: 0.013084738, mag: 26.81}
+      c:
+        parity: 1
+        notes: 'subhalo 1554717 (shift without it: vanishes)'
+        knots:
+          A: {ra: 0.011239977, dec: 0.009473927, mag: 25.11}
+          B: {ra: 0.011364034, dec: 0.009335368, mag: 26.39}
+          C: {ra: 0.011340829, dec: 0.009404347, mag: 26.41}
+      d:
+        parity: 1
+        knots:
+          A: {ra: 0.004625322, dec: 0.014606385, mag: 25.29}
+          B: {ra: 0.004835576, dec: 0.014539269, mag: 26.16}
+          C: {ra: 0.004964727, dec: 0.014530282, mag: 26.13}
+      e:
+        parity: -1
+        notes: 'subhalo 1554717 (shift without it: vanishes)'
+        knots:
+          A: {ra: 0.011075185, dec: 0.009659893, mag: 25.33}
+          B: {ra: 0.010972451, dec: 0.009810403, mag: 25.02}
+          C: {ra: 0.011048676, dec: 0.009758512, mag: 26.57}
+      f:
+        parity: 1
+        notes: 'subhalo 1554717 (shift without it: 0.70 arcsec)'
+        knots:
+          A: {ra: 0.010807861, dec: 0.010036627, mag: 25.33}
+          B: {ra: 0.010945268, dec: 0.009892404, mag: 24.92}
+          C: {ra: 0.010896216, dec: 0.009987817, mag: 26.24}
+      g:
+        parity: -1
+        notes: 'subhalo 1554777 (shift without it: 0.66 arcsec)'
+        knots:
+          A: {ra: 0.010364242, dec: 0.010601320, mag: 26.08}
+          B: {ra: 0.010307589, dec: 0.010711816, mag: 26.0}
+          C: {ra: 0.010363357, dec: 0.010665061, mag: 26.85}
+  'S5':
+    z: 2.4075
+    notes: 'class=subhalo; n_images=9; min_sep=0.57 arcsec; subhalo 1554455: images f; subhalo 1554484: images a,c,g,i'
+    images:
+      a: {ra: 0.000872143, dec: -0.008642205, parity: 1, mag: 24.08, notes: 'subhalo 1554484 (shift without it: vanishes)'}
+      b: {ra: -0.000308812, dec: -0.008495514, parity: -1, mag: 24.3}
+      c: {ra: 0.001000147, dec: -0.008762890, parity: -1, mag: 24.97, notes: 'subhalo 1554484 (shift without it: vanishes)'}
+      d: {ra: 0.001818895, dec: 0.000950403, parity: -1, mag: 25.39}
+      e: {ra: 0.003314083, dec: -0.008496605, parity: 1, mag: 25.59}
+      f: {ra: 0.001608513, dec: 0.000760797, parity: 1, mag: 25.6, notes: 'subhalo 1554455 (shift without it: vanishes)'}
+      g: {ra: 0.001051221, dec: -0.008503466, parity: -1, mag: 25.89, notes: 'subhalo 1554484 (shift without it: vanishes)'}
+      h: {ra: -0.011892191, dec: 0.005078500, parity: 1, mag: 26.4}
+      i: {ra: 0.001185074, dec: -0.008623303, parity: 1, mag: 27.95, notes: 'subhalo 1554484 (shift without it: vanishes)'}
+  'S6':
+    z: 2.4373
+    notes: 'class=subhalo; n_images=8; min_sep=1.06 arcsec; subhalo 1554464: images a,b,c,d,h; subhalo 1554513: images a,b,c,e'
+    images:
+      a: {ra: -0.010616316, dec: -0.003861322, parity: 1, mag: 23.88, notes: 'subhalo 1554464 (shift without it: 0.94 arcsec); subhalo 1554513 (shift without it: 0.76 arcsec)'}
+      b: {ra: -0.010588247, dec: -0.004140696, parity: -1, mag: 24.66, notes: 'subhalo 1554464 (shift without it: 0.60 arcsec); subhalo 1554513 (shift without it: vanishes)'}
+      c: {ra: -0.010646722, dec: -0.002931207, parity: -1, mag: 24.71, notes: 'subhalo 1554464 (shift without it: vanishes); subhalo 1554513 (shift without it: vanishes)'}
+      d: {ra: -0.010852473, dec: -0.002580507, parity: 1, mag: 24.76, notes: 'subhalo 1554464 (shift without it: vanishes)'}
+      e: {ra: -0.010314728, dec: -0.004547310, parity: 1, mag: 24.77, notes: 'subhalo 1554513 (shift without it: vanishes)'}
+      f: {ra: -0.007308917, dec: -0.007983680, parity: -1, mag: 25.02}
+      g: {ra: 0.004740386, dec: -0.011684279, parity: 1, mag: 25.96}
+      h: {ra: -0.011356576, dec: -0.003206916, parity: -1, mag: 27.96, notes: 'subhalo 1554464 (shift without it: vanishes)'}
+  'S7':
+    z: 2.9955
+    notes: 'class=subhalo; n_images=9; min_sep=2.01 arcsec; subhalo 1554422: images c,d; subhalo 1554490: images e,f,h; subhalo 1554515: images c'
+    images:
+      a: {ra: 0.009185377, dec: 0.005831603, parity: -1, mag: 24.56}
+      b: {ra: 0.010726686, dec: 0.001396057, parity: 1, mag: 24.65}
+      c: {ra: 0.010880255, dec: 0.000149438, parity: -1, mag: 24.99, notes: 'subhalo 1554422 (shift without it: 2.39 arcsec); subhalo 1554515 (shift without it: 4.53 arcsec)'}
+      d: {ra: 0.010883697, dec: -0.000511442, parity: 1, mag: 25.03, notes: 'subhalo 1554422 (shift without it: vanishes)'}
+      e: {ra: 0.009986862, dec: 0.004079629, parity: 1, mag: 25.32, notes: 'subhalo 1554490 (shift without it: vanishes)'}
+      f: {ra: 0.009962171, dec: 0.003522303, parity: -1, mag: 26.51, notes: 'subhalo 1554490 (shift without it: vanishes)'}
+      g: {ra: -0.007424256, dec: 0.011195786, parity: 1, mag: 26.68}
+      h: {ra: 0.010509320, dec: 0.003617096, parity: -1, mag: 27.18, notes: 'subhalo 1554490 (shift without it: vanishes)'}
+      i: {ra: -0.000901693, dec: -0.002861843, parity: -1, mag: 27.23}
+  'S8':
+    z: 3.039
+    notes: 'class=subhalo; n_images=10; min_sep=0.31 arcsec; subhalo 1554490: images a,b,c,f,h,j; subhalo 1554551: images c,f,h,j'
+    images:
+      a: {ra: 0.010766556, dec: 0.003903037, parity: -1, mag: 21.65, notes: 'subhalo 1554490 (shift without it: 1.09 arcsec)'}
+      b: {ra: 0.010713310, dec: 0.003975175, parity: 1, mag: 21.76, notes: 'subhalo 1554490 (shift without it: vanishes)'}
+      c: {ra: 0.010950038, dec: 0.003397685, parity: 1, mag: 23.63, notes: 'subhalo 1554490 (shift without it: vanishes); subhalo 1554551 (shift without it: vanishes)'}
+      d: {ra: 0.009293942, dec: 0.006564077, parity: -1, mag: 23.84}
+      e: {ra: 0.011115686, dec: 0.001888741, parity: 1, mag: 24.32}
+      f: {ra: 0.010857321, dec: 0.003082926, parity: -1, mag: 25.1, notes: 'subhalo 1554490 (shift without it: vanishes); subhalo 1554551 (shift without it: vanishes)'}
+      g: {ra: -0.006795007, dec: 0.011607946, parity: 1, mag: 25.71}
+      h: {ra: 0.011179795, dec: 0.002962489, parity: -1, mag: 26.11, notes: 'subhalo 1554490 (shift without it: vanishes); subhalo 1554551 (shift without it: vanishes)'}
+      i: {ra: -0.000737141, dec: -0.002239470, parity: -1, mag: 26.24}
+      j: {ra: 0.011081425, dec: 0.002923116, parity: 1, mag: 27.72, notes: 'subhalo 1554490 (shift without it: 1.47 arcsec); subhalo 1554551 (shift without it: 1.05 arcsec)'}
+  'S9':
+    z: 4.3823
+    notes: 'class=subhalo; n_images=8; min_sep=0.32 arcsec; subhalo 1554422: images b,c; subhalo 1554490: images d; subhalo 1554515: images b; subhalo 1554551: images d,f,h'
+    images:
+      a: {ra: 0.011192227, dec: 0.001264679, parity: 1, mag: 24.41}
+      b: {ra: 0.011251677, dec: 0.000372550, parity: -1, mag: 24.93, notes: 'subhalo 1554422 (shift without it: 1.44 arcsec); subhalo 1554515 (shift without it: vanishes)'}
+      c: {ra: 0.011308563, dec: -0.000616453, parity: 1, mag: 24.94, notes: 'subhalo 1554422 (shift without it: vanishes)'}
+      d: {ra: 0.010855963, dec: 0.003104365, parity: -1, mag: 25.32, notes: 'subhalo 1554490 (shift without it: 0.58 arcsec); subhalo 1554551 (shift without it: vanishes)'}
+      e: {ra: -0.008078553, dec: 0.011648932, parity: 1, mag: 26.04}
+      f: {ra: 0.011172917, dec: 0.002970140, parity: -1, mag: 26.37, notes: 'subhalo 1554551 (shift without it: vanishes)'}
+      g: {ra: -0.001030345, dec: -0.003387020, parity: -1, mag: 26.47}
+      h: {ra: 0.011098223, dec: 0.002935454, parity: 1, mag: 27.92, notes: 'subhalo 1554551 (shift without it: vanishes)'}
+  'S10':
+    z: 4.5154
+    notes: 'class=subhalo; n_images=6; min_sep=0.41 arcsec; subhalo 1554469: images a,b,d,f; subhalo 1554487: images a,b'
+    knots: [A, B]
+    images:
+      a:
+        parity: -1
+        notes: 'subhalo 1554469 (shift without it: vanishes); subhalo 1554487 (shift without it: vanishes)'
+        knots:
+          A: {ra: 0.003550121, dec: -0.003160029, mag: 22.23}
+          B: {ra: 0.003782556, dec: -0.003340072, mag: 26.0}
+      b:
+        parity: -1
+        notes: 'subhalo 1554469 (shift without it: 1.59 arcsec); subhalo 1554487 (shift without it: vanishes)'
+        knots:
+          A: {ra: 0.003890818, dec: -0.002911999, mag: 26.02}
+          B: {ra: 0.003624192, dec: -0.002919504, mag: 25.03}
+      c:
+        parity: 1
+        knots:
+          A: {ra: 0.002060466, dec: -0.001628480, mag: 26.13}
+          B: {ra: 0.002067639, dec: -0.001535470, mag: 27.21}
+      d:
+        parity: -1
+        notes: 'subhalo 1554469 (shift without it: 2.12 arcsec)'
+        knots:
+          A: {ra: 0.004159669, dec: -0.003999471, mag: 26.68}
+          B: {ra: 0.004214522, dec: -0.004076225, mag: 27.56}
+      e:
+        parity: 1
+        knots:
+          A: {ra: -0.012892332, dec: 0.010832408, mag: 27.12}
+          B: {ra: -0.012937668, dec: 0.010766673, mag: 28.11}
+      f:
+        parity: 1
+        notes: 'subhalo 1554469 (shift without it: 4.11 arcsec)'
+        knots:
+          A: {ra: 0.004147850, dec: -0.003894138, mag: 28.51}
+          B: {ra: 0.004167995, dec: -0.003871484, mag: 30.34}

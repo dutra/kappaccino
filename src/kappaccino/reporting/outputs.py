@@ -120,6 +120,8 @@ def write_outputs(config: LensClusterSolverConfig, state: ModelState, evaluator:
                                      figures, tables, prefix, log=log)
         from ..plotting.cumulative_source_area import write_cumulative_source_area
         write_cumulative_source_area(truth, draws, astropy_cosmology(state.cosmo_config), figures, tables, prefix, log=log)
+        from ..plotting.scatter_summary import write_magnification_scatter
+        write_magnification_scatter(truth, draws, image_df, tables, log=log)
         plots.plot_truth_recovery_residuals(truth, image_df, plots.figure_path(figures, "truth_recovery_residuals.pdf", prefix))
         if truth["profile"] is not None:
             plots.plot_m2d_aperture_ratio(truth["profile"], truth["center"], image_df, truth["mass_per_kappa_pixel_msun"],

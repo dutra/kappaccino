@@ -69,7 +69,7 @@ def run_scatter_table(truth, draws, image_xy, *, log=print):
     Returns
     -------
     pandas.DataFrame
-        One row per model (``parametric``, and ``model`` = parametric + GRF conditional mean when the run has a shared
+        One row per model (``parametric``, and ``model`` = parametric + the draw's GRF realization when the run has a shared
         field) and reference magnification: ``model``, ``mu_ref``, ``bias``, ``scatter``, ``n_pixels``.
     """
     x, y = truth['x'], truth['y']
@@ -85,6 +85,36 @@ def run_scatter_table(truth, draws, image_xy, *, log=print):
             model_mu = 1.0 / np.abs(np.asarray(maps[key][:, inside], float))
         rows += [dict(model=name, mu_ref=mu_ref, **conditional_scatter(true_mu[inside], model_mu, mu_ref)) for mu_ref in MU_REF]
     return pd.DataFrame(rows)
+
+
+def write_magnification_scatter(truth, draws, image_df, tables, *, log=print):
+    """Write ``magnification_scatter.csv`` (:func:`run_scatter_table`); only simulations with shear truth qualify.
+
+    Parameters
+    ----------
+    truth : dict or None
+        Result of :func:`kappaccino.diagnostics.truth_recovery.compute_truth_recovery`.
+    draws : ReportingDraws
+        The reporting draws; their maps on the truth grid are the ones the truth recovery already evaluated.
+    image_df : pandas.DataFrame
+        Image table with ``x_obs_arcsec`` and ``y_obs_arcsec``.
+    tables : pathlib.Path
+        Output directory.
+
+    Returns
+    -------
+    pathlib.Path or None
+        The table, or None when the truth has no magnification or there are too few images for a hull.
+    """
+    if truth is None or 'abs_mu' not in truth['truth'] or len(image_df) < 3:
+        log('[outputs] magnification scatter skipped: kappa/shear truth and at least three images required')
+        return None
+    table = run_scatter_table(truth, draws, image_df[['x_obs_arcsec', 'y_obs_arcsec']].to_numpy(float), log=log)
+    tables.mkdir(parents=True, exist_ok=True)
+    path = tables / 'magnification_scatter.csv'
+    table.to_csv(path, index=False)
+    log(f'[outputs] magnification scatter about the truth: {path}')
+    return path
 
 
 @plt.rc_context(fname=STYLE, rc=FIGURE_STYLE)

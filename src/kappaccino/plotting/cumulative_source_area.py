@@ -83,16 +83,17 @@ def render_cumulative_area(table, z_source, volume_per_arcsec2, path):
         ax.text(np.sqrt(mu[0] * FIELD_LIMIT), .03, 'field-of-view limited', rotation=90, ha='center', va='bottom', color='.45',
                 fontsize=7, transform=ax.get_xaxis_transform())
         handles, labels, spread = [], [], [.2]
-        true_line, = ax.plot(mu, truth, color='k', lw=.9, ls=DASHES, zorder=3)
-        ratio_ax.axhline(1, color='k', lw=.9, ls=DASHES, zorder=3)
+        exact = dict(color='0.1', linestyle=DASHES, linewidth=.7, zorder=3)          # as in the other truth-recovery figures
+        true_line, = ax.plot(mu, truth, **exact)
+        ratio_ax.axhline(1, **exact)
         handles.append(true_line), labels.append('Truth')
         for name, label, color in MODELS:
             if f'area_{name}_median_arcsec2' not in table:
                 continue
             q16, median, q84 = (table[f'area_{name}_{q}_arcsec2'].to_numpy() for q in ('q16', 'median', 'q84'))
-            band = ax.fill_between(mu, q16, q84, color=color, alpha=.3, lw=0)
+            band = ax.fill_between(mu, q16, q84, color=color, alpha=.22, lw=0)
             line, = ax.plot(mu, median, color=color, lw=1.5)
-            ratio_ax.fill_between(mu, q16 / truth, q84 / truth, color=color, alpha=.3, lw=0)
+            ratio_ax.fill_between(mu, q16 / truth, q84 / truth, color=color, alpha=.22, lw=0)
             ratio_ax.plot(mu, median / truth, color=color, lw=1.5)
             handles.append((band, line)), labels.append(label)
             shown = (mu >= FIELD_LIMIT) & (truth > 0)
@@ -103,10 +104,10 @@ def render_cumulative_area(table, z_source, volume_per_arcsec2, path):
         slope, = ax.plot(mu, .4 * truth[anchor] * (mu / mu[anchor])**-2., color='.4', lw=.9, ls=':')
         handles.append(slope), labels.append(r'$\propto\mu^{-2}$')
         ax.set_ylim(.2 * positive.min(), 4 * positive.max())
-    ax.set(xscale='log', yscale='log', xlim=(mu[0], mu[-1]), ylabel=r'Source area $A(>\mu)$ (arcsec$^2$)')
+    ax.set(xscale='log', yscale='log', xlim=(mu[0], mu[-1]), ylabel=r'Source area $A(\!>\!\mu)$ (arcsec$^2$)')
     half = float(min(max(spread), .95))
     ratio_ax.set(ylim=(1 - half, 1 + half), xlabel=r'Magnification $\mu$')
-    ratio_ax.set_ylabel('Model / truth', fontsize=9)
+    ratio_ax.set_ylabel('Model / true', fontsize=9)
     ratio_ax.set_xticks([3, 10, 30, 100])
     ratio_ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f'{v:g}'))
     volume = ax.twinx()
@@ -154,7 +155,7 @@ def write_cumulative_source_area(truth, draws, cosmology, figures, tables, prefi
     metadata = dict(source_redshift=z_source, definition='sum of pixel_area/|mu| over map pixels with |mu| above the threshold',
                     region='the whole truth map', pixel_arcsec=float(np.sqrt(pixel_area)), map_area_arcsec2=float(pixel_area * np.isfinite(x).sum()),
                     field_of_view_limited_below=FIELD_LIMIT, posterior_draws=len(draws), bands='16th to 84th percentiles over the posterior draws',
-                    grf='conditional mean of each draw' if with_grf else 'none',
+                    grf='conditional realization of each draw' if with_grf else 'none',
                     comoving_volume_shell=[z_source - SHELL_HALF_WIDTH, z_source + SHELL_HALF_WIDTH], comoving_mpc3_per_arcsec2=volume)
     (tables / 'cumulative_source_area_provenance.json').write_text(json.dumps(metadata, indent=2) + '\n')
     path = figures / f'{prefix + "_" if prefix else ""}cumulative_source_area.pdf'

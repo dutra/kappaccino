@@ -137,3 +137,25 @@ def test_member_table_uses_joint_deviation_draws(tmp_path):
     assert metrics['GalEightNineSevenOneCut'] == interval(30,0,0,1)
     assert metrics['ScalingSigma'] == interval(100*10**(.4*.3*(21-17.02)),0,0,0)
     assert not any(key.startswith('R') for key in metrics)
+
+
+def test_truth_magnification_macros(tmp_path):
+    (tmp_path / 'artifacts').mkdir()
+    (tmp_path / 'tables').mkdir()
+    (tmp_path / 'artifacts/summary.json').write_text('{}')
+    text = write_run_results(tmp_path, name='hera').read_text()
+    for suffix in ('MagnificationScatterMuThreePercent', 'LensOnlyMagnificationBiasMuTenPercent', 'SourceAreaRatioMuThirty'):
+        assert rf'\Hera{suffix}}}{{\textnormal{{not available}}}}' in text
+    pd.DataFrame(dict(model=['parametric', 'parametric', 'model', 'model'], mu_ref=[3., 10., 3., 10.], bias=[-.18, -.11, -.08, -.1],
+                      scatter=[.192, .394, .124, .263], n_pixels=100)).to_csv(tmp_path / 'tables/magnification_scatter.csv', index=False)
+    mu = np.geomspace(2, 100, 50)
+    pd.DataFrame(dict(mu=mu, area_true_arcsec2=100 / mu**2, area_parametric_median_arcsec2=88 / mu**2,
+                      area_model_median_arcsec2=101 / mu**2)).to_csv(tmp_path / 'tables/cumulative_source_area.csv', index=False)
+    text = write_run_results(tmp_path, name='hera').read_text()
+    for suffix, value in [('MagnificationScatterMuThreePercent', '12'), ('MagnificationScatterMuTenPercent', '26'),
+                          ('LensOnlyMagnificationScatterMuThreePercent', '19'), ('LensOnlyMagnificationScatterMuTenPercent', '39'),
+                          ('MagnificationBiasMuThreePercent', '-8'), ('SourceAreaRatioMuTen', '1.01'), ('LensOnlySourceAreaRatioMuThirty', '0.88')]:
+        assert rf'\Hera{suffix}}}{{{value}}}' in text
+    # Without a field the tables carry the parametric lens only, which is then the model of each draw.
+    pd.read_csv(tmp_path / 'tables/magnification_scatter.csv').query('model == "parametric"').to_csv(tmp_path / 'tables/magnification_scatter.csv', index=False)
+    assert r'\HeraMagnificationScatterMuTenPercent}{39}' in write_run_results(tmp_path, name='hera').read_text()

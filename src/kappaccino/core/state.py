@@ -420,7 +420,7 @@ def build_state(config: LensClusterSolverConfig, *, exact_member_positions: np.n
         nonpositive image uncertainty, a parity outside -1, 0, +1, or invalid member-kinematics sources.
     """
     model_config = config.model
-    potentials, potfiles, images_df, cosmo_config, reference = declared_model_inputs(model_config, config.scaling)
+    potentials, potfiles, images_df, cosmo_config, reference = declared_model_inputs(model_config)
     # Members removed after the pivot and the priors were set from the full catalog (members.min_deflection_arcsec).
     dropped = tuple(str(i) for i in drop_member_ids)
     if dropped:

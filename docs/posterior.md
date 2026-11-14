@@ -88,8 +88,7 @@ An independent member halo (`IndependentMemberHaloConfig`) has the dPIE fields, 
 ### Scaling relation
 
 Names `<population>.<field>`, family `scaling`. The relation is given at the population's pivot magnitude
-`mag0` (with `mag0="auto"`, the pivot the run chose, `state.potfiles[i]["mag0"]`; `prior_mag0` is only where the
-priors were written):
+`mag0`, set in the run's `priors.yaml` (`state.potfiles[i]["mag0"]`):
 
 $$
 \sigma_i = \sigma^\star \left(\frac{L_i}{L^\star}\right)^{\alpha} e^{\delta\ln\sigma_i}, \qquad

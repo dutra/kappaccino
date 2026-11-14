@@ -75,7 +75,10 @@ def test_solver_model_from_truth_contains_the_truth(tmp_path, mode):
     # With the member core fixed, no corekpc parameter is sampled and the fixed core sits at the pivot like sigma and cutkpc.
     fixed = build_state(replace(solver, scaling=ScalingModelConfig(fit_corekpc=False)))
     assert not any(spec.field == "corekpc" for spec in fixed.parameter_specs) and fixed.n_parameters == state.n_parameters - 1
-    assert fixed.potfiles[0]["corekpc_nominal"] == pytest.approx(values["potfile.corekpc"], rel=0.05)   # moved with the prior-mean beta, truth with the truth beta
+    # Moved to the solver pivot with the prior-mean beta (the middle of the drawn range), the truth with the truth beta.
+    ratio = 10.0 ** (-0.4 * (float(state.potfiles[0]["mag0"]) - truth["relation"]["pivot_magnitude"]))
+    beta_prior, beta_truth = float(np.mean(config.beta_radius_range)), truth["relation"]["beta_radius"]
+    assert fixed.potfiles[0]["corekpc_nominal"] == pytest.approx(values["potfile.corekpc"] * ratio ** (beta_prior - beta_truth), rel=1e-6)
     profiles = aperture_profiles(np.asarray(APERTURE_RADII_KPC), truth_groups(truth), centre_kpc=(truth["halo"]["x_centre"] * truth["kpc_per_arcsec"], truth["halo"]["y_centre"] * truth["kpc_per_arcsec"]))
     np.testing.assert_allclose(profiles["total"], profiles["halo"] + profiles["bcg"] + profiles["members"], rtol=1e-10)
     assert values["images.sigma_def"] == pytest.approx(0.03) and values["potfile.velocity_log_scatter"] == pytest.approx(0.10)

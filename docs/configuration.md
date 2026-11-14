@@ -119,12 +119,12 @@ $$
 and each member deviates from the relation by a sampled offset.
 
 ```python
-MemberPopulationConfig.bergamini2019("potfile_1", "catalogs/hera/members.yaml", z_lens, prior_mag0=19.82)
+MemberPopulationConfig.bergamini2019("potfile_1", "catalogs/hera/members.yaml", z_lens, mag0=19.82)
 ```
 
 `bergamini2019` uses the MUSE-calibrated relation of Bergamini et al. (2019): $\sigma^*$ about 200 ± 70 km/s on
 40–500 and $r^*_{\mathrm{cut}}$ about 12 ± 10 kpc on 2–60 (`sigma_prior`, `cutkpc_prior`: log-normals with those
-moments), given at `prior_mag0`, with the pivot `mag0="auto"` chosen from image leverage. `MemberPopulationConfig.neutral` uses priors that do not come from any cluster's lens model; pair
+moments), given at the pivot magnitude `mag0`, which is required (run files set it in `priors.yaml`). `MemberPopulationConfig.neutral` uses priors that do not come from any cluster's lens model; pair
 it with `ScalingModelConfig.neutral()`.
 
 `kinematics_sources` adds measured stellar velocity dispersions to the likelihood, one log-normal term per member,

@@ -13,7 +13,7 @@ from kappaccino.core.state import build_state
 
 def _population(synthetic_config, factory):
     base = synthetic_config.model.member_populations[0]
-    return factory("members", base.catalog_path, base.z_lens, prior_mag0=20.0)
+    return factory("members", base.catalog_path, base.z_lens, mag0=20.0)
 
 
 def test_neutral_factories_give_log_uniform_cut_and_scaling_slopes(synthetic_config):
@@ -23,9 +23,8 @@ def test_neutral_factories_give_log_uniform_cut_and_scaling_slopes(synthetic_con
     specs = {spec.field: spec for spec in state.parameter_specs if spec.component_family == "scaling"}
     cut = specs["cutkpc"]
     assert cut.log and priors.family(cut.latent_prior) == "Uniform"                      # log-uniform
-    factor = float(state.potfiles[0]["pivot"]["cutkpc_factor"])               # the bounds move to the pivot with the rest of the prior
-    lower, upper = priors.physical_bounds(cut.prior)
-    assert math.isclose(lower, 2.0 * factor, rel_tol=1e-6) and math.isclose(upper, 100.0 * factor, rel_tol=1e-6)
+    lower, upper = priors.physical_bounds(cut.prior)                       # given at mag0, where they apply
+    assert math.isclose(lower, 2.0, rel_tol=1e-6) and math.isclose(upper, 100.0, rel_tol=1e-6)
     sigma = specs["sigma"]
     assert sigma.log and priors.family(sigma.latent_prior) == "TruncatedNormal" and 0 < priors.physical_bounds(sigma.prior)[1] < np.inf
     slopes = {field: priors.parameters(specs[field].latent_prior) for field in ("alpha_sigma", "beta_radius")}

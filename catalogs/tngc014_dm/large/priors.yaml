@@ -24,7 +24,7 @@ members:
   members:
     catalog_path: members.yaml
     preset: neutral
-    prior_mag0: 19.0
+    mag0: 19.0
     # The BCG is an independent dPIE, off the relation: its magnitude (13.75) counts the intracluster light and would
     # put it near 700 km/s on the relation.  Centre, shape and 0.15 kpc core fixed at the light; v_disp 350 +- 100
     # km/s; the cut radius a log-normal of median 60 kpc with width a factor 1.9, unbounded, as an excess above the

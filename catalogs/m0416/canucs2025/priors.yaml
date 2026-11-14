@@ -112,7 +112,7 @@ members:
   potfile_1:
     catalog_path: members.yaml
     preset: neutral
-    prior_mag0: 18.66
+    mag0: 18.66
     # The two BCGs (2526 on halo 1, 3158 on halo 2) are independent dPIEs, off the relation: on it, their velocity
     # offsets traded against the relation's normalization (R-hat 4.6).  Centre, round shape and 0.15 kpc core fixed at
     # the light; v_disp and r_cut free around Bergamini et al. 2023, 248 km/s and 56 kpc at the BCG magnitude.  The cut

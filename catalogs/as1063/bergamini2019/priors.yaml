@@ -51,6 +51,6 @@ halos:
 # 0.25 +- 0.10, beta 0.5 +- 0.25.  Their AS1063 fit (299 km/s, 6.8 kpc at the BCG magnitude 16.18, i.e. 175 km/s and
 # 25 kpc at m*) lies inside these priors.
 members:
-  potfile_1: {catalog_path: members.cat, preset: neutral, prior_mag0: 18.33}
+  potfile_1: {catalog_path: members.cat, preset: neutral, mag0: 18.33}
 
 scaling: {preset: neutral}

@@ -14,7 +14,7 @@ halos:
 
 # The brightest cluster galaxies stay on the scaling relation.  L* is m_F160W = 19.82 at z = 0.5.
 members:
-  potfile_1: {catalog_path: members.yaml, preset: bergamini2019, prior_mag0: 19.82}
+  potfile_1: {catalog_path: members.yaml, preset: bergamini2019, mag0: 19.82}
 
 scaling:
   # The simulation's softening, 2.3 h^-1 kpc = 3.19 kpc, added in quadrature to every dPIE core so the member cusps

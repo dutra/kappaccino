@@ -92,7 +92,7 @@ def test_treatments_exclude_and_make_independent_halos(synthetic_config, tmp_pat
         members["g1"]["treatment"] = "independent"
         members["g4"]["treatment"] = "exclude"
     config = _yaml_config(synthetic_config, tmp_path, edit)
-    potentials, potfiles, *_ = declared_model_inputs(config.model, config.scaling)
+    potentials, potfiles, *_ = declared_model_inputs(config.model)
     assert list(potfiles[0]["catalog_df"]["id"]) == ["g2", "g3"]
     independent = [p for p in potentials if p.get("independent_member_catalog_id") == "g1"]
     default = independent[0]["priors"]["v_disp"]                                            # the default truncated log-normal
@@ -100,7 +100,7 @@ def test_treatments_exclude_and_make_independent_halos(synthetic_config, tmp_pat
     # a halo the config declares for that member keeps the config's priors
     declared = IndependentMemberHaloConfig(population_id="members", catalog_id="g1", priors={"v_disp": dist.LogUniform(50.0, 150.0)})
     config = replace(config, model=replace(config.model, independent_member_halos=(declared,))).validate()
-    potentials, *_ = declared_model_inputs(config.model, config.scaling)
+    potentials, *_ = declared_model_inputs(config.model)
     (halo,) = [p for p in potentials if p.get("independent_member_catalog_id") == "g1"]
     assert type(halo["priors"]["v_disp"]).__name__ == "LogUniform"
 

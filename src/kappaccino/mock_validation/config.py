@@ -614,7 +614,7 @@ def mock_lens_model_config(config: MockConfig, truth: dict[str, Any], *, image_c
         if has_members:
             sigma, cut = float(relation["sigma_star_kms"]), float(relation["cut_star_kpc"])
             members = (MemberPopulationConfig(
-                id="potfile", catalog_path=member_catalog, mag0="auto", prior_mag0=float(relation["pivot_magnitude"]),
+                id="potfile", catalog_path=member_catalog, mag0=float(relation["pivot_magnitude"]),
                 corekpc=float(relation["core_star_kpc"]), sigma=sigma, cutkpc=cut, z_lens=z_lens,
                 sigma_prior=lognormal_from_moments(sigma, 0.15 * sigma, low=40.0, high=500.0),
                 cutkpc_prior=lognormal_from_moments(cut, 0.3 * cut, low=2.0, high=60.0)),)
@@ -623,7 +623,7 @@ def mock_lens_model_config(config: MockConfig, truth: dict[str, Any], *, image_c
         halos = (DPIEHaloConfig.cluster_scale("halo", bcg["x_centre"], bcg["y_centre"], z_lens, v_disp=800.0, position_half_width_arcsec=5.0),
                  _bcg_halo("bcg", bcg["x_centre"], bcg["y_centre"], z_lens, v_disp=300.0, cut_kpc=150.0, half_width=1.0, truth=None),
                  ShearHaloConfig.free("shear", z_lens, gamma_upper=0.1))
-        members = (MemberPopulationConfig.bergamini2019("potfile", member_catalog, z_lens, prior_mag0=float(relation["pivot_magnitude"])),) if has_members else ()
+        members = (MemberPopulationConfig.bergamini2019("potfile", member_catalog, z_lens, mag0=float(relation["pivot_magnitude"])),) if has_members else ()
     return LensModelConfig(
         reference=ReferenceFrameConfig(reference=3, ra0_deg=float(config.reference_ra_deg), dec0_deg=float(config.reference_dec_deg)),
         cosmology=config.cosmology, large_halos=halos, member_populations=members,

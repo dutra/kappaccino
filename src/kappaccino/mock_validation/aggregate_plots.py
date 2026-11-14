@@ -14,9 +14,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.integrate import quad
-from matplotlib.ticker import MaxNLocator
+from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
+from matplotlib.patheffects import withStroke
+from matplotlib.ticker import FixedLocator, FuncFormatter, LogLocator, MaxNLocator, NullFormatter, NullLocator
 
-from ..plotting.style import PAPER_STYLE
+from ..plotting.style import (APJ_COLUMN_WIDTH_IN, APJ_TEXT_WIDTH_IN, BLUE, DASHES, FIGURE_STYLE, GREEN, ORANGE, PAPER_STYLE, PINK,
+                              YELLOW, save_page)
 from .aperture import COMPONENT_GROUPS
 from .runner import CONVERGENCE_MIN_NEFF, CONVERGENCE_RHAT, convergence_verdict, RECOVERY_FILE
 
@@ -24,9 +28,9 @@ STYLE = Path(__file__).resolve().parent.parent / "plotting" / "style.mplstyle"
 if STYLE.exists():
     plt.style.use(str(STYLE))
 
-COLOR = "tab:blue"
+COLOR = BLUE
 TRUTH_COLOR = "0.2"
-COMPONENT_COLORS = {"halo": "tab:blue", "bcg": "tab:orange", "members": "tab:green", "grf": "tab:purple", "gp": "tab:red", "images": "tab:gray"}
+COMPONENT_COLORS = {"halo": BLUE, "bcg": ORANGE, "members": GREEN, "grf": PINK, "gp": "tab:red", "images": "tab:gray"}
 COMPONENT_LABELS = {"halo": "Main halo", "bcg": "BCG", "members": "Members"}
 PAPER_PARAMETERS = (
     "halo.log10_mass_msun", "halo.log10_aperture_mass_msun", "halo.x_centre", "halo.y_centre", "halo.v_disp", "halo.core_radius_kpc", "halo.cut_radius_kpc",
@@ -85,7 +89,6 @@ class Campaign:
     subhalos: list[dict[str, Any]]
     m2d: pd.DataFrame
     summary: pd.DataFrame
-    relation: list[dict[str, Any]]
 
 
 def flat_fit(fit: dict) -> dict:
@@ -108,7 +111,7 @@ def load_campaign(root: str | Path, *, converged_only: bool = False) -> Campaign
     files = sorted(root.glob("seed_*/recovery/" + RECOVERY_FILE))
     if not files:
         raise FileNotFoundError(f"No seed_*/recovery/{RECOVERY_FILE} under {root}")
-    seeds, parameters, magnification, draws, subhalos, m2d, summary, relation = [], [], [], [], [], [], [], []
+    seeds, parameters, magnification, draws, subhalos, m2d, summary = [], [], [], [], [], [], []
     for path in files:
         payload = json.loads(path.read_text())
         seed = int(payload["seed"])
@@ -123,8 +126,6 @@ def load_campaign(root: str | Path, *, converged_only: bool = False) -> Campaign
         for key, store in (("parameters", parameters), ("magnification", magnification), ("image_residual_draws", draws), ("m2d", m2d)):
             store.append(pd.DataFrame(payload[key]).assign(seed=seed))
         subhalos.append({"seed": seed, **payload["subhalos"]})
-        if payload.get("relation"):
-            relation.append({"seed": seed, **payload["relation"]})
     if not seeds:
         raise ValueError(f"No converged realization under {root}")
     parameter_table = pd.concat(parameters, ignore_index=True)
@@ -132,7 +133,7 @@ def load_campaign(root: str | Path, *, converged_only: bool = False) -> Campaign
     if not aperture_table.empty:
         parameter_table = pd.concat([parameter_table, aperture_table], ignore_index=True)
     return Campaign(root, seeds, parameter_table, pd.concat(magnification, ignore_index=True),
-                    pd.concat(draws, ignore_index=True), subhalos, pd.concat(m2d, ignore_index=True), pd.DataFrame(summary), relation)
+                    pd.concat(draws, ignore_index=True), subhalos, pd.concat(m2d, ignore_index=True), pd.DataFrame(summary))
 
 
 
@@ -190,17 +191,17 @@ def _axis_label(parameter: str, role: str) -> str:
     return f"{prefix} {label} ({unit})" if unit else f"{prefix} {label}"
 
 
-def _draw_parameter_axis(ax, panel: pd.DataFrame, parameter: str, *, show_component: bool = True,
-                         binned_color: str = "tab:orange", binned_size: float = 3.4) -> None:
+def _draw_parameter_axis(ax, panel: pd.DataFrame, *, binned_color: str, binned_size: float = 3.4, point_color: str = COLOR) -> None:
+    """Recovered against true value in one panel: every row with its 16-84% range, and means in bins of the truth."""
     truth, median = panel["truth"].to_numpy(float), panel["median"].to_numpy(float)
     q16, q84 = panel["q16"].to_numpy(float), panel["q84"].to_numpy(float)
-    ax.errorbar(truth, median, yerr=[np.maximum(0, median - q16), np.maximum(0, q84 - median)], fmt="o", color=COLOR, markersize=2.7,
-                markeredgewidth=0, ecolor=matplotlib.colors.to_rgba(COLOR, .2), elinewidth=.55, capsize=0, alpha=.5, zorder=2)
+    ax.errorbar(truth, median, yerr=[np.maximum(0, median - q16), np.maximum(0, q84 - median)], fmt="o", color=point_color, markersize=2.7,
+                markeredgewidth=0, ecolor=matplotlib.colors.to_rgba(point_color, .2), elinewidth=.55, capsize=0, alpha=.5, zorder=2)
     binned = parameter_recovery_bins(panel)
     if not binned.empty:
         ax.errorbar(binned.truth_mean, binned.recovered_mean, yerr=binned.recovered_sem,
                     fmt="o", color=binned_color, markersize=binned_size, elinewidth=.8,
-                    capsize=1.5, zorder=4)
+                    markeredgecolor="white", markeredgewidth=.4, capsize=1.5, zorder=4)
     values = np.concatenate([truth, median, q16, q84])
     values = values[np.isfinite(values)]
     if values.size:
@@ -209,14 +210,8 @@ def _draw_parameter_axis(ax, panel: pd.DataFrame, parameter: str, *, show_compon
         ax.plot(limits, limits, color="0.25", linewidth=.7, linestyle="--", alpha=.7, zorder=1)
         ax.set_xlim(limits)
         ax.set_ylim(limits)
-    ax.set_xlabel(_axis_label(parameter, "truth"), fontsize=8.5, labelpad=2)
-    ax.set_ylabel(_axis_label(parameter, "fit"), fontsize=8.5, labelpad=2)
-    ax.tick_params(labelsize=7)
     ax.xaxis.set_major_locator(MaxNLocator(3))
     ax.yaxis.set_major_locator(MaxNLocator(3))
-    if show_component:
-        ax.text(.04, .96, COMPONENT_NAMES.get(_parameter_component(parameter), 'Sources'), transform=ax.transAxes,
-                ha="left", va="top", fontsize=8, color=".25")
     _polish(ax)
 
 
@@ -242,138 +237,125 @@ def parameter_recovery_bins(panel: pd.DataFrame, bins: int = 5) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-@plt.rc_context(fname=STYLE, rc=PAPER_STYLE)
-def plot_parameter_recovery(campaign: Campaign, path: Path, *, ncols: int = 4) -> Path | None:
-    df = campaign.parameters
-    df = df[np.isfinite(df["truth"].to_numpy(float)) & np.isfinite(df["median"].to_numpy(float))]
-    parameters = [p for p in PAPER_PARAMETERS if (df["parameter"] == p).any()]
+# The paper's recovery figure: one row of panels per model component, named beside its row.
+RECOVERY_GROUPS = (("Halo", "halo.", BLUE), ("BCG", "bcg.", ORANGE), ("GRF + GP", "images.", PINK), ("Members", "potfile.", GREEN))
+RECOVERY_SOURCES = ("Sources", YELLOW)
+RECOVERY_POINT_COLOR = "0.5"          # one parameter of one mock
+
+
+def _quantity_label(parameter: str) -> str:
+    """A parameter's symbol and unit, as written inside its panel."""
+    field = parameter.split(".", 1)[1]
+    if field == "position_xy":
+        return r"$\beta_x,\ \beta_y$ (arcsec)" if parameter.startswith("source.") else r"$x,\ y$ (arcsec)"
+    if field == "log10_mass_msun":
+        return r"$\log(M_{\rm tot}/M_\odot)$"
+    if field == "log10_aperture_mass_msun":
+        return r"$\log(M_{\rm ap}/M_\odot)$"
+    unit = PARAMETER_UNITS.get(field)
+    unit = {"km/s": r"km s$^{-1}$"}.get(unit, unit)
+    label = PARAMETER_LABELS.get(field, field)
+    return f"{label} ({unit})" if unit else label
+
+
+def recovery_panels(parameters: pd.DataFrame) -> list[tuple[str, str, list[tuple[str, pd.DataFrame]]]]:
+    """(component, colour, [(parameter, rows)]) for the recovery figure: the paper parameters of each component in
+    order, with the x and y of a centre pooled into one panel, and the source positions as a last one-panel group."""
+    df = parameters[np.isfinite(parameters["truth"].to_numpy(float)) & np.isfinite(parameters["median"].to_numpy(float))]
     names = df["parameter"].astype(str)
-    source = df[names.str.startswith("source.") & (names.str.endswith(".beta_x") | names.str.endswith(".beta_y"))]
-    coordinates = [c for c in ("beta_x", "beta_y") if source["parameter"].str.endswith(c).any()]
-    if not parameters and not coordinates:
-        return None
-    n_panels = len(parameters) + len(coordinates)
-    nrows = int(math.ceil(n_panels / ncols))
-    fig, axes = plt.subplots(nrows, ncols, figsize=(7.1, 1.65 * nrows), squeeze=False)
-    flat = list(axes.ravel())
-    for ax, parameter in zip(flat, parameters):
-        _draw_parameter_axis(ax, df[df["parameter"] == parameter], parameter)
-    for ax, coordinate in zip(flat[len(parameters):], coordinates):
-        rows = source[source["parameter"].str.endswith(coordinate)]
-        _draw_parameter_axis(ax, rows, f"source.{coordinate}")
-        symbol = r"$\beta_x$" if coordinate == "beta_x" else r"$\beta_y$"
-        ax.set_xlabel(f"True {symbol} (arcsec)", fontsize=8.5, labelpad=2)
-        ax.set_ylabel(f"Fit {symbol} (arcsec)", fontsize=8.5, labelpad=2)
-    for ax in flat[n_panels:]:
-        ax.axis("off")
-    handles = flat[0].containers[:2]
-    fig.legend(handles, ["Mocks", "Binned mocks"][:len(handles)], loc="upper center",
-               ncol=2, frameon=False, fontsize=8, bbox_to_anchor=(.5, 1.0))
-    fig.tight_layout(pad=.4, w_pad=.6, h_pad=1.1, rect=(0, 0, 1, .97))
-    return _save(fig, path)
-
-
-@plt.rc_context(fname=STYLE, rc=PAPER_STYLE)
-def plot_parameter_recovery_grouped(campaign: Campaign, path: Path) -> Path | None:
-    """The paper recovery panels grouped by physical component, with shared styling."""
-    df = campaign.parameters
-    if df.empty:
-        return None
-    df = df[np.isfinite(df["truth"]) & np.isfinite(df["median"])]
-    definitions = (("Halo", "halo.", "tab:blue"), ("BCG", "bcg.", "tab:orange"),
-                   ("GRF + image-plane GP", "images.", "tab:purple"),
-                   ("Member scaling relation", "potfile.", "tab:green"),
-                   ("Source positions", "source.", "tab:red"))
     groups = []
-    for label, prefix, color in definitions:
-        panels = [(name, df[df.parameter == name]) for name in PAPER_PARAMETERS
-                  if name.startswith(prefix) and (df.parameter == name).any()]
-        if prefix in ("halo.", "bcg."):
-            coordinate_names = {prefix+"x_centre", prefix+"y_centre"}
-            pooled = df[df.parameter.isin(coordinate_names)]
-            if not pooled.empty:
-                combined = []
-                inserted = False
-                for name, rows in panels:
-                    if name in coordinate_names:
-                        if not inserted:
-                            combined.append((prefix+"position_xy", pooled))
-                            inserted = True
-                    else:
-                        combined.append((name, rows))
-                panels = combined
-        if prefix == "source.":
-            rows = df[df.parameter.str.startswith(prefix) &
-                      df.parameter.str.endswith((".beta_x", ".beta_y"))]
-            if not rows.empty:
-                panels.append(("source.position_xy", rows))
+    for label, prefix, color in RECOVERY_GROUPS:
+        panels, pooled = [], False
+        for name in PAPER_PARAMETERS:
+            if not name.startswith(prefix) or not (names == name).any():
+                continue
+            if name.endswith(("x_centre", "y_centre")):
+                if not pooled:
+                    panels.append((prefix + "position_xy", df[names.isin((prefix + "x_centre", prefix + "y_centre"))]))
+                    pooled = True
+                continue
+            panels.append((name, df[names == name]))
         if panels:
             groups.append((label, color, panels))
-    if not groups:
+    sources = df[names.str.startswith("source.") & names.str.endswith((".beta_x", ".beta_y"))]
+    if not sources.empty:
+        groups.append((*RECOVERY_SOURCES, [("source.position_xy", sources)]))
+    return groups
+
+
+def _recovery_rows(groups, ncols: int) -> list[list[tuple[str, str, str, pd.DataFrame, bool]]]:
+    """Panels by row: every component starts a row and wraps at ``ncols``; a one-panel group (the sources) takes the
+    first free slot instead of a row of its own.  Entries are (component, colour, parameter, rows, starts a component)."""
+    rows: list[list] = []
+    for label, color, panels in groups:
+        if len(panels) == 1 and any(len(row) < ncols for row in rows):
+            next(row for row in rows if len(row) < ncols).append((label, color, *panels[0], True))
+            continue
+        for start in range(0, len(panels), ncols):
+            rows.append([(label, color, name, data, start == 0 and k == 0) for k, (name, data) in enumerate(panels[start:start + ncols])])
+    return rows
+
+
+@plt.rc_context(fname=STYLE, rc=FIGURE_STYLE)
+def plot_parameter_recovery(campaign: Campaign, path: Path, *, ncols: int = 6) -> Path | None:
+    """Recovered against true value of every paper parameter, one row of square panels per model component, sized for
+    the full width of an ApJ page.  Gray points are one parameter of one mock with its 16-84% range; coloured points
+    are means in bins of the true value with their standard error across mocks."""
+    rows = _recovery_rows(recovery_panels(campaign.parameters), ncols)
+    if not rows:
         return None
-    from matplotlib.patches import Rectangle
-    # Four component blocks, each two columns wide. Sources occupy the last
-    # BCG slot with their own label and color, rather than adding a seventh row.
-    grouped = {label: (color, panels) for label, color, panels in groups}
-    source_panels = grouped.pop("Source positions", ("tab:red", []))[1]
-    locations = {"Halo": (0, 0), "BCG": (0, 1),
-                 "GRF + image-plane GP": (1, 0), "Member scaling relation": (1, 1)}
-    if source_panels and "BCG" not in grouped:
-        grouped["BCG"] = ("tab:orange", [])
-    fig = plt.figure(figsize=(8.5, 12.0))
-    outer = fig.add_gridspec(2, 2, left=.085, right=.985, bottom=.045,
-                            top=.995, hspace=.085, wspace=.27)
-    for label, (color, panels) in grouped.items():
-        row, col = locations[label]
-        entries = [(name, data, color, False) for name, data in panels]
-        if label == "BCG":
-            entries.extend((name, data, "tab:red", True) for name, data in source_panels)
-        nrows = max(3, math.ceil(len(entries)/2))
-        section = outer[row, col].subgridspec(2, 1, height_ratios=[.20, nrows*1.55], hspace=.025)
-        band = fig.add_subplot(section[0]); band.set_axis_off()
-        if panels:
-            band.add_patch(Rectangle((0,0),1,1,transform=band.transAxes,
-                                     facecolor=color,alpha=.09,edgecolor="none"))
-            band.add_patch(Rectangle((0,0),.012,1,transform=band.transAxes,
-                                     facecolor=color,edgecolor="none"))
-            band.text(.035,.5,label, color=color, fontsize=9, weight="semibold",
-                      va="center",transform=band.transAxes)
-        inner = section[1].subgridspec(nrows, 2, wspace=.42, hspace=.38)
-        for j, (name, rows, point_color, is_source) in enumerate(entries):
-            ax = fig.add_subplot(inner[j//2, j%2])
-            _draw_parameter_axis(ax, rows, name, show_component=False,
-                                 binned_color=point_color, binned_size=5.2)
-            ax.set_xlabel(ax.get_xlabel().replace(r"\log_{10}", r"\log"))
-            ax.set_ylabel(ax.get_ylabel().replace(r"\log_{10}", r"\log"))
+    pitch = APJ_TEXT_WIDTH_IN * (.997 - .078) / (ncols + .2 * (ncols - 1)) * 1.2     # one square panel and its gap, in inches
+    fig, axes = plt.subplots(len(rows), ncols, figsize=(APJ_TEXT_WIDTH_IN, pitch * len(rows) + .5), squeeze=False)
+    handles: dict[str, Any] = {}
+    for axis_row, entries in zip(axes, rows):
+        for ax in axis_row[len(entries):]:
+            ax.axis("off")
+        for ax, (component, color, parameter, data, first) in zip(axis_row, entries):
+            _draw_parameter_axis(ax, data, binned_color=color, binned_size=3.6, point_color=RECOVERY_POINT_COLOR)
             ax.set_box_aspect(1)
-            ax.tick_params(labelsize=7, length=2.5, width=.65)
-            for spine in ax.spines.values():
-                spine.set_linewidth(.65)
-                spine.set_color(".3")
-            if name.endswith(".position_xy"):
-                symbol = r"$\beta_x,\beta_y$" if is_source else r"$x,y$"
-                ax.set_xlabel(f"True {symbol} (arcsec)", fontsize=8.5, labelpad=2)
-                ax.set_ylabel(f"Fit {symbol} (arcsec)", fontsize=8.5, labelpad=2)
-            if is_source:
-                ax.add_patch(Rectangle((0, .865), 1, .135, transform=ax.transAxes,
-                                       facecolor="tab:red", alpha=.09, edgecolor="none", zorder=5))
-                ax.add_patch(Rectangle((0, .865), .012, .135, transform=ax.transAxes,
-                                       facecolor="tab:red", edgecolor="none", zorder=6))
-                ax.text(.04,.96,"Source positions",transform=ax.transAxes,va="top",
-                        fontsize=8,color="tab:red",weight="semibold", zorder=7)
-    return _save(fig, path)
+            ax.tick_params(which="both", labelsize=7, pad=1.5)
+            ax.tick_params(axis="y", labelrotation=90)          # upright labels would run into the next panel
+            plt.setp(ax.get_yticklabels(), va="center")
+            # The y axis repeats the x ticks, without those near the ends: their rotated labels would leave the panel.
+            low, high = ax.get_ylim()
+            ticks = [v for v in MaxNLocator(3).tick_values(low, high) if low + .13 * (high - low) <= v <= high - .13 * (high - low)]
+            ax.yaxis.set_major_locator(FixedLocator(ticks))
+            ax.tick_params(which="major", length=2.8)
+            ax.tick_params(which="minor", length=1.5)
+            ax.text(.05, .95, _quantity_label(parameter), transform=ax.transAxes, ha="left", va="top", fontsize=7.5, color="0.1",
+                    bbox=dict(boxstyle="round,pad=0.15", facecolor="white", edgecolor="none", alpha=.75), zorder=6)
+            if first and ax is axis_row[0]:
+                ax.annotate(component, (-.27, .5), xycoords="axes fraction", rotation=90, ha="center", va="center",
+                            fontsize=9, color="0.1")
+            elif first:                                       # a group that shares another component's row
+                ax.text(.95, .05, component, transform=ax.transAxes, ha="right", va="bottom", fontsize=7.5, color="0.1", zorder=6)
+            containers = [c for c in ax.containers if c.has_yerr]
+            handles.setdefault("One parameter in one mock", containers[0])
+            if len(containers) > 1:
+                handles.setdefault(component, containers[1])
+    # Legend: the single mocks, then one binned-mean entry per component after a text-only heading.
+    order = ["One parameter in one mock", *(label for label, _, _ in RECOVERY_GROUPS), RECOVERY_SOURCES[0]]
+    names = [name for name in order if name in handles]
+    entries = [handles[names[0]], Line2D([], [], linestyle="none"), *(handles[name] for name in names[1:])]
+    legend = fig.legend(entries, [names[0], "Binned means:", *names[1:]], loc="upper center", ncol=len(entries), frameon=False,
+                        fontsize=7.5, handletextpad=.25, columnspacing=1.0, borderaxespad=0, bbox_to_anchor=(.5, 1 - .03 / fig.get_figheight()))
+    legend.legend_handles[1].set_visible(False)
+    fig.supxlabel("True value", fontsize=9.5, y=.03 / fig.get_figheight())
+    fig.supylabel("Recovered value", fontsize=9.5, x=.006)
+    fig.subplots_adjust(left=.078, right=.997, bottom=.36 / fig.get_figheight(), top=1 - .23 / fig.get_figheight(),
+                        wspace=.2, hspace=.2)
+    return save_page(fig, path)
 
 
 # ----------------------------------------------------------------------------- subhalo mass function
 def _schechter_curve(selection: dict[str, Any], x: np.ndarray, normalization: float,
                      luminosity_range: tuple[float, float] | None = None) -> np.ndarray | None:
-    """Input luminosity distribution mapped to dN/dlog10(M), without scatter."""
+    """Input luminosity distribution mapped to dN/dlog10(M), without scatter.  L is in pivot units (L*); the Schechter
+    cutoff L_c = 10^(-0.4 (schechter_magnitude - pivot_magnitude)) L*."""
     try:
         alpha, anchor, exponent = (float(selection[k]) for k in ("schechter_alpha", "dpie_mass_anchor_msun", "mass_luminosity_exponent"))
-        lower, upper = luminosity_range
-        magnitude_lower = 10.0 ** (-0.4 * (float(selection["faint_magnitude_limit"]) - float(selection["pivot_magnitude"])))
-        lower = max(float(lower), magnitude_lower)
-        upper = float(upper)
+        cutoff = 10.0 ** (-0.4 * (float(selection["schechter_magnitude"]) - float(selection["pivot_magnitude"])))
+        lower, upper = (float(v) for v in luminosity_range)
     except (KeyError, TypeError, ValueError, OverflowError):
         return None
     if not (np.all(np.isfinite([alpha, anchor, exponent, normalization, lower, upper]))
@@ -381,17 +363,44 @@ def _schechter_curve(selection: dict[str, Any], x: np.ndarray, normalization: fl
         return None
     luminosity = np.power(np.power(10.0, x) / anchor, 1.0 / exponent)
     # p(L) is normalized over the generator's selection, not the plot range.
-    norm = quad(lambda ell: ell ** alpha * np.exp(-ell), lower, upper,
+    norm = quad(lambda ell: ell ** alpha * np.exp(-ell / cutoff), lower, upper,
                 epsabs=1e-12, epsrel=1e-12)[0]
-    density = np.power(luminosity, alpha + 1.0) * np.exp(-luminosity)
+    density = np.power(luminosity, alpha + 1.0) * np.exp(-luminosity / cutoff)
     density *= normalization * np.log(10.0) / (exponent * norm)
     return np.where((luminosity >= lower) & (luminosity <= upper), density, 0.0)
 
 
-@plt.rc_context(fname=STYLE, rc=PAPER_STYLE)
-def plot_subhalo_mass_function(campaign: Campaign, path: Path) -> Path | None:
-    truth_all = [np.asarray(s["truth_log10_mass"], float) for s in campaign.subhalos]
-    recovered_all = [np.asarray(s["recovered_log10_mass"], float) for s in campaign.subhalos]
+# Member-function axes: x = scale * log10(M/M*) / q (q = 1 for mass, p for luminosity); per-unit-L densities on log y.
+MEMBER_FUNCTION_AXES = {
+    "mass": dict(scale=1.0, luminosity=False, per_unit=False, x=r"$\log_{10}(M/M_\ast)$", y=r"$\langle dN/d\log_{10}M\rangle$"),
+    "luminosity": dict(scale=1.0, luminosity=True, per_unit=True, x=r"$\log_{10}(L/L_\ast)$", y=r"$\langle dN/d(L/L_\ast)\rangle$"),
+    "log_luminosity": dict(scale=1.0, luminosity=True, per_unit=False, x=r"$\log_{10}(L/L_\ast)$", y=r"$\langle dN/d\log_{10}L\rangle$"),
+    "magnitude": dict(scale=-2.5, luminosity=True, per_unit=False, x=r"$m$", y=r"$\langle dN/dm\rangle$ (mag$^{-1}$)"),
+}
+
+
+def _draw_member_function(top, bottom, campaign: Campaign, axis: str):
+    """Draw one member function (top) and its residual (bottom); returns the legend (handles, labels) or None.
+
+    Truth and recovered masses of each mock are taken relative to its true M*, the mass of an L* member
+    (``selection['dpie_mass_anchor_msun']``); on the luminosity axes they are converted with that mock's true relation,
+    log10(L/L*) = log10(M/M*)/p (``selection['mass_luminosity_exponent']``), so every mock follows the same Schechter
+    function; magnitudes are m = m* - 2.5 log10(L/L*), m* being the mock's ``selection['pivot_magnitude']``.
+    ``"luminosity"`` is dN/d(L/L*) on log-log axes, where the faint-end slope is alpha; ``"log_luminosity"``
+    is per dex (slope alpha + 1) and ``"magnitude"`` per magnitude against m - m* (slope -0.4(alpha + 1)), both on a
+    linear axis like ``"mass"``.  The logarithmic slope of the Schechter curve is written at both ends: a straight-line
+    fit over 0.3 dex in luminosity just inside the faintest luminosity every mock is complete to, and inside the
+    brightest bin with true members.  Bottom: the recovered minus the true function of the same mock, mean and
+    standard error over the mocks."""
+    spec = MEMBER_FUNCTION_AXES[axis]
+    scale, per_unit = spec["scale"], spec["per_unit"]
+    anchors = [np.log10(float(s["selection"]["dpie_mass_anchor_msun"])) for s in campaign.subhalos]
+    exponents = [float(s["selection"]["mass_luminosity_exponent"]) if spec["luminosity"] else 1.0 for s in campaign.subhalos]
+    offsets = [float(s["selection"]["pivot_magnitude"]) if axis == "magnitude" else 0.0 for s in campaign.subhalos]
+    truth_all = [o + scale * (np.asarray(s["truth_log10_mass"], float) - a) / q
+                 for s, a, q, o in zip(campaign.subhalos, anchors, exponents, offsets)]
+    recovered_all = [o + scale * (np.asarray(s["recovered_log10_mass"], float) - a) / q
+                     for s, a, q, o in zip(campaign.subhalos, anchors, exponents, offsets)]
     values = np.concatenate([v for v in truth_all + recovered_all if v.size]) if any(v.size for v in truth_all + recovered_all) else np.asarray([])
     if values.size == 0:
         return None
@@ -399,49 +408,140 @@ def plot_subhalo_mass_function(campaign: Campaign, path: Path) -> Path | None:
     if hi <= lo:
         lo, hi = lo - 0.25, hi + 0.25
     edges = np.linspace(lo, hi, int(np.clip(np.sqrt(values.size), 6, 18)) + 1)
-    widths, centers = np.diff(edges), 0.5 * (edges[:-1] + edges[1:])
+    centers = 0.5 * (edges[:-1] + edges[1:])
+    # Bin widths in the plotted unit: dex (or mag), or L/L* itself for dN/d(L/L*).
+    widths = np.diff(10.0 ** edges) if per_unit else np.diff(edges)
     truth_density = np.stack([np.histogram(v, bins=edges)[0] / widths for v in truth_all])
     recovered_density = np.stack([np.histogram(v, bins=edges)[0] / widths for v in recovered_all])
     truth_mean, recovered_mean = truth_density.mean(axis=0), recovered_density.mean(axis=0)
+    difference = recovered_density - truth_density              # paired: the same mock in both
     n_mocks = len(campaign.subhalos)
     # One independent unit is a complete mock, for both truth and recovery.
-    truth_sem = truth_density.std(axis=0, ddof=1) / np.sqrt(n_mocks) if n_mocks > 1 else None
-    recovered_sem = recovered_density.std(axis=0, ddof=1) / np.sqrt(n_mocks) if n_mocks > 1 else None
-    fig, top = plt.subplots(figsize=(3.5, 2.8))
-    truth_line = top.stairs(truth_mean, edges, color="0.25", linestyle="-",
-                            linewidth=1.0, label="Truth", zorder=3)
-    if truth_sem is not None:
-        top.stairs(truth_mean + truth_sem, edges, baseline=truth_mean - truth_sem,
-                   fill=True, color="0.25", alpha=.13, linewidth=0, zorder=1)
-    recovered_bars = top.errorbar(centers, recovered_mean, yerr=recovered_sem,
-                 fmt="o", color=COLOR, markersize=2.8, elinewidth=.7, capsize=1.5,
-                 markeredgewidth=.6, label="Recovered", zorder=5)
-    handles = [recovered_bars, truth_line]
+    zeros = np.zeros_like(truth_mean)
+    sem = (lambda a: a.std(axis=0, ddof=1) / np.sqrt(n_mocks)) if n_mocks > 1 else (lambda a: zeros)
+    truth_sem, recovered_sem, difference_sem = sem(truth_density), sem(recovered_density), sem(difference)
+    # Limits from the histograms, never from the reference curve; headroom for the slope labels.
+    high = float(np.max(np.concatenate([truth_mean + truth_sem, recovered_mean + recovered_sem])))
+    if per_unit:
+        top.set_xscale("linear")
+        top.set_yscale("log")
+        positive = np.concatenate([truth_mean[truth_mean > 0], recovered_mean[recovered_mean > 0]])
+        floor, ceiling = .5 * float(positive.min()), 6. * high
+    else:
+        floor, ceiling = 0., 1.3 * high
+    if n_mocks > 1:
+        top.stairs(truth_mean + truth_sem, edges, baseline=np.maximum(truth_mean - truth_sem, floor), fill=True,
+                   color="0.45", alpha=.22, linewidth=0, zorder=1)
+    top.stairs(np.where(truth_mean > 0, truth_mean, np.nan) if per_unit else truth_mean, edges, color="0.1", linewidth=.9, zorder=3)
+    truth_handle = (Patch(facecolor=matplotlib.colors.to_rgba("0.45", .22), edgecolor="none"), Line2D([], [], color="0.1", linewidth=.9))
+    points = dict(fmt="o", color=COLOR, markersize=3.6, elinewidth=.8, capsize=1.6, capthick=.8, markeredgecolor="white", markeredgewidth=.5)
+    shown = recovered_mean > 0 if per_unit else np.ones_like(recovered_mean, bool)
+    lower = np.minimum(recovered_sem, recovered_mean - floor)[shown]   # on a log axis the bars stop at its floor
+    recovered_bars = top.errorbar(centers[shown], recovered_mean[shown], yerr=[lower, recovered_sem[shown]], zorder=5, **points)
+    handles, labels = [truth_handle, recovered_bars], ["Truth", "Recovered"]
     config_path = campaign.root / "campaign_config.json"
     luminosity_range = (json.loads(config_path.read_text()).get("mock", {}).get("luminosity_range")
                         if config_path.exists() else None)
     reference_x = np.linspace(edges[0], edges[-1], 2000)
-    curves = [_schechter_curve(subhalo.get("selection", {}), reference_x, float(len(masses)), luminosity_range)
-              for subhalo, masses in zip(campaign.subhalos, truth_all)]
+    # The curve is per dex of M; per unit x it is q / |scale| times that, and per unit L/L* a further 1/(ln 10 L).
+    curves = [_schechter_curve(subhalo.get("selection", {}), anchor + q * (reference_x - o) / scale, float(len(masses)), luminosity_range)
+              for subhalo, anchor, q, o, masses in zip(campaign.subhalos, anchors, exponents, offsets, truth_all)]
     if all(curve is not None for curve in curves):
-        reference, = top.plot(reference_x, np.mean(curves, axis=0), color="tab:orange", linestyle=":", linewidth=1.4,
-                             label="Schechter")
-        handles.insert(0, reference)
-    truth_high = truth_mean + (truth_sem if truth_sem is not None else 0.0)
-    recovered_high = recovered_mean + (recovered_sem if recovered_sem is not None else 0.0)
-    ceiling = max(1.0, float(np.nanmax(np.concatenate([truth_high, recovered_high]))) * 1.18)
-    top.set_ylim(-0.02 * ceiling, ceiling)
-    top.legend(handles=handles, loc="upper left", frameon=False)
-    top.set_xlabel(r"$\log_{10}(M/M_\odot)$")
-    top.set_ylabel(r"$\langle dN/d\log_{10} M\rangle$")
-    _polish(top)
-    fig.tight_layout()
-    return _save(fig, path)
+        mean_curve = np.mean([q / abs(scale) * curve for q, curve in zip(exponents, curves)], axis=0)
+        if per_unit:
+            mean_curve = mean_curve / (np.log(10.0) * 10.0 ** reference_x)
+        # Not drawn outside the luminosity range the mocks are drawn from (no vertical drop at the magnitude limit).
+        drawn = np.where((mean_curve > 0) & (mean_curve >= floor), mean_curve, np.nan)
+        reference, = top.plot(reference_x, drawn,
+                              color=ORANGE, linestyle=(0, (1, 1.6)), linewidth=1.5, dash_capstyle="round", zorder=4)
+        handles.append(reference)
+        labels.append("Schechter")
+        # Faintest luminosity each mock is complete to, on this axis; the most central one bounds the faint window.
+        limits = [o + scale * float(sub["selection"]["mass_luminosity_exponent"]) / q * np.log10(float(luminosity_range[0]))
+                  for sub, q, o in zip(campaign.subhalos, exponents, offsets)]
+        inward = np.sign(scale)                        # from the faint end toward the centre of the axis
+        faint = max(limits) if inward > 0 else min(limits)
+        filled = truth_mean > 0
+        bright = float(edges[1:][filled].max()) if inward > 0 else float(edges[:-1][filled].min())
+        width = .3 * abs(scale)
+        for name, (start, end) in (("Faint", sorted((faint, faint + inward * width))),
+                                   ("Bright", sorted((bright, bright - inward * width)))):
+            window = (reference_x >= start) & (reference_x <= end) & (mean_curve > 0)
+            if window.sum() < 2:  # the curve does not reach this end of the plotted range
+                continue
+            slope = np.polyfit(reference_x[window], np.log10(mean_curve[window]), 1)[0]
+            # In the upper corner on the side of its end; on the log-log panel the faint end is high, so lower there.
+            left = .5 * (start + end) < .5 * (edges[0] + edges[-1])
+            value = f"{slope:+.2f}".replace("-", "\u2212")
+            y = .3 if per_unit and left else .97
+            top.text(.04 if left else .96, y, f"{name}-end\nslope {value}", transform=top.transAxes, color=ORANGE,
+                     fontsize=7, ha="left" if left else "right", va="top", zorder=6)
+    top.set_ylim(floor, ceiling)
+    if not per_unit:
+        top.yaxis.set_major_locator(MaxNLocator(5, prune="lower"))
+    top.set_ylabel(spec["y"])
+    bottom.axhline(0, color="0.1", linewidth=.7, linestyle=DASHES, zorder=1)
+    bottom.errorbar(centers, difference.mean(axis=0), yerr=difference_sem, zorder=5, **points)
+    reach = max(float(np.nanmax(np.abs(difference.mean(axis=0)) + difference_sem)) * 1.25, 1.0)
+    bottom.set_ylim(-reach, reach)
+    bottom.yaxis.set_major_locator(MaxNLocator(3, symmetric=True))
+    bottom.set_ylabel("Residual", fontsize=9)
+    bottom.set_xlabel(spec["x"])
+    step = edges[1] - edges[0]
+    bottom.set_xlim(edges[0] - .35 * step, edges[-1] + .35 * step)
+    return handles, labels
+
+
+@plt.rc_context(fname=STYLE, rc=FIGURE_STYLE)
+def plot_subhalo_mass_function(campaign: Campaign, path: Path) -> Path | None:
+    """The member mass function against M/M* with its residual panel (see :func:`_draw_member_function`)."""
+    fig, (top, bottom) = plt.subplots(2, 1, figsize=(APJ_COLUMN_WIDTH_IN, 3.1), sharex=True,
+                                      gridspec_kw={"height_ratios": [3.1, 1], "hspace": .07})
+    legend = _draw_member_function(top, bottom, campaign, "mass")
+    if legend is None:
+        plt.close(fig)
+        return None
+    top.set_ylim(top.get_ylim()[0], top.get_ylim()[1] * 1.12)     # room for the legend row above the slope labels
+    top.legend(*legend, loc="upper center", ncol=len(legend[0]), frameon=False, handlelength=1.5, columnspacing=.9,
+               handletextpad=.4, borderaxespad=.35)
+    for text in top.texts:
+        text.set_y(.82)
+    fig.align_ylabels((top, bottom))
+    fig.subplots_adjust(left=.165, right=.985, bottom=.125, top=.985)
+    return save_page(fig, path)
+
+
+@plt.rc_context(fname=STYLE, rc=FIGURE_STYLE)
+def plot_member_luminosity_function(campaign: Campaign, path: Path) -> Path | None:
+    """The member mass function and the luminosity function in three forms, square panels each with its residual
+    panel: dN/dlog M; dN/dL on log-log axes, where the faint-end slope is alpha; per dex of L (alpha + 1); and per
+    magnitude (-0.4(alpha + 1)), as published cluster luminosity functions are drawn (see :func:`_draw_member_function`)."""
+    forms = ("mass", "luminosity", "log_luminosity", "magnitude")
+    # Panels as large as in the one-column mass-function figure (about 2.7 in), so panels and text keep its
+    # proportions; the figure is scaled down as a whole on the page.
+    fig, axes = plt.subplots(2, len(forms), figsize=(len(forms) * 3.05, 4.3), sharex="col",
+                             gridspec_kw={"height_ratios": [1, .32], "hspace": .06, "wspace": .3})
+    legend = None
+    for column, axis in enumerate(forms):
+        axes[0, column].set_box_aspect(1)
+        axes[1, column].set_box_aspect(.32)
+        legend = _draw_member_function(axes[0, column], axes[1, column], campaign, axis) or legend
+    if legend is None:
+        plt.close(fig)
+        return None
+    fig.legend(*legend, loc="upper center", ncol=len(legend[0]), frameon=False, handlelength=1.5, columnspacing=1.2,
+               handletextpad=.4, bbox_to_anchor=(.5, 1.0))
+    for column in range(len(forms)):
+        fig.align_ylabels(axes[:, column])
+    fig.subplots_adjust(left=.05, right=.995, bottom=.11, top=.93)
+    return save_page(fig, path)
 
 
 # ----------------------------------------------------------------------------- magnification
-@plt.rc_context(fname=STYLE, rc=PAPER_STYLE)
+@plt.rc_context(fname=STYLE, rc=FIGURE_STYLE)
 def plot_magnification_recovery(campaign: Campaign, path: Path) -> Path | None:
+    """Top: recovered against true |mu| of every image (posterior median and 16-84% range), with means in bins of the
+    true value.  Bottom: the ratio of the two; images whose ratio is off the panel are drawn as carets at its edge."""
     df = campaign.magnification
     truth = np.abs(df["magnification_true_at_obs"].to_numpy(float))
     q16, q50, q84 = (np.abs(df[f"magnification_model_{q}"].to_numpy(float)) for q in ("q16", "q50", "q84"))
@@ -449,33 +549,65 @@ def plot_magnification_recovery(campaign: Campaign, path: Path) -> Path | None:
     valid = (truth > 0) & (q50 > 0) & np.isfinite(lower) & np.isfinite(upper)
     if not valid.any():
         return None
-    fig, ax = plt.subplots(figsize=(3.5, 3.4))
-    ax.errorbar(truth[valid], q50[valid], yerr=[np.maximum(0, q50 - lower)[valid], np.maximum(0, upper - q50)[valid]], fmt="o", color=COLOR,
-                markersize=1.8, markeredgewidth=0, ecolor=matplotlib.colors.to_rgba(COLOR, .08),
-                elinewidth=.4, capsize=0, alpha=.35, zorder=2, rasterized=True)
-    ax.plot([], [], "o", color=COLOR, markersize=3, linestyle="none", label="Images")
+    truth, q50, lower, upper = truth[valid], q50[valid], lower[valid], upper[valid]
+    # A square main panel over a ratio panel, placed by hand so the main panel is exactly square.
+    left, right, bottom_in, gap_in, ratio_in, top_in = .165, .985, .40, .07, .82, .06
+    side_in = APJ_COLUMN_WIDTH_IN * (right - left)
+    height = bottom_in + ratio_in + gap_in + side_in + top_in
+    fig = plt.figure(figsize=(APJ_COLUMN_WIDTH_IN, height))
+    ratio_ax = fig.add_axes([left, bottom_in / height, right - left, ratio_in / height])
+    ax = fig.add_axes([left, (bottom_in + ratio_in + gap_in) / height, right - left, side_in / height], sharex=ratio_ax)
+    faint = dict(fmt="o", color=COLOR, markersize=1.9, markeredgewidth=0, ecolor=matplotlib.colors.to_rgba(COLOR, .10),
+                 elinewidth=.4, capsize=0, alpha=.38, zorder=2, rasterized=True)
+    ax.errorbar(truth, q50, yerr=[np.maximum(0, q50 - lower), np.maximum(0, upper - q50)], **faint)
+    ratio = q50 / truth
+    reach = float(np.clip(np.quantile(np.abs(np.log10(ratio)), .995) * 1.15, np.log10(2.5), 1.0))     # decades shown each way
+    inside = np.abs(np.log10(ratio)) <= reach
+    ratio_ax.errorbar(truth[inside], ratio[inside], yerr=[np.maximum(0, q50 - lower)[inside] / truth[inside],
+                                                          np.maximum(0, upper - q50)[inside] / truth[inside]], **faint)
+    for sign, marker in ((1, "^"), (-1, "v")):
+        off = np.sign(np.log10(ratio)) * ~inside == sign
+        ratio_ax.plot(truth[off], np.full(off.sum(), 10 ** (sign * reach * .93)), marker, color=COLOR, markersize=2.6,
+                      markeredgewidth=0, alpha=.7, linestyle="none", zorder=3)
+    # The legend entry: marker and error bar together, at full opacity (the points themselves are faint).
+    handles = [ax.errorbar([np.nan], [np.nan], yerr=[1.0], fmt="o", color=COLOR, markersize=2.8, markeredgewidth=0,
+                           elinewidth=.6, capsize=0, label="Images")]
     stats = binned_magnification_summary(df)
     if not stats.empty:
         stats.to_csv(path.with_name(path.stem + "_bins.csv"), index=False)
         shown = stats[(stats.n_images > 7) & (stats.n_mocks >= 2)]
         if not shown.empty:
-            ax.errorbar(shown.truth_mean, shown.recovered_mean, yerr=shown.recovered_sem,
-                        fmt="o", color="tab:orange", markersize=4, elinewidth=1,
-                        capsize=2, label="Binned Images", zorder=5)
-            ax.legend(loc="upper left", frameon=False, fontsize=8)
-    log_values = np.log10(np.concatenate([truth[valid], lower[valid][lower[valid] > 0], upper[valid]]))
-    pad = max(0.08 * np.ptp(log_values), 0.08)
+            binned = dict(fmt="o", color=ORANGE, markersize=4.4, elinewidth=1, markeredgecolor="white", markeredgewidth=.6,
+                          capsize=2, capthick=1, zorder=5)
+            handles.append(ax.errorbar(shown.truth_mean, shown.recovered_mean, yerr=shown.recovered_sem, label="Binned mean", **binned))
+            ratio_ax.errorbar(shown.truth_mean, shown.recovered_mean / shown.truth_mean, yerr=shown.recovered_sem / shown.truth_mean, **binned)
+    ax.legend(handles=handles, loc="upper left", frameon=False, borderaxespad=.5)
+    log_values = np.log10(np.concatenate([truth, lower[lower > 0], upper]))
+    pad = max(0.05 * np.ptp(log_values), 0.08)
     limits = (10 ** (log_values.min() - pad), 10 ** (log_values.max() + pad))
-    ax.plot(limits, limits, color="black", linewidth=.85, linestyle="--", alpha=.8, zorder=3)
-    ax.set_xscale("log")
-    ax.set_yscale("log")
+    exact = dict(color="0.1", linewidth=.7, linestyle=DASHES, zorder=3)
+    ax.plot(limits, limits, **exact)
+    ratio_ax.axhline(1.0, **exact)
+    for axes in (ax, ratio_ax):
+        axes.set_xscale("log")
+        axes.set_yscale("log")
     ax.set_xlim(limits)
     ax.set_ylim(limits)
-    ax.set_xlabel(r"True $|\mu|$")
+    ratio_ax.set_ylim(10 ** -reach, 10 ** reach)
+    for axis in (ax.xaxis, ax.yaxis):                      # a label every two decades, a tick at each decade
+        axis.set_major_locator(LogLocator(base=100.0))
+        axis.set_minor_locator(LogLocator(base=10.0, numticks=30))
+        axis.set_minor_formatter(NullFormatter())
+    marks = [v for v in (.1, .2, .5, 1, 2, 5, 10) if 10 ** (-reach * .9) <= v <= 10 ** (reach * .9)]
+    ratio_ax.yaxis.set_major_locator(FixedLocator(marks[::2] if len(marks) > 5 else marks))
+    ratio_ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}"))
+    ratio_ax.yaxis.set_minor_locator(NullLocator())
+    ax.tick_params(labelbottom=False)
     ax.set_ylabel(r"Recovered $|\mu|$")
-    _polish(ax)
-    fig.tight_layout()
-    return _save(fig, path)
+    ratio_ax.set_ylabel("Recovered / true", fontsize=8.5)
+    ratio_ax.set_xlabel(r"True $|\mu|$")
+    fig.align_ylabels((ax, ratio_ax))
+    return save_page(fig, path)
 
 
 def binned_magnification_summary(df: pd.DataFrame, bins: int = 10) -> pd.DataFrame:
@@ -507,80 +639,89 @@ def binned_magnification_summary(df: pd.DataFrame, bins: int = 10) -> pd.DataFra
 
 
 # ----------------------------------------------------------------------------- image residual distribution
-@plt.rc_context(fname=STYLE, rc=PAPER_STYLE)
-def plot_image_residual_distribution(campaign: Campaign, path: Path, *, bins: int = 24) -> Path | None:
+def plot_image_residual_distribution(campaign: Campaign, path: Path) -> Path | None:
+    """The run figure (``plotting.plots.residual_histogram_figure``) over every posterior draw of every mock."""
+    from ..plotting.plots import residual_histogram_figure
     df = campaign.residual_draws
     residual = pd.to_numeric(df["image_residual_arcsec"], errors="coerce").to_numpy(float)
     recovered = df["recovered"].astype(bool).to_numpy() & np.isfinite(residual) & (residual >= 0)
     if not recovered.any():
         return None
-    x_max = float(np.ceil(np.quantile(residual[recovered], 0.99) * 1.10 / 0.05) * 0.05)
-    edges = np.linspace(0.0, max(x_max, 1e-6), bins + 1)
     groups = [residual[recovered & (df["seed"] == seed).to_numpy() & (df["draw_index"] == draw).to_numpy()]
               for seed, draw in df.loc[recovered, ["seed", "draw_index"]].drop_duplicates().itertuples(index=False)]
-    counts = np.stack([np.histogram(values, bins=edges)[0] for values in groups])
-    h16, h50, h84 = np.percentile(counts, [16, 50, 84], axis=0)
-    rms_low, rms, rms_high = (float(v) for v in np.percentile([np.sqrt(np.mean(values ** 2)) for values in groups], [16, 50, 84]))
-    fig, ax = plt.subplots(figsize=(3.5, 2.6))
-    ax.stairs(h84, edges, baseline=h16, fill=True, color=COLOR, alpha=0.08,
-              linewidth=0.0, zorder=1)
-    ax.stairs(h50, edges, color=COLOR, linewidth=1.5, label="Residuals", zorder=3)
-    # The RMS: median over mock/draw groups (dashed) and its 16-84 per cent range (shade), as the run figures.
-    ax.axvspan(rms_low, rms_high, color="#ba5a2a", alpha=0.15, linewidth=0, zorder=2)
-    ax.axvline(rms, color="#ba5a2a", linestyle="--", linewidth=1.3,
-               label="RMS", zorder=4)
-    ax.set_ylabel("Number of images")
-    ax.set_xlabel("Image-position residual (arcsec)")
-    ax.set_xlim(0.0, edges[-1])
-    ax.set_ylim(bottom=0.0)
-    ax.yaxis.set_major_locator(MaxNLocator(4, integer=True))
-    ax.xaxis.set_major_locator(MaxNLocator(4))
-    _polish(ax)
-    ax.legend(frameon=False, loc="upper right", fontsize=8)
-    fig.tight_layout()
-    return _save(fig, path)
+    return residual_histogram_figure(groups, path)
 
 
 # ----------------------------------------------------------------------------- aperture mass components
-@plt.rc_context(fname=STYLE, rc=PAPER_STYLE)
+def _label_curve(ax, x, y, at, text, color, *, above: bool = True, offset: float = 2.5) -> None:
+    """Write ``text`` along a curve of log-log axes at x = ``at``, on one side of it.  The axes' limits and position
+    must be final."""
+    good = np.isfinite(x) & np.isfinite(y) & (x > 0) & (y > 0)
+    value = lambda r: 10 ** np.interp(np.log10(r), np.log10(x[good]), np.log10(y[good]))
+    (x0, y0), (x1, y1) = ax.transData.transform([(at / 1.25, value(at / 1.25)), (at * 1.25, value(at * 1.25))])
+    angle = math.atan2(y1 - y0, x1 - x0)
+    side = offset if above else -offset
+    ax.annotate(text, (at, value(at)), xytext=(-math.sin(angle) * side, math.cos(angle) * side), textcoords="offset points",
+                rotation=math.degrees(angle), rotation_mode="anchor", ha="center", va="bottom" if above else "top",
+                fontsize=8, color=color, zorder=6, path_effects=[withStroke(linewidth=2.0, foreground="white")])
+
+
+@plt.rc_context(fname=STYLE, rc=FIGURE_STYLE)
 def plot_m2d_components(campaign: Campaign, path: Path, *, seed: int | None = None) -> Path | None:
-    """Top: enclosed mass per component for one representative realization.  Bottom: the campaign, median over
-    realizations of each realization's posterior-median fractional mass error with the 16th to 84th percentile band across realizations,
-    out to the median radius of the outermost image."""
+    """Middle: enclosed mass per component for one representative realization, each curve named along itself.  Bottom:
+    the campaign, median over realizations of each realization's posterior-median fractional mass error with the 16th
+    to 84th percentile band across realizations, out to the median radius of the outermost image.  Top strip: where
+    the images of all realizations sit."""
     seed = representative_seed(campaign) if seed is None else int(seed)
     groups = (*COMPONENT_GROUPS, "total")
-    colors = {**COMPONENT_COLORS, "total": "black"}
+    colors = {**COMPONENT_COLORS, "total": "0.05"}
     labels = {**COMPONENT_LABELS, "total": "Total"}
     m2d = campaign.m2d[campaign.m2d["component"].isin(groups)]
     rows = m2d[m2d["seed"] == seed]
     if rows.empty:
         return None
     outer = float(np.nanmedian(pd.to_numeric(m2d["outer_image_radius_kpc"], errors="coerce"))) if "outer_image_radius_kpc" in m2d else np.inf
-    fig, (top, bottom) = plt.subplots(2, 1, figsize=(3.5, 4.0), sharex=True,
-                                    gridspec_kw={"height_ratios": [2.3, 1], "hspace": 0.08})
+    fig = plt.figure(figsize=(APJ_COLUMN_WIDTH_IN, 3.95))
+    left, width = .185, .80
+    bottom = fig.add_axes([left, .105, width, .215])
+    top = fig.add_axes([left, .335, width, .555], sharex=bottom)
+    strip = fig.add_axes([left, .890, width, .095], sharex=bottom)
+    curve_radii = pd.to_numeric(rows["radius_kpc"], errors="coerce").to_numpy(float)
+    curve_radii = curve_radii[np.isfinite(curve_radii) & (curve_radii > 0)]
+    limits = (float(curve_radii.min()), float(curve_radii.max()))
+    curves, reach = {}, .1
     for group in groups:
         sel = rows[rows["component"] == group].sort_values("radius_kpc")
         if sel.empty:
             continue
         radius, color = sel["radius_kpc"].to_numpy(float), colors[group]
         line_order = 2 if group == "total" else 3
-        top.plot(radius, sel["truth_m2d_msun"].to_numpy(float), color=color, linestyle="--", linewidth=1.0, alpha=0.9, zorder=line_order)
-        top.plot(radius, sel["model_q50"].to_numpy(float), color=color, linewidth=1.6, label=labels[group], zorder=line_order)
+        top.plot(radius, sel["truth_m2d_msun"].to_numpy(float), color=color, linestyle=(0, (3.5, 2)), linewidth=.9, zorder=line_order + 1)
+        top.plot(radius, sel["model_q50"].to_numpy(float), color=color, linewidth=1.7, alpha=.85, zorder=line_order)
+        curves[group] = (radius, sel["model_q50"].to_numpy(float))
         stats = m2d[m2d["component"] == group].groupby("radius_kpc")["ratio_q50"].agg(
             q16=lambda v: np.nanpercentile(v, 16), q50="median", q84=lambda v: np.nanpercentile(v, 84)).sort_index()
         inside = stats.index.to_numpy(float) <= outer
         r_c = stats.index.to_numpy(float)[inside]
         q16, q50, q84 = (stats[q].to_numpy(float)[inside] - 1.0 for q in ("q16", "q50", "q84"))
-        bottom.fill_between(r_c, q16, q84, color=color, alpha=0.12, linewidth=0.0,
-                            zorder=0 if group == "total" else 1)
+        bottom.fill_between(r_c, q16, q84, color=color, alpha=0.14, linewidth=0.0, zorder=0 if group == "total" else 1)
         bottom.plot(r_c, q50, color=color, linewidth=1.4, zorder=line_order)
-    top.plot([], [], color="0.3", linestyle="--", linewidth=1.0, label="Truth")
-    top.set_xscale("log")
+        if q50.size:
+            reach = max(reach, float(np.nanmax(np.abs(np.concatenate([q16, q50, q84])))))
+    for ax in (top, bottom, strip):
+        ax.set_xscale("log")
     top.set_yscale("log")
-    curve_radii = pd.to_numeric(rows["radius_kpc"], errors="coerce").to_numpy(float)
-    curve_radii = curve_radii[np.isfinite(curve_radii) & (curve_radii > 0)]
-    limits = (float(curve_radii.min()), float(curve_radii.max()))
     top.set_xlim(limits)
+    low, high = top.get_ylim()
+    top.set_ylim(low, high * 1.6)
+    top.yaxis.set_major_locator(LogLocator(base=10.0, numticks=12))
+    # Each curve carries its own name; the legend only says which line style is which.
+    place = lambda f: limits[0] * (limits[1] / limits[0]) ** f
+    for group, fraction, above in (("total", .30, True), ("halo", .62, False), ("bcg", .30, False), ("members", .30, True)):
+        if group in curves:
+            _label_curve(top, *curves[group], place(fraction), labels[group], colors[group], above=above)
+    top.legend([Line2D([], [], color="0.3", linewidth=1.7, alpha=.85), Line2D([], [], color="0.3", linewidth=.9, linestyle=(0, (3.5, 2)))],
+               ["Recovered", "Truth"], loc="lower right", frameon=False, handlelength=2.0, borderaxespad=.6)
     # Pool every image, using each mock's own aperture centre and physical scale.
     image_radii = []
     for image_seed in campaign.seeds:
@@ -595,94 +736,28 @@ def plot_m2d_components(campaign: Campaign, path: Path, *, seed: int | None = No
             * truth["kpc_per_arcsec"] for im in images])
     image_radii = np.asarray(image_radii)
     image_radii = image_radii[np.isfinite(image_radii) & (image_radii > 0)]
+    strip.axis("off")
     if image_radii.size:
-        edges = np.geomspace(*limits, 26)
+        edges = np.geomspace(*limits, 31)
         counts, _ = np.histogram(image_radii, bins=edges)
-        # Histogram height is relative abundance, independent of the mass axis.
-        height = .16 * counts / max(int(counts.max()), 1)
-        top.stairs(height, edges, baseline=0, fill=True, color=".65", alpha=.35,
-                   transform=top.get_xaxis_transform(), zorder=0)
-        top.stairs(height, edges, baseline=0, color=".35", linewidth=1.0,
-                   transform=top.get_xaxis_transform(), zorder=1)
-        top.set_xlim(limits)
-    top.set_ylabel(r"$M_{\rm 2D}(<R)$ ($M_\odot$)")
-    top.legend(loc="upper left", frameon=False, fontsize=7)
-    bottom.axhline(0.0, color="0.2", linestyle="--", linewidth=1.0)
-    bottom.set_ylim(-0.3, 0.3)
+        strip.stairs(counts, edges, baseline=0, fill=True, color="0.80", linewidth=0, zorder=0)
+        strip.stairs(counts, edges, baseline=0, color="0.35", linewidth=.7, zorder=1)
+        strip.set_ylim(0, counts.max() * 1.08)
+        strip.text(.015, .30, "Multiple images", transform=strip.transAxes, ha="left", va="bottom", fontsize=8, color="0.3")
+    top.set_ylabel(r"$M_{\rm 2D}(<R)\ \ (M_\odot)$")
+    top.tick_params(labelbottom=False)
+    bottom.axhline(0.0, color="0.1", linestyle=DASHES, linewidth=.7, zorder=4)
+    reach = min(math.ceil(reach * 1.05 / .1) * .1, .5)
+    bottom.set_ylim(-reach, reach)
     bottom.set_xlabel(r"$R$ (kpc)")
     bottom.set_ylabel(r"$M_{\rm fit}/M_{\rm true}-1$")
-    for ax in (top, bottom):
-        _polish(ax)
-    bottom.yaxis.set_major_locator(MaxNLocator(3))
-    fig.subplots_adjust(left=.20, right=.98, bottom=.13, top=.98)
-    return _save(fig, path)
+    bottom.yaxis.set_major_locator(MaxNLocator(4, symmetric=True, prune="both"))
+    bottom.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}"))
+    fig.align_ylabels((top, bottom))
+    return save_page(fig, path)
 
 
-# ----------------------------------------------------------------------------- member scaling relation
-@plt.rc_context(fname=STYLE, rc=PAPER_STYLE)
-def plot_relation_recovery(campaign: Campaign, path: Path) -> Path | None:
-    """Top: the recovered relation over the true one against L/L*, median and 16th to 84th band across realizations.
-    Bottom: truth-centred posteriors of all realizations stacked in the (sigma*, r_cut*) and (alpha, beta) planes,
-    68 and 95 per cent contours."""
-    from scipy.ndimage import gaussian_filter
-    rel = [r for r in campaign.relation if r.get("draws")]
-    if len(rel) < 2:
-        return None
-    ell = np.geomspace(0.02, 20.0, 60)
-    curves = {"sigma": [], "cutkpc": []}
-    for r in rel:
-        d, t = {k: np.asarray(v, float) for k, v in r["draws"].items()}, r["truth"]
-        lp = ell / float(r["pivot_luminosity_ratio"])                     # L / L_pivot
-        curves["sigma"].append(np.median(d["sigma"][:, None] * lp[None, :] ** d["alpha_sigma"][:, None], axis=0) / (t["sigma"] * lp ** t["alpha_sigma"]))
-        curves["cutkpc"].append(np.median(d["cutkpc"][:, None] * lp[None, :] ** d["beta_radius"][:, None], axis=0) / (t["cutkpc"] * lp ** t["beta_radius"]))
-    fig = plt.figure(figsize=(7.1, 5.4))
-    gs = fig.add_gridspec(2, 2, left=.085, right=.985, bottom=.09, top=.985, hspace=.42, wspace=.28)
-    top = [fig.add_subplot(gs[0, 0])]
-    top.append(fig.add_subplot(gs[0, 1], sharex=top[0]))
-    bottom = [fig.add_subplot(gs[1, 0]), fig.add_subplot(gs[1, 1])]
-    for ax, key, label in zip(top, ("sigma", "cutkpc"), (r"$\sigma_{\rm fit}(L)\,/\,\sigma_{\rm true}(L)$", r"$r_{\rm cut,fit}(L)\,/\,r_{\rm cut,true}(L)$")):
-        q16, q50, q84 = np.percentile(np.stack(curves[key]), [16, 50, 84], axis=0)
-        ax.fill_between(ell, q16, q84, color=COLOR, alpha=0.18, linewidth=0)
-        ax.plot(ell, q50, color=COLOR, linewidth=1.5)
-        ax.axhline(1.0, color="0.2", linestyle="--", linewidth=0.9)
-        ax.set_xscale("log")
-        ax.set_xlabel(r"$L/L_\star$")
-        ax.set_ylabel(label)
-        _polish(ax)
-    planes = ((("sigma", "cutkpc"), (r"$\sigma_\star\,/\,\sigma_{\star,\rm true}-1$", r"$r_{\rm cut,\star}\,/\,r_{\rm cut,\star,true}-1$"), True),
-              (("alpha_sigma", "beta_radius"), (r"$\alpha-\alpha_{\rm true}$", r"$\beta-\beta_{\rm true}$"), False))
-    for ax, ((px, py), (lx, ly), fractional) in zip(bottom, planes):
-        xs, ys = [], []
-        for r in rel:
-            x, y = np.asarray(r["draws"][px], float), np.asarray(r["draws"][py], float)
-            tx, ty = float(r["truth"][px]), float(r["truth"][py])
-            xs.append(x / tx - 1.0 if fractional else x - tx)
-            ys.append(y / ty - 1.0 if fractional else y - ty)
-        x, y = np.concatenate(xs), np.concatenate(ys)
-        lim_x, lim_y = np.percentile(np.abs(x), 99.5), np.percentile(np.abs(y), 99.5)
-        h, xe, ye = np.histogram2d(x, y, bins=50, range=[[-lim_x, lim_x], [-lim_y, lim_y]])
-        hs = gaussian_filter(h, 1.2)
-        hs /= hs.sum()
-        order = np.sort(hs.ravel())[::-1]
-        cum = np.cumsum(order)
-        levels = [order[np.searchsorted(cum, q)] for q in (0.95, 0.68)]
-        cx, cy = 0.5 * (xe[1:] + xe[:-1]), 0.5 * (ye[1:] + ye[:-1])
-        inside = hs >= levels[0]                                         # axis limits: 1.7 times the reach of the 95% contour
-        lim_x, lim_y = 1.7 * float(np.abs(cx[inside.any(axis=1)]).max()), 1.7 * float(np.abs(cy[inside.any(axis=0)]).max())
-        ax.contourf(cx, cy, hs.T, levels=[levels[0], levels[1], hs.max()], colors=["#cfe0ec", "#80afcb"])
-        ax.contour(cx, cy, hs.T, levels=levels, colors=["#1b4f6e"], linewidths=0.8)
-        ax.plot(np.median([np.median(v) for v in xs]), np.median([np.median(v) for v in ys]), "x", color="k", markersize=6, markeredgewidth=1.2)
-        ax.axhline(0.0, color="0.2", linestyle="--", linewidth=0.8)
-        ax.axvline(0.0, color="0.2", linestyle="--", linewidth=0.8)
-        ax.set_xlim(-lim_x, lim_x)
-        ax.set_ylim(-lim_y, lim_y)
-        ax.set_xlabel(lx)
-        ax.set_ylabel(ly)
-        _polish(ax)
-    return _save(fig, path)
-
-
-# ----------------------------------------------------------------------------- coverage and calibration
+# ----------------------------------------------------------------------------- coverage
 def coverage_table(campaign: Campaign) -> pd.DataFrame:
     """Per parameter across realizations: 68% and 95% coverage with binomial errors, median bias and median fractional
     bias.  Only scored rows count (finite truth inside the support); per-member offsets and source positions are pooled."""
@@ -705,35 +780,6 @@ def coverage_table(campaign: Campaign) -> pd.DataFrame:
                      "median_bias": float(np.nanmedian(part["bias"])), "median_fractional_bias": float(np.nanmedian(part["fractional_bias"])) if "fractional_bias" in part else np.nan,
                      "median_truth_percentile": float(np.nanmedian(part["truth_percentile"]))})
     return pd.DataFrame(rows)
-
-
-@plt.rc_context(fname=STYLE, rc=PAPER_STYLE)
-def plot_calibration(campaign: Campaign, path: Path) -> Path | None:
-    """Truth's posterior percentile pooled over scored non-source parameters and realizations."""
-    df = campaign.parameters.loc[~campaign.parameters["parameter"].str.startswith("source.")]
-    scored = df["scored"].astype(bool) if "scored" in df else np.isfinite(df["truth"].to_numpy(float))
-    ranks = pd.to_numeric(df.loc[scored, "truth_percentile"], errors="coerce").dropna().to_numpy(float)
-    if ranks.size == 0:
-        return None
-    fig, (left, right) = plt.subplots(1, 2, figsize=(8.4, 3.6))
-    edges = np.linspace(0.0, 1.0, 11)
-    left.hist(ranks, bins=edges, color=COLOR, alpha=0.85)
-    left.axhline(ranks.size / 10.0, color="0.25", linestyle="--", linewidth=1.0)
-    left.set_xlabel("Posterior percentile of the truth")
-    left.set_ylabel("Count")
-    ordered = np.sort(ranks)
-    right.plot(ordered, np.arange(1, ordered.size + 1) / ordered.size, color=COLOR, linewidth=1.6)
-    right.plot([0, 1], [0, 1], color="0.25", linestyle="--", linewidth=1.0)
-    band = 1.36 / math.sqrt(ordered.size)                      # 95% Kolmogorov band for a uniform sample
-    right.fill_between([0, 1], [-band, 1 - band], [band, 1 + band], color="0.8", alpha=0.4, linewidth=0.0)
-    right.set_xlim(0, 1)
-    right.set_ylim(0, 1)
-    right.set_xlabel("Posterior percentile of the truth")
-    right.set_ylabel("Cumulative fraction")
-    fig.tight_layout()
-    fig.savefig(path, dpi=300)
-    plt.close(fig)
-    return path
 
 
 def _standardized_parameter_panels(campaign: Campaign, *, sources: bool = True):
@@ -877,10 +923,10 @@ def write_aggregate_plots(campaign_root: str | Path, output_dir: str | Path | No
     ``parameter_recovery_table.csv``, ``seed_summary.csv`` (one row per realization with its convergence verdict),
     ``campaign_selection.json`` (convergence rule, included and failed seeds), ``mock_coverage_table.csv``,
     ``mock_results.tex``, and the figures ``mock_parameter_recovery_paper.pdf``,
-    ``mock_parameter_recovery_grouped.pdf``, ``mock_standardized_residuals.pdf``, ``mock_bias_and_coverage.pdf``,
-    ``mock_aggregate_subhalo_recovery_shmf.pdf``, ``mock_magnification_recovery.pdf``,
+    ``mock_standardized_residuals.pdf``, ``mock_bias_and_coverage.pdf``,
+    ``mock_aggregate_subhalo_recovery_shmf.pdf``, ``mock_aggregate_subhalo_recovery_luminosity.pdf``, ``mock_magnification_recovery.pdf``,
     ``mock_m2d_aperture_recovery_components.pdf``, ``mock_aggregate_image_residual_distribution.pdf``,
-    ``mock_calibration.pdf``, ``mock_relation_recovery.pdf``, ``mock_grf_gp_field_recovery.pdf``,
+    ``mock_grf_gp_field_recovery.pdf``,
     ``mock_<block>_truth_deviation_corner.pdf`` (one per parameter block), ``mock_combined_truth_deviation_corner.pdf``
     and ``mock_aggregate_chain_traces.pdf``.  The field-recovery, deviation-corner and chain-trace figures also write
     companion data files next to them (``.csv``, ``.txt``, ``.h5`` and ``.json`` files of the same stem, and
@@ -905,15 +951,13 @@ def write_aggregate_plots(campaign_root: str | Path, output_dir: str | Path | No
     from ..reporting.results_tex import write_mock_results
     write_mock_results(campaign, output, rhat_cut=CONVERGENCE_RHAT, min_ess=CONVERGENCE_MIN_NEFF)
     plots = [plot_parameter_recovery(campaign, output / "mock_parameter_recovery_paper.pdf"),
-             plot_parameter_recovery_grouped(campaign, output / "mock_parameter_recovery_grouped.pdf"),
              plot_standardized_residuals(campaign, output / "mock_standardized_residuals.pdf"),
              plot_bias_and_coverage(campaign, output / "mock_bias_and_coverage.pdf"),
              plot_subhalo_mass_function(campaign, output / "mock_aggregate_subhalo_recovery_shmf.pdf"),
+             plot_member_luminosity_function(campaign, output / "mock_aggregate_subhalo_recovery_luminosity.pdf"),
              plot_magnification_recovery(campaign, output / "mock_magnification_recovery.pdf"),
              plot_m2d_components(campaign, output / "mock_m2d_aperture_recovery_components.pdf"),
-             plot_image_residual_distribution(campaign, output / "mock_aggregate_image_residual_distribution.pdf"),
-             plot_calibration(campaign, output / "mock_calibration.pdf"),
-             plot_relation_recovery(campaign, output / "mock_relation_recovery.pdf")]
+             plot_image_residual_distribution(campaign, output / "mock_aggregate_image_residual_distribution.pdf")]
     from .field_recovery_plots import plot_field_recovery
     plots.append(plot_field_recovery(campaign, output))
     from .deviation_corners import write_deviation_corners, write_combined_deviation_corner

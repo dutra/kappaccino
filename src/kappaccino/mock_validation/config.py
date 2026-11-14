@@ -107,15 +107,18 @@ class MockConfig:
         a Schechter luminosity function and placed on a luminosity scaling relation.  Default ``50``.
     schechter_alpha : float, optional
         Faint-end slope (dimensionless) of the Schechter luminosity function of the members; must exceed -1.
-        Default ``-0.7``.
+        Default ``-0.8``, the round value of the stacked CLASH red-sequence fits (Martinet et al. 2017: -0.76, -0.78).
+    schechter_magnitude : float, optional
+        Characteristic magnitude (mag, member band) of the Schechter luminosity function, separate from
+        ``pivot_magnitude``: members are drawn from :math:`L^\\alpha e^{-L/L_c}` with
+        :math:`L_c / L^* = 10^{-0.4(m_c - m^*)}`.  Default ``19.0``, matching the bright-member counts of M0416 and
+        AS1063 and the CLASH red-sequence M* of Martinet et al. (2017) at z ~ 0.4.
     pivot_magnitude : float, optional
         Magnitude m* (mag, member band) of an L* member: member magnitudes are
         :math:`m^* - 2.5 \\log_{10}(L / L^*)`, the scaling relation is quoted here, and the solver's member population
         uses it as its prior pivot magnitude.  Default ``19.82``.
-    faint_magnitude_limit : float, optional
-        Faintest member magnitude in mag: drawn members fainter than this are discarded and redrawn.  Default ``24.0``.
     luminosity_range : tuple of float, optional
-        (min, max) :math:`L / L^*` (dimensionless) the Schechter draw is truncated to.  Default ``(0.02, 20.0)``.
+        (min, max) :math:`L / L^*` (dimensionless, L* the pivot luminosity) the Schechter draw is truncated to.  Default ``(0.02, 20.0)``.
     sigma_star_range_kms : tuple of float, optional
         (min, max) velocity dispersion of an L* member in km s^-1.  A member's dispersion is
         :math:`\\sigma^* (L / L^*)^{\\alpha}` times its scatter.  Default ``(160.0, 240.0)``.
@@ -292,9 +295,9 @@ class MockConfig:
     bcg_offset_max_arcsec: float = 2.0
     # Member population.
     n_members: int = 50
-    schechter_alpha: float = -0.7
+    schechter_alpha: float = -0.8
+    schechter_magnitude: float = 19.0
     pivot_magnitude: float = 19.82
-    faint_magnitude_limit: float = 24.0
     luminosity_range: tuple[float, float] = (0.02, 20.0)
     sigma_star_range_kms: tuple[float, float] = (160.0, 240.0)
     cut_star_range_kpc: tuple[float, float] = (8.0, 20.0)

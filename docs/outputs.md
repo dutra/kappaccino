@@ -105,6 +105,11 @@ With truth maps (`TruthRecoveryConfig`, set for Hera and Ares), the run also wri
 - `magnification_recovery.pdf`: truth against model magnification at the observed images and over the image-position
   convex hull at the truth-map source redshift (9). The orange error bars are spatial 16–84 percentiles, not posterior
   uncertainties;
+- `cumulative_source_area.pdf`: source-plane area magnified above μ at the truth-map source redshift,
+  A(>μ) = Σ A_pix/|μ| over the truth-map pixels with |μ| > μ, for the truth, the parametric model and the parametric
+  + GRF model (conditional mean of each draw), with the comoving volume of the shell z ± 0.5 on the right axis and the
+  ratio to the truth below. Lines and bands are the median and 16–84% range over the reporting draws. Thresholds below
+  μ = 3 depend on the size of the map and are shaded. Numbers in `cumulative_source_area.csv`;
 - `subhalo_mass_concentration.pdf`: one row of four panels for the members on the true map and the parametric + GRF
   model map (evaluated on the truth-map pixels). Mass is the zeta statistic (Fahlman et al. 1994) in 10 kpc, the mass
   inside 10 kpc above the mean of the 10–20 kpc annulus; concentration is κ̄(<R_e)/κ̄(R_e–2R_e) − 1. Panels: number of

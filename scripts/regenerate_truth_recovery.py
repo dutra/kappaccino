@@ -51,6 +51,8 @@ def main():
                 literature_mass=truth['literature_m2d'],literature_kappa=truth['literature_kappa'])
         write_magnification_recovery(truth,images,state.reference,state.z_lens,
             astropy_cosmology(state.cosmo_config),config.truth,figures,tables,prefix)
+        from kappaccino.plotting.cumulative_source_area import write_cumulative_source_area
+        write_cumulative_source_area(truth,draws,astropy_cosmology(state.cosmo_config),figures,tables,prefix)
         write_aperture_mass_histogram(config,state,draws,paths,images,log=lambda text:print(text,flush=True))
         write_zeta_masses(config,state,draws,paths,images,log=lambda text:print(text,flush=True))
         plots.plot_critical_curves(state,draws,truth['z_source'],plots.figure_path(figures,'critical_curves.pdf',prefix),

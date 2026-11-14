@@ -84,8 +84,13 @@ def plot_parameter_corner(samples, selection, path, *, grouped_physical=None):
                     axes[row, col].plot([x0,x1,x1,x0,x0], [y0,y0,y1,y1,y0],
                                         color='tab:orange', ls='--', lw=1.1, zorder=5)
                 else:
-                    axes[row, col].contour(*grids, joint, levels=thresholds, colors=['tab:orange'],
-                                           linestyles='--', linewidths=1.1, zorder=5)
+                    # Plain lines: a matplotlib contour set keeps its 700 x 700 grids, 12 MB per panel and 12 GB for
+                    # the 1035 panels of 46 parameters.
+                    import contourpy
+                    generator = contourpy.contour_generator(x=grids[0], y=grids[1], z=joint)
+                    for threshold in thresholds:
+                        for line in generator.lines(float(threshold)):
+                            axes[row, col].plot(line[:, 0], line[:, 1], color='tab:orange', ls='--', lw=1.1, zorder=5)
                 axes[row, col].set_xlim(ranges[col])
                 axes[row, col].set_ylim(ranges[row])
         for j, prior in enumerate(priors):
@@ -110,9 +115,11 @@ def plot_parameter_corner(samples, selection, path, *, grouped_physical=None):
             height = (top-bottom)/n
             for j in range(n):
                 ax = fig.add_axes([left, top-(j+1)*height, right-left, height*.72])
+                # Vector lines: a rasterized artist allocates a buffer of the whole figure at 300 dpi each time it is
+                # drawn (2.5 GB with 46 parameters), and with one per chain and parameter the save took 20 to 40 GB.
                 for chain in range(grouped.shape[0]):
                     ax.plot(np.arange(1, grouped.shape[1]+1), grouped[chain,:,j],
-                            lw=.45, alpha=.75, rasterized=True)
+                            lw=.45, alpha=.75)
                 trace_label = '$' + labels[j].split('$')[1] + '$' if '$' in labels[j] else labels[j]
                 ax.set_ylabel(trace_label, fontsize=8, rotation=0, labelpad=24)
                 ax.tick_params(labelsize=7, labelbottom=j==n-1, top=False, right=False)

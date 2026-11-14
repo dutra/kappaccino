@@ -11,6 +11,14 @@ Image numbers are reconciled across the knots of a system by position: each knot
 the knot with the most images (Hungarian matching, within --max-image-offset arcsec).  A knot whose numbering disagrees
 (K6e: 1 and 3 swapped) is relabelled and the published label kept in the entry's notes.  Image n becomes letter n (1 -> a).
 
+Two edits follow the conversion, both listed below so this script alone rebuilds the catalog:
+* PARITIES (2026-11-03): 17 images near critical curves where the lens model and the lens+field mean agree, or the knot
+  pattern decides (K1: mirrored knots); the rest stay 0 (unknown).
+* MERGES (2026-11-12): systems that are one galaxy (z equal within the spectroscopic errors, same knot pattern in every
+  image) become one system with knots.  The first name is kept, knots are lettered A, B, ... over the systems in order (a
+  system's own knots keep their order), images of the others take the first system's letter by position (one to one,
+  within 4"), and every relabelled image notes its previous label.
+
 Example:
     python scripts/convert_canucs_catalog.py catalogs/m0416/canucs2025/images.yaml
 """
@@ -34,6 +42,14 @@ from kappaccino.io.sky import radec_to_offsets_arcsec  # noqa: E402
 ROOT = Path(__file__).resolve().parents[1] / "catalogs/m0416/canucs2025"
 CATALOG = ROOT / "source" / "hlsp_canucs_jwst-hst_multi_macs0416-allmultim-cat_multi_v1_model.txt"
 LENSTOOL = ROOT / "source" / "hlsp_canucs_jwst-hst_multi_macs0416-lenstool-multim_multi_v1_model.txt"
+# Image parities by converted label (system + image letter); every knot of the image has it.
+PARITIES = {"K1.a": 1, "K1.b": -1, "K12.a": 1, "K12.b": -1, "K19.a": 1, "K19.b": -1, "K28.a": 1, "K28.b": -1,
+            "K33.c": -1, "K33.d": 1, "K33.e": 1, "K33.f": -1, "K73.a": -1, "K73.b": 1, "K77.c": -1, "K82.a": 1, "K82.b": -1}
+# One galaxy each: (systems, first name kept; merged z, the spectroscopic value with the most digits).
+MERGE_DATE = "2026-11-12"
+MERGES = [(("K33", "K77"), 3.2215), (("K10", "K76"), 1.9894), (("K89", "K90", "K91"), 3.0665), (("K36", "K37"), 3.2882),
+          (("K69", "K70"), 6.1452), (("K6", "K7"), 1.895), (("K29", "C2"), 3.0773)]
+MERGE_MAX_ARCSEC = 4.0
 LABEL = re.compile(r"^([A-Z]+[0-9]+)([a-z]?)\.([0-9]+)$")
 
 
@@ -100,6 +116,78 @@ def reconcile(system: pd.DataFrame, max_offset: float) -> tuple[pd.Series, list[
     return numbers, log
 
 
+def add_parities(systems: dict) -> None:
+    """Set PARITIES on the converted systems (image level, so every knot of an image shares it)."""
+    for label, parity in PARITIES.items():
+        name, letter = label.split(".")
+        image = systems[name]["images"][letter]
+        if "knots" in image:
+            systems[name]["images"][letter] = OrderedDict([("parity", parity), *image.items()])
+        else:
+            image["parity"] = parity
+
+
+def _knots_of(system: dict):
+    """{image: {knot or None: position}} and the image-level fields (parity, notes) of each image."""
+    knots, fields = {}, {}
+    for name, image in system["images"].items():
+        fields[name] = {k: image[k] for k in ("parity",) if k in image}
+        if "knots" in image:
+            knots[name] = dict(image["knots"])
+        else:
+            knots[name] = {None: {k: v for k, v in image.items() if k != "parity"}}
+    return knots, fields
+
+
+def _centroid(positions: dict) -> np.ndarray:
+    x, y = radec_to_offsets_arcsec(np.array([p["ra"] for p in positions.values()]),
+                                   np.array([p["dec"] for p in positions.values()]), 64.0382, -24.0675)
+    return np.array([x.mean(), y.mean()])
+
+
+def merge(systems: dict, names: tuple[str, ...], z: float) -> OrderedDict:
+    """One system with knots from ``names`` (see MERGES in the module docstring)."""
+    first = names[0]
+    letters = iter("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+    base, _ = _knots_of(systems[first])
+    images: dict = {}
+    declared, origins = [], []
+    for name in names:
+        knots, fields = _knots_of(systems[name])
+        if name == first:
+            letter_of = {image: image for image in knots}
+        else:
+            ours, theirs = list(knots), list(base)
+            cost = np.array([[np.hypot(*(_centroid(knots[a]) - _centroid(base[b]))) for b in theirs] for a in ours])
+            r, c = linear_sum_assignment(cost)
+            if len(r) != len(ours) or cost[r, c].max() > MERGE_MAX_ARCSEC:
+                raise SystemExit(f"merge {names}: images of {name} have no one-to-one partner in {first} within {MERGE_MAX_ARCSEC}\"")
+            letter_of = {ours[i]: theirs[j] for i, j in zip(r, c)}
+        renamed = {}
+        for knot in systems[name].get("knots", [None]):
+            renamed[knot] = next(letters)
+            declared.append(renamed[knot])
+            origins.append(f"{renamed[knot]} = {name}{knot or ''}")
+        for image, positions in knots.items():
+            target = images.setdefault(letter_of[image], OrderedDict(knots=OrderedDict()))
+            parity = fields[image].get("parity", 0)
+            if parity and target.get("parity", parity) != parity:
+                raise SystemExit(f"merge {names}: {name}.{image} parity {parity} conflicts with {target['parity']}")
+            if parity:
+                target["parity"] = parity
+                target.move_to_end("knots")
+            for knot, position in positions.items():
+                old, new = f"{name}{knot or ''}.{image}", f"{first}{renamed[knot]}.{letter_of[image]}"
+                position = OrderedDict(position)
+                if old != new:
+                    position["notes"] = "; ".join(filter(None, [position.get("notes"), f"was {old} before the {MERGE_DATE} merge"]))
+                target["knots"][renamed[knot]] = position
+    notes = "; ".join(f"{n}: {systems[n]['notes']}" for n in names if systems[n].get("notes"))
+    return OrderedDict(z=z, notes=f"merged {MERGE_DATE}, knots {', '.join(origins)} (one galaxy: z equal within the "
+                                  f"spectroscopic errors, same knot pattern in every image). {notes}",
+                       knots=declared, images=OrderedDict(sorted(images.items())))
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("output", type=Path)
@@ -139,12 +227,18 @@ def main(argv=None) -> int:
                 images[letter] = position
         entry["images"] = OrderedDict(sorted(images.items()))
         systems[name] = entry
+    add_parities(systems)
+    merged = {names[0]: merge(systems, names, z) for names, z in MERGES}
+    gone = {name for names, _ in MERGES for name in names[1:]}
+    systems = OrderedDict((name, merged.get(name, entry)) for name, entry in systems.items() if name not in gone)
     header = (f"CANUCS multiple images of MACS J0416 (Rihtarsic et al. 2025, A&A 696, A15; MAST DOI 10.17909/ph4n-6n76), class "
               f"{' '.join(args.classes)}, converted on {date.today().isoformat()} by scripts/convert_canucs_catalog.py.\n"
               "System, knot and image from the published labels (K6c.2 = system K6, knot C, image b).\n"
               "Positions and z from the CANUCS lenstool input: the catalogue shifted by about 20 mas, the frame of the CANUCS model "
               "and of members.cat.\n"
-              + ("Image numbers reconciled across knots by position: " + "; ".join(changes) + "." if changes else "No image renumbering was needed."))
+              + ("Image numbers reconciled across knots by position: " + "; ".join(changes) + "." if changes else "No image renumbering was needed.")
+              + f"\nParities of {len(PARITIES)} images (2026-11-03) and systems merged as one galaxy ({MERGE_DATE}): "
+              + ", ".join("+".join(names) for names, _ in MERGES) + "; both set in this script (PARITIES, MERGES).")
     write_image_catalog(args.output, systems, header=header)
     loaded = load_image_catalog(args.output)
     n_knotted = sum(1 for s in systems.values() if "knots" in s)

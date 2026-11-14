@@ -1,9 +1,8 @@
-# Parities (2026-11-03): 17 images near critical curves where the lens model and the lens+field mean agree, or the knot pattern
-# decides (K1: mirrored knots); the rest stay 0 (unknown).  The file before this edit is images.before_parity.yaml.
-# CANUCS multiple images of MACS J0416 (Rihtarsic et al. 2025, A&A 696, A15; MAST DOI 10.17909/ph4n-6n76), class G, converted on 2026-11-01 by scripts/convert_canucs_catalog.py.
+# CANUCS multiple images of MACS J0416 (Rihtarsic et al. 2025, A&A 696, A15; MAST DOI 10.17909/ph4n-6n76), class G, converted on 2026-11-12 by scripts/convert_canucs_catalog.py.
 # System, knot and image from the published labels (K6c.2 = system K6, knot C, image b).
 # Positions and z from the CANUCS lenstool input: the catalogue shifted by about 20 mas, the frame of the CANUCS model and of members.cat.
 # Image numbers reconciled across knots by position: K6e.1 -> image 3; K6e.3 -> image 1.
+# Parities of 17 images (2026-11-03) and systems merged as one galaxy (2026-11-12): K33+K77, K10+K76, K89+K90+K91, K36+K37, K69+K70, K6+K7, K29+C2; both set in this script (PARITIES, MERGES).
 format: lenscluster-images/1
 systems:
   C1:
@@ -12,13 +11,6 @@ systems:
     images:
       a: {ra: 64.02634726406002, dec: -24.075527862387652}
       b: {ra: 64.03849226364748, dec: -24.08344986338242}
-  C2:
-    z: 3.0693
-    notes: 'spectroscopic z: NIRISS 3.068'
-    images:
-      a: {ra: 64.03722626371193, dec: -24.08240586327873}
-      b: {ra: 64.02487226421509, dec: -24.07349786226682}
-      c: {ra: 64.03075326379772, dec: -24.07954786274855}
   C3:
     z: 2.5571
     images:
@@ -77,8 +69,9 @@ systems:
       c: {ra: 64.0325042634352, dec: -24.08377386289198}
   K6:
     z: 1.895
-    notes: 'spectroscopic z: MUSE 1.895, NIRISS 1.89'
-    knots: [A, B, C, D, E]
+    notes: 'merged 2026-11-12, knots A = K6A, B = K6B, C = K6C, D = K6D, E = K6E, F = K7 (one galaxy: z equal within the spectroscopic errors, same knot pattern in every image). K6: spectroscopic z: MUSE
+      1.895, NIRISS 1.89; K7: spectroscopic z: MUSE 1.896, NIRISS 1.891'
+    knots: [A, B, C, D, E, F]
     images:
       a:
         knots:
@@ -87,6 +80,7 @@ systems:
           C: {ra: 64.0415442658464, dec: -24.062003863632377}
           D: {ra: 64.04177426583858, dec: -24.062153863651215}
           E: {ra: 64.04213426583077, dec: -24.06234386368069, notes: catalogue label K6e.3}
+          F: {ra: 64.04085426586195, dec: -24.061633863575874, notes: was K7.a before the 2026-11-12 merge}
       b:
         knots:
           A: {ra: 64.04314426578652, dec: -24.063103863763406}
@@ -94,6 +88,7 @@ systems:
           C: {ra: 64.04297426580301, dec: -24.062883863749487}
           D: {ra: 64.04283426580763, dec: -24.062793863738023}
           E: {ra: 64.04263426581538, dec: -24.062653863721643}
+          F: {ra: 64.04354426575533, dec: -24.06354386379617, notes: was K7.b before the 2026-11-12 merge}
       c:
         knots:
           A: {ra: 64.04753426535491, dec: -24.068843864122915}
@@ -101,13 +96,7 @@ systems:
           C: {ra: 64.04765426535265, dec: -24.068903864132746}
           D: {ra: 64.0477142653456, dec: -24.06899386413766}
           E: {ra: 64.0478042653444, dec: -24.06903386414503, notes: catalogue label K6e.1}
-  K7:
-    z: 1.896
-    notes: 'spectroscopic z: MUSE 1.896, NIRISS 1.891'
-    images:
-      a: {ra: 64.04085426586195, dec: -24.061633863575874}
-      b: {ra: 64.04354426575533, dec: -24.06354386379617}
-      c: {ra: 64.04743426536665, dec: -24.068693864114735}
+          F: {ra: 64.04743426536665, dec: -24.068693864114735, notes: was K7.c before the 2026-11-12 merge}
   K8:
     z: 2.0439
     notes: 'spectroscopic z: MUSE 1.953, NIRISS 2.035'
@@ -135,11 +124,25 @@ systems:
       c: {ra: 64.03168326321331, dec: -24.085779862824726}
   K10:
     z: 1.9894
-    notes: 'spectroscopic z: MUSE 1.9894, NIRISS 1.985'
+    notes: 'merged 2026-11-12, knots A = K10, B = K76A, C = K76B (one galaxy: z equal within the spectroscopic errors, same knot pattern in every image). K10: spectroscopic z: MUSE 1.9894, NIRISS 1.985;
+      K76: spectroscopic z: MUSE 1.99, NIRISS 1.985'
+    knots: [A, B, C]
     images:
-      a: {ra: 64.03083426501797, dec: -24.067153862755188}
-      b: {ra: 64.03531426477365, dec: -24.071013863122136}
-      c: {ra: 64.04187426450558, dec: -24.0757538636594}
+      a:
+        knots:
+          A: {ra: 64.03083426501797, dec: -24.067153862755188, notes: was K10.a before the 2026-11-12 merge}
+          B: {ra: 64.03083426500913, dec: -24.067243862755195, notes: was K76A.a before the 2026-11-12 merge}
+          C: {ra: 64.03106426500722, dec: -24.067333862774024, notes: was K76B.a before the 2026-11-12 merge}
+      b:
+        knots:
+          A: {ra: 64.03531426477365, dec: -24.071013863122136, notes: was K10.b before the 2026-11-12 merge}
+          B: {ra: 64.03523426477027, dec: -24.071023863115585, notes: was K76A.b before the 2026-11-12 merge}
+          C: {ra: 64.03507426478117, dec: -24.070863863102478, notes: was K76B.b before the 2026-11-12 merge}
+      c:
+        knots:
+          A: {ra: 64.04187426450558, dec: -24.0757538636594, notes: was K10.c before the 2026-11-12 merge}
+          B: {ra: 64.04190426449667, dec: -24.07585386366186, notes: was K76A.c before the 2026-11-12 merge}
+          C: {ra: 64.04216426448976, dec: -24.07600386368315, notes: was K76B.c before the 2026-11-12 merge}
   K11:
     z: 2.0881
     notes: 'spectroscopic z: MUSE 2.0881'
@@ -288,11 +291,22 @@ systems:
       b: {ra: 64.02966726409568, dec: -24.076182862659593, parity: -1}
   K29:
     z: 3.0773
-    notes: 'spectroscopic z: MUSE 3.0773, NIRISS 3.069'
+    notes: 'merged 2026-11-12, knots A = K29, B = C2 (one galaxy: z equal within the spectroscopic errors, same knot pattern in every image). K29: spectroscopic z: MUSE 3.0773, NIRISS 3.069; C2: spectroscopic
+      z: NIRISS 3.068'
+    knots: [A, B]
     images:
-      a: {ra: 64.02525926421673, dec: -24.073599862298522}
-      b: {ra: 64.03055426382161, dec: -24.079243862732252}
-      c: {ra: 64.03778426372796, dec: -24.082413863324433}
+      a:
+        knots:
+          A: {ra: 64.02525926421673, dec: -24.073599862298522, notes: was K29.a before the 2026-11-12 merge}
+          B: {ra: 64.02487226421509, dec: -24.07349786226682, notes: was C2.b before the 2026-11-12 merge}
+      b:
+        knots:
+          A: {ra: 64.03055426382161, dec: -24.079243862732252, notes: was K29.b before the 2026-11-12 merge}
+          B: {ra: 64.03075326379772, dec: -24.07954786274855, notes: was C2.c before the 2026-11-12 merge}
+      c:
+        knots:
+          A: {ra: 64.03778426372796, dec: -24.082413863324433, notes: was K29.c before the 2026-11-12 merge}
+          B: {ra: 64.03722626371193, dec: -24.08240586327873, notes: was C2.a before the 2026-11-12 merge}
   K30:
     z: 3.1103
     notes: 'spectroscopic z: MUSE 3.1103, NIRISS 3.1'
@@ -336,14 +350,35 @@ systems:
       c: {ra: 64.0397642641335, dec: -24.078893863486595}
   K33:
     z: 3.2215
-    notes: 'spectroscopic z: MUSE 3.2215'
+    notes: 'merged 2026-11-12, knots A = K33, B = K77 (one galaxy: z equal within the spectroscopic errors, same knot pattern in every image). K33: spectroscopic z: MUSE 3.2215; K77: spectroscopic z: MUSE
+      3.2215'
+    knots: [A, B]
     images:
-      a: {ra: 64.03455426514671, dec: -24.06698386305989}
-      b: {ra: 64.03425426518483, dec: -24.06650386303532}
-      c: {ra: 64.03403426513694, dec: -24.06692386301729, parity: -1}
-      d: {ra: 64.04612426452951, dec: -24.076813864007452, parity: 1}
-      e: {ra: 64.03406426518302, dec: -24.066463863019756, parity: 1}
-      f: {ra: 64.0352452650735, dec: -24.067940863116483, parity: -1}
+      a:
+        knots:
+          A: {ra: 64.03455426514671, dec: -24.06698386305989, notes: was K33.a before the 2026-11-12 merge}
+          B: {ra: 64.03453426515594, dec: -24.066883863058244, notes: was K77.b before the 2026-11-12 merge}
+      b:
+        knots:
+          A: {ra: 64.03425426518483, dec: -24.06650386303532, notes: was K33.b before the 2026-11-12 merge}
+          B: {ra: 64.03437426518157, dec: -24.066573863045146, notes: was K77.a before the 2026-11-12 merge}
+      c:
+        parity: -1
+        knots:
+          A: {ra: 64.03403426513694, dec: -24.06692386301729, notes: was K33.c before the 2026-11-12 merge}
+          B: {ra: 64.03399426513622, dec: -24.066918863014024, notes: was K77.c before the 2026-11-12 merge}
+      d:
+        parity: 1
+        knots:
+          A: {ra: 64.04612426452951, dec: -24.076813864007452, notes: was K33.d before the 2026-11-12 merge}
+      e:
+        parity: 1
+        knots:
+          A: {ra: 64.03406426518302, dec: -24.066463863019756, notes: was K33.e before the 2026-11-12 merge}
+      f:
+        parity: -1
+        knots:
+          A: {ra: 64.0352452650735, dec: -24.067940863116483, notes: was K33.f before the 2026-11-12 merge}
   K34:
     z: 3.2355
     notes: 'spectroscopic z: MUSE 3.2355'
@@ -360,16 +395,18 @@ systems:
       c: {ra: 64.02838426377785, dec: -24.079023862554507}
   K36:
     z: 3.2882
-    notes: 'spectroscopic z: MUSE 3.2882'
+    notes: 'merged 2026-11-12, knots A = K36, B = K37 (one galaxy: z equal within the spectroscopic errors, same knot pattern in every image). K36: spectroscopic z: MUSE 3.2882; K37: spectroscopic z: MUSE
+      3.2883'
+    knots: [A, B]
     images:
-      a: {ra: 64.04014426533665, dec: -24.06676386351772}
-      b: {ra: 64.04517426493804, dec: -24.072363863929656}
-  K37:
-    z: 3.2883
-    notes: 'spectroscopic z: MUSE 3.2883'
-    images:
-      a: {ra: 64.04006426534308, dec: -24.066673863511166}
-      b: {ra: 64.04542426492789, dec: -24.072543863950127}
+      a:
+        knots:
+          A: {ra: 64.04014426533665, dec: -24.06676386351772, notes: was K36.a before the 2026-11-12 merge}
+          B: {ra: 64.04006426534308, dec: -24.066673863511166, notes: was K37.a before the 2026-11-12 merge}
+      b:
+        knots:
+          A: {ra: 64.04517426493804, dec: -24.072363863929656, notes: was K36.b before the 2026-11-12 merge}
+          B: {ra: 64.04542426492789, dec: -24.072543863950127, notes: was K37.b before the 2026-11-12 merge}
   K38:
     z: 3.2885
     notes: 'spectroscopic z: MUSE 3.2885'
@@ -586,18 +623,22 @@ systems:
       c: {ra: 64.04847326491249, dec: -24.073635864199815}
   K69:
     z: 6.1452
-    notes: 'spectroscopic z: MUSE 6.1452'
+    notes: 'merged 2026-11-12, knots A = K69, B = K70 (one galaxy: z equal within the spectroscopic errors, same knot pattern in every image). K69: spectroscopic z: MUSE 6.1452; K70: spectroscopic z: MUSE
+      6.145'
+    knots: [A, B]
     images:
-      a: {ra: 64.04363926620246, dec: -24.059020863803948}
-      b: {ra: 64.04789826603037, dec: -24.062078864152728}
-      c: {ra: 64.05092626568145, dec: -24.066559864400684}
-  K70:
-    z: 6.145
-    notes: 'spectroscopic z: MUSE 6.145'
-    images:
-      a: {ra: 64.05087426569226, dec: -24.066433864396423}
-      b: {ra: 64.04347426620605, dec: -24.058933863790436}
-      c: {ra: 64.04824426600692, dec: -24.06242386418106}
+      a:
+        knots:
+          A: {ra: 64.04363926620246, dec: -24.059020863803948, notes: was K69.a before the 2026-11-12 merge}
+          B: {ra: 64.04347426620605, dec: -24.058933863790436, notes: was K70.b before the 2026-11-12 merge}
+      b:
+        knots:
+          A: {ra: 64.04789826603037, dec: -24.062078864152728, notes: was K69.b before the 2026-11-12 merge}
+          B: {ra: 64.04824426600692, dec: -24.06242386418106, notes: was K70.c before the 2026-11-12 merge}
+      c:
+        knots:
+          A: {ra: 64.05092626568145, dec: -24.066559864400684, notes: was K69.c before the 2026-11-12 merge}
+          B: {ra: 64.05087426569226, dec: -24.066433864396423, notes: was K70.a before the 2026-11-12 merge}
   K71:
     z: 6.147
     notes: 'spectroscopic z: MUSE 6.147'
@@ -633,30 +674,6 @@ systems:
     images:
       a: {ra: 64.05075426574659, dec: -24.0658438643866}
       b: {ra: 64.04929226594633, dec: -24.06336186426688}
-  K76:
-    z: 1.99
-    notes: 'spectroscopic z: MUSE 1.99, NIRISS 1.985'
-    knots: [A, B]
-    images:
-      a:
-        knots:
-          A: {ra: 64.03083426500913, dec: -24.067243862755195}
-          B: {ra: 64.03106426500722, dec: -24.067333862774024}
-      b:
-        knots:
-          A: {ra: 64.03523426477027, dec: -24.071023863115585}
-          B: {ra: 64.03507426478117, dec: -24.070863863102478}
-      c:
-        knots:
-          A: {ra: 64.04190426449667, dec: -24.07585386366186}
-          B: {ra: 64.04216426448976, dec: -24.07600386368315}
-  K77:
-    z: 3.2215
-    notes: 'spectroscopic z: MUSE 3.2215'
-    images:
-      a: {ra: 64.03437426518157, dec: -24.066573863045146}
-      b: {ra: 64.03453426515594, dec: -24.066883863058244}
-      c: {ra: 64.03399426513622, dec: -24.066918863014024, parity: -1}
   K82:
     z: 2.0436
     notes: 'spectroscopic z: NIRISS 2.034'
@@ -671,25 +688,26 @@ systems:
       b: {ra: 64.03617626456439, dec: -24.073407863192735}
       c: {ra: 64.040404264387, dec: -24.07650986353901}
   K89:
-    z: 3.0654
-    images:
-      a: {ra: 64.02799426456706, dec: -24.07087286252256}
-      b: {ra: 64.0331552644008, dec: -24.074146862945298}
-      c: {ra: 64.04072026403567, dec: -24.080182863564893}
-  K90:
     z: 3.0665
-    notes: 'spectroscopic z: NIRISS 3.065'
+    notes: 'merged 2026-11-12, knots A = K89, B = K90, C = K91 (one galaxy: z equal within the spectroscopic errors, same knot pattern in every image). K90: spectroscopic z: NIRISS 3.065; K91: spectroscopic
+      z: NIRISS 3.067'
+    knots: [A, B, C]
     images:
-      a: {ra: 64.02819026458201, dec: -24.070780862538612}
-      b: {ra: 64.03310726441666, dec: -24.073970862941366}
-      c: {ra: 64.04088626404831, dec: -24.080104863578487}
-  K91:
-    z: 3.0666
-    notes: 'spectroscopic z: NIRISS 3.067'
-    images:
-      a: {ra: 64.02774326455764, dec: -24.070891862502}
-      b: {ra: 64.0332542643851, dec: -24.074336862953402}
-      c: {ra: 64.04050926402682, dec: -24.080207863547614}
+      a:
+        knots:
+          A: {ra: 64.02799426456706, dec: -24.07087286252256, notes: was K89.a before the 2026-11-12 merge}
+          B: {ra: 64.02819026458201, dec: -24.070780862538612, notes: was K90.a before the 2026-11-12 merge}
+          C: {ra: 64.02774326455764, dec: -24.070891862502, notes: was K91.a before the 2026-11-12 merge}
+      b:
+        knots:
+          A: {ra: 64.0331552644008, dec: -24.074146862945298, notes: was K89.b before the 2026-11-12 merge}
+          B: {ra: 64.03310726441666, dec: -24.073970862941366, notes: was K90.b before the 2026-11-12 merge}
+          C: {ra: 64.0332542643851, dec: -24.074336862953402, notes: was K91.b before the 2026-11-12 merge}
+      c:
+        knots:
+          A: {ra: 64.04072026403567, dec: -24.080182863564893, notes: was K89.c before the 2026-11-12 merge}
+          B: {ra: 64.04088626404831, dec: -24.080104863578487, notes: was K90.c before the 2026-11-12 merge}
+          C: {ra: 64.04050926402682, dec: -24.080207863547614, notes: was K91.c before the 2026-11-12 merge}
   K95:
     z: 2.3302
     notes: 'spectroscopic z: NIRISS 2.33'

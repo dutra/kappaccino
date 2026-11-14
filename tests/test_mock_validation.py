@@ -26,7 +26,7 @@ def test_truth_is_deterministic_and_in_range():
     total = a.halo.mass_msun + a.bcg.mass_msun
     assert SMALL.total_mass_range_msun[0] * 0.99 <= total <= SMALL.total_mass_range_msun[1] * 1.01
     assert len(a.members) == 14 and len(a.modelled_members) == 12
-    assert all(m.magnitude <= SMALL.faint_magnitude_limit for m in a.members)
+    assert all(SMALL.luminosity_range[0] <= m.luminosity_ratio <= SMALL.luminosity_range[1] for m in a.members)
     assert all(SMALL.sigma_star_range_kms[0] <= v <= SMALL.sigma_star_range_kms[1] for v in [a.relation["sigma_star_kms"]])
     assert [m.magnitude for m in a.members] == sorted(m.magnitude for m in a.members)
 
@@ -116,7 +116,7 @@ def test_campaign_end_to_end_scores_only_parameters_with_a_truth(tmp_path):
     everything = load_campaign(recovery_dirs[0].parent.parent, converged_only=False)       # a short test chain rarely converges
     assert len(everything.seeds) == 1 and "converged" in everything.summary
     outputs = write_aggregate_plots(recovery_dirs[0].parent.parent)
-    assert any(p.name == "mock_calibration.pdf" for p in outputs) and (recovery_dirs[0].parent.parent / "aggregate_plots" / "mock_coverage_table.csv").is_file()
+    assert any(p.name == "mock_bias_and_coverage.pdf" for p in outputs) and (recovery_dirs[0].parent.parent / "aggregate_plots" / "mock_coverage_table.csv").is_file()
     assert set(payload["relation"]["draws"]) == {"sigma", "cutkpc", "alpha_sigma", "beta_radius"} and payload["relation"]["pivot_luminosity_ratio"] > 0
 
 

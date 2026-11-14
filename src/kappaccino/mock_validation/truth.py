@@ -147,16 +147,15 @@ def draw_truth(config: MockConfig, seed: int | None = None) -> MockTruth:
                 "cut_star_kpc": float(rng.uniform(*config.cut_star_range_kpc)), "core_star_kpc": float(config.core_star_kpc),
                 "alpha_sigma": float(rng.uniform(*config.alpha_sigma_range)), "beta_radius": float(rng.uniform(*config.beta_radius_range)),
                 "sigma_scatter_ln": float(config.sigma_scatter_ln), "cut_scatter_ln": float(config.cut_scatter_ln),
-                "schechter_alpha": float(config.schechter_alpha), "faint_magnitude_limit": float(config.faint_magnitude_limit)}
+                "schechter_alpha": float(config.schechter_alpha), "schechter_magnitude": float(config.schechter_magnitude)}
     members: list[MemberTruth] = []
     n_total = int(config.n_members) + int(config.unmodelled_members)
     if n_total > 0:
-        luminosity = np.empty(0)
-        while luminosity.size < n_total:                        # Schechter draw with the magnitude cut applied
-            draw = truncated_schechter_luminosities(rng, 4 * n_total, alpha=config.schechter_alpha, lower=config.luminosity_range[0], upper=config.luminosity_range[1])
-            magnitude = config.pivot_magnitude - 2.5 * np.log10(draw)
-            luminosity = np.concatenate([luminosity, draw[magnitude <= config.faint_magnitude_limit]])
-        luminosity = luminosity[:n_total]
+        # L/L* (pivot units) from a Schechter function whose cutoff L_c sits at schechter_magnitude.
+        cutoff = 10.0 ** (-0.4 * (config.schechter_magnitude - config.pivot_magnitude))
+        luminosity = cutoff * truncated_schechter_luminosities(rng, n_total, alpha=config.schechter_alpha,
+                                                               lower=config.luminosity_range[0] / cutoff,
+                                                               upper=config.luminosity_range[1] / cutoff)
         x, y = _radial_positions(rng, n_total, core=config.member_spatial_core_arcsec, cut=config.member_spatial_cut_arcsec, r_max=config.member_field_radius_arcsec)
         sigma = relation["sigma_star_kms"] * luminosity ** relation["alpha_sigma"] * np.exp(rng.normal(0.0, config.sigma_scatter_ln, n_total))
         cut = relation["cut_star_kpc"] * luminosity ** relation["beta_radius"] * np.exp(rng.normal(0.0, config.cut_scatter_ln, n_total))

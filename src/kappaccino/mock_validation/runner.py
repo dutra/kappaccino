@@ -167,7 +167,7 @@ def subhalo_masses(truth: dict[str, Any], member_table: pd.DataFrame) -> dict[st
     anchor = 10.0 ** log10_dpie_mass_msun(float(relation.get("sigma_star_kms", 200.0)), float(relation.get("cut_star_kpc", 12.0)))
     return {"truth_log10_mass": np.log10(truth_mass[truth_mass > 0]).tolist(), "recovered_log10_mass": recovered[np.isfinite(recovered)].tolist(),
             "selection": {"schechter_alpha": relation.get("schechter_alpha"), "dpie_mass_anchor_msun": anchor, "mass_luminosity_exponent": exponent,
-                          "faint_magnitude_limit": relation.get("faint_magnitude_limit"), "pivot_magnitude": relation.get("pivot_magnitude")}}
+                          "pivot_magnitude": relation.get("pivot_magnitude"), "schechter_magnitude": relation["schechter_magnitude"]}}
 
 
 def model_groups(state: ModelState, config_model, physical_row: np.ndarray, name_index: dict[str, int]) -> dict[str, tuple[np.ndarray, ...]]:

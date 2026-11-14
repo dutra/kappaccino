@@ -61,6 +61,40 @@ def test_correlated_error_parameters_in_aggregate_figures(tmp_path):
     assert [p for p, _ in plots._standardized_parameter_panels(legacy)] == ['halo.v_disp']
 
 
+def test_parameter_recovery_figure_fits_an_apj_page(tmp_path):
+    """One row of six panels per component, centres pooled, the sources in the first free slot; a full paper
+    campaign is 7.1 in wide and under 5.5 in tall."""
+    import pandas as pd
+    from types import SimpleNamespace
+    from matplotlib.backends.backend_pdf import PdfPages  # noqa: F401  (the PDF backend must be importable)
+    from kappaccino.mock_validation import aggregate_plots as plots
+
+    names = [n for n in plots.PAPER_PARAMETERS if not n.endswith(("grf2", "lambda_b2", "beta_low"))]
+    names += ["source.1.beta_x", "source.1.beta_y", "source.2.beta_x", "source.2.beta_y"]
+    rows = [dict(parameter=name, seed=seed, truth=value, median=value * 1.05, q16=value * .9, q84=value * 1.2)
+            for name in names for seed, value in enumerate([1.0, 2.0, 3.0, 4.0])]
+    campaign = SimpleNamespace(parameters=pd.DataFrame(rows))
+    groups = plots.recovery_panels(campaign.parameters)
+    assert [label for label, _, _ in groups] == ["Halo", "BCG", "GRF + GP", "Members", "Sources"]
+    panels = {label: [name.split(".", 1)[1] for name, _ in entries] for label, _, entries in groups}
+    assert panels["Halo"] == ["log10_mass_msun", "log10_aperture_mass_msun", "position_xy", "v_disp", "core_radius_kpc", "cut_radius_kpc"]
+    assert panels["BCG"].count("position_xy") == 1 and panels["Sources"] == ["position_xy"]
+    pooled = dict(groups[0][2])["halo.position_xy"]
+    assert set(pooled.parameter) == {"halo.x_centre", "halo.y_centre"} and len(pooled) == 8
+    layout = plots._recovery_rows(groups, 6)
+    assert [len(row) for row in layout] == [6, 6, 6, 6]                     # the sources fill the BCG row
+    assert [row[0][0] for row in layout] == ["Halo", "BCG", "GRF + GP", "Members"] and layout[1][-1][0] == "Sources"
+    path = plots.plot_parameter_recovery(campaign, tmp_path / "recovery.pdf")
+    import re
+    box = re.search(rb"/MediaBox \[ *0 +0 +([0-9.]+) +([0-9.]+) *\]", path.read_bytes())
+    width, height = (float(v) / 72.0 for v in box.groups())
+    assert abs(width - plots.APJ_TEXT_WIDTH_IN) < 0.01 and height < 5.5
+    # Fewer parameters still give a figure: one group, one row.
+    few = SimpleNamespace(parameters=campaign.parameters[campaign.parameters.parameter.str.startswith("potfile.")])
+    assert [len(row) for row in plots._recovery_rows(plots.recovery_panels(few.parameters), 6)] == [6]
+    assert plots.plot_parameter_recovery(few, tmp_path / "few.pdf").exists()
+
+
 def test_halo_aperture_uses_inside_radius_and_preserves_unknown_coverage():
     import numpy as np
     import pandas as pd
@@ -82,33 +116,3 @@ def test_halo_aperture_uses_inside_radius_and_preserves_unknown_coverage():
     rows[1].update(model_q025=7e13, model_q975=1.4e14)
     assert halo_aperture_parameters(pd.DataFrame(rows)).iloc[0].covered_95
     assert halo_aperture_parameters(pd.DataFrame()).empty
-
-
-def test_grouped_recovery_separates_components(tmp_path, monkeypatch):
-    import pandas as pd
-    from types import SimpleNamespace
-    from kappaccino.mock_validation import aggregate_plots as plots
-    names = ['halo.log10_mass_msun', 'halo.log10_aperture_mass_msun', 'bcg.v_disp',
-             'images.gp_knee_gamma', 'potfile.alpha_sigma', 'source.001.beta_x',
-             'source.001.beta_y', 'halo.x_centre', 'halo.y_centre', 'bcg.x_centre', 'bcg.y_centre']
-    rows = [dict(parameter=name, seed=i, truth=value, median=value*1.05,
-                 q16=value*.8, q84=value*1.2) for name in names for i,value in enumerate([1.,1.,2.,2.])]
-    campaign = SimpleNamespace(parameters=pd.DataFrame(rows))
-    save = plots._save
-    def inspect(fig, path):
-        labels = [text.get_text() for ax in fig.axes for text in ax.texts]
-        assert sorted(labels) == sorted(['Halo', 'BCG', 'GRF + image-plane GP', 'Member scaling relation', 'Source positions'])
-        panels = [ax for ax in fig.axes if ax.containers]
-        assert len(panels) == len(names)-3
-        pooled = [ax for ax in panels if "x,y" in ax.get_xlabel() or "beta_x," in ax.get_xlabel()]
-        assert len(pooled) == 3
-        assert all(len(ax.containers[0].lines[0].get_xdata()) == 8 for ax in pooled)
-        assert all(not line.get_visible() for ax in panels for line in ax.get_xgridlines())
-        assert not any(ax.get_title() for ax in fig.axes)
-        assert not fig.legends
-        return save(fig,path)
-    monkeypatch.setattr(plots, '_save', inspect)
-    output = tmp_path/'grouped.pdf'
-    assert plots.plot_parameter_recovery_grouped(campaign, output) == output
-    assert output.read_bytes().startswith(b'%PDF')
-    assert plots.plot_parameter_recovery_grouped(SimpleNamespace(parameters=pd.DataFrame()), output) is None

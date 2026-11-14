@@ -135,7 +135,8 @@ RELATION_FIELDS = ("sigma", "cutkpc", "alpha_sigma", "beta_radius")
 RELATION_DRAWS = 400
 
 
-def relation_recovery(state: ModelState, posterior: PosteriorResults, truth_values: dict[str, float]) -> dict[str, Any]:
+def relation_recovery(state: ModelState, posterior: PosteriorResults, truth_values: dict[str, float],
+                      truth_pivot_magnitude: float) -> dict[str, Any]:
     """The member relation at the solver pivot: truth, prior width and thinned posterior draws of sigma*, r_cut*, alpha
     and beta, plus the pivot luminosity in units of the truth's L*.  Feeds the campaign's relation-recovery figure."""
     if not state.potfiles:
@@ -145,13 +146,12 @@ def relation_recovery(state: ModelState, posterior: PosteriorResults, truth_valu
         return {}
     physical = np.asarray(posterior.physical, dtype=float)
     keep = np.unique(np.linspace(0, len(physical) - 1, min(RELATION_DRAWS, len(physical))).astype(int))
-    pivot = state.potfiles[0].get("pivot") or {}
     prior_sigma = {}
     for field, (_, spec) in specs.items():
         scale = priors.parameters(spec.latent_prior).get("scale")
         # A log-normal's fractional width (its standard deviation over its mean), or the width of a normal prior.
         prior_sigma[field] = None if scale is None else float(np.sqrt(np.expm1(scale * scale)) if spec.log else scale)
-    return {"pivot_luminosity_ratio": float(pivot.get("luminosity_ratio", 1.0)),
+    return {"pivot_luminosity_ratio": float(10.0 ** (-0.4 * (float(state.potfiles[0]["mag0"]) - float(truth_pivot_magnitude)))),
             "truth": {field: float(truth_values.get(f"potfile.{field}", np.nan)) for field in RELATION_FIELDS},
             "prior_sigma": prior_sigma,
             "draws": {field: physical[keep, i].tolist() for field, (i, _) in specs.items()}}
@@ -249,7 +249,7 @@ def write_recovery(recovery_dir: Path, result: pipeline.RunResult, solver_config
     positive = {spec.name for spec in state.parameter_specs if spec.log}
     parameters = parameter_recovery(columns, truth_values, positive=positive)
     magnification = magnification_recovery(truth, pd.read_csv(tables / "model_magnification.csv"))
-    relation = relation_recovery(state, posterior, truth_values)
+    relation = relation_recovery(state, posterior, truth_values, float(truth["relation"]["pivot_magnitude"]))
     image_fit = pd.read_csv(tables / "image_fit_quality.csv")
     residual_draws = pd.read_csv(tables / "posterior_image_residual_draws.csv")
     member_table = member_scaling_table(state, posterior)

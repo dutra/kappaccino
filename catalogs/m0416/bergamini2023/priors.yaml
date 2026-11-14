@@ -100,6 +100,6 @@ halos:
 # Bergamini et al. 2023 found sigma 248 +- 28 km/s and r_cut 56 +- 30 kpc at the BCG magnitude 17.02 with a fixed slope
 # of 0.3, i.e. 158 km/s and 29 kpc at m*, inside these priors.  Galaxy 8971 is on the relation.
 members:
-  potfile_1: {catalog_path: members.cat, preset: neutral, prior_mag0: 18.66}
+  potfile_1: {catalog_path: members.cat, preset: neutral, mag0: 18.66}
 
 scaling: {preset: neutral}

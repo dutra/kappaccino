@@ -158,12 +158,8 @@ def classification_report(state: ModelState, *, provisional: dict[str, Any] | No
     far = [r for r in rankings if not r["exact"]]
     lines = ["=== Member classification ==="]
     for potfile in state.potfiles:
-        pivot = potfile.get("pivot")
-        if pivot:
-            lines.append(f"  pivot {potfile['id']}: mag0 = {pivot['mag0']:.0f} (leverage-weighted member magnitude {pivot['weighted_mean_mag']:.2f}, "
-                         f"median {pivot['member_median_mag']:.2f}); sigma and cutkpc priors moved from mag {pivot['prior_mag0']:.2f} "
-                         f"by x{pivot['sigma_factor']:.3f} and x{pivot['cutkpc_factor']:.3f}: sigma* {potfile['sigma_nominal']:.1f} km/s, "
-                         f"r_cut* {potfile['cutkpc_nominal']:.1f} kpc")
+        lines.append(f"  pivot {potfile['id']}: mag0 = {potfile['mag0']:g} (priors.yaml): sigma* {potfile['sigma_nominal']:.1f} km/s, "
+                     f"r_cut* {potfile['cutkpc_nominal']:.1f} kpc")
     if d.get("dropped_members"):
         lines.append(f"  impact cut: {len(d['dropped_members'])} catalog members dropped from the model (deflection at every image "
                      f"below {d.get('min_deflection_arcsec'):g}\" at the initial model)")

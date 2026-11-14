@@ -431,12 +431,9 @@ class MemberPopulationConfig:
     catalog_path : str or pathlib.Path
         Member catalog: a YAML catalog (``.yaml``/``.yml``, see ``kappaccino.io.member_catalog``) or a Lenstool potfile
         (``.cat``).  Must exist.  Members with catalog ``treatment`` ``exclude`` are left out of the model.
-    mag0 : float or str
+    mag0 : float
         Pivot magnitude :math:`m_0` (mag, in the relation's band) at which ``sigma``, ``cutkpc``, ``corekpc`` and their
-        priors apply; or ``"auto"``: the image-leverage-weighted mean member magnitude (weights
-        :math:`\\sum_j 1/\\max(R_{ij}, 1'')^2` over images :math:`j`), rounded to the nearest magnitude.  With
-        ``"auto"`` the values and priors are given at ``prior_mag0`` and moved to the pivot with the centers of the
-        slope priors.
+        priors apply.  Required; run files give it in ``priors.yaml``.
     corekpc : float
         Core radius at the pivot, in kpc.  Fixed unless ``ScalingModelConfig.fit_corekpc``; must be positive.
     sigma : float
@@ -455,7 +452,7 @@ class MemberPopulationConfig:
         Cored power law only: prior of the 3D density slope, dimensionless, sampled linearly; its support must lie
         inside (1, 3).  Default ``dist.Uniform(1.1, 2.9)``.
     sigma_prior : numpyro distribution, optional
-        Prior of the pivot dispersion, in km s^-1, given at ``mag0`` (or ``prior_mag0`` when ``mag0`` is ``"auto"``).
+        Prior of the pivot dispersion, in km s^-1, given at ``mag0``.
         Default: log-normal of mean 100 and standard deviation 40 km s^-1 truncated to 20-500 km s^-1, sampled in log.
     cutkpc_prior : numpyro distribution, optional
         Prior of the pivot cut radius, in kpc, at the same magnitude.  Default: log-normal of mean 300 and standard
@@ -463,8 +460,6 @@ class MemberPopulationConfig:
     exclude_catalog_ids : tuple of str, optional
         Catalog ids of members to leave out of this population.  Each must exist in the catalog, without duplicates.
         Default ``()``.
-    prior_mag0 : float or None, optional
-        Magnitude (mag) at which ``sigma``, ``cutkpc``, ``corekpc`` and their priors are given when ``mag0`` is
         ``"auto"``; required then, ignored otherwise.  Default None.
     band : str or None, optional
         YAML catalogs only: the magnitude band of the scaling relation.  None uses the catalog's ``band``.  Setting it
@@ -496,7 +491,7 @@ class MemberPopulationConfig:
     """
     id: str
     catalog_path: str | Path
-    mag0: float | str
+    mag0: float
     corekpc: float
     sigma: float
     cutkpc: float
@@ -507,7 +502,6 @@ class MemberPopulationConfig:
     sigma_prior: Any = field(default_factory=lambda: lognormal_from_moments(100.0, 40.0, low=20.0, high=500.0))
     cutkpc_prior: Any = field(default_factory=lambda: lognormal_from_moments(300.0, 120.0, low=20.0, high=1000.0))
     exclude_catalog_ids: tuple[str, ...] = ()
-    prior_mag0: float | None = None
     band: str | None = None
     kinematics_sources: tuple[str, ...] = ()
     kinematics_systematic: float = 0.05
@@ -515,15 +509,15 @@ class MemberPopulationConfig:
     kinematics_aperture_arcsec: float | None = None
 
     @classmethod
-    def bergamini2019(cls, id: str, catalog_path: str | Path, z_lens: float, *, prior_mag0: float, sigma: float = 200.0,
+    def bergamini2019(cls, id: str, catalog_path: str | Path, z_lens: float, *, mag0: float, sigma: float = 200.0,
                       cutkpc: float = 12.0, corekpc: float = 0.15) -> "MemberPopulationConfig":
         """Build a member population with priors from the MUSE-calibrated relation of Bergamini et al. 2019.
 
         Their three clusters give a central dispersion of about 220 km s^-1 and a cut radius of about 10 (+13, -7) kpc at
-        L* (``prior_mag0``).  The priors are widened to log-normals (sampled in log): dispersion of mean ``sigma`` and
+        L* (``mag0``).  The priors are widened to log-normals (sampled in log): dispersion of mean ``sigma`` and
         standard deviation ``0.35 * sigma`` on 40-500 km s^-1 (200 +- 70 km s^-1 by default), and cut radius of mean
-        ``cutkpc`` and standard deviation 10 kpc on 2-60 kpc.  The pivot is chosen automatically from image leverage
-        (``mag0="auto"``).  Pair with :meth:`ScalingModelConfig.bergamini2019` for the slopes.
+        ``cutkpc`` and standard deviation 10 kpc on 2-60 kpc.  Pair with :meth:`ScalingModelConfig.bergamini2019` for
+        the slopes.
 
         Parameters
         ----------
@@ -533,8 +527,8 @@ class MemberPopulationConfig:
             Member catalog (YAML or Lenstool ``.cat``).
         z_lens : float
             Redshift of the members.
-        prior_mag0 : float
-            Magnitude of L*, at which the values and priors are given, in mag.
+        mag0 : float
+            Pivot magnitude, at which the values and priors are given, in mag.
         sigma : float, optional
             Dispersion at L* and mean of its prior, in km s^-1.  Default ``200.0``.
         cutkpc : float, optional
@@ -547,20 +541,19 @@ class MemberPopulationConfig:
         MemberPopulationConfig
             The population.
         """
-        return cls(id=str(id), catalog_path=catalog_path, mag0="auto", prior_mag0=float(prior_mag0), corekpc=float(corekpc),
+        return cls(id=str(id), catalog_path=catalog_path, mag0=float(mag0), corekpc=float(corekpc),
                    sigma=float(sigma), cutkpc=float(cutkpc), z_lens=float(z_lens),
                    sigma_prior=lognormal_from_moments(float(sigma), 0.35 * float(sigma), low=40.0, high=500.0),
                    cutkpc_prior=lognormal_from_moments(float(cutkpc), 10.0, low=2.0, high=60.0))
 
     @classmethod
-    def neutral(cls, id: str, catalog_path: str | Path, z_lens: float, *, prior_mag0: float, corekpc: float = 0.15) -> "MemberPopulationConfig":
+    def neutral(cls, id: str, catalog_path: str | Path, z_lens: float, *, mag0: float, corekpc: float = 0.15) -> "MemberPopulationConfig":
         """Build a member population with priors that come from no cluster's lens model.
 
-        At L* (``prior_mag0``) the dispersion prior is a log-normal of mean 200 and standard deviation 100 km s^-1 on
+        At the pivot (``mag0``) the dispersion prior is a log-normal of mean 200 and standard deviation 100 km s^-1 on
         50-500 km s^-1 (an L* early type in any Faber-Jackson calibration; sampled in log), and the cut radius is
         log-uniform between 2 and 100 kpc (lensing barely constrains it, so the prior is scale-free).  The fixed values
-        are 200 km s^-1 and 15 kpc.  The pivot is chosen automatically from image leverage (``mag0="auto"``).  Pair
-        with :meth:`ScalingModelConfig.neutral` for the slopes.
+        are 200 km s^-1 and 15 kpc.  Pair with :meth:`ScalingModelConfig.neutral` for the slopes.
 
         Parameters
         ----------
@@ -570,8 +563,8 @@ class MemberPopulationConfig:
             Member catalog (YAML or Lenstool ``.cat``).
         z_lens : float
             Redshift of the members.
-        prior_mag0 : float
-            Magnitude of L*, at which the values and priors are given, in mag.
+        mag0 : float
+            Pivot magnitude, at which the values and priors are given, in mag.
         corekpc : float, optional
             Core radius at L*, in kpc.  Default ``0.15``.
 
@@ -580,7 +573,7 @@ class MemberPopulationConfig:
         MemberPopulationConfig
             The population.
         """
-        return cls(id=str(id), catalog_path=catalog_path, mag0="auto", prior_mag0=float(prior_mag0), corekpc=float(corekpc),
+        return cls(id=str(id), catalog_path=catalog_path, mag0=float(mag0), corekpc=float(corekpc),
                    sigma=200.0, cutkpc=15.0, z_lens=float(z_lens),
                    sigma_prior=lognormal_from_moments(200.0, 100.0, low=50.0, high=500.0), cutkpc_prior=dist.LogUniform(2.0, 100.0))
 
@@ -2237,11 +2230,8 @@ def _validate_model_config(model: LensModelConfig | None) -> None:
             raise ValueError(f"large halo {halo.id!r} must have positive z_lens.")
     populations: dict[str, MemberPopulationConfig] = {}
     for population in model.member_populations:
-        if isinstance(population.mag0, str):
-            if population.mag0 != "auto":
-                raise ValueError(f"member population {population.id!r}: mag0 must be a number or 'auto'.")
-            if population.prior_mag0 is None:
-                raise ValueError(f"member population {population.id!r}: mag0='auto' needs prior_mag0, the magnitude the sigma and cutkpc priors refer to.")
+        if isinstance(population.mag0, (str, bool)) or not math.isfinite(float(population.mag0)):
+            raise ValueError(f"member population {population.id!r}: mag0 must be a finite magnitude, got {population.mag0!r}.")
         if population.id in populations:
             raise ValueError(f"duplicate member population id {population.id!r}.")
         populations[population.id] = population

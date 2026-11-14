@@ -14,4 +14,4 @@ halos:
 # chains multi-well and did not improve the fit.  L* is m_F160W = 19.82 at z = 0.5.  The subhalos are analytic
 # profiles, so there is no resolution softening.
 members:
-  potfile_1: {catalog_path: members.yaml, preset: bergamini2019, prior_mag0: 19.82}
+  potfile_1: {catalog_path: members.yaml, preset: bergamini2019, mag0: 19.82}

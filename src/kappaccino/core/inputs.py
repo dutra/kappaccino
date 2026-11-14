@@ -10,7 +10,7 @@ import pandas as pd
 from ..config import IndependentMemberHaloConfig, LensModelConfig, MemberPopulationConfig
 from ..io.image_catalog import load_image_catalog
 from ..io.member_catalog import load_member_catalog
-from ..priors import cut_excess_from_moments, ellipticity_box, lognormal_from_moments, physical_center, scaled
+from ..priors import cut_excess_from_moments, ellipticity_box, lognormal_from_moments
 from ..lens.profiles import profile as lens_profile
 from ..io.sky import radec_to_offsets_arcsec
 
@@ -129,26 +129,8 @@ def _apply_catalog_exclusions(catalog_df: pd.DataFrame, population: MemberPopula
     return filtered
 
 
-def automatic_pivot(catalog_df: pd.DataFrame, images_df: pd.DataFrame, reference: tuple[int, float, float], *,
-                    floor_arcsec: float = 1.0) -> dict[str, Any]:
-    """Image-leverage-weighted member magnitude, w_i = sum_j 1 / max(R_ij, floor)^2, rounded to the nearest magnitude."""
-    _, ra0, dec0 = reference
-    mx, my = radec_to_offsets_arcsec(catalog_df["ra"].to_numpy(dtype=float), catalog_df["dec"].to_numpy(dtype=float), ra0, dec0)
-    ix, iy = radec_to_offsets_arcsec(images_df["ra"].to_numpy(dtype=float), images_df["dec"].to_numpy(dtype=float), ra0, dec0)
-    distance = np.hypot(mx[:, None] - ix[None, :], my[:, None] - iy[None, :])
-    weights = np.sum(1.0 / np.maximum(distance, float(floor_arcsec)) ** 2, axis=1)
-    magnitudes = catalog_df["catalog_mag"].to_numpy(dtype=float)
-    weighted = float(np.sum(weights * magnitudes) / np.sum(weights))
-    return {"mag0": float(np.round(weighted)), "weighted_mean_mag": weighted, "member_median_mag": float(np.median(magnitudes)),
-            "n_members": int(len(magnitudes))}
-
-
-def declared_model_inputs(model_config: LensModelConfig, scaling: Any = None) -> tuple[list[dict[str, Any]], list[dict[str, Any]], pd.DataFrame, dict[str, Any], tuple[int, float, float]]:
-    """Return (potentials with priors, potfiles, images, cosmology config, reference).
-
-    ``scaling`` (a ScalingModelConfig) supplies the prior alpha and beta used to move a population's sigma and cutkpc
-    priors to an automatic pivot.
-    """
+def declared_model_inputs(model_config: LensModelConfig) -> tuple[list[dict[str, Any]], list[dict[str, Any]], pd.DataFrame, dict[str, Any], tuple[int, float, float]]:
+    """Return (potentials with priors, potfiles, images, cosmology config, reference)."""
     reference = (int(model_config.reference.reference), float(model_config.reference.ra0_deg), float(model_config.reference.dec0_deg))
     cosmo_config = cosmology_config_from_model_config(model_config)
     if model_config.image_constraints is None:
@@ -199,26 +181,13 @@ def declared_model_inputs(model_config: LensModelConfig, scaling: Any = None) ->
                 potentials.append(_independent_member_halo_potential(independent, population, match.iloc[0], reference, cosmo_config))
             catalog_df = catalog_df.loc[~catalog_ids.isin({str(item.catalog_id) for item in independent_items})].copy().reset_index(drop=True)
         catalog_df = _apply_catalog_exclusions(catalog_df, population)
-        sigma_prior, cutkpc_prior = population.sigma_prior, population.cutkpc_prior
-        sigma_nominal, cutkpc_nominal, corekpc_nominal, pivot = float(population.sigma), float(population.cutkpc), float(population.corekpc), None
-        if isinstance(population.mag0, str):
-            if scaling is None:
-                raise ValueError("mag0='auto' needs the scaling configuration to move the priors to the pivot.")
-            pivot = automatic_pivot(catalog_df, images_df, reference)
-            pivot["prior_mag0"] = float(population.prior_mag0)
-            ratio = 10.0 ** (-0.4 * (pivot["mag0"] - float(population.prior_mag0)))     # L0_new / L0_old
-            f_sigma, f_cut = ratio ** physical_center(scaling.alpha_sigma_prior), ratio ** physical_center(scaling.beta_radius_prior)
-            pivot.update(luminosity_ratio=ratio, sigma_factor=f_sigma, cutkpc_factor=f_cut)
-            sigma_prior, cutkpc_prior = scaled(sigma_prior, f_sigma), scaled(cutkpc_prior, f_cut)
-            sigma_nominal, cutkpc_nominal, corekpc_nominal = sigma_nominal * f_sigma, cutkpc_nominal * f_cut, corekpc_nominal * f_cut
-            mag0 = pivot["mag0"]
-        else:
-            mag0 = float(population.mag0)
         potfiles.append({
             "id": str(population.id), "type": int(population.profile_type),
             "catalog_path": str(population.catalog_path), "catalog_df": catalog_df,
-            "mag0": mag0, "pivot": pivot, "corekpc": float(population.corekpc), "corekpc_nominal": corekpc_nominal, "zlens": float(population.z_lens),
-            "sigma_prior": sigma_prior, "sigma_nominal": sigma_nominal, "cutkpc_prior": cutkpc_prior, "cutkpc_nominal": cutkpc_nominal,
+            "mag0": float(population.mag0), "corekpc": float(population.corekpc), "corekpc_nominal": float(population.corekpc),
+            "zlens": float(population.z_lens),
+            "sigma_prior": population.sigma_prior, "sigma_nominal": float(population.sigma),
+            "cutkpc_prior": population.cutkpc_prior, "cutkpc_nominal": float(population.cutkpc),
             "slope_prior": population.slope_prior, "slope_nominal": float(population.slope),
         })
     return potentials, potfiles, images_df, cosmo_config, reference

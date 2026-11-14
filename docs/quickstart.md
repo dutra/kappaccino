@@ -55,7 +55,7 @@ config = LensClusterSolverConfig(
             ShearHaloConfig.free("S1", z_lens),
         ),
         member_populations=(
-            MemberPopulationConfig.bergamini2019("potfile_1", "catalogs/hera/members.yaml", z_lens, prior_mag0=19.82),
+            MemberPopulationConfig.bergamini2019("potfile_1", "catalogs/hera/members.yaml", z_lens, mag0=19.82),
         ),
         image_constraints=ImageConstraintsConfig(catalog_path="catalogs/hera/images.yaml"),
     ),

@@ -98,7 +98,7 @@ members:
   potfile_1:
     catalog_path: members.yaml
     preset: neutral
-    prior_mag0: 18.66
+    mag0: 18.66
     independent:
       "2526":
         id: bcg_2526

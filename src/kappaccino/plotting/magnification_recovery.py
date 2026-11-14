@@ -13,7 +13,7 @@ from astropy.io import fits
 from scipy.ndimage import map_coordinates
 from scipy.spatial import Delaunay, QhullError
 
-from .style import PAPER_STYLE
+from .style import APJ_COLUMN_WIDTH_IN, BLUE, DASHES, FIGURE_STYLE, ORANGE, save_page
 
 STYLE = Path(__file__).with_name('style.mplstyle')
 BIN_COLUMNS = ['true_mu', 'model_p16', 'model_median', 'model_p84', 'n_pixels']
@@ -61,30 +61,52 @@ def image_truth_magnification(images, reference, z_lens, cosmology, truth_config
     return mu, redshifts
 
 
-@plt.rc_context(fname=STYLE, rc=PAPER_STYLE)
+@plt.rc_context(fname=STYLE, rc=FIGURE_STYLE)
 def render_recovery(true_mu, model_mu, bins, images, path):
-    fig, ax = plt.subplots(figsize=(3.5, 3.1), layout='constrained')
-    ax.hexbin(true_mu, model_mu, xscale='log', yscale='log', gridsize=45, mincnt=1,
-              bins='log', cmap='Greys', linewidths=0, rasterized=True)
-    ax.plot([.5, 200], [.5, 200], color='0.45', ls='--', lw=1)
-    if not bins.empty:
-        ax.errorbar(bins.true_mu, bins.model_median,
-                    yerr=[bins.model_median-bins.model_p16, bins.model_p84-bins.model_median],
-                    fmt='o', color='tab:orange', ms=3, lw=1, capsize=2,
-                    label=r'Binned $|\mu|$', zorder=4)
+    """Model against true |mu|, one ApJ column wide.  Gray: density of map pixels.  Orange: the median model |mu| in
+    bins of the true value with the spatial 16-84 per cent range.  Blue: the multiple images.  The lower panel is the
+    ratio of the two axes."""
+    from matplotlib.lines import Line2D
+    from matplotlib.patches import Patch
+    from matplotlib.ticker import FixedLocator, FuncFormatter, NullFormatter
+    fig, (ax, ratio_ax) = plt.subplots(2, 1, figsize=(APJ_COLUMN_WIDTH_IN, 3.75), sharex=True,
+                                       gridspec_kw={"height_ratios": [2.9, 1], "hspace": .06})
+    fig.subplots_adjust(left=.165, right=.955, bottom=.105, top=.985)
+    xlim, ylim, rlim = (1, 100), (.5, 200), (.3, 3.3)
+    density = dict(xscale="log", yscale="log", mincnt=1, bins="log", cmap="Greys", linewidths=0, rasterized=True, vmin=.6)
+    ratio = model_mu / true_mu
+    ax.hexbin(true_mu, model_mu, gridsize=(46, 30), extent=(0, 2, np.log10(ylim[0]), np.log10(ylim[1])), **density)
+    shown = (ratio > rlim[0]) & (ratio < rlim[1])
+    ratio_ax.hexbin(true_mu[shown], ratio[shown], gridsize=(46, 10), extent=(0, 2, np.log10(rlim[0]), np.log10(rlim[1])), **density)
+    exact = dict(color="0.1", linestyle=DASHES, linewidth=.7, zorder=2)
+    ax.plot(ylim, ylim, **exact)
+    ratio_ax.axhline(1.0, **exact)
     valid = images.finite.to_numpy(bool)
-    ax.scatter(images.loc[valid, 'true_abs_mu'], images.loc[valid, 'model_abs_mu'], marker='D', s=10,
-               color='tab:blue', edgecolors='none', linewidths=0, alpha=.85, label='Images', zorder=3)
-    ax.set(xlim=(1, 100), ylim=(.5, 200), xlabel=r'True $|\mu|$', ylabel=r'Model $|\mu|$')
-    ax.grid(False, which='both')
-    ax.spines[['top', 'right', 'bottom', 'left']].set_visible(True)
-    handles, labels = ax.get_legend_handles_labels()
-    order = sorted(range(len(labels)), key=lambda i: labels[i] == 'Images')
-    ax.legend([handles[i] for i in order], [labels[i] for i in order],
-              frameon=False, fontsize=8, loc='upper left')
+    points = dict(marker="D", s=11, color=BLUE, edgecolors="white", linewidths=.35, zorder=3)
+    ax.scatter(images.loc[valid, "true_abs_mu"], images.loc[valid, "model_abs_mu"], **points)
+    ratio_ax.scatter(images.loc[valid, "true_abs_mu"], images.loc[valid, "model_abs_mu"] / images.loc[valid, "true_abs_mu"], **points)
+    handles = [Patch(facecolor="0.6", edgecolor="none", label="Map pixels"),
+               Line2D([], [], marker="D", markersize=3.6, color=BLUE, markeredgecolor="white", markeredgewidth=.35, linestyle="none", label="Images")]
+    if not bins.empty:
+        binned = dict(fmt="o", color=ORANGE, markersize=4.2, elinewidth=1, capsize=2, capthick=1, markeredgecolor="white",
+                      markeredgewidth=.6, zorder=4)
+        handles.insert(1, ax.errorbar(bins.true_mu, bins.model_median, yerr=[bins.model_median - bins.model_p16, bins.model_p84 - bins.model_median],
+                                      label="Binned median", **binned))
+        ratio_ax.errorbar(bins.true_mu, bins.model_median / bins.true_mu,
+                          yerr=[(bins.model_median - bins.model_p16) / bins.true_mu, (bins.model_p84 - bins.model_median) / bins.true_mu], **binned)
+    ax.set(xlim=xlim, ylim=ylim, ylabel=r"Model $|\mu|$")
+    ratio_ax.set(ylim=rlim, xlabel=r"True $|\mu|$")
+    ratio_ax.set_ylabel("Model / true", fontsize=9)
+    plain = FuncFormatter(lambda v, _: f"{v:g}")
+    ratio_ax.yaxis.set_major_locator(FixedLocator([.5, 1, 2]))
+    ratio_ax.yaxis.set_major_formatter(plain)
+    ratio_ax.yaxis.set_minor_formatter(NullFormatter())
+    ratio_ax.xaxis.set_major_formatter(plain)
+    ax.yaxis.set_major_formatter(plain)
+    ax.legend(handles=handles, frameon=False, loc="upper left", borderaxespad=.5)
+    fig.align_ylabels((ax, ratio_ax))
     path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(path, bbox_inches='tight', pad_inches=.04)
-    plt.close(fig)
+    save_page(fig, path)
 
 
 def write_magnification_recovery(truth, images, reference, z_lens, cosmology, truth_config,

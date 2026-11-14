@@ -14,10 +14,11 @@ import numpy as np
 import pandas as pd
 from matplotlib.colors import LinearSegmentedColormap, Normalize
 from matplotlib.lines import Line2D
-from matplotlib.ticker import MaxNLocator
+from matplotlib.patches import Patch
+from matplotlib.ticker import FuncFormatter, MaxNLocator
 from skimage.measure import find_contours
 
-from .style import PAPER_STYLE
+from .style import APJ_COLUMN_WIDTH_IN, BLUE, DASHES, FIGURE_STYLE, ORANGE, PAPER_STYLE, save_page
 from ..likelihood.evaluator import Evaluator
 from ..core.model import ModelState, ParameterSpec, PosteriorResults, member_log_deviations
 from ..diagnostics.truth_recovery import PROFILE_INNER_ARCSEC, smoothed_digitized_curve
@@ -57,12 +58,40 @@ def posterior_residual_histogram_counts(draws: pd.DataFrame | None, bins: np.nda
     return np.asarray(counts, dtype=int).reshape(-1, len(bins) - 1)
 
 
-@plt.rc_context(fname=STYLE, rc=PAPER_STYLE)
+@plt.rc_context(fname=STYLE, rc=FIGURE_STYLE)
+def residual_histogram_figure(groups: list[np.ndarray], path: Path, *, bins: int = 24) -> Path:
+    """Histogram of image-position residuals, one ApJ column wide.  ``groups`` holds the residuals (arcsec) of the
+    recovered images of each posterior draw (of each mock, for a campaign).  Blue: the median count per bin over the
+    groups with its 16-84 per cent band.  Orange: the RMS, median of the per-group values with their 16-84 per cent
+    range, quoted in the legend."""
+    fig, ax = plt.subplots(figsize=(APJ_COLUMN_WIDTH_IN, 2.4))
+    if groups:
+        x_max = float(np.ceil(np.quantile(np.concatenate(groups), 0.99) / 0.05) * 0.05)
+        edges = np.linspace(0.0, max(x_max, 1e-6), bins + 1)
+        h16, h50, h84 = np.percentile(np.stack([np.histogram(g, bins=edges)[0] for g in groups]), [16, 50, 84], axis=0)
+        rms_low, rms, rms_high = (float(v) for v in np.percentile([np.sqrt(np.mean(g ** 2)) for g in groups], [16, 50, 84]))
+        band, rms_band = matplotlib.colors.to_rgba(BLUE, .16), matplotlib.colors.to_rgba(ORANGE, .16)
+        ax.stairs(h84, edges, baseline=h16, fill=True, color=band, linewidth=0.0, zorder=1)
+        ax.stairs(h50, edges, color=BLUE, linewidth=1.4, zorder=3)
+        ax.axvspan(rms_low, rms_high, color=rms_band, linewidth=0, zorder=0)
+        ax.axvline(rms, color=ORANGE, linestyle=DASHES, linewidth=1.2, zorder=4)
+        # One legend entry per quantity: its line over its band.
+        handles = [(Patch(facecolor=band, edgecolor="none"), Line2D([], [], color=BLUE, linewidth=1.4)),
+                   (Patch(facecolor=rms_band, edgecolor="none"), Line2D([], [], color=ORANGE, linewidth=1.2, linestyle=DASHES))]
+        ax.legend(handles, ["Images per bin", rf"RMS $= {rms:.3f}^{{+{rms_high - rms:.3f}}}_{{-{rms - rms_low:.3f}}}$ arcsec"],
+                  frameon=False, loc="upper right", handlelength=1.9, borderaxespad=.5)
+        ax.set_xlim(0.0, edges[-1])
+        ax.set_ylim(0.0, max(float(h84.max()), 1.0) * 1.08)
+    ax.set_xlabel("Image-position residual (arcsec)")
+    ax.set_ylabel("Number of images")
+    ax.yaxis.set_major_locator(MaxNLocator(4, integer=True))
+    ax.xaxis.set_major_locator(MaxNLocator(4))
+    fig.subplots_adjust(left=.14, right=.975, bottom=.165, top=.975)
+    return save_page(fig, path)
+
+
 def plot_image_residual_histogram(image_df: pd.DataFrame, path: Path, *, draws: pd.DataFrame | None = None, log=None) -> Path:
-    """Image-position residual histogram over the reporting draws, as the mock aggregate figure
-    (``mock_validation.aggregate_plots.plot_image_residual_distribution``): the median count per bin over draws with
-    the 16-84 per cent band, and the RMS as the median of the per-draw values (dashed) with their 16-84 per cent range
-    (red shade)."""
+    """``residual_histogram_figure`` over the reporting draws of one run."""
     groups = []
     if draws is not None and not draws.empty:
         for _, group in draws.groupby("draw_index", sort=True):
@@ -70,30 +99,7 @@ def plot_image_residual_histogram(image_df: pd.DataFrame, path: Path, *, draws: 
             r = r[group["recovered"].astype(bool).to_numpy() & np.isfinite(r) & (r >= 0)]
             if r.size:
                 groups.append(r)
-    fig, ax = plt.subplots(figsize=(3.5, 2.6))
-    if groups:
-        pooled = np.concatenate(groups)
-        x_max = float(np.ceil(np.quantile(pooled, 0.99) * 1.10 / 0.05) * 0.05)
-        edges = np.linspace(0.0, max(x_max, 1e-6), 25)
-        counts = np.stack([np.histogram(g, bins=edges)[0] for g in groups])
-        h16, h50, h84 = np.percentile(counts, [16, 50, 84], axis=0)
-        rms_low, rms, rms_high = (float(v) for v in np.percentile([np.sqrt(np.mean(g ** 2)) for g in groups], [16, 50, 84]))
-        ax.stairs(h84, edges, baseline=h16, fill=True, color="tab:blue", alpha=0.08, linewidth=0.0, zorder=1)
-        ax.stairs(h50, edges, color="tab:blue", linewidth=1.5, label="Residuals", zorder=3)
-        ax.axvspan(rms_low, rms_high, color="#ba5a2a", alpha=0.15, linewidth=0, zorder=2)
-        ax.axvline(rms, color="#ba5a2a", linestyle="--", linewidth=1.3, label="RMS", zorder=4)
-        ax.set_xlim(0.0, edges[-1])
-        ax.legend(loc="upper right", fontsize=8, frameon=False)
-    ax.set_xlabel("Image-position residual (arcsec)")
-    ax.set_ylabel("Number of images")
-    ax.set_ylim(bottom=0.0)
-    ax.yaxis.set_major_locator(MaxNLocator(4, integer=True))
-    ax.xaxis.set_major_locator(MaxNLocator(4))
-    ax.grid(False)
-    fig.tight_layout()
-    fig.savefig(path, dpi=300, bbox_inches="tight", pad_inches=.04)
-    plt.close(fig)
-    return path
+    return residual_histogram_figure(groups, path)
 
 
 def plot_image_recovery(image_df: pd.DataFrame, extra_df: pd.DataFrame, path: Path) -> Path:
@@ -298,7 +304,7 @@ def plot_scaling_relation(table: pd.DataFrame, posterior_physical: np.ndarray, s
 # ----------------------------------------------------------------------------- critical curves
 def plot_critical_curves(state: ModelState, draws, z_source: float, path: Path, *, half_fov_arcsec: float | None = None,
                          grid_scale_arcsec: float = 0.5, log=print) -> Path:
-    """Critical curves and caustics over the reporting draws (parametric plus each draw's GRF conditional mean): the zero
+    """Critical curves and caustics over the reporting draws (parametric plus each draw's GRF realization): the zero
     contours of the per-pixel median tangential (solid) and radial (dashed) eigenvalues 1 - kappa -/+ |gamma|, shaded
     where their 16-84% range contains zero; the caustics are the per-point median over draws of the median curves
     mapped through each draw's lens; the sources are the medians over draws with their 16-84% range.  The grid spans
@@ -437,32 +443,36 @@ def literature_legends(fig, groups: dict, top: float) -> None:
         top = legend.get_window_extent().transformed(fig.transFigure.inverted()).y1 + 0.005
 
 
-@plt.rc_context(fname=STYLE, rc=PAPER_STYLE)
+@plt.rc_context(fname=STYLE, rc=FIGURE_STYLE)
 def plot_truth_ratio_panels(profile: pd.DataFrame, kappa_profile: pd.DataFrame, center: dict[str, Any], image_df: pd.DataFrame | None,
                             path: Path, literature_mass: pd.DataFrame | None = None, literature_kappa: pd.DataFrame | None = None) -> Path:
-    """Model over truth for the enclosed projected mass (upper panel) and the azimuthally averaged convergence (lower panel)
-    against radius, in the style of the enclosed-mass figure: posterior median and 16-84 per cent band, the published
-    ratios (``draw_literature_ratios``, in one legend inside the mass panel) and ticks at the image radii."""
-    fig, (ax_m, ax_k) = plt.subplots(2, 1, figsize=(3.5, 3.7), sharex=True, gridspec_kw={"hspace": 0.06})
+    """Model over truth for the enclosed projected mass (upper panel) and the azimuthally averaged convergence (lower
+    panel) against radius, one ApJ column wide: posterior median and 16-84 per cent band, the published ratios
+    (``draw_literature_ratios``) in one legend above the panels, and a tick at the radius of every image."""
     radii = None
     if image_df is not None and not image_df.empty and center is not None:
         radii = np.hypot(image_df["x_obs_arcsec"].to_numpy(float) - center["center_x_arcsec"], image_df["y_obs_arcsec"].to_numpy(float) - center["center_y_arcsec"])
-    panels = ((ax_m, profile, "radius_arcsec", "m2d_ratio", literature_mass, r"$M_{\rm model}/M_{\rm true}$", (0.9, 1.1), [0.9, 0.95, 1.0, 1.05, 1.1]),
-              (ax_k, kappa_profile, "radius_arcsec", "kappa_ratio", literature_kappa, r"$\kappa_{\rm model}/\kappa_{\rm true}$", (0.8, 1.2), [0.8, 0.9, 1.0, 1.1, 1.2]))
+    has_literature = any(table is not None and len(table) for table in (literature_mass, literature_kappa))
+    legend_in = .34 if has_literature else 0.0                   # room above the panels for the legend
+    height = 3.25 + legend_in
+    fig, (ax_m, ax_k) = plt.subplots(2, 1, figsize=(APJ_COLUMN_WIDTH_IN, height), sharex=True)
+    fig.subplots_adjust(left=.165, right=.975, bottom=.40 / height, top=1 - (.05 + legend_in) / height, hspace=.11)
+    panels = ((ax_m, profile, "m2d_ratio", literature_mass, r"$M_{\rm model}/M_{\rm true}$", (0.9, 1.1), [0.9, 0.95, 1.0, 1.05, 1.1]),
+              (ax_k, kappa_profile, "kappa_ratio", literature_kappa, r"$\kappa_{\rm model}/\kappa_{\rm true}$", (0.8, 1.2), [0.8, 0.9, 1.0, 1.1, 1.2]))
     groups = {}
-    for ax, table, rcol, prefix, literature, label, ylim, yticks in panels:
-        radius = table[rcol].to_numpy(float)
+    for ax, table, prefix, literature, label, ylim, yticks in panels:
+        radius = table["radius_arcsec"].to_numpy(float)
         lo, mid, hi = (table[f"{prefix}_{k}"].to_numpy(float) for k in ("q16", "median", "q84"))
         band = np.isfinite(lo) & np.isfinite(hi)
         if band.any():
-            ax.fill_between(radius[band], lo[band], hi[band], color="#2878A5", alpha=0.22, linewidth=0.0)
+            ax.fill_between(radius[band], lo[band], hi[band], color=BLUE, alpha=0.22, linewidth=0.0, zorder=2)
         drawn = draw_literature_ratios(ax, literature)
         if sum(map(len, drawn.values())) > sum(map(len, groups.values())):
             groups = drawn
-        ours, = ax.plot(radius, mid, color="#2878A5", linewidth=1.4, label="This work", zorder=2)
-        ax.axhline(1.0, color="0.2", linestyle="--", linewidth=1.0)
+        ax.plot(radius, mid, color=BLUE, linewidth=1.6, zorder=3)
+        ax.axhline(1.0, color="0.1", linestyle=DASHES, linewidth=.7, zorder=1)
         if radii is not None:
-            ax.vlines(radii[radii > 0], 0.0, 0.10, transform=ax.get_xaxis_transform(), color="0.20", linewidth=0.85, alpha=0.9, zorder=5)
+            ax.vlines(radii[radii > 0], 0.0, 0.07, transform=ax.get_xaxis_transform(), color="0.25", linewidth=0.5, zorder=5)
         ax.set_ylim(*ylim)
         ax.set_yticks(yticks)
         ax.set_ylabel(label)
@@ -470,13 +480,15 @@ def plot_truth_ratio_panels(profile: pd.DataFrame, kappa_profile: pd.DataFrame, 
     shown = np.concatenate([profile["radius_arcsec"].to_numpy(float), kappa_profile["radius_arcsec"].to_numpy(float)])
     ax_k.set_xlim(PROFILE_INNER_ARCSEC, np.nanmax(shown) * 1.03)
     ax_k.set_xlabel(r"$R$ (arcsec)")
-    # One legend in the upper left of the mass panel, on a mostly opaque box drawn above the curves.
-    legend = ax_m.legend(handles=[ours, *[line for lines in groups.values() for line in lines]], loc="upper left", ncol=2,
-                         frameon=True, framealpha=0.85, facecolor="white", edgecolor="none", handlelength=1.6,
-                         columnspacing=0.8, labelspacing=0.2, borderpad=0.3, borderaxespad=0.3)
-    legend.set_zorder(10)
+    ax_k.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}"))
+    ax_k.xaxis.set_minor_formatter(FuncFormatter(lambda v, _: f"{v:g}" if round(v) in (5, 20, 50) else ""))
+    if has_literature:
+        ours = (Patch(facecolor=matplotlib.colors.to_rgba(BLUE, .22), edgecolor="none"), Line2D([], [], color=BLUE, linewidth=1.6))
+        lines = [line for members in groups.values() for line in members]
+        fig.legend([ours, *lines], ["This work", *(line.get_label() for line in lines)], loc="upper center", ncol=3, frameon=False,
+                   fontsize=7, handlelength=1.3, columnspacing=.9, handletextpad=.4, bbox_to_anchor=(.5, 1 - .02 / height), borderaxespad=0)
     fig.align_ylabels((ax_m, ax_k))
-    return _finish(fig, path, dpi=220)
+    return save_page(fig, path)
 
 
 @plt.rc_context(fname=STYLE, rc=PAPER_STYLE)

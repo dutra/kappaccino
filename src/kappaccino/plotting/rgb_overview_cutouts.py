@@ -11,13 +11,13 @@ from ..io.hdf5 import load_arrays
 
 
 
-def overview_cutout_data(tables, prefix, *, image_labels=(), system_ids=(), draws=None, log=print):
-    """Reuse saved image draws and fold geometry, never run an image search."""
+def overview_cutout_data(tables, prefix, *, image_labels=(), system_ids=(), draws=None, neighbors=False, log=print):
+    """Reuse saved image draws and fold geometry, never run an image search.  ``neighbors`` adds to each image panel
+    the other catalog images inside its field (``item['neighbors']``: label, family, observed position, density grid
+    or None), which :func:`render_overview_cutouts` then draws and labels."""
     image_labels,system_ids=tuple(image_labels),tuple(system_ids)
     if not image_labels and not system_ids:
         return None
-    if len(image_labels)>4 or len(system_ids)>4:
-        raise ValueError('RGB critical overview supports at most four image and four fold cutouts')
     tables=Path(tables)
     required=[tables/'posterior_overview_positions.h5',
               tables/f'{prefix}_small_lambda_a_image_posteriors_jwst.csv',
@@ -63,6 +63,13 @@ def overview_cutout_data(tables, prefix, *, image_labels=(), system_ids=(), draw
         radius=np.max(np.abs(np.concatenate(curves)-center))
         fov=float(.5*np.ceil(max(3.,2.3*radius)/.5))
         item=dict(label=label,center=center,fov=fov,z=row.z_source,grid=grid)
+        if neighbors:
+            inside=ranking[(np.abs(ranking[['x_arcsec','y_arcsec']].to_numpy(float)-center).max(axis=1)<fov/2)
+                           &(ranking.index!=label)&ranking.index.isin(labels)]
+            item['family']=str(row.family_id)
+            item['neighbors']=[dict(label=other,family=str(r.family_id),center=np.array([r.x_arcsec,r.y_arcsec]),
+                                    grid=_credible_density_grid(positions[:,labels.index(other)]))
+                               for other,r in inside.iterrows()]
         if critical is not None:
             matches=np.flatnonzero(np.all(np.isclose(critical['centers'],center,rtol=0,atol=1e-10),axis=1)
                                    &np.isclose(critical['redshifts'],row.z_source,rtol=0,atol=1e-10)
@@ -115,19 +122,33 @@ def render_overview_cutouts(fig, data, imaging, frame, *, image_rects=None, syst
                        levels=[grid['levels'][0]],colors=[color],linewidths=.65,linestyles='-')
     for i,item in enumerate(data['images']):
         rect = image_rects[i] if image_rects is not None else [.07+i*.18,.80,.18,.18]
-        ax,pixels=panel(rect,item['center'],item['fov'],item['label'],item['z'])
+        # 'frame_center' (optional) frames the panel elsewhere than on the image, e.g. on a galaxy-scale deflector.
+        frame_center=item.get('frame_center',item['center'])
+        ax,pixels=panel(rect,frame_center,item['fov'],item['label'],item['z'])
         from .jwst_rgb import draw_critical_interval
         critical=item['critical'];det=critical['median_determinant']
         axis=np.linspace(-.5,.5,det.shape[0])
-        x,y=np.meshgrid(item['center'][0]+axis*item['fov'],item['center'][1]+axis*item['fov'])
+        x,y=np.meshgrid(frame_center[0]+axis*item['fov'],frame_center[1]+axis*item['fov'])
         coordinates=pixels(x,y)
         draw_critical_interval(ax,critical['lower'],critical['upper'],CRITICAL_COLOR,coordinates=coordinates)
         if det.min()<0<det.max():
             ax.contour(*coordinates,det,levels=[0],colors=[CRITICAL_COLOR],linewidths=.65)
-        contour(ax,item['grid'],pixels,'tab:orange')
-        ax.plot(*pixels(*item['center']), marker='s', linestyle='none',
-                markerfacecolor='none', markeredgecolor='tab:orange',
-                markersize=4, markeredgewidth=.8, zorder=8)
+        # The panel's image and its family in orange; each other family in the field takes its own color.
+        others=iter(['#009E73','#CC79A7','#F0E442','#56B4E9','#7B61A8'])
+        colors={item.get('family'):'tab:orange'}
+        label_points=[]
+        for image in [item,*item.get('neighbors',[])]:
+            if image.get('family') not in colors:
+                colors[image['family']]=next(others,'#FFFFFF')
+            color=colors[image.get('family')]
+            contour(ax,image['grid'],pixels,color)
+            point=pixels(*image['center'])
+            ax.plot(*point, marker='s', linestyle='none', markerfacecolor='none', markeredgecolor=color,
+                    markersize=4, markeredgewidth=.8, zorder=8)
+            label_points.append((image['label'],point,color))
+        if 'neighbors' in item:
+            from .apj_fold_cutouts import label_catalog_images
+            label_catalog_images(ax,label_points)
     for i,s in enumerate(data['systems']):
         rect = system_rects[i] if system_rects is not None else [.80,.61-i*.18,.18,.18]
         ax,pixels=panel(rect,s['center'],s['fov'],s.get('panel_label',f"System {s['system_id']}"),s['z_source'])
@@ -147,4 +168,4 @@ def render_overview_cutouts(fig, data, imaging, frame, *, image_rects=None, syst
         from .apj_fold_cutouts import label_catalog_images
         label_catalog_images(ax,label_points)
     return dict(top=[item['label'] for item in data['images']],right=[s['system_id'] for s in data['systems']],
-                position_probability=.954499736,position_contours='2 sigma only; conditional on recovery')
+                position_probability=.954499736,position_contours='predicted observed positions; 2 sigma only; conditional on recovery')

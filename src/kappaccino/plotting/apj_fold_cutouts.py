@@ -3,7 +3,8 @@ import json
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.patches import Polygon
+from matplotlib.lines import Line2D
+from matplotlib.patches import Patch, Polygon
 from .fold_pairs import _contours, critical_curve_quantiles, CRITICAL_CURVE_STATISTIC
 from ..imaging.cutouts import arcsec_to_skycoord, arcsec_to_radec, cutout_window, rgb_cutout, rgb_reference_band
 from .style import PAPER_STYLE, CRITICAL_COLOR
@@ -22,8 +23,10 @@ def render_apj_fold_cutouts(config, data, imaging, output, *, max_separation=3.,
     plt.style.use(Path(__file__).with_name('style.mplstyle'))
     plt.rcParams.update(PAPER_STYLE)
     columns=min(3,len(systems));rows=int(np.ceil(len(systems)/columns))
-    fig,axes=plt.subplots(rows,columns,figsize=(7.1,7.1*rows/columns),squeeze=False)
-    fig.subplots_adjust(left=0,right=1,top=1,bottom=0,wspace=0,hspace=0)
+    # The legend takes an empty panel slot when the grid has one, otherwise a strip under the panels.
+    height=7.1*rows/columns;strip=0. if len(systems)<rows*columns else .3
+    fig,axes=plt.subplots(rows,columns,figsize=(7.1,height+strip),squeeze=False)
+    fig.subplots_adjust(left=0,right=1,top=1,bottom=strip/(height+strip),wspace=0,hspace=0)
     palette=['#0072B2','#E69F00','#009E73','#CC79A7','#D55E00','#56B4E9','#F0E442','#7B61A8']
     curve_color=critical_color;shared=False
     for ax,s in zip(axes.flat,systems):
@@ -64,6 +67,19 @@ def render_apj_fold_cutouts(config, data, imaging, output, *, max_separation=3.,
         ax.grid(False)
         label_catalog_images(ax,label_points)
     for ax in list(axes.flat)[len(systems):]:ax.set_visible(False)
+    # Images and contours take the color of their knot, so the legend shows them in a neutral gray.
+    gray='0.3'
+    handles=[Line2D([],[],marker='x',linestyle='none',color=gray,ms=6,mew=.8),
+             Line2D([],[],color=gray,lw=.85),
+             (Patch(facecolor=critical_color,alpha=.18,edgecolor='none'),Line2D([],[],color=critical_color,lw=.7))]
+    names=['Observed image','Model image position','Critical curve']
+    if strip:
+        fig.legend(handles,names,loc='lower center',bbox_to_anchor=(.5,0.),ncol=3,frameon=False,fontsize=8,
+                   borderaxespad=.3,columnspacing=1.6)
+    else:
+        box=axes.flat[len(systems)].get_position()
+        fig.legend(handles,names,loc='center',bbox_to_anchor=(box.x0+box.width/2,box.y0+box.height/2),
+                   frameon=False,fontsize=9,labelspacing=.9,handlelength=2.2)
     output=Path(output)
     if output.suffix.lower() != '.pdf':
         raise ValueError('Figure output must be PDF')

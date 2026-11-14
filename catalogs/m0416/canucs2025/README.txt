@@ -24,7 +24,13 @@ granata2026_m0416_kinematics.txt = the M0416 table of Granata et al. 2026, A&A (
                 2026-11-02 (the same table is at CDS, which was unreachable then). BCG-N is id 1 (275.6 +- 1.5 km/s),
                 BCG-S id 73 (286.4 +- 2.1 km/s).
 
-images.yaml   = the gold catalogue in the lenscluster YAML image format (scripts/convert_canucs_catalog.py): 83 systems, 15 with
-                knots, 111 knot-families, 303 images; system/knot/image from the published labels (K6c.2 = system K6, knot C,
+images.yaml   = the gold catalogue in the lenscluster YAML image format (scripts/convert_canucs_catalog.py); the published
+                catalogue has 83 systems, 15 with knots, 111 knot-families, 303 images; system/knot/image from the published labels (K6c.2 = system K6, knot C,
                 image b); positions and z from the lenstool input (catalogue + about 20 mas, the frame of members.cat);
                 K6e images 1 and 3 renumbered by position to match the other K6 knots. run.yaml reads it.
+                The converter also applies two edits, listed in it (PARITIES, MERGES), so it alone rebuilds this file:
+                2026-11-03 parities of 17 images (history/images.before_parity.yaml is the file before);
+                2026-11-12 seven groups merged into one system each, as knots, because they are one galaxy (z equal
+                within the spectroscopic errors, same knot pattern in every image): K33+K77, K10+K76, K89+K90+K91,
+                K36+K37, K69+K70, K6+K7, K29+C2.  Now 75 systems, 111 knot-families, 303 images; every relabelled image
+                notes its old label (history/images.before_merge.yaml is the file before).

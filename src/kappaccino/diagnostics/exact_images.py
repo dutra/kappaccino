@@ -111,8 +111,8 @@ class ExactImageSolver:
         or the iteration budget is spent; starts that produce non-finite values are frozen.  Returns per start: the
         final position, whether it converged, whether it passes the identification tolerance (the Newton step at the
         final position is small, so it sits on a root), the iteration count and the final step and source residual.
-        ``correction(x, y)`` adds a deflection field to the lens (the GP conditional mean under the knee kernel, see
-        ``gp_knee.MeanDeflectionKnee``), aligned with the starts.
+        ``correction(x, y)`` adds a deflection field to the lens (a realization of the GRF), aligned with the
+        starts.
 
         With ``groups`` (an integer per start, e.g. its family; requires a ``packed`` state shared by all starts and
         ``correction(x, y, index)`` taking the start indices) only the starts still iterating are evaluated, and starts
@@ -350,6 +350,12 @@ class ExactImageSolver:
         return details
 
     # ------------------------------------------------------------------ global image search (batched, JAX)
+    def search_windows(self, families: list[FamilyData]) -> list[tuple[float, float, float]]:
+        """The square searched for each family's images, as (x centre, y centre, half side) in arcsec: the span of its
+        images plus ``exact_image_window_margin_arcsec``."""
+        margin = float(self.config.exact_image_window_margin_arcsec)
+        return [(family.x_center, family.y_center, 0.5 * float(family.search_window) + margin) for family in families]
+
     def solve_all_global(self, families: list[FamilyData], physical: np.ndarray, sources: np.ndarray, correction=None) -> list[tuple[np.ndarray, np.ndarray]]:
         """Every image of every family at one model.
 
@@ -362,13 +368,14 @@ class ExactImageSolver:
         one batched Levenberg-Marquardt solve that iterates only the seeds still moving and merges seeds of one family
         that reach the same position (``_refine``); distinct converged roots inside each window are
         the images.  Returns (x, y) per family, in order.  ``correction(x, y, family_index)`` adds a deflection field per
-        family (``gp_knee.MeanDeflectionKnee``), with family_index the position in ``families``."""
+        family (a realization of the GRF), with family_index the position in
+        ``families``."""
         cfg = self.config
         coarse, fine = float(cfg.exact_image_grid_pitch_arcsec), float(cfg.exact_image_fine_pitch_arcsec)
         reach = float(cfg.exact_image_seed_tolerance_pitches)
         physical = jnp.asarray(physical, dtype=jnp.float64)
         sources = np.asarray(sources, dtype=float)
-        windows = [(family.x_center, family.y_center, 0.5 * float(family.search_window) + float(cfg.exact_image_window_margin_arcsec)) for family in families]
+        windows = self.search_windows(families)
         by_z: dict[float, list[int]] = {}
         for k, family in enumerate(families):
             by_z.setdefault(float(family.z_source), []).append(k)
@@ -473,28 +480,29 @@ class ExactImageSolver:
     def predict_all_global(self, images, families: list[FamilyData], physical: np.ndarray, sources: np.ndarray, correction=None) -> list[dict[str, Any]]:
         """Family predictions from the global search: matched positions, extra images, magnifications at the observed and
         the recovered positions.  ``families`` is in the order of ``images.family_ids`` and ``sources`` is (F, 2).
-        ``correction`` (see ``solve_all_global``) moves the positions; the magnifications stay those of the lens alone."""
+        ``correction`` (see ``solve_all_global``) is part of the lens: it moves the positions and enters the magnifications."""
         started = time.perf_counter()
         solutions = self.solve_all_global(families, physical, sources, correction)
         self.timing["exact_solver"] += time.perf_counter() - started
         packed_images = self.evaluator.packed_state(jnp.asarray(physical, dtype=jnp.float64))[0]
         x_obs, y_obs = np.asarray(images.x_obs, dtype=float), np.asarray(images.y_obs, dtype=float)
         family_index = np.asarray(images.family_index_per_image, dtype=int)
-        _, _, a00, a01, a10, a11 = self.ray_shoot_and_jacobian_per_image(packed_images, x_obs, y_obs)
+        shoot = self._corrected(self.ray_shoot_and_jacobian_per_image, None if correction is None else (lambda x, y: correction(x, y, family_index)))
+        _, _, a00, a01, a10, a11 = shoot(packed_images, x_obs, y_obs)
         mu_obs = 1.0 / (a00 * a11 - a01 * a10)
         details = [self._details(family, *solutions[f], mu_obs[family_index == f]) for f, family in enumerate(families)]
-        self._fill_magnification_at_model(details, packed_images, x_obs, y_obs, family_index)
+        self._fill_magnification_at_model(details, shoot, packed_images, x_obs, y_obs, family_index)
         return details
 
-    def _fill_magnification_at_model(self, details, packed_images, x_obs, y_obs, family_index) -> None:
-        """Model magnification at the recovered positions of every family, one per-image evaluation (unrecovered images
-        keep the observed position and are masked)."""
+    def _fill_magnification_at_model(self, details, shoot, packed_images, x_obs, y_obs, family_index) -> None:
+        """Model magnification at the recovered positions of every family, one per-image evaluation of ``shoot`` (the
+        lens the positions were solved in; unrecovered images keep the observed position and are masked)."""
         x_model, y_model, recovered = x_obs.copy(), y_obs.copy(), np.zeros(x_obs.size, dtype=bool)
         for f, d in enumerate(details):
             rows = np.flatnonzero(family_index == f)[d["recovered_image_mask"]]
             x_model[rows], y_model[rows] = d["matched_model_x_arcsec"][d["recovered_image_mask"]], d["matched_model_y_arcsec"][d["recovered_image_mask"]]
             recovered[rows] = True
-        _, _, b00, b01, b10, b11 = self.ray_shoot_and_jacobian_per_image(packed_images, x_model, y_model)
+        _, _, b00, b01, b10, b11 = shoot(packed_images, x_model, y_model)
         mu_model = np.where(recovered, 1.0 / (b00 * b11 - b01 * b10), np.nan)
         for f, d in enumerate(details):
             d["magnification_at_model"] = mu_model[family_index == f]
@@ -503,14 +511,17 @@ class ExactImageSolver:
         """Every family of one model in a single batched local solve from the observed positions (no fallback search):
         one Levenberg-Marquardt pass over all N images with per-image source redshifts.  ``families`` is in the order of
         ``images.family_ids`` and ``sources`` is (F, 2).  ``correction(x, y, family_index)`` adds a deflection field per
-        family (family_index as in ``images.family_index_per_image``); the magnifications stay those of the lens alone."""
+        family (family_index as in ``images.family_index_per_image``) and is part of the lens: it moves the positions and
+        enters the magnifications."""
         started = time.perf_counter()
         x0, y0 = np.asarray(images.x_obs, dtype=float), np.asarray(images.y_obs, dtype=float)
         family_index = np.asarray(images.family_index_per_image, dtype=int)
         sources = np.asarray(sources, dtype=float)
+        per_image = None if correction is None else (lambda x, y: correction(x, y, family_index))
+        shoot = self._corrected(self.ray_shoot_and_jacobian_per_image, per_image)
         result = self._refine(packed_images, sources[family_index, 0], sources[family_index, 1], x0, y0, shoot=self.ray_shoot_and_jacobian_per_image,
-                              correction=None if correction is None else (lambda x, y: correction(x, y, family_index)))
-        _, _, a00, a01, a10, a11 = self.ray_shoot_and_jacobian_per_image(packed_images, x0, y0)
+                              correction=per_image)
+        _, _, a00, a01, a10, a11 = shoot(packed_images, x0, y0)
         mu = 1.0 / (a00 * a11 - a01 * a10)
         self.timing["exact_solver"] += time.perf_counter() - started
         details = []
@@ -525,5 +536,5 @@ class ExactImageSolver:
                 details.append(self._details(family, px[distinct], py[distinct], mu[sel]))
             else:
                 details.append(self._details(family, np.asarray([]), np.asarray([]), mu[sel], error="local exact image solver failed identification tolerance"))
-        self._fill_magnification_at_model(details, packed_images, x0, y0, family_index)
+        self._fill_magnification_at_model(details, shoot, packed_images, x0, y0, family_index)
         return details

@@ -1350,8 +1350,8 @@ class LikelihoodConfig:
 class ImageDiagnosticsConfig:
     """Exact-image solver and posterior image diagnostics written after sampling.
 
-    Every reporting draw's model images are found with ``exact_image_finder``; the lens-only images (without the GRF
-    conditional mean) use one batched local Levenberg-Marquardt (LM) solve started at the observed positions, without
+    Every reporting draw's model images are found with ``exact_image_finder``; the lens-only images (without the GRF)
+    use one batched local Levenberg-Marquardt (LM) solve started at the observed positions, without
     fallback.  Predicted images are matched to the observed ones within ``match_tolerance_arcsec``.
 
     Parameters
@@ -1637,8 +1637,8 @@ class ReportingConfig:
     one conditional realization of the shared GRF, and every figure, table and results macro is a median over those
     draws with its 16th to 84th percentile range, which holds the uncertainty of the lens parameters and of the field.  No product uses the single best sample.
 
-    The image positions, residuals, RMS and recovered counts are cheap (a local solve from the observed positions, about
-    0.1 s per draw) and need many draws: the median RMS of 64 draws scatters by about 0.01" between draw sets on Hera.
+    The image positions, residuals, RMS and recovered counts are cheap (a local solve from the observed positions in
+    each draw's own lens) and need many draws: the median RMS of 64 draws scatters by about 0.01" between draw sets on Hera.
     They use ``image_draws`` draws; the maps, curves and other products use the first ``draws`` of them (one seeded
     shuffle of the posterior, so the product draws are a subset of the image draws).
 

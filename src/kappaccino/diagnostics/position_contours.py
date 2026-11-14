@@ -1,9 +1,14 @@
-"""Posterior image-position contours from the image recovery of the reporting draws.
+"""Contours of the image positions the model predicts on the sky, from the image recovery of the reporting draws.
 
-The positions are the ones the image recovery solved for every reporting draw (``posterior_image_residual_draws.csv``
-and ``posterior_extra_images.csv``): nothing is solved again.  Each observed image gets the positions of the draws that
+For an observed image the contour is of its predicted observed position, where the model expects a catalog entry:
+where the product draw's own lens (parametric plus its GRF realization) puts the image, plus one fresh draw of the
+image-plane GP and of the measurement error (``x_predicted_arcsec``, ``y_predicted_arcsec`` of
+``posterior_image_residual_draws.csv``), so the catalog position can be compared with it (:func:`position_coverage`).
+For an extra image, which has no catalog position, the contour is of its true position, where to look for it: the lens
+position plus the GP displacement that the observed images near it imply (``x_true_arcsec``, ``y_true_arcsec`` of
+``posterior_extra_images.csv``).  Nothing is solved again.  Each observed image gets the positions of the draws that
 recover it; each extra image found in at least half the draws (``image_recovery_extra_images.csv``) gets the per-draw
-extra image of its family nearest to it, within ``image_recovery.EXTRA_IMAGE_MATCH_ARCSEC``.
+extra image of its family whose lens position is nearest to it, within ``image_recovery.EXTRA_IMAGE_MATCH_ARCSEC``.
 """
 import json
 from pathlib import Path
@@ -22,9 +27,14 @@ MIN_KDE_DRAWS = 10
 
 
 def position_draws(indices, tables) -> dict:
-    """Per-draw model positions from the saved image recovery at the posterior rows ``indices``: ``recovered`` (draw,
-    observed image, 2) and ``extra`` (draw, common extra image, 2), NaN where a draw has none (or had no global search),
-    with ``image_labels``, ``extra_family_ids``, ``extra_anchors`` (the common extra positions) and ``draw_indices``."""
+    """Per-draw positions from the saved image recovery at the posterior rows ``indices``.  ``recovered`` (draw,
+    observed image, 2) and ``extra`` (draw, common extra image, 2) are the positions the contours are drawn of: the
+    predicted observed position of an observed image and the true position of an extra one, NaN where a draw has none
+    (or had no global search).  ``recovered_lens``, ``recovered_true``, ``recovered_predicted`` and ``extra_lens``,
+    ``extra_true``, ``extra_predicted`` are the three positions of the same draws: the lens position, the lens
+    position plus the GP displacement given the catalog, and the lens position plus a fresh draw of the image-plane
+    scatter.  Also ``image_labels``, ``extra_family_ids``, ``extra_anchors`` (the common extra images' lens positions)
+    and ``draw_indices``."""
     tables = Path(tables)
     indices = np.asarray(indices, int)
     slot = {int(index): k for k, index in enumerate(indices)}
@@ -32,25 +42,35 @@ def position_draws(indices, tables) -> dict:
     labels = list(dict.fromkeys(rows['image_label']))
     n = len(indices)
     recovered = np.full((n, len(labels), 2), np.nan)
+    recovered_lens, recovered_true = recovered.copy(), recovered.copy()
     index = {label: i for i, label in enumerate(labels)}
     rows = rows[rows['recovered'].astype(bool) & rows['posterior_index'].isin(indices)]
     for row in rows.itertuples(index=False):
-        recovered[slot[int(row.posterior_index)], index[row.image_label]] = (row.x_model_arcsec, row.y_model_arcsec)
+        recovered[slot[int(row.posterior_index)], index[row.image_label]] = (row.x_predicted_arcsec, row.y_predicted_arcsec)
+        recovered_lens[slot[int(row.posterior_index)], index[row.image_label]] = (row.x_model_arcsec, row.y_model_arcsec)
+        recovered_true[slot[int(row.posterior_index)], index[row.image_label]] = (row.x_true_arcsec, row.y_true_arcsec)
     common = _read(tables / 'image_recovery_extra_images.csv')
     per_draw = _read(tables / 'posterior_extra_images.csv')
     anchors = common[['x_model_arcsec', 'y_model_arcsec']].to_numpy(float) if len(common) else np.empty((0, 2))
     families = common['family_id'].astype(str).to_numpy() if len(common) else np.empty(0, str)
     extra = np.full((n, len(anchors), 2), np.nan)
+    extra_lens, extra_predicted = extra.copy(), extra.copy()
     if len(anchors) and len(per_draw):
         per_draw = per_draw[per_draw['posterior_index'].isin(indices)]
         for posterior_index, group in per_draw.groupby('posterior_index'):
             for j, (anchor, family) in enumerate(zip(anchors, families)):
-                candidates = group[group['family_id'].astype(str) == family][['x_model_arcsec', 'y_model_arcsec']].to_numpy(float)
+                candidates = group[group['family_id'].astype(str) == family]
                 if len(candidates):
-                    distance = np.hypot(*(candidates - anchor).T)
+                    lens = candidates[['x_model_arcsec', 'y_model_arcsec']].to_numpy(float)
+                    distance = np.hypot(*(lens - anchor).T)
                     if distance.min() <= EXTRA_IMAGE_MATCH_ARCSEC:
-                        extra[slot[int(posterior_index)], j] = candidates[np.argmin(distance)]
-    return dict(recovered=recovered, extra=extra, image_labels=np.asarray(labels), extra_family_ids=families,
+                        nearest = int(np.argmin(distance))
+                        extra[slot[int(posterior_index)], j] = candidates[['x_true_arcsec', 'y_true_arcsec']].to_numpy(float)[nearest]
+                        extra_lens[slot[int(posterior_index)], j] = lens[nearest]
+                        extra_predicted[slot[int(posterior_index)], j] = candidates[['x_predicted_arcsec', 'y_predicted_arcsec']].to_numpy(float)[nearest]
+    return dict(recovered=recovered, extra=extra, recovered_lens=recovered_lens, recovered_true=recovered_true,
+                recovered_predicted=recovered.copy(), extra_lens=extra_lens, extra_true=extra.copy(), extra_predicted=extra_predicted,
+                image_labels=np.asarray(labels), extra_family_ids=families,
                 extra_anchors=anchors, draw_indices=indices)
 
 
@@ -97,6 +117,53 @@ def position_contours(points, *, grid_size=256):
     return contours, None
 
 
+def credible_level(points, target):
+    """Probability enclosed by the highest-density region of ``points`` (draw, 2) on whose edge ``target`` lies: 0 at
+    the peak, near 1 far outside.  With at least ``MIN_KDE_DRAWS`` draws it is the fraction of the draws whose density
+    (a KDE without the draw's own kernel) exceeds the density at ``target``; with three to that many, the Gaussian
+    value of the sample mean and covariance; NaN with fewer or a singular distribution."""
+    points, target = np.asarray(points, dtype=float), np.asarray(target, dtype=float)
+    points = points[np.isfinite(points).all(1)]
+    if len(points) < 3 or not np.isfinite(target).all() or np.linalg.matrix_rank(np.cov(points.T)) < 2:
+        return np.nan
+    if len(points) < MIN_KDE_DRAWS:
+        offset = target - points.mean(0)
+        return float(chi2.cdf(offset @ np.linalg.solve(np.cov(points.T), offset), 2))
+    kde = gaussian_kde(points.T)
+    own = 1.0 / (2.0 * np.pi * np.sqrt(np.linalg.det(kde.covariance)))          # a draw's own kernel at its centre
+    density = (len(points) * kde(points.T) - own) / (len(points) - 1)
+    return float(np.mean(density > kde(target)[0]))
+
+
+def position_coverage(draw_rows: pd.DataFrame) -> pd.DataFrame:
+    """Where each catalog position falls in the distribution of its predicted observed positions.
+
+    Parameters
+    ----------
+    draw_rows : pandas.DataFrame
+        ``posterior_image_residual_draws``: one row per draw and image with ``recovered``, the catalog position
+        (``x_obs_arcsec``, ``y_obs_arcsec``) and the predicted observed position (``x_predicted_arcsec``,
+        ``y_predicted_arcsec``).
+
+    Returns
+    -------
+    pandas.DataFrame
+        One row per image: ``family_id``, ``image_label``, ``valid_draws``, ``credible_level``
+        (:func:`credible_level` of the catalog position) and ``inside_68``, ``inside_95``.  If the model's scatter is
+        the right size, about 68% and 95% of the images are inside.  The catalog was used in the fit, so this is an
+        in-sample check.
+    """
+    rows = []
+    for label, group in draw_rows.groupby('image_label', sort=False):
+        found = group[group['recovered'].astype(bool)]
+        level = credible_level(found[['x_predicted_arcsec', 'y_predicted_arcsec']].to_numpy(float),
+                               group[['x_obs_arcsec', 'y_obs_arcsec']].to_numpy(float)[0])
+        rows.append(dict(family_id=group['family_id'].iloc[0], image_label=label, valid_draws=len(found), credible_level=level,
+                         inside_68=bool(level <= PROBABILITIES[0]) if np.isfinite(level) else np.nan,
+                         inside_95=bool(level <= PROBABILITIES[1]) if np.isfinite(level) else np.nan))
+    return pd.DataFrame(rows, columns=['family_id', 'image_label', 'valid_draws', 'credible_level', 'inside_68', 'inside_95'])
+
+
 def prepare_contours(data, *, grid_size=256, log=print):
     curves = []; summaries = []
     for kind in ('recovered', 'extra'):
@@ -117,14 +184,17 @@ def load_or_compute_contours(config, state, draws, extra, tables, *, grid_size=2
     """Position contours of the reporting draws (``reporting.draws.ReportingDraws``) from the saved image recovery in
     ``tables``; ``extra`` (the common extra images) is read from there too and kept in the signature for the callers."""
     tables = Path(tables)
-    data = position_draws(draws.image_indices, tables)
+    data = position_draws(draws.indices, tables)
     save_arrays(tables/'posterior_overview_positions.h5', **data)
     contours = prepare_contours(data, grid_size=grid_size, log=log)
     contours['position_data'] = data
     contours['fingerprint'] = draws.key
     (tables/'posterior_overview_positions.json').write_text(json.dumps(dict(
-        fingerprint=draws.key, draws=len(draws.image_indices), selected_draw_indices=np.asarray(draws.image_indices).tolist(),
-        solver='the image recovery of the reporting draws (no new solve)',
+        fingerprint=draws.key, draws=len(draws.indices), selected_draw_indices=np.asarray(draws.indices).tolist(),
+        solver="the image recovery of the reporting draws (no new solve); each draw's lens is parametric plus its GRF realization",
+        positions='recovered (= recovered_predicted): predicted observed positions of the observed images, the lens position plus '
+                  'one draw of the image-plane GP and measurement error; extra (= extra_true): true positions of the extra images, '
+                  'the lens position plus the GP displacement given the catalog; *_lens, *_true, *_predicted: the three positions',
         extras='Extra images found in at least half the draws; per draw the nearest extra of the family',
         contours=f'KDE highest-density regions (at least {MIN_KDE_DRAWS} draws) or Gaussian ellipses, 68.3% and 95.4%',
         summaries=contours['summaries']), indent=2))

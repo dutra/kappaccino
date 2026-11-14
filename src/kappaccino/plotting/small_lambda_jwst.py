@@ -52,8 +52,8 @@ def singular_eigenvalue(jacobian):
 @plt.rc_context()
 def write_small_lambda_jwst(config, state, draws, paths, imaging, position_contours,
                            *, count=24, minimum_fov=3., minimum_major_sigma=.1, minimum_axis_ratio=2., log=print):
-    """Cutouts of the images with the widest position posteriors, from the reporting draws' recovered positions (no
-    new image search) and each draw's Jacobian with its own shared-field GRF conditional mean."""
+    """Cutouts of the images with the widest predicted observed positions, from the reporting draws' image recovery (no
+    new image search) and each draw's Jacobian with its own realization of the shared GRF."""
     evaluator=draws.evaluator
     if count < 1 or minimum_fov <= 0:
         raise ValueError('count and minimum_fov must be positive')
@@ -180,7 +180,7 @@ def write_small_lambda_jwst(config, state, draws, paths, imaging, position_conto
         ranking='Descending major-axis standard deviation (sqrt of largest eigenvalue of recovered image-position sample covariance); ties by image label; at least 10 recovered draws and positive-definite covariance',
         model='exact parametric + conditional GRF realization of each draw, smooth plotting derivatives',grf_version=PLOT_FIELD_VERSION,
         jacobian_max_asymmetry=max(asymmetries),singular_value_check='abs(lambda_a) checked against smallest singular value for every image/draw',
-        position_contours='68.2689492% (solid) and 95.4499736% (dashed) KDE highest-density regions, conditional on successful local image recovery; no covariance ellipses',
+        position_contours='Predicted observed positions; 68.2689492% (solid) and 95.4499736% (dashed) KDE highest-density regions, conditional on successful local image recovery; no covariance ellipses',
         draw_indices=indices.tolist(),posterior_cache_fingerprint=fingerprint,selected=contour_rows)
     (paths.tables/f'{stem}.json').write_text(json.dumps(info,indent=2)+'\n')
     log(f'[outputs] small-lambda JWST cutouts: {output}')

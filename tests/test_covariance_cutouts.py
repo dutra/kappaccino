@@ -89,7 +89,8 @@ def test_output_reuses_loaded_imaging(monkeypatch, synthetic_config, tmp_path, c
         monkeypatch.setattr(outputs.plots,name,lambda *a,**k:None)
     monkeypatch.setattr(chain_traces,'trace_data',lambda *a:None)
     monkeypatch.setattr(outputs,'compute_truth_recovery',lambda *a,**k:None)
-    monkeypatch.setattr(outputs,'image_recovery_tables',lambda *a,**k:{'image_fit_quality':pd.DataFrame({'image':['a']}),'image_count_recovery':pd.DataFrame(),'image_recovery_extra_images':pd.DataFrame()})
+    monkeypatch.setattr(outputs,'image_recovery_tables',lambda *a,**k:{'image_fit_quality':pd.DataFrame({'image':['a']}),'image_count_recovery':pd.DataFrame(),'image_recovery_extra_images':pd.DataFrame(),
+        'posterior_image_residual_draws':pd.DataFrame(columns=['family_id','image_label','recovered','x_obs_arcsec','y_obs_arcsec','x_predicted_arcsec','y_predicted_arcsec'])})
     monkeypatch.setattr(outputs,'fit_summary',lambda *a,**k:{'observed_image_count':1})
     imaging=cluster if cluster in {"hera","ares"} else "test-imaging"
     def load(image_config, *args):

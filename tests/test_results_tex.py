@@ -67,20 +67,18 @@ def test_run_export(tmp_path):
     assert r'\MJZeroFourOneSixRuntimeHours}{1.017}' in write_run_results(tmp_path).read_text()
 
 
-def test_posterior_rms_and_coordinate_coverage(tmp_path):
+def test_posterior_rms_and_position_coverage(tmp_path):
     (tmp_path / 'artifacts').mkdir()
     (tmp_path / 'tables').mkdir()
     (tmp_path / 'artifacts/summary.json').write_text('{}')
     pd.DataFrame({'image_rms_arcsec': [.02, .07, .12, np.nan]}).to_csv(
         tmp_path / 'tables/posterior_image_rms.csv', index=False)
-    pd.DataFrame({'x_obs_arcsec': [0, 2, 0], 'x_model_q16': [-1, -1, np.nan],
-                  'x_model_q84': [1, 1, np.nan], 'y_obs_arcsec': [0, 0, 0],
-                  'y_model_q16': [-1, -1, -1], 'y_model_q84': [1, 1, 1]}).to_csv(
-        tmp_path / 'tables/image_fit_quality.csv', index=False)
+    pd.DataFrame({'image_label': ['a', 'b', 'c'], 'credible_level': [.3, .9, np.nan]}).to_csv(
+        tmp_path / 'tables/position_coverage.csv', index=False)
     text = write_run_results(tmp_path, name='m0416').read_text()
     for suffix, value in [('NPosteriorRMSDraws', '3'),
-                          ('PositionCoverageXPercent', '50'), ('NPositionCoverageX', '2'),
-                          ('PositionCoverageYPercent', '100'), ('NPositionCoverageY', '3')]:
+                          ('PositionCoverageOneSigmaPercent', '50'), ('NPositionCoverage', '2'),
+                          ('PositionCoverageTwoSigmaPercent', '100')]:
         assert rf'\MJZeroFourOneSix{suffix}}}{{{value}}}' in text
 
 

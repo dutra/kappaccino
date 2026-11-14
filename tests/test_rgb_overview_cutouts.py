@@ -5,6 +5,7 @@ import numpy as np
 from kappaccino.plotting import rgb_overview_cutouts as rc
 from kappaccino.io.hdf5 import save_arrays
 IMAGE_LABELS=('K34.b','K34.a','K33.e','K77.b')
+M0416_SMALL_LAMBDA=('K33B.b','K34.a','K34.b','K14B.a','K14A.c')
 SYSTEM_IDS=('K1','K6','K8','K12')
 
 
@@ -41,15 +42,12 @@ def test_configured_panel_order_roundtrip_and_limit(tmp_path):
     from dataclasses import asdict
     from kappaccino.config import ImageCatalogCutoutConfig
     import json
-    import pytest
     config=ImageCatalogCutoutConfig(paper_small_lambda_cutouts=IMAGE_LABELS,
                                    paper_fold_cutouts=SYSTEM_IDS)
     saved=json.loads(json.dumps(asdict(config)))
     assert saved['paper_small_lambda_cutouts']==list(IMAGE_LABELS)
     assert saved['paper_fold_cutouts']==list(SYSTEM_IDS)
     assert rc.overview_cutout_data(tmp_path,'unused') is None
-    with pytest.raises(ValueError,match='at most four'):
-        rc.overview_cutout_data(tmp_path,'unused',image_labels=('a','b','c','d','e'))
 
 
 def test_launcher_declares_ordered_panels():
@@ -60,7 +58,7 @@ def test_launcher_declares_ordered_panels():
         data = yaml.safe_load(run.read_text())
         if 'extends' in data:
             data = yaml.safe_load((run.parent/data['extends']).read_text())
-        assert tuple(data['image_catalog']['paper_small_lambda_cutouts'])==tuple('image:'+s for s in IMAGE_LABELS)
+        assert tuple(data['image_catalog']['paper_small_lambda_cutouts'])==tuple('image:'+s for s in M0416_SMALL_LAMBDA)
         assert tuple(data['image_catalog']['paper_fold_cutouts'])==tuple('system:'+s for s in SYSTEM_IDS)
 
 

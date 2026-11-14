@@ -39,7 +39,7 @@ image_catalog:
   bands: [F435W, F606W, F814W, F105W, F125W, F140W, F160W]
   # Standalone paper figures, one panel per selector in this order: image:K34.b is one image, family:K6A that knot's
   # images, system:K6 every knot in the saved fold cutout.
-  paper_small_lambda_cutouts: ["image:K34.b", "image:K34.a", "image:K33.e", "image:K77.b"]
+  paper_small_lambda_cutouts: ["image:K33B.b", "image:K34.a", "image:K34.b", "image:K14B.a", "image:K14A.c"]
   paper_fold_cutouts: ["system:K1", "system:K6", "system:K8", "system:K12"]
 
 profiles:

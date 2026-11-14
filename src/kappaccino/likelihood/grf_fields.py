@@ -1,11 +1,11 @@
-"""Exact parametric fields plus the draw-conditioned shared GRF for reporting.
+"""The one shared GRF of a run, for reporting.
 
 This does not alter the likelihood covariance. A family- or system-specific GP cannot
 define one cluster-wide mass map, so the maps use one shared field.  For a run sampled
 with system blocks it is rebuilt after sampling: an all-block twin of the run's model
 (same parameters, hyperparameters and physical sources; the field-wide translation,
-convergence and shear projected out) gives the conditional mean of a
-single field over every image.
+convergence and shear projected out).  ``reporting.draws.ReportingDraws`` draws one
+conditional realization of that field for every reporting draw (``plotting.grf``).
 """
 import copy
 
@@ -132,48 +132,3 @@ def shared_grf_label(evaluator):
     if twin is None:
         return 'none: no knee mass field'
     return 'shared field of the run' if twin is evaluator else 'shared field rebuilt from a system-block run (all-block twin, projected)'
-
-
-def shared_grf_fields(evaluator, theta, z_source, xy, *, chunk=1024):
-    """Return deflection and its Jacobian, scaled to the requested redshift.
-
-    The conditional mean already includes family zero's lens efficiency. Remove
-    that weight before applying the target efficiency, exactly once.
-    """
-    xy = np.asarray(xy, dtype=float).reshape(-1, 2)
-    alpha = np.zeros_like(xy)
-    jacobian = np.zeros((len(xy), 2, 2))
-    twin = shared_field_evaluator(evaluator)
-    if twin is None:
-        return alpha, jacobian
-    correction = twin.gp_deflection_correction(shared_theta(evaluator, theta))
-    if correction is None:
-        return alpha, jacobian
-    evaluator = twin
-    state = evaluator.state
-    reference = _sigma0_factor(state, state.gp_reference_redshift)
-    target = _sigma0_factor(state, z_source)
-    weight = target / reference / float(evaluator.gp_weights_per_family[0])
-    for start in range(0, len(xy), chunk):
-        points = xy[start:start + chunk]
-        count = len(points)
-        points = np.pad(points, ((0, chunk-count), (0, 0)), mode='edge')
-        fields = correction(points[:, 0], points[:, 1], np.zeros(chunk, dtype=int))
-        alpha[start:start+count] = np.stack(fields[:2], axis=-1)[:count] * weight
-        jacobian[start:start+count] = np.stack(fields[2:], axis=-1)[:count].reshape(-1, 2, 2) * weight
-    if not (np.isfinite(alpha).all() and np.isfinite(jacobian).all()):
-        raise ValueError('Nonfinite conditional GRF reporting fields')
-    return alpha, jacobian
-
-
-def posterior_map_draws(samples, count, seed):
-    """``count`` random posterior draws (all of them when there are fewer), in chain order, for a posterior-mean map.
-
-    A map of the parametric model plus the field's conditional mean has to be averaged over draws: the conditional
-    mean fits the residuals its parameter vector leaves, and a coordinatewise median of the parameters is not a
-    posterior state, so its residuals, and the field conditioned on them, belong to no fitted model."""
-    samples = np.asarray(samples)
-    chosen = np.random.default_rng(seed).choice(len(samples), size=min(int(count), len(samples)), replace=False)
-    return samples[np.sort(chosen)]
-
-

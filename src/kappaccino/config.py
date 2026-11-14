@@ -1634,8 +1634,8 @@ class ReportingConfig:
     """The posterior draws behind every reported product.
 
     One set of random posterior draws (over all chains, chosen with ``runtime.seed``) is evaluated once, each draw with
-    its own GRF conditional mean, and every figure, table and results macro is a median over those draws with its 16th
-    to 84th percentile range.  No product uses the single best sample.
+    one conditional realization of the shared GRF, and every figure, table and results macro is a median over those
+    draws with its 16th to 84th percentile range, which holds the uncertainty of the lens parameters and of the field.  No product uses the single best sample.
 
     The image positions, residuals, RMS and recovered counts are cheap (a local solve from the observed positions, about
     0.1 s per draw) and need many draws: the median RMS of 64 draws scatters by about 0.01" between draw sets on Hera.

@@ -21,7 +21,7 @@ def _run(monkeypatch, *, field=True):
                                 packed_state_for_z=lambda physical, z: float(physical[0]), total_fields_at=total_fields_at)
     posterior = SimpleNamespace(samples=np.array([[.1, .0], [.2, .05], [.3, -.05], [.4, .1]]),
                                 physical=np.array([[.1, .0], [.2, .05], [.3, -.05], [.4, .1]]))
-    monkeypatch.setattr(reporting.ReportingDraws, '_grf_reach', lambda self, xy: 1.)
+    monkeypatch.setattr(reporting.ReportingDraws, 'reach', lambda self, xy: 1.)
     monkeypatch.setattr(reporting.ReportingDraws, 'correction', lambda self, k, reach: (
         lambda x, y, f: (0*x, 0*x, self.samples[k, 1] + 0*x, 0*x, 0*x, self.samples[k, 1] + 0*x)))
     return evaluator, posterior, calls
@@ -59,15 +59,6 @@ def test_no_field_gives_zero_grf_maps(monkeypatch):
     np.testing.assert_array_equal(maps['kappa_grf'], 0.)
 
 
-def test_posterior_map_draws_are_distinct_saved_draws():
-    from kappaccino.likelihood.grf_fields import posterior_map_draws
-    samples = np.arange(40.).reshape(20, 2)
-    chosen = posterior_map_draws(samples, 8, 3)
-    assert chosen.shape == (8, 2) and len(np.unique(chosen[:, 0])) == 8 and np.all(np.diff(chosen[:, 0]) > 0)
-    np.testing.assert_array_equal(chosen, posterior_map_draws(samples, 8, 3))
-    np.testing.assert_array_equal(posterior_map_draws(samples, 50, 3), samples)
-
-
 def test_product_draws_are_nested_in_the_image_draws(monkeypatch):
     evaluator, posterior, _ = _run(monkeypatch)
     posterior = SimpleNamespace(samples=np.arange(100.)[:, None], physical=np.arange(100.)[:, None])
@@ -77,3 +68,30 @@ def test_product_draws_are_nested_in_the_image_draws(monkeypatch):
     np.testing.assert_array_equal(draws.image_samples[:, 0], draws.image_indices)
     more = reporting.ReportingDraws(evaluator, posterior, 16, 3, image_count=32)
     assert set(draws.indices) <= set(more.indices)
+
+
+def test_an_image_draw_gets_the_product_draws_field_or_its_own_seeded_one(monkeypatch):
+    from kappaccino.plotting import grf
+    evaluator, posterior, _ = _run(monkeypatch)
+    evaluator._padded_evaluator = lambda: evaluator
+    posterior = SimpleNamespace(samples=np.arange(100.)[:, None], physical=np.arange(100.)[:, None])
+    monkeypatch.setattr(reporting, 'shared_theta', lambda evaluator, theta: theta)
+    monkeypatch.setattr(grf, 'field_draw', lambda base, theta, rng: (float(theta[0]), float(rng.standard_normal())))
+    monkeypatch.setattr(grf, 'field_realization', lambda base, draw, reach: (draw, reach))
+    draws = reporting.ReportingDraws(evaluator, posterior, 8, 3, image_count=32)
+    monkeypatch.setattr(reporting.ReportingDraws, 'correction', lambda self, k, reach: ('product', k, reach))
+    products = [draws.image_correction(j, 5.) for j in range(32) if draws.image_indices[j] in draws.indices]
+    assert products == [('product', k, 5.) for k in range(8)]
+    j = next(j for j in range(32) if draws.image_indices[j] not in draws.indices)
+    (row, noise), reach = draws.image_correction(j, 5.)
+    assert row == draws.image_indices[j] and reach == 5.
+    assert noise == np.random.default_rng([3, int(row)]).standard_normal()        # the seeding of a product draw
+
+
+def test_a_rebuilt_shared_field_is_flagged(monkeypatch):
+    evaluator, posterior, _ = _run(monkeypatch)
+    assert not reporting.ReportingDraws(evaluator, posterior, 2, 0).field_is_rebuilt          # an all-block run samples its field
+    monkeypatch.setattr(reporting, 'shared_field_evaluator', lambda e: SimpleNamespace())     # a system-block run gets a twin
+    assert reporting.ReportingDraws(evaluator, posterior, 2, 0).field_is_rebuilt
+    monkeypatch.setattr(reporting, 'shared_field_evaluator', lambda e: None)
+    assert not reporting.ReportingDraws(evaluator, posterior, 2, 0).field_is_rebuilt

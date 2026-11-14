@@ -51,7 +51,7 @@ Lens maps and truth comparison
 .. automodule:: kappaccino.diagnostics.truth_recovery
    :no-members:
 
-.. autofunction:: kappaccino.diagnostics.truth_recovery.lens_quantities
+.. autofunction:: kappaccino.diagnostics.truth_recovery.truth_maps_on_grid
 .. autofunction:: kappaccino.diagnostics.truth_recovery.load_truth_fits
 .. autofunction:: kappaccino.diagnostics.truth_recovery.diagnostic_grid
 .. autofunction:: kappaccino.diagnostics.truth_recovery.sample_on_grid

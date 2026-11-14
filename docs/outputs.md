@@ -26,7 +26,10 @@ everything else as JSON or CSV. `config.json` restores the run configuration exa
 
 Every reported product (figures, tables and results macros) is computed over one set of reporting draws:
 `reporting.draws` random posterior draws over all chains, chosen with `runtime.seed` (64 in a full run, 8 in the
-fast profile). Each draw is evaluated once, with its own GRF conditional mean, and shared by every product. Maps are
+fast profile). Each draw is evaluated once and shared by every product. In runs with a shared GRF, each draw carries one
+conditional realization of the field: an unconditional draw of the field corrected to agree with the images (Matheron's
+rule), with a seed fixed by `runtime.seed` and the draw's posterior row. The median over the draws is close to the mean
+field, and the 16–84% range holds the uncertainty of the lens parameters and of the field together. Maps are
 per-pixel medians over the draws with their 16th and 84th percentiles, curves are zero contours of median maps with
 16–84% bands, and numbers are medians with 16–84% ranges. No product uses the single best sample.
 
@@ -92,7 +95,7 @@ Shared-field GRF runs (`gp_blocks="all"`) also write `total_grf_dimensionless_po
 `gp_correction_correlation.pdf` (per-pixel medians over the reporting draws, and the median and 16–84% of the
 knee spectrum), with the maps in
 `final/tables/conditional_field_maps.*`. For these runs the truth maps, magnification recovery, aperture profiles,
-critical curves and caustics include the conditional mean GRF at each posterior draw. System- and family-block runs do
+critical curves and caustics include each posterior draw's realization of the GRF. System- and family-block runs do
 not define one cluster-wide field and skip these figures.
 
 ## Simulated clusters
@@ -107,7 +110,7 @@ With truth maps (`TruthRecoveryConfig`, set for Hera and Ares), the run also wri
   uncertainties;
 - `cumulative_source_area.pdf`: source-plane area magnified above μ at the truth-map source redshift,
   A(>μ) = Σ A_pix/|μ| over the truth-map pixels with |μ| > μ, for the truth, the parametric model and the parametric
-  + GRF model (conditional mean of each draw), with the comoving volume of the shell z ± 0.5 on the right axis and the
+  + GRF model (each draw's realization of the field), with the comoving volume of the shell z ± 0.5 on the right axis and the
   ratio to the truth below. Lines and bands are the median and 16–84% range over the reporting draws. Thresholds below
   μ = 3 depend on the size of the map and are shaded. Numbers in `cumulative_source_area.csv`;
 - `magnification_scatter.csv` (table only): scatter and bias of the model magnification about the truth at the map

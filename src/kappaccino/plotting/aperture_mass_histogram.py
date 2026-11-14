@@ -181,10 +181,10 @@ def write_aperture_mass_histogram(config,state,draws,paths,image_df,*,log=print)
     evaluator=draws.evaluator
     physical=draws.physical
     z=float(config.truth.caustic_source_redshift)
-    description=('conditional GRF mean of each draw included' if draws.has_field
+    description=('conditional GRF realization of each draw included' if draws.has_field
                  else 'parametric only; shared GRF correction unavailable')
     centres=members[['x_centre','y_centre']].to_numpy(float)
-    reach=draws._grf_reach(centres[np.isfinite(centres).all(1)])+10. if draws.has_field else 0.
+    reach=draws.reach(centres[np.isfinite(centres).all(1)])+10. if draws.has_field else 0.
     log(f'[aperture] exact 2Re masses over {len(physical)} posterior draws: F160W size normalization '
         f'{NORMALIZATION_KPC:g} kpc at magnitude 20; {description}')
     tables=[]

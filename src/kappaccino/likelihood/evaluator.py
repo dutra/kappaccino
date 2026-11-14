@@ -700,7 +700,7 @@ class Evaluator:
 
         Evaluated in jitted chunks so that large grids (figures, truth maps) never hold per-component arrays for every
         point.  Every component is evaluated exactly (no far-field series).  The lens Jacobian is
-        :math:`A = I - U`; :func:`kappaccino.diagnostics.truth_recovery.lens_quantities` derives convergence, shear and
+        :math:`A = I - U`; :meth:`kappaccino.reporting.draws.ReportingDraws.grid_maps` derives convergence, shear and
         magnification from it.
 
         Parameters

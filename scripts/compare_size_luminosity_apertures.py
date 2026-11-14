@@ -209,7 +209,7 @@ def main():
     axs[1].set(xlabel=r'$m_{\rm F160W}$',ylabel=r'$M_{\rm model}/M_{\rm truth}$')
     fig.savefig(out/'best_normalization_recovery.pdf',bbox_inches='tight');plt.close(fig)
     provenance=dict(run=str(a.run.resolve()),model='componentwise physical posterior median; exact parametric kernels',
-        grf='Not added: matches existing truth_recovery lens_quantities full parametric mass map; GRF is a conditional stochastic field.',
+        grf='Not added: matches the full parametric mass map; GRF is a conditional stochastic field.',
         equation='Re[kpc] = R20 * 10**(-0.24*(m_F160W-20)); aperture radius = 2 Re',
         slope=.6,pivot_magnitude=20,normalizations_kpc=normalizations.tolist(),z_source=z,
         selection='All saved population members, common complete-aperture mask; center inside convex hull reported separately',

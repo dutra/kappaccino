@@ -1,84 +1,45 @@
-"""Analytic regression for combined reporting fields, independent of lens kernels."""
+"""The shared field behind the reported products: which evaluator supplies it and how its draws are built."""
 from types import SimpleNamespace
 import numpy as np
-from kappaccino.likelihood.grf_fields import shared_grf_fields
-from kappaccino.diagnostics.truth_recovery import lens_quantities
 
 
 def evaluator(monkeypatch):
     from kappaccino.lens import cosmology
     monkeypatch.setattr(cosmology, 'dpie_sigma0_factor_from_config', lambda zl,z,c: z)
-    def correction(x,y,f):
-        return 3*x*x, 3*y*y, 6*x, 0*x, 0*x, 6*y
-    return SimpleNamespace(gp_knee=True, state=SimpleNamespace(gp_blocks='all',z_lens=.3,
-        gp_reference_redshift=2.,cosmo_config=None), gp_weights_per_family=np.array([3.]),
-        gp_deflection_correction=lambda theta: correction, physical=lambda t:t,
-        packed_state_for_z=lambda p,z:z,
-        total_fields_at=lambda xy,p:(np.zeros_like(xy),np.broadcast_to(np.diag([.1,.2]),(len(xy),2,2))))
+    e=SimpleNamespace(gp_knee=True, sigma_grf_index=0, gp_knee_spectrum='knee', state=SimpleNamespace(gp_blocks='all',z_lens=.3,
+        gp_reference_redshift=2.,cosmo_config=None), gp_weights_per_family=np.array([3.]))
+    e._padded_evaluator=lambda:e
+    return e
 
 
-def test_shared_fields_redshift_and_jacobian(monkeypatch):
-    e=evaluator(monkeypatch)
-    xy=np.array([[.01,.02],[.03,.04],[.05,.06]])
-    a,u=shared_grf_fields(e,None,4.,xy,chunk=2)
-    np.testing.assert_allclose(a,2*xy**2)
-    np.testing.assert_allclose(u[:,0,0],4*xy[:,0])
-    np.testing.assert_allclose(u[:,1,1],4*xy[:,1])
-    eps=1e-6
-    for k in range(2):
-        shift=np.eye(2)[k]*eps
-        ap,_=shared_grf_fields(e,None,4.,xy+shift,chunk=2)
-        am,_=shared_grf_fields(e,None,4.,xy-shift,chunk=2)
-        np.testing.assert_allclose((ap-am)/(2*eps),u[:,:,k],atol=1e-12)
-
-
-def test_total_magnification_uses_total_jacobian_once(monkeypatch):
-    e=evaluator(monkeypatch)
-    x,y=np.array([.01,.03]),np.array([.02,.04])
-    q=lens_quantities(e,np.zeros(1),4.,x,y)
-    det=(.9-4*x)*(.8-4*y)
-    np.testing.assert_allclose(q['kappa'],.15+2*(x+y))
-    np.testing.assert_allclose(q['detA'],det)
-    np.testing.assert_allclose(q['mu'],1/det)
-    p=lens_quantities(e,np.zeros(1),4.,x,y,include_grf=False)
-    np.testing.assert_allclose(p['kappa'],.15)
-    np.testing.assert_allclose(p['mu'],1/.72)
-
-
-def test_no_field_and_empty_points(monkeypatch):
-    e=evaluator(monkeypatch)
-    assert shared_grf_fields(e,None,4.,np.empty((0,2)))[0].shape==(0,2)
-    e.sigma_grf_index=-1                  # no mass field: nothing to add, whatever the blocks
-    for blocks in ['all','family','system']:
-        e.state.gp_blocks=blocks
-        a,u=shared_grf_fields(e,None,4.,[[1.,2.]])
-        assert not a.any() and not u.any()
-    e.sigma_grf_index=0
-    e.state.gp_blocks='all'
-    e.gp_deflection_correction=lambda theta:None
-    assert not shared_grf_fields(e,None,4.,[[1.,2.]])[1].any()
-
-
-def test_system_blocks_use_the_shared_twin(monkeypatch):
-    """A system-block run reports the conditional mean of its all-block twin, with the draw re-expressed for it."""
-    from kappaccino.likelihood import grf_fields as reporting_fields
+def test_each_draw_gets_one_realization_of_the_shared_twin_field(monkeypatch):
+    """A system-block run reports a field of its all-block twin, with the draw re-expressed for it; the realization of
+    a draw is drawn once, from a generator fixed by the run seed and the posterior row, however far it is evaluated."""
+    from kappaccino.likelihood import grf_fields
+    from kappaccino.plotting import grf
+    from kappaccino.reporting import draws as reporting
     twin=evaluator(monkeypatch)
     run=evaluator(monkeypatch)
     run.state.gp_blocks='system'
-    run.gp_deflection_correction=lambda theta:(_ for _ in ()).throw(AssertionError('per-system field used'))
     run._shared_field_twin=twin
-    seen=[]
-    monkeypatch.setattr(reporting_fields,'shared_theta',lambda e,theta:seen.append((e,theta)) or 'twin-theta')
-    def twin_correction(theta):
-        seen.append(theta)
-        return lambda x,y,f:(3*x*x,3*y*y,6*x,0*x,0*x,6*y)
-    twin.gp_deflection_correction=twin_correction
-    xy=np.array([[.01,.02],[.03,.04]])
-    a,u=shared_grf_fields(run,'theta',4.,xy)
-    np.testing.assert_allclose(a,2*xy**2)
-    np.testing.assert_allclose(u[:,0,0],4*xy[:,0])
-    assert seen[0]==(run,'theta') and seen[1]=='twin-theta'
-    assert reporting_fields.shared_field_evaluator(run) is twin
+    assert grf_fields.shared_field_evaluator(run) is twin
+    monkeypatch.setattr(reporting,'shared_theta',lambda e,theta:('twin',e,tuple(theta)))
+    drawn,built=[],[]
+    def field_draw(base,theta,rng):
+        drawn.append((base,theta,rng.integers(1<<30)))
+        return dict(id=len(drawn))
+    monkeypatch.setattr(grf,'field_draw',field_draw)
+    monkeypatch.setattr(grf,'field_realization',lambda base,draw,reach:built.append((base,draw['id'],reach)) or ('field',draw['id'],reach))
+    posterior=SimpleNamespace(samples=np.arange(8.).reshape(4,2),physical=np.arange(8.).reshape(4,2))
+    draws=reporting.ReportingDraws(run,posterior,4,7)
+    assert draws.correction(2,5.)==('field',1,5.)
+    assert draws.correction(2,3.)==('field',1,5.) and len(built)==1          # a shorter reach reuses the field
+    assert draws.correction(2,9.)==('field',1,9.) and len(drawn)==1          # a longer reach rebuilds it from the same draw
+    assert drawn[0][0] is twin and drawn[0][1]==('twin',run,tuple(draws.samples[2]))
+    assert drawn[0][2]==np.random.default_rng([7,int(draws.indices[2])]).integers(1<<30)
+    assert draws.correction(0,5.)==('field',2,5.) and drawn[1][2]!=drawn[0][2]
+    twin.sigma_grf_index=run.sigma_grf_index=-1                              # no mass field: nothing to add
+    assert reporting.ReportingDraws(run,posterior,4,7).correction(0,5.) is None
 
 
 def test_observed_stretch_uses_the_jacobian_with_the_field():

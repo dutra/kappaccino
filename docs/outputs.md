@@ -33,9 +33,34 @@ field, and the 16–84% range holds the uncertainty of the lens parameters and o
 per-pixel medians over the draws with their 16th and 84th percentiles, curves are zero contours of median maps with
 16–84% bands, and numbers are medians with 16–84% ranges. No product uses the single best sample.
 
+The image solver follows the same rule: where a draw's lens puts the images, their residuals from the catalog, the RMS
+and recovered counts, the images the lens adds to a family, and the magnifications at the images are all solved in the
+draw's own lens, parametric plus its realization. The RMS of a draw is therefore that of one posterior sample of the
+mass distribution, and its range over the draws includes the uncertainty of the field.
+
+This holds for runs with `gp_blocks: all`. A run with `gp_blocks: system` (the fast profile) gave each system its own
+field, and the products rebuild one shared field from its draws. That field is not a posterior sample of the lens, so
+the residuals, RMS, position contours and map uncertainties of such a run are not trustworthy and likely inflated (on
+an M0416 fast run the RMS came out twice what the fitted image-plane scatter allows). The output pass logs a warning
+and writes it to `run_summary.json` under `warnings`.
+
+The lens position of an image is not where its catalog entry is expected, because the likelihood lets the two differ by
+the image-plane GP and the measurement error. Each draw's lens position therefore also has a predicted observed
+position (`x_predicted_arcsec`, `y_predicted_arcsec`): the lens position plus one draw of that scatter, taken from
+its prior with the draw's own `sigma_gp`, `ell_gp` and `sigma_meas` and not conditioned on the catalog. The position
+contours of the observed images are the 68.3% and 95.4% regions of these positions, so about 68% of the catalog
+positions should fall inside their 68.3% contours. `position_coverage.csv` has that check per image (`credible_level`,
+`inside_68`, `inside_95`), and the results macros `PositionCoverageOneSigmaPercent` and
+`PositionCoverageTwoSigmaPercent` the fractions. The contours of extra images, which have no catalog position, are of
+their true positions. The tables also hold a true position per draw (`x_true_arcsec`,
+`y_true_arcsec`): the lens position plus the GP displacement drawn given the catalog positions. For a catalog image it
+is the catalog position without its measurement error, so its spread is at most `sigma_meas`; where the data do not
+constrain `sigma_meas` (no images closer than `ell_gp`) that spread is the prior's.
+
 `final/tables/`
 : `posterior_summary.csv`, `member_classification.csv`, `member_scaling_relation.csv`, `image_fit_quality.csv`,
-  `image_count_recovery.csv`, `model_magnification.csv`, `posterior_image_residual_draws.csv`, `posterior_extra_images.csv`,
+  `image_count_recovery.csv`, `model_magnification.csv`, `posterior_image_residual_draws.csv`,
+  `posterior_extra_images.csv`, `position_coverage.csv`,
   `chain_convergence.csv`, `run_summary.json` and `run_summary.txt`, and for simulated
   clusters `truth_recovery_m2d_aperture_profile.csv`. With uncertain membership (`MemberConfig.membership`),
   `member_membership.csv`: one row per member with `treatment` (`certain`, `enumerated` or `marginalized`),
@@ -135,7 +160,7 @@ When imaging is configured and present under `data/imaging/`:
   the twelve images with the smallest Jacobian eigenvalues;
 - `fold_pairs_source_caustics.pdf`: model-identified fold pairs (mutual-nearest opposite-parity images within
   `image_diagnostics.fold_pair_max_separation_arcsec`), with posterior critical-curve bands and source panels;
-- for M0416 and AS1063, JWST versions with an `_jwst` suffix, including posterior image-position contours (68.3% solid,
+- for M0416 and AS1063, JWST versions with an `_jwst` suffix, including contours of the predicted observed image positions (68.3% solid,
   95.4% dashed).
 
 Missing imaging is reported and skipped.
@@ -162,7 +187,7 @@ in the text. Names contain letters only: M0416 uses `MJZeroFourOneSix`, AS1063 u
 
 `\HeraRMS`, `\HeraMedianResidual`, `\HeraLensOnlyRMS` and `\HeraLensOnlyMedianResidual` are posterior medians with
 16–84% ranges over the saved draws (`posterior_image_residual_draws.csv`, and `..._lens_only.csv` for the parametric
-lens without the GRF conditional mean), written for math mode, e.g. `$\HeraRMS''$`. The image counts (`\HeraNRecovered`,
+lens without the GRF), written for math mode, e.g. `$\HeraRMS''$`. The image counts (`\HeraNRecovered`,
 `\HeraNMissed`, `\HeraNExtraImages`, `\HeraRecoveredPercent`) are medians over the reporting draws, with
 `...Interval` macros for the 16–84% range. In the image tables an image is recovered when at least half the draws
 recover it; its model position, residual and magnification are medians over the draws that do. Extra images are

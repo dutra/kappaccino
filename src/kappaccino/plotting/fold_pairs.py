@@ -240,7 +240,8 @@ def compute_fold_diagnostics(config, state, draws, tables, *, log=print):
 
     Every field is the shared mass field (the all-block twin for a system-block run).  The pairs, their reference
     branch and the tracking seeds come from the per-pixel median det A over the draws; each draw's image positions are
-    the image recovery's (``tables``); each draw's critical points and relative source use its own lens."""
+    the image recovery's predicted observed positions (``tables``): the positions in the draw's own lens, the lens of
+    its critical points and relative source, plus one draw of the image-plane scatter."""
     from ..diagnostics.position_contours import position_draws
     started = time.monotonic()
     evaluator, samples = shared_draws(draws)
@@ -481,7 +482,8 @@ def prepare_fold_plot_data(config, state, draws, data, *, image_positions, log=p
     shared_grf = draws.has_field
     data['plot_presentation'] = dict(
         version='fold-system-display-v2-median',
-        image_position_contours='Parametric + conditional-mean GRF' if shared_grf else 'Parametric',
+        image_position_contours=('Predicted observed positions: ' + ('parametric + the GRF realization of each draw' if shared_grf else 'parametric')
+                                 + ', plus one draw of the image-plane GP and measurement error'),
         gp_displacement_overlay=False, model_image_markers=False,
         catalog_marker='Outlined x; 11 pt; 1.25 pt stroke',
         image_contours='68.3% solid, 95.4% dashed; 0.85/0.60 pt; dark outline',
@@ -1035,7 +1037,7 @@ def render_fold_diagnostics(config, state, data, paths, imaging, *, log=print):
                                 ax.plot(*pixels(*np.nanmedian(pair['positions'][:, k], axis=0)), 'o', mfc='none', mec='#7FFF70', ms=7, mew=.9)
                             handles.append(Line2D([], [], color=color, label=pair['labels'][k]+' positions'))
                         handles += [Line2D([], [], color='white', marker='x', ls='none', label='Catalog'),
-                                    Line2D([], [], mec='#7FFF70', mfc='none', marker='o', ls='none', label='Median model')]
+                                    Line2D([], [], mec='#7FFF70', mfc='none', marker='o', ls='none', label='Median prediction')]
                         legend = ax.legend(handles=handles, title='Solid: 68.3%; dashed: 95.4%', title_fontsize=7,
                                            loc='lower right', fontsize=7, facecolor='black', edgecolor='none', framealpha=.65, labelcolor='white')
                         legend.get_title().set_color('white')

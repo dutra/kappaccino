@@ -1,4 +1,16 @@
-"""Image-recovery tables from exact lens-equation solutions at the reporting posterior draws."""
+"""Image-recovery tables from exact lens-equation solutions at the reporting posterior draws.
+
+Every draw is solved in its own lens: parametric plus its conditional realization of the GRF
+(``ReportingDraws.correction``), the lens behind the maps and critical curves.  The residuals, RMS and recovered
+counts, the positions, the images a lens adds and the magnifications all come from that one lens, so their ranges over
+the draws hold the uncertainty of the parameters and of the field.
+
+The lens position is not where a catalog entry is expected: the likelihood lets the two differ by the image-plane GP
+and the measurement error.  Each draw therefore also carries a predicted observed position, its lens position plus one
+fresh draw of that scatter (:func:`image_plane_scatter`), the position the figures draw contours of, and a true
+position, its lens position plus the GP displacement given the catalog (:func:`true_positions`): the catalog position
+without its measurement error.
+"""
 from __future__ import annotations
 
 import math
@@ -15,26 +27,94 @@ from ..core.model import ModelState, PosteriorResults
 from ..core.utils import progress
 
 
+def image_plane_scales(evaluator: Evaluator, theta: np.ndarray) -> dict[str, float]:
+    """The image-plane error scales of one draw, in arcsec: ``sigma_gp`` and ``ell_gp`` of the correlated displacement
+    (0 and NaN when the likelihood has none) and the independent ``sigma_meas``."""
+    scales = evaluator.error_scales(evaluator.physical(jnp.asarray(np.asarray(theta, dtype=float))))
+    return {"sigma_gp": float(scales.get("sigma_gp", 0.0)), "ell_gp": float(scales.get("ell_gp", np.nan)),
+            "sigma_meas": float(np.mean(np.asarray(scales["sigma_meas"], dtype=float)))}
+
+
+def image_plane_scatter(xy: np.ndarray, scales: dict[str, float], rng: np.random.Generator) -> np.ndarray:
+    """One draw of the displacement between the lens positions of images at ``xy`` (arcsec, shape (point, 2)) and their
+    observed positions: the image-plane GP, correlated between the points with its squared-exponential kernel, plus
+    independent measurement error.  It is drawn from the prior of these terms, not conditioned on the catalog.  Shape
+    (point, 2), arcsec."""
+    xy = np.asarray(xy, dtype=float).reshape(-1, 2)
+    scatter = scales["sigma_meas"] * rng.standard_normal(xy.shape)
+    if scales["sigma_gp"] > 0 and len(xy):
+        scatter = scatter + scales["sigma_gp"] * np.linalg.cholesky(_gp_kernel(xy, scales["ell_gp"])) @ rng.standard_normal(xy.shape)
+    return scatter
+
+
+def _gp_kernel(xy: np.ndarray, ell: float) -> np.ndarray:
+    """Squared-exponential correlation of the image-plane GP between the points ``xy`` (identity without a finite
+    correlation length), with the jitter its Cholesky factor needs."""
+    if not (np.isfinite(ell) and ell > 0):
+        return np.eye(len(xy))
+    return np.exp(-np.sum((xy[:, None] - xy[None]) ** 2, axis=-1) / (2.0 * ell ** 2)) + 1e-9 * np.eye(len(xy))
+
+
+def true_positions(catalog: np.ndarray, lens: np.ndarray, extra_lens: np.ndarray, scales: dict[str, float],
+                   rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray]:
+    """One draw of the true image positions given the catalog: the lens positions plus the GP displacement.
+
+    In the draw's lens the catalog position of an image is its lens position plus the GP displacement d and the
+    measurement error e, so the offsets r = catalog - lens of the recovered images are data for d + e.  d is drawn
+    jointly at all points given r (Matheron's rule), with covariance sigma_gp^2 K for d and sigma_meas^2 I for e.
+
+    Parameters
+    ----------
+    catalog, lens : numpy.ndarray
+        Catalog and lens positions of the observed images in arcsec, shape (image, 2); a lens position is NaN where the
+        draw does not recover the image.
+    extra_lens : numpy.ndarray
+        Lens positions of the images the draw adds, shape (extra, 2).
+    scales : dict
+        :func:`image_plane_scales` of the draw.
+
+    Returns
+    -------
+    tuple of numpy.ndarray
+        True positions of the observed images (image, 2), equal to the catalog position minus the draw of e and NaN
+        where not recovered, and of the extra images (extra, 2), whose displacement is only constrained by observed
+        images within the correlation length.
+    """
+    catalog, lens = np.asarray(catalog, dtype=float).reshape(-1, 2), np.asarray(lens, dtype=float).reshape(-1, 2)
+    extra_lens = np.asarray(extra_lens, dtype=float).reshape(-1, 2)
+    found = np.isfinite(lens).all(axis=1)
+    n = int(found.sum())
+    points = np.vstack((catalog[found], extra_lens))
+    kernel = _gp_kernel(points, scales["ell_gp"])
+    displacement = scales["sigma_gp"] * np.linalg.cholesky(kernel) @ rng.standard_normal(points.shape) if len(points) else np.zeros((0, 2))
+    if n:
+        noise = scales["sigma_meas"] * rng.standard_normal((n, 2))
+        covariance = scales["sigma_gp"] ** 2 * kernel[:n, :n] + scales["sigma_meas"] ** 2 * np.eye(n)
+        weights = np.linalg.solve(covariance, catalog[found] - lens[found] - displacement[:n] - noise)
+        displacement = displacement + scales["sigma_gp"] ** 2 * kernel[:, :n] @ weights
+    true = np.full_like(lens, np.nan)
+    true[found] = lens[found] + displacement[:n]
+    return true, extra_lens + displacement[n:]
+
+
 def predictions_at(solver: ExactImageSolver, state: ModelState, evaluator: Evaluator, theta: np.ndarray, *,
-                   adaptive: bool | None = None, include_field: bool = True) -> dict[str, Any]:
-    """Per-image model positions, residuals and magnifications for one latent vector.  Under the knee kernel the lens
-    carries the GRF conditional-mean deflection of the draw; ``include_field=False`` solves with the parametric lens alone
-    (the lens-only residual, which shows how much of the misfit the field takes)."""
+                   adaptive: bool | None = None, correction=None) -> dict[str, Any]:
+    """Per-image model positions, residuals and magnifications for one latent vector, in the parametric lens plus
+    ``correction``: a deflection field called as ``correction(x, y, family_index)`` (the draw's GRF realization), or
+    None for the parametric lens alone."""
     theta = np.asarray(theta, dtype=float)
     physical = evaluator.physical(jnp.asarray(theta))
     sources = evaluator.source_positions(jnp.asarray(theta))
     images = state.images
     family_by_id = {f.family_id: f for f in state.family_data}
     families = [family_by_id[family_id] for family_id in images.family_ids]
-    # Potential kernel: the draw's source scatters by the deflection error, so the lens gets the GP's mean deflection.
-    correction = evaluator.gp_deflection_correction(theta) if include_field and getattr(evaluator, "gp_knee", False) else None
     extra_kwargs = {} if correction is None else dict(correction=correction)
     if adaptive is False:        # posterior draws: all families in one batched local solve
         batched = solver.predict_all_local(images, families, evaluator.packed_state(physical)[0], np.asarray(sources), **extra_kwargs)
     elif solver.config.exact_image_finder == "global-jax":   # a global search that also reports extra images
         batched, adaptive = solver.predict_all_global(images, families, np.asarray(physical), np.asarray(sources), **extra_kwargs), False
     elif correction is not None:
-        raise ValueError("under gp_kernel='potential' only the global-jax and batched local image finders apply the GP mean deflection; "
+        raise ValueError("only the global-jax and batched local image finders add a deflection field to the lens; "
                          f"image_diagnostics.exact_image_finder is {solver.config.exact_image_finder!r}")
     rows, extra_rows, count_rows = [], [], []
     for family_index, family in enumerate(families):
@@ -80,7 +160,7 @@ EXTRA_IMAGE_MATCH_ARCSEC = 1.0
 
 
 def lens_only_summary(draw_rows: pd.DataFrame | None) -> dict[str, Any]:
-    """Headline numbers of the lens-only draws (the parametric lens without the GRF conditional mean), for
+    """Headline numbers of the lens-only draws (the parametric lens without the GRF), for
     run_summary.json and the results macros: median and 16-84% over draws of the recovered count, RMS and median
     residual."""
     if draw_rows is None or draw_rows.empty:
@@ -103,26 +183,6 @@ def draw_summary(draw_rows: pd.DataFrame) -> dict[str, Any]:
         q16, q50, q84 = (float(v) for v in np.nanpercentile(values[:, column], [16, 50, 84]))
         out[name] = {"median": q50, "q16": q16, "q84": q84}
     return out
-
-
-def draw_residual_rows(solver: ExactImageSolver, state: ModelState, evaluator: Evaluator, draws: np.ndarray, *,
-                       include_field: bool) -> list[dict[str, Any]]:
-    """Per-image rows of every draw (``draw_index``, ``family_id``, ``image_label``, ``recovered``,
-    ``image_residual_arcsec``, ``x_model_arcsec``, ``y_model_arcsec``), solved with the batched local solver from the
-    observed positions, with or without the GRF conditional mean of the draw."""
-    rows = []
-    for draw_index, theta in enumerate(progress(draws, desc="exact images" if include_field else "exact images, lens only")):
-        prediction = predictions_at(solver, state, evaluator, theta, adaptive=False, include_field=include_field)
-        rows.extend({"draw_index": draw_index, "family_id": row["family_id"], "image_label": row["image_label"],
-                     "recovered": row["image_recovery_status"] == "recovered", "image_residual_arcsec": row["image_residual_arcsec"],
-                     "x_model_arcsec": row["x_model_arcsec"], "y_model_arcsec": row["y_model_arcsec"]}
-                    for row in prediction["image_rows"])
-    return rows
-
-
-def has_field(evaluator: Evaluator, theta: np.ndarray) -> bool:
-    """Whether the run has a GRF conditional-mean deflection (so lens-only residuals differ from the quoted ones)."""
-    return bool(getattr(evaluator, "gp_knee", False) and evaluator.gp_deflection_correction(theta) is not None)
 
 
 def per_image_table(draw_rows: pd.DataFrame, observed: pd.DataFrame, columns: tuple[str, ...]) -> pd.DataFrame:
@@ -179,18 +239,32 @@ def image_recovery_tables(state: ModelState, evaluator: Evaluator, draws, config
                           extra_images: bool = True, log=print) -> dict[str, pd.DataFrame]:
     """Image-recovery tables over the reporting draws (``reporting.draws.ReportingDraws``); nothing at a single sample.
 
-    The observed images of every image draw (``draws.image_samples``) are solved with the batched local solver from the
-    observed positions, with and without the draw's GRF conditional mean (it agrees with the global search to 1e-4" on
-    the recovered images).  Per image: the fraction of draws that recover it, the median model position, residual and
-    magnifications over those draws with their 16-84% range.  Per family: the median and 16-84% of the per-draw counts.
-    With ``extra_images``, the global search (``config.exact_image_finder``) runs on the product draws
-    (``draws.samples``) to find extra model images; those found in at least half of them are reported.  Every row
-    carries its ``posterior_index``."""
+    Every image draw (``draws.image_samples``) is solved in its own lens, parametric plus the draw's GRF realization,
+    with the batched local solver from the observed positions.  ``posterior_image_residual_draws`` has one row per draw
+    and image: whether the lens recovers it, its lens position (``x_model_arcsec``, ``y_model_arcsec``), the residual
+    from the catalog position, the magnification at the observed and at the lens position, the predicted observed
+    position (``x_predicted_arcsec``, ``y_predicted_arcsec``: the lens position plus one draw of the image-plane
+    scatter, :func:`image_plane_scatter`) and the true position (``x_true_arcsec``, ``y_true_arcsec``,
+    :func:`true_positions`).  Per image, ``image_fit_quality`` and ``model_magnification`` give the fraction of draws
+    that recover it and the medians with their 16-84% ranges; per draw, ``posterior_image_rms``; per family, the median
+    and 16-84% of the per-draw counts.  With a mass field the parametric lens alone is solved alongside
+    (``image_fit_quality_lens_only``, ``posterior_image_residual_draws_lens_only``).
+
+    With ``extra_images``, the global search (``config.exact_image_finder``) gives the images each product draw
+    (``draws.indices``) adds, with the same three positions; their ``draw_index`` counts the product draws.  Those
+    found in at least half of them are reported.  The scatter and the true positions are joint over the observed (at
+    their catalog positions) and extra images of a draw and seeded by the run seed and the draw's posterior row.
+    Every row carries its ``posterior_index``."""
     solver = ExactImageSolver(evaluator, config)
-    draw_rows, count_rows, rms_rows = [], [], []
+    field = bool(getattr(draws, "has_field", False))
+    reach = draws.reach(window_corners(solver, state)) if field else 0.0        # the realization must reach every search window
+    product = {int(index): k for k, index in enumerate(draws.indices)}
+    magnification = ("magnification_model", "magnification_model_at_model_position")
+    rows, lens_only_rows, extra_rows, count_rows, rms_rows = [], [], [], [], []
     observed = None
-    for draw_index, (index, theta) in enumerate(zip(progress(draws.image_indices, desc="exact images"), draws.image_samples)):
-        prediction = predictions_at(solver, state, evaluator, theta, adaptive=False)
+    for draw_index, (index, theta) in enumerate(zip(progress(draws.image_indices, desc="images of each draw's lens"), draws.image_samples)):
+        lens = draws.image_correction(draw_index, reach) if field else None
+        prediction = predictions_at(solver, state, evaluator, theta, adaptive=False, correction=lens)
         if observed is None:
             observed = pd.DataFrame([{key: row[key] for key in ("family_id", "image_label", "x_obs_arcsec", "y_obs_arcsec", "z_source",
                                                                   "radius_arcsec", "angle_deg")} for row in prediction["image_rows"]])
@@ -198,39 +272,40 @@ def image_recovery_tables(state: ModelState, evaluator: Evaluator, draws, config
         rms_rows.append({"draw_index": draw_index, "posterior_index": int(index),
                          "recovered_image_count": int(np.isfinite(residuals).sum()),
                          "image_rms_arcsec": float(np.sqrt(np.nanmean(residuals ** 2))) if np.isfinite(residuals).any() else np.nan})
-        for row in prediction["image_rows"]:
-            draw_rows.append({"draw_index": draw_index, "posterior_index": int(index), "family_id": row["family_id"],
-                              "image_label": row["image_label"], "recovered": row["image_recovery_status"] == "recovered",
-                              "image_residual_arcsec": row["image_residual_arcsec"],
-                              "x_model_arcsec": row["x_model_arcsec"], "y_model_arcsec": row["y_model_arcsec"],
-                              "magnification_model": row["magnification_model"],
-                              "magnification_model_at_model_position": row["magnification_model_at_model_position"]})
+        own = _position_rows(prediction, draw_index, index, ("image_residual_arcsec",) + magnification)
         count_rows.extend({"draw_index": draw_index, **row} for row in prediction["count_rows"])
-    log(f"[diagnostics] observed images at {len(draws.image_indices)} posterior draws (local solver), "
-        f"{solver.timing['exact_solver']:.1f}s of solver time")
-    extra_rows = []
-    if extra_images:
-        for draw_index, (index, theta) in enumerate(zip(progress(draws.indices, desc="extra images"), draws.samples)):
-            prediction = predictions_at(solver, state, evaluator, theta)
-            extra_rows.extend({"draw_index": draw_index, "posterior_index": int(index), **row} for row in prediction["extra_rows"])
-        log(f"[diagnostics] global image search for extra images at {len(draws.indices)} posterior draws")
-    draw_df, extra_df, counts = pd.DataFrame(draw_rows), pd.DataFrame(extra_rows), pd.DataFrame(count_rows)
-    image_df = per_image_table(draw_df, observed, ("x_model_arcsec", "y_model_arcsec", "image_residual_arcsec", "magnification_model",
-                                                   "magnification_model_at_model_position"))
+        added = ([{"draw_index": product[int(index)], "posterior_index": int(index), **row}
+                  for row in predictions_at(solver, state, evaluator, theta, correction=lens)["extra_rows"]]
+                 if extra_images and int(index) in product else [])
+        catalog = np.array([[row["x_obs_arcsec"], row["y_obs_arcsec"]] for row in prediction["image_rows"]], dtype=float).reshape(-1, 2)
+        lens_xy = np.array([[row["x_model_arcsec"], row["y_model_arcsec"]] for row in own + added], dtype=float).reshape(-1, 2)
+        scales, seed = image_plane_scales(evaluator, theta), [int(getattr(draws, "seed", 0)), int(index)]
+        scatter = image_plane_scatter(np.vstack((catalog, lens_xy[len(own):])), scales, np.random.default_rng(seed + [1]))
+        true = np.vstack(true_positions(catalog, lens_xy[:len(own)], lens_xy[len(own):], scales, np.random.default_rng(seed + [2])))
+        for row, predicted, actual in zip(own + added, lens_xy + scatter, true):
+            row["x_predicted_arcsec"], row["y_predicted_arcsec"] = map(float, predicted)
+            row["x_true_arcsec"], row["y_true_arcsec"] = map(float, actual)
+        rows.extend(own)
+        extra_rows.extend(added)
+        if field:        # the parametric lens alone shows how much of the misfit the field takes
+            lens_only = predictions_at(solver, state, evaluator, theta, adaptive=False)
+            lens_only_rows.extend(_position_rows(lens_only, draw_index, index, ("image_residual_arcsec",)))
+    log(f"[diagnostics] observed images in each draw's lens ({'parametric + GRF realization' if field else 'parametric'}) at "
+        f"{len(draws.image_indices)} posterior draws (local solver), {solver.timing['exact_solver']:.1f}s of solver time"
+        + (f"; global search for extra images at {len(draws.indices)} draws" if extra_images else ""))
+    draw_df, extra_df, counts = pd.DataFrame(rows), pd.DataFrame(extra_rows), pd.DataFrame(count_rows)
+    image_df = per_image_table(draw_df, observed, ("x_model_arcsec", "y_model_arcsec", "image_residual_arcsec") + magnification)
+    magnification_df = image_df[["family_id", "image_label", "x_obs_arcsec", "y_obs_arcsec", "z_source", "image_recovery_status",
+                                 "x_model_arcsec", "y_model_arcsec"] + [c for c in image_df.columns if c.startswith(magnification)]]
     count_df = family_count_table(counts.drop(columns=["extra_image_count"]))
     if extra_images:
         per_draw = (extra_df.groupby(["family_id", "draw_index"]).size() if not extra_df.empty else pd.Series(dtype=int))
         for name, q in (("extra_image_count", 50), ("extra_image_count_q16", 16), ("extra_image_count_q84", 84)):
             count_df[name] = [float(np.percentile([per_draw.get((f, d), 0) for d in range(len(draws.indices))], q))
                               for f in count_df.family_id]
-    magnification_columns = ["family_id", "image_label", "x_obs_arcsec", "y_obs_arcsec", "z_source", "image_recovery_status", "x_model_arcsec", "y_model_arcsec",
-                             "magnification_model", "magnification_model_q16", "magnification_model_q50", "magnification_model_q84",
-                             "magnification_model_at_model_position", "magnification_model_at_model_position_q16",
-                             "magnification_model_at_model_position_q50", "magnification_model_at_model_position_q84"]
-    magnification_df = image_df[[c for c in magnification_columns if c in image_df.columns]].copy()
     extra_tables = {}
-    if has_field(evaluator, draws.image_samples[0]):
-        lens_rows = pd.DataFrame(draw_residual_rows(solver, state, evaluator, draws.image_samples, include_field=False))
+    if lens_only_rows:
+        lens_rows = pd.DataFrame(lens_only_rows)
         lens_only = per_image_table(lens_rows, observed[["family_id", "image_label", "x_obs_arcsec", "y_obs_arcsec"]],
                                     ("x_model_arcsec", "y_model_arcsec", "image_residual_arcsec"))
         extra_tables = {"image_fit_quality_lens_only": lens_only[[c for c in LENS_ONLY_COLUMNS if c in lens_only.columns]],
@@ -238,6 +313,22 @@ def image_recovery_tables(state: ModelState, evaluator: Evaluator, draws, config
     return {**extra_tables, "image_fit_quality": image_df, "image_count_recovery": count_df, "model_magnification": magnification_df,
             "image_recovery_extra_images": common_extra_images(extra_df, len(draws.indices)) if extra_images else common_extra_images(pd.DataFrame(), 1),
             "posterior_extra_images": extra_df, "posterior_image_rms": pd.DataFrame(rms_rows), "posterior_image_residual_draws": draw_df}
+
+
+def _position_rows(prediction: dict[str, Any], draw_index: int, posterior_index: int, columns: tuple[str, ...]) -> list[dict[str, Any]]:
+    """Per-image rows of one draw: whether the image is recovered, its model position and ``columns``."""
+    return [{"draw_index": draw_index, "posterior_index": int(posterior_index), "family_id": row["family_id"],
+             "image_label": row["image_label"], "x_obs_arcsec": row["x_obs_arcsec"], "y_obs_arcsec": row["y_obs_arcsec"],
+             "recovered": row["image_recovery_status"] == "recovered",
+             "x_model_arcsec": row["x_model_arcsec"], "y_model_arcsec": row["y_model_arcsec"], **{c: row[c] for c in columns}}
+            for row in prediction["image_rows"]]
+
+
+def window_corners(solver: ExactImageSolver, state: ModelState) -> np.ndarray:
+    """Corners of the families' search windows, shape (point, 2): the points farthest from the images that a solve can visit."""
+    family_by_id = {f.family_id: f for f in state.family_data}
+    windows = np.asarray(solver.search_windows([family_by_id[family_id] for family_id in state.images.family_ids]))
+    return np.concatenate([windows[:, :2] + windows[:, 2:] * sign for sign in ((-1, -1), (1, 1))])
 
 
 def family_count_table(counts: pd.DataFrame) -> pd.DataFrame:

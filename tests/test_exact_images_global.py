@@ -42,3 +42,30 @@ def test_global_search_matches_brute_force_and_recovers_observed_images(syntheti
             assert pair.min() > 0.01
     details = solver.predict_all_global(state.images, families, physical, sources)
     assert len(details) == len(families) and all(np.isfinite(d["magnification"]).all() for d in details)
+
+
+def test_magnifications_are_those_of_the_lens_with_its_added_field(synthetic_config):
+    """A deflection field added to the lens moves the images and enters their magnifications, in both solvers."""
+    state = build_state(synthetic_config)
+    evaluator = Evaluator(state)
+    config = replace(synthetic_config.image_diagnostics, exact_image_finder="global-jax", exact_image_window_margin_arcsec=12.0)
+    solver = ExactImageSolver(evaluator, config)
+    theta = jnp.asarray(state.initial_theta)
+    physical, sources = np.asarray(evaluator.physical(theta)), np.asarray(evaluator.source_positions(theta))
+    family_by_id = {f.family_id: f for f in state.family_data}
+    families = [family_by_id[fid] for fid in state.images.family_ids]
+    kappa = .05                                                            # a uniform sheet: alpha = kappa x, d alpha = kappa I
+
+    def sheet(x, y, family):
+        return kappa * x, kappa * y, kappa + 0 * x, 0 * x, 0 * x, kappa + 0 * x
+    packed = evaluator.packed_state(jnp.asarray(physical))[0]
+    x, y = np.asarray(state.images.x_obs, float), np.asarray(state.images.y_obs, float)
+    _, _, a00, a01, a10, a11 = solver.ray_shoot_and_jacobian_per_image(packed, x, y)
+    expected = 1. / ((a00 - kappa) * (a11 - kappa) - a01 * a10)
+    plain = 1. / (a00 * a11 - a01 * a10)
+    for details in (solver.predict_all_global(state.images, families, physical, sources, sheet),
+                    solver.predict_all_local(state.images, families, packed, sources, sheet)):
+        np.testing.assert_allclose(np.concatenate([d["magnification"] for d in details]), expected, rtol=1e-10)
+    bare = solver.predict_all_local(state.images, families, packed, sources)
+    np.testing.assert_allclose(np.concatenate([d["magnification"] for d in bare]), plain, rtol=1e-10)
+    assert not np.allclose(expected, plain, rtol=1e-3)

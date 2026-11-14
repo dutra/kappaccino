@@ -282,10 +282,10 @@ def write_run_results(final_dir: str | Path, *, name: str | None = None) -> Path
     ``NWarmupPerChain``, ``NSamplesPerChain``, ``NExtraImages``); image
     residuals in arcsec as posterior median and 16-84% range over the saved draws
     (``RMS``, ``MedianResidual``, and ``LensOnlyRMS``, ``LensOnlyMedianResidual``
-    for the same draws without the GRF conditional mean; ``posterior_residual_metrics``),
+    for the same draws without the GRF; ``posterior_residual_metrics``),
     ``RecoveredPercent`` and ``NPosteriorRMSDraws`` (counts and percentages are medians over the reporting draws,
-    with ``...Interval`` the 16-84% range); position coverage (``PositionCoverageXPercent``,
-    ``PositionCoverageYPercent`` and their counts); likelihood-noise posterior
+    with ``...Interval`` the 16-84% range); position coverage (``PositionCoverageOneSigmaPercent``,
+    ``PositionCoverageTwoSigmaPercent`` and ``NPositionCoverage``); likelihood-noise posterior
     medians and intervals (``SigmaGP``, ``SigmaMeas``,
     ``EllGP``, ``SigmaGRF``, ``LambdaB``;
     angular scales in arcsec); convergence (``MaxRhat``, ``MinESS``); run time
@@ -345,7 +345,7 @@ def write_run_results(final_dir: str | Path, *, name: str | None = None) -> Path
         metrics[suffix] = number(value, 0)
     members, exact = summary.get('members'), summary.get('exact_members')
     metrics['NFarFieldMembers'] = number(members-exact if members is not None and exact is not None else None, 0)
-    # Image residuals: median and 16-84% range over the saved posterior draws (with and without the GRF conditional mean).
+    # Image residuals: median and 16-84% range over the saved posterior draws (each draw's own lens, and the parametric lens without its GRF realization).
     for prefix, table in (('', 'posterior_image_residual_draws.csv'), ('LensOnly', 'posterior_image_residual_draws_lens_only.csv')):
         metrics.update(posterior_residual_metrics(final / 'tables' / table, prefix))
     # Counts over the reporting draws: median, with the 16-84% range in ...Interval (knee-GP runs have LensOnly...).
@@ -381,21 +381,13 @@ def write_run_results(final_dir: str | Path, *, name: str | None = None) -> Path
     metrics['NPosteriorRMSDraws'] = number(None, 0)
     if rms_path.exists():
         metrics['NPosteriorRMSDraws'] = str(int(np.isfinite(pd.read_csv(rms_path)['image_rms_arcsec'].to_numpy(float)).sum()))
-    quality_path = final / 'tables/image_fit_quality.csv'
-    quality = pd.read_csv(quality_path) if quality_path.exists() else pd.DataFrame()
-    for axis in ('x', 'y'):
-        suffix = axis.upper()
-        metrics['PositionCoverage'+suffix+'Percent'] = number(None, 0)
-        metrics['NPositionCoverage'+suffix] = number(None, 0)
-        columns = [axis+'_obs_arcsec', axis+'_model_q16', axis+'_model_q84']
-        if all(column in quality for column in columns):
-            values = quality[columns].to_numpy(float)
-            values = values[np.isfinite(values).all(axis=1)]
-            metrics['NPositionCoverage'+suffix] = str(len(values))
-            if len(values):
-                obs, low, high = values.T
-                metrics['PositionCoverage'+suffix+'Percent'] = number(
-                    100*np.mean((low <= obs) & (obs <= high)), 0)
+    coverage_path = final / 'tables/position_coverage.csv'
+    coverage = pd.read_csv(coverage_path) if coverage_path.exists() else pd.DataFrame()
+    levels = coverage['credible_level'].to_numpy(float) if 'credible_level' in coverage else np.empty(0)
+    levels = levels[np.isfinite(levels)]
+    metrics['NPositionCoverage'] = str(len(levels)) if len(coverage) else number(None, 0)
+    for suffix, probability in (('OneSigma', .682689492), ('TwoSigma', .954499736)):
+        metrics['PositionCoverage'+suffix+'Percent'] = number(100*np.mean(levels <= probability) if len(levels) else None, 0)
     metrics['MaxRhat'] = number(diag.get('max_r_hat'), 4)
     metrics['MinESS'] = number(diag.get('min_n_eff'), 1)
     for suffix, seconds in [('Runtime', timing.get('total')), ('SamplingRuntime', diag.get('elapsed_seconds'))]:
@@ -437,9 +429,9 @@ def write_run_results(final_dir: str | Path, *, name: str | None = None) -> Path
                    'Apertures use twice the estimated effective radius; normalization is Re at F160W=20 in kpc.',
                    'ImageFootprint means galaxy centers inside the observed-image convex hull. Score is -log10(IQR*abs(median-1)).',
                    'NPosteriorRMSDraws counts the draws with a finite RMS.',
-                   'PositionCoverageX/YPercent: observed coordinates inside saved pointwise 16-84% model intervals.',
-                   'Coverage denominators NPositionCoverageX/Y include only finite observed coordinates and bounds.',
-                   'These are in-sample diagnostics of the saved recovery model, not held-out predictive errors.',
+                   'PositionCoverageOneSigma/TwoSigmaPercent: catalog positions inside the 68.3% and 95.4% regions of their predicted observed positions '
+                   '(each draw lens position plus one draw of the image-plane GP and measurement error); NPositionCoverage images have a region.',
+                   'These are in-sample checks of the size of the fitted scatter, not held-out predictive errors.',
                    'Runtime is recorded full-run wall time, including initialization and outputs.',
                    'SamplingRuntime is the saved sampler elapsed time, not total run time.',
                    'NSamplesPerChain is configured sampling iterations before thinning.',

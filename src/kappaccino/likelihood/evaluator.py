@@ -1106,8 +1106,9 @@ class Evaluator:
         return self._padded
 
     def gp_deflection_correction(self, params) -> "gp_knee.MeanDeflectionKnee | None":
-        """Knee kernel: the GP conditional mean of the mass field's deflection error at this draw, which the image solver adds
-        to the lens so that the draw's source and lens belong together; None under the other likelihoods.  The sampled
+        """Knee kernel: the GP conditional mean of the mass field's deflection error at this draw, which added
+        to the lens makes the draw's source and lens belong together; None under the other likelihoods.  The reported
+        products use a conditional realization of the field per draw instead (``reporting.draws``).  The sampled
         source scatters by the deflection error around the centroid, and solving with the lens alone puts the effective
         source off the caustic for fold pairs.
 

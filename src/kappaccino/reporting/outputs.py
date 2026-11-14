@@ -30,6 +30,12 @@ from ..plotting.fold_pairs import compute_fold_diagnostics, save_fold_data, rend
 from .draws import reporting_draws
 
 
+REBUILT_FIELD_WARNING = (
+    "gp_blocks = {blocks}: the posterior gave each block its own mass field, and the products rebuild one shared field "
+    "from it. That field is not a posterior sample of the lens, so the image residuals, RMS, position contours and map "
+    "uncertainties in the draws' own lenses are not trustworthy and likely inflated. Use an all-block run for reported numbers.")
+
+
 def posterior_summary_table(state: ModelState, posterior: PosteriorResults) -> pd.DataFrame:
     physical = np.asarray(posterior.physical, dtype=float)
     latent = np.asarray(posterior.samples, dtype=float)
@@ -61,6 +67,9 @@ def write_outputs(config: LensClusterSolverConfig, state: ModelState, evaluator:
     draws = reporting_draws(config, evaluator, posterior)
     log(f"[outputs] {len(draws)} reporting draws (seed {draws.seed})")
     summary = {"reporting_draws": len(draws)}
+    if draws.has_field and draws.field_is_rebuilt:
+        summary["warnings"] = [REBUILT_FIELD_WARNING.format(blocks=state.gp_blocks)]
+        log(f"[outputs] WARNING: {summary['warnings'][0]}")
 
     posterior_summary_table(state, posterior).to_csv(tables / "posterior_summary.csv", index=False)
     classification_table(state).to_csv(tables / "member_classification.csv", index=False)
@@ -84,6 +93,8 @@ def write_outputs(config: LensClusterSolverConfig, state: ModelState, evaluator:
                                     fixed=fixed_relation_values(state, member_table))
 
     recovery = image_recovery_tables(state, evaluator, draws, config.image_diagnostics, extra_images=config.reporting.extra_images, log=log)
+    from ..diagnostics.position_contours import position_coverage
+    recovery["position_coverage"] = position_coverage(recovery["posterior_image_residual_draws"])
     for name, frame in recovery.items():
         frame.to_csv(tables / f"{name}.csv", index=False)
     image_df = recovery["image_fit_quality"]

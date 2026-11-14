@@ -301,8 +301,8 @@ def overview_axes(fig, ax, images, bands, display, display_image, catalog, extra
                for color, label in (("tab:blue", "Recovered image"), ("tab:purple", "Extra image"),
                                     ("tab:red", "Missed image"))]
     if position_contours is not None:
-        handles = [Line2D([], [], color='tab:blue', lw=.35, label='Recovered positions'),
-                   Line2D([], [], color='tab:purple', lw=.35, label='Tracked extra positions'),
+        handles = [Line2D([], [], color='tab:blue', lw=.35, label='Predicted observed positions'),
+                   Line2D([], [], color='tab:purple', lw=.35, label='Predicted extra images'),
                    Line2D([], [], color='white', marker='x', ls='none', ms=2, mew=.2, label='Catalog: recovered'),
                    Line2D([], [], color='tab:red', marker='x', ls='none', ms=2, mew=.2, label='Catalog: missed'),
                    Line2D([], [], color='white', lw=.35, label='1σ (68.3%)'),
@@ -386,7 +386,7 @@ def render_cluster_mass_figure(draws, catalog: pd.DataFrame, extra: pd.DataFrame
             covariance="inverse(A) C inverse(A).T", extra_images="not defined: no observed positional covariance")
 
     if position_contours is not None:
-        provenance['posterior_position_contours'] = dict(contours='68.3/95.4% regions of the reporting draws',
+        provenance['posterior_position_contours'] = dict(contours='68.3/95.4% regions of the predicted observed positions over the reporting draws',
             conditional_on='successful local recovery', catalog_markers='tiny crosses; recovery status in at least half the draws', stretch_sticks=False, summaries=position_contours['summaries'])
     fig = plt.figure(figsize=(7.1, 7.1), facecolor="white")
     grid = fig.add_gridspec(2, 2, width_ratios=[3.2, 1], height_ratios=[3.2, 1], left=0.09, right=0.95, bottom=0.10, top=0.96, wspace=0.025, hspace=0.025)

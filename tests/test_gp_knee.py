@@ -292,7 +292,7 @@ def test_fold_pair_in_a_two_knot_system_survives_a_displaced_source(tmp_path):
     for ux, uy in ((4, 4), (4, -4), (-4, 4), (-4, -4)):
         theta = np.array(start, dtype=float)
         theta[names.index("source.1A.beta_x")], theta[names.index("source.1A.beta_y")] = ux, uy
-        fixed = predictions_at(solver, state, evaluator, theta, adaptive=False)
+        fixed = predictions_at(solver, state, evaluator, theta, adaptive=False, correction=evaluator.gp_deflection_correction(theta))
         kept += fixed["count_rows"][pair]["recovered_image_count"] == 2
     assert kept == 4
     assert evaluator.gp_deflection_correction(state.initial_theta) is not None

@@ -3,7 +3,7 @@
 The search predicts every image of every catalog family, then checks the JWST data and the published catalogs for the ones our gold catalog does not have. Rerun it on each new lens model. A better model should keep the real candidates and drop the artefacts.
 
 - `find_missing_images.py` does the search and scoring:
-  - It traces each family's model source through the field: a 0.3" grid, then Newton refinement. The best posterior draw finds the images; four other draws give their spread.
+  - It traces each family's model source through the field: a 0.3" grid, then Newton refinement. Each lens draw is a posterior draw plus one conditional realization of its GRF. Each draw's lens position is then moved to the true position on the sky by the image-plane GP displacement that nearby catalog images imply in that draw; `x`, `y` in the tables are true positions and `x_lens`, `y_lens` the lens positions. The best posterior draw finds the images; four other draws refine them. An image is reported at the median over the draws, and their spread holds the lens and field uncertainty.
   - A predicted image is "missing" when there is no catalog image of its family within 1", or of another knot of the same system within 2". Knots of one system within 2.5" are merged into one site.
   - Each site is scored against the CANUCS DR1 photometry on distance, F150W magnitude against the prediction, NIRCam colours against the system's catalog images, and photo-z or spec-z against the system redshift.
 - `report_missing_images.py` turns the scores into the outputs:
@@ -41,7 +41,7 @@ The search takes about 20 s per family, about 40 min for all 111 families on the
 ## Scoring
 
 **Score.** The score is the sum of four terms; lower is better.
-- Position: (d/σ)², with σ = 0.4" added in quadrature to the spread over draws.
+- Position: (d/σ)², with σ the spread of the true position over draws, which holds the lens, field and GP uncertainty (`--sigma-pos` adds a further error in quadrature; default 0).
 - Magnitude: (ΔF150W / 1 mag)².
 - Colour: the mean χ² of m_band − m_F150W against the catalog images, with a 0.15 mag floor.
 - Redshift: 0 if z_sys is inside the photo-z 16–84% range, 1 if inside 2.5–97.5%, 4 otherwise; a matching spec-z scores 0 and a mismatched one 25.

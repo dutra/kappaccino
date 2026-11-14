@@ -43,6 +43,8 @@ These scripts read a run directory and redraw one product without rerunning infe
 | `regenerate_cluster_mass_figure.py RUN --imaging jwst` | the cluster mass overview (JWST or HST) |
 | `regenerate_fold_diagnostics.py RUN [--draws N]` | the fold-pair source and caustic figures (needs the image recovery tables) |
 | `regenerate_magnification_recovery.py RUN` | `magnification_recovery.pdf` (simulated clusters) |
+| `regenerate_cumulative_source_area.py RUN [--draws N]` | `cumulative_source_area.pdf` and its table (simulated clusters) |
+| `make_scatter_summary.py RUN [RUN ...] [--output PDF] [--draws N] [--reuse]` | `scatter_summary.pdf`: scatter of the model magnification about the truth at μ = 3 and 10 for all given simulated clusters, beside the between-team scatter of Raney et al. (2020); writes `magnification_scatter.csv` in each run |
 | `regenerate_truth_recovery.py RUN [--draws N]` | the truth maps and dependent figures, with the conditional GRF |
 | `regenerate_zeta_masses.py RUN [--draws N]` | the zeta masses and contrasts of the members and their two figures (Hera, Ares) |
 | `regenerate_member_diagnostics.py RUN [--draws N]` | the member and likelihood diagnostic suite |

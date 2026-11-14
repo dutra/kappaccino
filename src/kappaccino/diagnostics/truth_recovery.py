@@ -416,6 +416,41 @@ def mass_per_kappa_pixel_msun(state: ModelState, wcs: WCS, z_source: float) -> f
     return float((sigma_crit * dl ** 2).to_value(u.Msun) * pixel_solid_angle)
 
 
+def truth_maps_on_grid(state: ModelState, config: TruthRecoveryConfig):
+    """The true lens maps on the diagnostic grid.
+
+    Parameters
+    ----------
+    state : ModelState
+        Model state; only ``reference`` is read.
+    config : TruthRecoveryConfig
+        Truth configuration with ``kappa_true_fits`` set.
+
+    Returns
+    -------
+    wcs : astropy.wcs.WCS
+        WCS of the diagnostic grid.
+    shape : tuple of int
+        Grid shape (ny, nx).
+    x, y : numpy.ndarray
+        Pixel positions in arcsec from the reference point, shape (ny, nx).
+    truth : dict
+        ``"kappa"``, and with shear truth also ``"gamma1"``, ``"gamma2"``, ``"detA"``, ``"mu"`` and ``"abs_mu"``.
+    """
+    native_kappa, native_wcs = load_truth_fits(config.kappa_true_fits)
+    wcs, shape = diagnostic_grid(native_wcs, native_kappa.shape, int(config.truth_grid_size))
+    truth = {"kappa": sample_on_grid(native_kappa, native_wcs, wcs, shape)}
+    if config.gammax_true_fits and config.gammay_true_fits:
+        for name, path in (("gamma1", config.gammax_true_fits), ("gamma2", config.gammay_true_fits)):
+            values, source_wcs = load_truth_fits(path)
+            truth[name] = sample_on_grid(values, source_wcs, wcs, shape)
+        truth["detA"] = (1.0 - truth["kappa"]) ** 2 - truth["gamma1"] ** 2 - truth["gamma2"] ** 2
+        truth["mu"] = 1.0 / truth["detA"]
+        truth["abs_mu"] = np.abs(truth["mu"])
+    x, y = grid_arcsec(state, wcs, shape)
+    return wcs, shape, x, y, truth
+
+
 def compute_truth_recovery(state: ModelState, draws, config: TruthRecoveryConfig,
                            fits_dir: Path, tables_dir: Path, *, log=print) -> dict[str, Any] | None:
     """Write median and 16/84 percentile grids of the lens quantities and the aperture profile. Returns grid data.
@@ -469,17 +504,7 @@ def compute_truth_recovery(state: ModelState, draws, config: TruthRecoveryConfig
     if z_source <= state.z_lens:
         log(f"[truth] skipped: source redshift {z_source:g} is not behind the lens")
         return None
-    native_kappa, native_wcs = load_truth_fits(config.kappa_true_fits)
-    wcs, shape = diagnostic_grid(native_wcs, native_kappa.shape, int(config.truth_grid_size))
-    truth = {"kappa": sample_on_grid(native_kappa, native_wcs, wcs, shape)}
-    if config.gammax_true_fits and config.gammay_true_fits:
-        for name, path in (("gamma1", config.gammax_true_fits), ("gamma2", config.gammay_true_fits)):
-            values, source_wcs = load_truth_fits(path)
-            truth[name] = sample_on_grid(values, source_wcs, wcs, shape)
-        truth["detA"] = (1.0 - truth["kappa"]) ** 2 - truth["gamma1"] ** 2 - truth["gamma2"] ** 2
-        truth["mu"] = 1.0 / truth["detA"]
-        truth["abs_mu"] = np.abs(truth["mu"])
-    x, y = grid_arcsec(state, wcs, shape)
+    wcs, shape, x, y, truth = truth_maps_on_grid(state, config)
     evaluator = draws.evaluator
     n_draws = len(draws)
     grf_included = draws.has_field

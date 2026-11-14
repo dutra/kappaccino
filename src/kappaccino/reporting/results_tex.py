@@ -180,6 +180,46 @@ def footprint_metrics(final, cfg):
     return result
 
 
+_REFERENCE_NAMES = {3: 'Three', 10: 'Ten', 30: 'Thirty'}
+
+
+def truth_magnification_metrics(final):
+    """Magnification against the truth of a simulated cluster, from ``magnification_scatter.csv`` and
+    ``cumulative_source_area.csv``; every macro is "not available" without its table.
+
+    ``MagnificationScatterMu<Three|Ten>Percent`` and ``MagnificationBiasMu...Percent``: scatter and bias of the model
+    magnification over the reporting draws at the map pixels where the truth has that magnification
+    (``plotting.scatter_summary.conditional_scatter``), in per cent.  ``SourceAreaRatioMu<Three|Ten|Thirty>``: median
+    over the draws of the source-plane area magnified above that threshold, over the true area (interpolated in
+    log mu).  No prefix is the lens of each draw, parametric plus its realization of the GRF (the parametric lens
+    when the run has no field); ``LensOnly...`` the same draws without the GRF."""
+    import numpy as np
+    import pandas as pd
+    result = {}
+    scatter_path, area_path = final / 'tables/magnification_scatter.csv', final / 'tables/cumulative_source_area.csv'
+    scatter = pd.read_csv(scatter_path).set_index(['model', 'mu_ref']) if scatter_path.exists() else None
+    area = pd.read_csv(area_path) if area_path.exists() else None
+    for prefix, model in (('', 'model'), ('LensOnly', 'parametric')):
+        for mu in (3, 10):
+            for suffix, column in (('Scatter', 'scatter'), ('Bias', 'bias')):
+                value = None
+                if scatter is not None:
+                    key = (model if (model, float(mu)) in scatter.index else 'parametric', float(mu))
+                    value = 100 * scatter.loc[key, column] if key in scatter.index else None
+                result[f'{prefix}Magnification{suffix}Mu{_REFERENCE_NAMES[mu]}Percent'] = number(
+                    value if value is None or not math.isfinite(value) else round(value) + 0., 0)   # + 0. turns -0 into 0
+        for mu in (3, 10, 30):
+            value = None
+            if area is not None:
+                column = f'area_{model}_median_arcsec2'
+                column = column if column in area else 'area_parametric_median_arcsec2'
+                with np.errstate(divide='ignore', invalid='ignore'):
+                    ratio = area[column].to_numpy(float) / area['area_true_arcsec2'].to_numpy(float)
+                value = float(np.interp(np.log(mu), np.log(area['mu'].to_numpy(float)), ratio, left=np.nan, right=np.nan))
+            result[f'{prefix}SourceAreaRatioMu{_REFERENCE_NAMES[mu]}'] = number(value, 2)
+    return result
+
+
 def count_metrics(suffix, values, decimals=0):
     """``<suffix>`` (the median over draws) and ``<suffix>Interval`` (median with its 16-84% range, for math mode)
     from ``{"median", "q16", "q84"}``; "not available" without it."""
@@ -251,7 +291,9 @@ def write_run_results(final_dir: str | Path, *, name: str | None = None) -> Path
     angular scales in arcsec); convergence (``MaxRhat``, ``MinESS``); run time
     (``Runtime``, ``SamplingRuntime`` as h/min/s, plus ``...Seconds`` and
     ``...Hours``); and ``ApertureMassRatio...`` macros when the aperture
-    histogram exists.
+    histogram exists; and, for a simulated cluster, the magnification against
+    the truth (``MagnificationScatterMuThreePercent``, ``SourceAreaRatioMuTen``
+    and the like, with ``LensOnly...``; ``truth_magnification_metrics``).
 
     Parameters
     ----------
@@ -373,6 +415,7 @@ def write_run_results(final_dir: str | Path, *, name: str | None = None) -> Path
                                   ('p75','UpperQuartile'), ('iqr','IQR'), ('Q','Score')]:
                 metrics[stem + suffix] = number(row[field], 3)
     metrics.update(footprint_metrics(final, cfg))
+    metrics.update(truth_magnification_metrics(final))
     return _write(final / 'figures' / f'{filename}_results.tex', command_prefix(name), metrics,
                   ['Image recovery over the reporting posterior draws: counts are medians, ...Interval the 16-84% range; no reduced chi-square exported.',
                    'This work: median over the saved posterior draws (FootprintNDraws), ...Interval with the 16-84% range,',
@@ -384,7 +427,11 @@ def write_run_results(final_dir: str | Path, *, name: str | None = None) -> Path
                    'at the edge of the published figure); no suffix is this work (median over draws), a model name suffix is that',
                    'published parametric reconstruction of Meneghetti et al. (2017), over the part of the range its curve covers.',
                    'RMS and MedianResidual (and LensOnly...): median and 16-84% range over posterior draws of each draw RMS and median residual of its recovered images, for math mode.',
-                   'LensOnlyRMS and LensOnlyMedianResidual: the same draws solved without the GRF conditional mean.',
+                   'RMS and MedianResidual use the lens of each draw, parametric plus its realization of the GRF; LensOnlyRMS and LensOnlyMedianResidual the same draws without the GRF.',
+                   'MagnificationScatterMu...Percent and MagnificationBiasMu...Percent: scatter (half the 16-84% range over the median) and bias (median - 1)',
+                   'of model/true magnification over all reporting draws, at map pixels inside the image hull whose true magnification is within 10% of 3 or 10',
+                   '(after Raney et al. 2020); SourceAreaRatioMu...: median over draws of the source-plane area magnified above 3, 10 or 30, over the true area.',
+                   'Both at the truth-map source redshift; no prefix is parametric plus the GRF realization of each draw, LensOnly the same draws without the GRF.',
                    'GP and GRF parameter macros are posterior medians; angular scales are in arcseconds.',
                    'ApertureMassRatio macros, when present: galaxy-distribution median and quartiles, not posterior intervals.',
                    'Apertures use twice the estimated effective radius; normalization is Re at F160W=20 in kpc.',

@@ -105,6 +105,15 @@ With truth maps (`TruthRecoveryConfig`, set for Hera and Ares), the run also wri
 - `magnification_recovery.pdf`: truth against model magnification at the observed images and over the image-position
   convex hull at the truth-map source redshift (9). The orange error bars are spatial 16–84 percentiles, not posterior
   uncertainties;
+- `cumulative_source_area.pdf`: source-plane area magnified above μ at the truth-map source redshift,
+  A(>μ) = Σ A_pix/|μ| over the truth-map pixels with |μ| > μ, for the truth, the parametric model and the parametric
+  + GRF model (conditional mean of each draw), with the comoving volume of the shell z ± 0.5 on the right axis and the
+  ratio to the truth below. Lines and bands are the median and 16–84% range over the reporting draws. Thresholds below
+  μ = 3 depend on the size of the map and are shaded. Numbers in `cumulative_source_area.csv`;
+- `magnification_scatter.csv` (table only): scatter and bias of the model magnification about the truth at the map
+  pixels inside the image hull whose true magnification is within 10% of 3 or 10, over all reporting draws, for the
+  parametric model and the parametric + GRF model (after Raney et al. 2020). `scripts/make_scatter_summary.py` draws
+  these for several clusters as `scatter_summary.pdf`;
 - `subhalo_mass_concentration.pdf`: one row of four panels for the members on the true map and the parametric + GRF
   model map (evaluated on the truth-map pixels). Mass is the zeta statistic (Fahlman et al. 1994) in 10 kpc, the mass
   inside 10 kpc above the mean of the 10–20 kpc annulus; concentration is κ̄(<R_e)/κ̄(R_e–2R_e) − 1. Panels: number of
@@ -167,6 +176,14 @@ parametric reconstructions of Meneghetti et al. (2017). Our numbers are medians 
 (`final/tables/truth_recovery_{m2d_aperture,kappa_annulus}_ratio_draws.csv`, `\HeraFootprintNDraws` of them, the
 reporting draws), and each has an `...Interval` macro for math mode with the 16-84 per cent
 range, e.g. `$\HeraFootprintMassRMSPercentInterval\%$`, and `...Minus` and `...Plus` macros with the lower and upper error alone.
+
+Simulated clusters with shear truth also get the magnification against the truth:
+`\HeraMagnificationScatterMuThreePercent`, `\HeraMagnificationScatterMuTenPercent` and
+`\HeraMagnificationBiasMu...Percent` (from `magnification_scatter.csv`, in per cent), and `\HeraSourceAreaRatioMuThree`,
+`...MuTen` and `...MuThirty` (median source-plane area magnified above that threshold over the true area, from
+`cumulative_source_area.csv`). These use the lens of each draw, parametric plus its realization of the GRF; the same
+names with `LensOnly` after the cluster prefix (`\HeraLensOnlyMagnificationScatterMuTenPercent`) are the parametric
+lens alone. They are "not available" until the run has those tables.
 
 Regenerate from saved artifacts, without inference or plotting:
 

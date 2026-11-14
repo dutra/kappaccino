@@ -5,11 +5,15 @@ z_lens: 0.507
 images: images.yaml
 
 # One cluster-scale halo at each light peak, plus external shear.  The cluster_scale priors: centre uniform within 5",
-# shape box up to ellipticite 0.8, core log-uniform 0.5-100 kpc, cut 1500 +- 300 kpc on 500-3000 kpc, v_disp log-normal
-# of mean v_disp and std 0.35 v_disp on 100-2200 km/s.
+# shape box up to ellipticite 0.8, core log-uniform 0.5-100 kpc, v_disp log-normal of mean v_disp and std 0.35 v_disp
+# on 100-2200 km/s.  The cut radius is log-uniform on 500-10000 kpc, not the preset's 1500 +- 300 kpc on 500-3000:
+# the images reach 300 kpc and do not constrain it (its posterior follows the prior).  In four-chain fits it changed
+# neither the mass field nor the agreement with the true mass (2026-11-12).
 halos:
-  "1": {preset: cluster_scale, x_centre: 19.54080009, y_centre: 2.37820005, v_disp: 800.0}
-  "2": {preset: cluster_scale, x_centre: 0.001, y_centre: 0.003, v_disp: 700.0}
+  "1": {preset: cluster_scale, x_centre: 19.54080009, y_centre: 2.37820005, v_disp: 800.0,
+        cut_excess_kpc: "loguniform(500.0, 10000.0)"}
+  "2": {preset: cluster_scale, x_centre: 0.001, y_centre: 0.003, v_disp: 700.0,
+        cut_excess_kpc: "loguniform(500.0, 10000.0)"}
   S1: {profile: shear, preset: free}
 
 # The brightest cluster galaxies stay on the scaling relation.  L* is m_F160W = 19.82 at z = 0.5.

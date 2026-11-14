@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 from ..imaging.cutouts import arcsec_to_skycoord, arcsec_to_radec, cutout_window, rgb_cutout, rgb_reference_band
-from .grf import plot_deflection_correction, PLOT_FIELD_VERSION
+from .grf import PLOT_FIELD_VERSION
 from .fold_pairs import _credible_density_grid
 from .style import PAPER_STYLE, CRITICAL_COLOR
 from ..io.hdf5 import load_arrays, save_arrays
@@ -178,7 +178,7 @@ def write_small_lambda_jwst(config, state, draws, paths, imaging, position_conto
         critical_curve='Blue: zero contour of posterior median determinant at each source redshift; parametric + shared GRF when enabled',critical_draw_indices=critical_indices.tolist(),critical_band='16-84% determinant interval from the same smoothed parametric + GRF draws',
         minimum_major_sigma_arcsec=minimum_major_sigma,minimum_axis_ratio=minimum_axis_ratio,maximum_cutouts=count,
         ranking='Descending major-axis standard deviation (sqrt of largest eigenvalue of recovered image-position sample covariance); ties by image label; at least 10 recovered draws and positive-definite covariance',
-        model='exact parametric + conditional-mean GRF, smooth plotting derivatives',grf_version=PLOT_FIELD_VERSION,
+        model='exact parametric + conditional GRF realization of each draw, smooth plotting derivatives',grf_version=PLOT_FIELD_VERSION,
         jacobian_max_asymmetry=max(asymmetries),singular_value_check='abs(lambda_a) checked against smallest singular value for every image/draw',
         position_contours='68.2689492% (solid) and 95.4499736% (dashed) KDE highest-density regions, conditional on successful local image recovery; no covariance ellipses',
         draw_indices=indices.tolist(),posterior_cache_fingerprint=fingerprint,selected=contour_rows)

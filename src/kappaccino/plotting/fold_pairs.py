@@ -3,7 +3,7 @@
 Automatic pairs are model-identified candidates, not catalog morphology labels.
 Everything is computed over the reporting draws (``reporting.draws``): the reference fold geometry from the per-pixel
 median det A, the image positions from the image recovery of those draws, and each draw's own lens and GRF
-conditional mean.  Image contours are conditional on local root recovery; source contours retain every draw,
+realization.  Image contours are conditional on local root recovery; source contours retain every draw,
 including those on the no-local-fold-pair side of their own caustic.
 """
 from pathlib import Path
@@ -587,7 +587,7 @@ def add_median_critical_curves(state, draws, data, *, log=print, critical_only=F
     if not critical_only:
         add_caustic_aligned_sources(state, draws, data, log=log)
     data['critical_overlay'] = ('Zero contours of the per-pixel median det A over the reporting draws, parametric and parametric + '
-                                'conditional-mean GRF; pointwise 16-84% bands for both models; source frame includes conditional-mean GRF')
+                                'one conditional GRF realization per draw; pointwise 16-84% bands for both models; source frame includes the GRF')
     return data
 
 
@@ -651,7 +651,7 @@ def system_boxes(data):
 
 
 def add_grf_critical_band(state, draws, data, *, log=print):
-    """Each reporting draw's conditional-mean GRF critical branch on the systems' fixed normal cross-sections."""
+    """Each reporting draw's critical branch with its GRF realization on the systems' fixed normal cross-sections."""
     systems = data.get('systems', [])
     if not systems:
         return data
@@ -666,7 +666,7 @@ def add_grf_critical_band(state, draws, data, *, log=print):
         physical = physical_fn(theta)
         correction = draws.correction(draw, reach)
         if correction is None:
-            raise ValueError('GRF critical band requires a conditional deflection field')
+            raise ValueError('GRF critical band requires a shared deflection field')
         for system in systems:
             packed = evaluator.packed_state_for_z(physical, float(system['z_source']))
             family = family_ids.index(str(system['anchor_family_id']))
@@ -695,13 +695,13 @@ def add_grf_critical_band(state, draws, data, *, log=print):
     data['grf_critical_band'] = ('Pointwise 16th-84th percentiles on the existing fixed normal cross-sections; '
         'GRF determinant sign boundary nearest each draw parametric branch; '
         'require at least 80% valid draws per cross-section; '
-        'conditional-mean fields only, no residual latent-field realizations')
+        'one conditional field realization per draw')
     return data
 
 
 def map_through_draws(state, draws, data, system, points):
     """Source-plane images (draw, point, 2) of fixed image-plane ``points`` under every reporting draw's lens and
-    conditional-mean GRF, at the system's redshift."""
+    GRF realization, at the system's redshift."""
     evaluator, samples = shared_draws(draws)
     fields, _, _ = _kernels(evaluator)
     physical_fn = jax.jit(evaluator.physical)
@@ -724,7 +724,7 @@ def add_grf_source_frames(state, draws, data, *, log=print):
     """Cartesian sources of every draw and the caustic of the median critical curve.
 
     The origin is the median over draws of each draw's mean knot source.  The caustic is the per-point median over
-    draws of the median parametric + GRF critical curve mapped through each draw's lens and conditional-mean GRF
+    draws of the median parametric + GRF critical curve mapped through each draw's lens and GRF realization
     deflection, retaining NaN separators between branches; the 16th and 84th percentiles are kept beside it.
     """
     systems = data.get('systems', [])
@@ -773,7 +773,7 @@ def caustic_centered_sources(sources, anchors, basis):
 def add_caustic_aligned_sources(state, draws, data, *, log=print):
     """Remove source/caustic common motion while preserving knot separations.
 
-    Every draw uses its own conditional-mean GRF caustic anchor on the same image-plane cross-section.  One fixed
+    Every draw uses the caustic anchor of its own GRF realization on the same image-plane cross-section.  One fixed
     tangent/normal basis, the median over draws of each draw's caustic tangent at its anchor, rotates all draws
     together.  The displayed caustic is the per-point median over draws of each draw's aligned local caustic.  No
     knot-dependent shifts, contour smoothing, or sample rejection by source position is applied; missing local anchors
@@ -836,7 +836,7 @@ def add_caustic_aligned_sources(state, draws, data, *, log=print):
         before = np.nanstd(system['source_unaligned_grf'].mean(1),axis=0)
         after = np.nanstd(system['source_aligned_grf'].mean(1),axis=0)
         log(f"[outputs] aligned {system['system_id']}: valid={valid.tolist()}, scatter {before.tolist()} -> {after.tolist()} arcsec")
-    data['source_alignment'] = ('Each draw source positions minus its own conditional-mean GRF caustic anchor at the '
+    data['source_alignment'] = ('Each draw source positions minus the caustic anchor of its own GRF realization at the '
         'fixed image-plane cross-section, rotated into one basis (the median over draws of the caustic tangent); '
         'the caustic is the per-point median over draws of each draw aligned local branch; '
         'all knots share the same shift; missing anchors counted explicitly')

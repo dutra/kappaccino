@@ -176,7 +176,8 @@ def knee_power(k, knee, gamma, sigma_grf):
 
 def compute_fields(config, state, draws, *, step=.5, log=print):
     """The shared GRF and image GP maps over the reporting draws (``reporting.draws.ReportingDraws``), each draw's
-    fields conditioned at that draw: per-pixel medians, with the 16th and 84th percentiles of the GRF convergence; the
+    fields conditioned at that draw (the GRF as one conditional realization per draw): per-pixel medians, with the 16th
+    and 84th percentiles of the GRF convergence; the
     medians of the field hyperparameters; and the median and 16-84% of the prior knee spectrum over the same draws.
     The convergences are at the GRF reference redshift.  No refitting or sampling."""
     from ..core.utils import progress
@@ -240,7 +241,7 @@ def write_field_plots(config, state, evaluator, posterior, paths, *, log=print):
     provenance = dict(draw_indices=np.asarray(data['draw_indices']).tolist(), reference_redshift=float(data['reference_redshift']),
                       conditioning='each random posterior draw conditioned at itself; fitted source positions and projection retained',
                       spectrum='homogeneous kernel before projection; Delta_kappa^2=k^2 P_kappa/(2 pi); median and 16-84% over the draws',
-                      map='per-pixel median over the draws of each draw\'s conditional mean; grf_q16/grf_q84 the 16-84% range', field=field_label,
+                      map='per-pixel median over the draws of each draw\'s conditional realization; grf_q16/grf_q84 the 16-84% range', field=field_label,
                       nonpositive_total_pixels=int(np.sum(data['total']<=0)),
                       nonpositive_display='masked in the logarithmic total-convergence panel')
     (paths.tables / 'conditional_field_maps.json').write_text(json.dumps(provenance, indent=2))

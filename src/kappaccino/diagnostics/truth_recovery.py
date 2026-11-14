@@ -1,19 +1,13 @@
 """Truth recovery for simulated clusters: posterior convergence and magnification grids on the truth WCS.
 
-Lens maps of a fitted model at arbitrary sky points (:func:`lens_quantities`), the WCS helpers that place a model grid
-on a truth map (:func:`load_truth_fits`, :func:`diagnostic_grid`, :func:`sample_on_grid`, :func:`grid_arcsec`), and
-the run-level comparison against the truth convergence and shear maps of a simulated cluster
-(:func:`compute_truth_recovery`, configured by ``TruthRecoveryConfig``).  Model positions are arcsec offsets from the
-state's reference, :math:`x = (\\alpha_0 - \\alpha)\\cos\\delta_0 \\cdot 3600` (positive west) and
-:math:`y = (\\delta - \\delta_0) \\cdot 3600`.
-
-Example: the convergence of one posterior draw on a truth map's grid::
-
-    kappa_true, wcs = load_truth_fits(path)
-    grid_wcs, shape = diagnostic_grid(wcs, kappa_true.shape, 512)
-    x, y = grid_arcsec(state, grid_wcs, shape)
-    maps = lens_quantities(evaluator, posterior.samples[0], 9.0, x.ravel(), y.ravel())
-    kappa = maps["kappa"].reshape(shape)
+The WCS helpers that place a model grid on a truth map (:func:`load_truth_fits`, :func:`diagnostic_grid`,
+:func:`sample_on_grid`, :func:`grid_arcsec`), and the run-level comparison against the truth convergence and shear maps
+of a simulated cluster (:func:`compute_truth_recovery`, configured by ``TruthRecoveryConfig``).  Model positions are
+arcsec offsets from the state's reference, :math:`x = (\\alpha_0 - \\alpha)\\cos\\delta_0 \\cdot 3600` (positive west) and
+:math:`y = (\\delta - \\delta_0) \\cdot 3600`.  The model maps come from the reporting draws
+(``ReportingDraws.grid_maps``): from :math:`A = I - \\partial\\alpha/\\partial\\theta`,
+:math:`\\kappa = 1 - (A_{11} + A_{22})/2`, :math:`\\gamma_1 = (A_{22} - A_{11})/2`,
+:math:`\\gamma_2 = -(A_{12} + A_{21})/2`, :math:`\\mu = 1/\\det A`.
 """
 from __future__ import annotations
 
@@ -22,8 +16,6 @@ import warnings
 from pathlib import Path
 from typing import Any
 
-import jax
-import jax.numpy as jnp
 import numpy as np
 import pandas as pd
 from astropy.io import fits
@@ -31,9 +23,8 @@ from astropy.wcs import WCS, FITSFixedWarning
 from scipy.ndimage import gaussian_filter, map_coordinates
 
 from ..config import TruthRecoveryConfig
-from ..likelihood.evaluator import Evaluator
 from ..core.model import ModelState
-from ..likelihood.grf_fields import shared_field_evaluator, shared_grf_fields, shared_grf_label
+from ..likelihood.grf_fields import shared_field_evaluator, shared_grf_label
 
 QUANTITIES = ("kappa", "gamma1", "gamma2", "detA", "mu", "abs_mu")
 APERTURE_CENTER_SMOOTHING_SIGMA_PIX = 2.0
@@ -167,53 +158,6 @@ def grid_arcsec(state: ModelState, wcs: WCS, shape: tuple[int, int]) -> tuple[np
     cos_dec0 = math.cos(math.radians(dec0))
     delta_ra = (ra0 - np.asarray(ra, dtype=float) + 180.0) % 360.0 - 180.0
     return delta_ra * cos_dec0 * 3600.0, (np.asarray(dec, dtype=float) - dec0) * 3600.0
-
-
-def lens_quantities(evaluator: Evaluator, theta: np.ndarray, z_source: float, x: np.ndarray, y: np.ndarray,
-                    *, include_grf: bool = True) -> dict[str, np.ndarray]:
-    """kappa, gamma, det A and magnification of the full lens model at the given points.
-
-    Every lens component is evaluated exactly (no far-field series) for a source at ``z_source``.  With the knee GP
-    likelihood on all-image blocks, ``include_grf`` adds the draw's conditional-mean deflection field
-    (:meth:`Evaluator.gp_deflection_correction <kappaccino.likelihood.evaluator.Evaluator.gp_deflection_correction>`); other
-    likelihoods are unaffected.  From :math:`A = I - \\partial\\alpha/\\partial\\theta`:
-    :math:`\\kappa = 1 - (A_{11} + A_{22})/2`, :math:`\\gamma_1 = (A_{22} - A_{11})/2`,
-    :math:`\\gamma_2 = -(A_{12} + A_{21})/2`, :math:`\\mu = 1/\\det A`.
-
-    Parameters
-    ----------
-    evaluator : Evaluator
-        Evaluator of the fitted model.
-    theta : array_like
-        Latent parameter vector, shape (parameter,) (a row of ``PosteriorResults.samples``, not the physical
-        vector; with the GRF it must be a posterior draw, since the field is conditioned on its residuals).
-    z_source : float
-        Source redshift the quantities refer to.
-    x, y : array_like
-        Points in image-plane arcsec offsets from the reference, shape (point,) (see :func:`grid_arcsec`).
-    include_grf : bool, optional
-        Add the GP conditional-mean deflection field where it exists.  Default True.
-
-    Returns
-    -------
-    dict of numpy.ndarray
-        Each of shape (point,), dimensionless: ``"kappa"`` (convergence), ``"gamma1"``, ``"gamma2"`` (shear),
-        ``"detA"`` (:math:`\\det A`), ``"mu"`` (signed magnification) and ``"abs_mu"`` (:math:`|\\mu|`).
-    """
-    physical = evaluator.physical(jnp.asarray(theta, dtype=jnp.float64))
-    packed = evaluator.packed_state_for_z(physical, z_source)
-    _, u = evaluator.total_fields_at(np.stack((np.asarray(x, dtype=float), np.asarray(y, dtype=float)), -1), packed)
-    if include_grf:
-        _, correction = shared_grf_fields(evaluator, theta, z_source, np.column_stack((x, y)))
-        u = u + correction
-    a = np.eye(2) - u
-    a00, a01, a10, a11 = a[:, 0, 0], a[:, 0, 1], a[:, 1, 0], a[:, 1, 1]
-    kappa = 1.0 - 0.5 * (a00 + a11)
-    gamma1 = 0.5 * (a11 - a00)
-    gamma2 = -0.5 * (a01 + a10)
-    det = a00 * a11 - a01 * a10
-    mu = 1.0 / det
-    return {"kappa": kappa, "gamma1": gamma1, "gamma2": gamma2, "detA": det, "mu": mu, "abs_mu": np.abs(mu)}
 
 
 def smoothed_peak_center(kappa_true: np.ndarray, x: np.ndarray, y: np.ndarray, sigma_pix: float = APERTURE_CENTER_SMOOTHING_SIGMA_PIX) -> dict[str, Any] | None:
@@ -455,7 +399,7 @@ def compute_truth_recovery(state: ModelState, draws, config: TruthRecoveryConfig
                            fits_dir: Path, tables_dir: Path, *, log=print) -> dict[str, Any] | None:
     """Write median and 16/84 percentile grids of the lens quantities and the aperture profile. Returns grid data.
 
-    Every grid is the parametric model plus the shared GRF conditional mean of the same draw, when the run has one
+    Every grid is the parametric model plus the same draw's conditional realization of the shared GRF, when the run has one
     shared mass field.  The truth convergence (and, when both are configured, shear) maps are resampled onto a grid of at most
     ``config.truth_grid_size`` pixels per side.  The model is evaluated at the reporting draws
     (``reporting.draws.ReportingDraws``), for a source at ``config.caustic_source_redshift``, and every map is a
@@ -494,7 +438,7 @@ def compute_truth_recovery(state: ModelState, draws, config: TruthRecoveryConfig
         Otherwise: ``"wcs"`` and ``"shape"`` of the grid; ``"x"``, ``"y"`` (arcsec, shape (height, width));
         ``"truth"`` (dict of truth maps by quantity); ``"model"`` (dict by quantity of ``{"median", "q16", "q84"}``
         maps); ``"profile"`` (the aperture-profile DataFrame or None) and ``"center"`` (its center, arcsec);
-        ``"grf_conditional_mean"`` (bool); ``"kappa_profile"`` (:func:`annular_kappa_profile` or None);
+        ``"grf_included"`` (bool); ``"kappa_profile"`` (:func:`annular_kappa_profile` or None);
         ``"z_source"``; ``"literature_m2d"`` and ``"literature_kappa"`` (:func:`literature_ratios`); ``"mass_per_kappa_pixel_msun"`` (Msun per unit
         convergence per grid pixel).
     """
@@ -518,8 +462,8 @@ def compute_truth_recovery(state: ModelState, draws, config: TruthRecoveryConfig
     header = wcs.to_header()
     header["ZSOURCE"] = z_source
     truth_header = header.copy()
-    header["GRFMEAN"] = grf_included
-    header["GRFTYPE"] = "conditional mean; same draw"
+    header["GRF"] = grf_included
+    header["GRFTYPE"] = "conditional realization; same draw"
     header["GRFFIELD"] = ("run" if shared_field_evaluator(evaluator) is evaluator else "all-block twin") if grf_included else "none"
     header["MAPSTAT"] = (f"pixel percentiles of {n_draws} draws", "each draw with its own GRF")
     products: dict[str, dict[str, np.ndarray]] = {}
@@ -546,6 +490,6 @@ def compute_truth_recovery(state: ModelState, draws, config: TruthRecoveryConfig
             profile_draws.to_csv(tables_dir / "truth_recovery_m2d_aperture_ratio_draws.csv", index=False)
             kappa_draws.to_csv(tables_dir / "truth_recovery_kappa_annulus_ratio_draws.csv", index=False)
     return {"wcs": wcs, "shape": shape, "x": x, "y": y, "truth": truth, "model": products, "profile": profile, "kappa_profile": kappa_profile, "center": center,
-            "grf_conditional_mean": bool(header["GRFMEAN"]),
+            "grf_included": grf_included,
             "z_source": z_source, "mass_per_kappa_pixel_msun": mass_per_kappa_pixel_msun(state, wcs, z_source),
             "literature_m2d": literature_m2d_ratios(config), "literature_kappa": literature_ratios(config, "kappa")}

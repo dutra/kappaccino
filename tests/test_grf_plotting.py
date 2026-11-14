@@ -67,26 +67,100 @@ def test_radial_refinement_converges_to_analytic_potential_kernel(monkeypatch):
 
 
 def test_wide_plot_extends_tables_without_changing_conditioning():
-    from kappaccino.plotting.grf import plot_deflection_correction
+    from kappaccino.plotting.grf import display_tables
     tables=gp_knee.knee_tables(r_max=2.,r_step=.05,lam_min=1.,lam_max=4.,n_lam=4,
         scale_min=.5,scale_max=10.,gamma=4.)
-    layout=dict(xy=jnp.zeros((1,1,2)),mask=jnp.ones((1,1),bool),
-                weights=jnp.ones((1,1)),block_of_family=jnp.array([0]))
-    coefficients=jnp.array([[[.2,-.1]]])
-    evaluator=SimpleNamespace(gp_knee=True,gp_knee_spectrum='knee',sigma_grf_index=0,
-        gp_groups=None,gp=layout,gp_tables=tables,gp_weights_per_family=np.ones(1),
-        gp_knee_gamma_index=-1,_knee_mean_inputs=lambda theta:(coefficients,jnp.array([.7,2.])))
-    field=plot_deflection_correction(evaluator,np.zeros(1),max_separation=4.)
-    assert evaluator.gp_tables is tables
-    assert float(tables['r_grid'][-1])==2.
-    extended=evaluator._plot_extended_tables
+    base=SimpleNamespace(gp_tables=tables)
+    assert display_tables(base) is tables and display_tables(base,1.5) is tables
+    extended=display_tables(base,4.)
+    assert base.gp_tables is tables and float(tables['r_grid'][-1])==2. and float(extended['r_grid'][-1])>=4.
     for key in ('c_l','c_t','d2_l','d2_t'):
         np.testing.assert_array_equal(extended[key][:len(tables['r_grid'])],tables[key])
-    values=field(np.array([3.5]),np.array([.2]),np.array([0]))
-    assert np.isfinite(values).all()
-    np.testing.assert_allclose(values[3],values[4],atol=1e-12)
-    plot_deflection_correction(evaluator,np.zeros(1),max_separation=3.)
-    assert evaluator._plot_extended_tables is extended
+    assert display_tables(base,3.) is extended
+
+
+def _toy_conditioning(modes,seed=0):
+    """Five images of one block with unequal weights, data covariance C = W K_r W + noise^2, and some data."""
+    from kappaccino.plotting.grf import image_field_covariance
+    rng=np.random.default_rng(seed)
+    tables=gp_knee.knee_tables(r_max=12.,r_step=.05,lam_min=1.,lam_max=8.,n_lam=4,scale_min=.5,scale_max=40.,gamma=4.)
+    xy=rng.uniform(-3,3,(5,2));weights=np.array([1.,.8,1.2,1.,.9]);sigma,lam,noise=.3,4.,.05
+    layout=dict(xy=jnp.asarray(xy[None]),mask=jnp.ones((1,5),bool),weights=jnp.asarray(weights[None]),block_of_family=jnp.array([0]))
+    cl,ct=map(np.asarray,gp_knee.knee_curves(tables,jnp.asarray(lam),None))
+    covariance=lambda points:image_field_covariance(points,np.ones(len(points),bool),np.asarray(tables['r_grid']),cl,ct,sigma**2
+                                                    ).transpose(0,2,1,3).reshape(2*len(points),2*len(points))
+    k=covariance(xy)
+    if modes:
+        q=np.asarray(gp_knee.low_order_projector(layout['xy'],layout['mask'],modes)[0])[0]
+        projector=np.eye(10)-q@q.T
+        k=projector@k@projector
+    w2=np.repeat(weights,2)
+    c=k*w2[:,None]*w2[None]+noise**2*np.eye(10)
+    cholesky=np.linalg.cholesky(c)
+    data=cholesky@rng.normal(size=10)
+    v=np.linalg.solve(c,data).reshape(1,5,2)
+    return dict(layout=layout,tables=tables,xy=xy,w2=w2,k=k,c=c,cholesky=cholesky[None],v=v,sigma=sigma,lam=lam,covariance=covariance)
+
+
+def _realizations(toy,points,modes,count):
+    from kappaccino.plotting.grf import FieldRealization,draw_field
+    rng=np.random.default_rng(11)
+    fields=[]
+    for _ in range(count):
+        draw=draw_field(toy['layout'],toy['tables'],toy['cholesky'],toy['v'],toy['sigma'],toy['lam'],4.,modes=modes,rng=rng,n_modes=256)
+        fields.append(np.column_stack(FieldRealization(toy['layout'],toy['tables'],draw,np.ones(1),modes=modes)(*points.T,np.zeros(len(points),int))[:2]).ravel())
+    return np.asarray(fields)
+
+
+def test_realizations_have_the_conditional_mean_and_covariance_away_from_the_images():
+    """Matheron's rule: the sample mean is the conditional mean M[v] and the sample covariance is K** - K* W C^-1 W K*^T."""
+    toy=_toy_conditioning(())
+    points=np.array([[.5,.2],[2.5,-1.],[6.,5.]])
+    fields=_realizations(toy,points,(),1200)
+    joint=toy['covariance'](np.vstack([points,toy['xy']]))
+    cross=joint[:6,6:]*toy['w2'][None]
+    expected_covariance=joint[:6,:6]-cross@np.linalg.solve(toy['c'],cross.T)
+    expected_mean=np.column_stack(SmoothPlotDeflection(toy['layout'],toy['tables'],toy['v'],toy['lam'],toy['sigma']**2,np.ones(1))(
+        *points.T,np.zeros(3,int))[:2]).ravel()
+    scale=np.sqrt(np.diag(expected_covariance))
+    np.testing.assert_allclose(fields.mean(0),expected_mean,atol=4*scale.max()/np.sqrt(len(fields)))
+    np.testing.assert_allclose(np.cov(fields.T),expected_covariance,atol=.15*scale.max()**2)
+    # The field is pinned near the images and free far from them: the farthest point keeps the prior variance.
+    assert expected_covariance[0,0]<.5*toy['sigma']**2 and abs(np.var(fields[:,4])/toy['sigma']**2-1)<.2
+
+
+def test_realizations_with_low_order_modes_removed_match_the_projected_covariance_at_the_images():
+    modes=('translation','convergence','shear')
+    toy=_toy_conditioning(modes)
+    fields=_realizations(toy,toy['xy'],modes,1200)
+    cross=toy['k']*toy['w2'][None]
+    expected_covariance=toy['k']-cross@np.linalg.solve(toy['c'],cross.T)
+    expected_mean=toy['k']@(toy['w2']*toy['v'].reshape(-1))
+    scale=np.sqrt(np.diag(toy['k']).max())
+    np.testing.assert_allclose(fields.mean(0),expected_mean,atol=4*scale/np.sqrt(len(fields))+1e-3)
+    np.testing.assert_allclose(np.cov(fields.T),expected_covariance,atol=.15*scale**2)
+    q=np.asarray(gp_knee.low_order_projector(toy['layout']['xy'],toy['layout']['mask'],modes)[0])[0]
+    assert np.abs(fields@q).max()<2e-3*scale*np.sqrt(10)          # no translation, convergence or shear over the images
+
+
+def test_a_realization_is_fixed_by_its_generator_and_its_jacobian_is_the_gradient_of_its_deflection():
+    from kappaccino.plotting.grf import FieldRealization,draw_field
+    modes=('translation','convergence','shear')
+    toy=_toy_conditioning(modes)
+    build=lambda:FieldRealization(toy['layout'],toy['tables'],draw_field(toy['layout'],toy['tables'],toy['cholesky'],toy['v'],toy['sigma'],
+        toy['lam'],4.,modes=modes,rng=np.random.default_rng([3,17]),n_modes=256),np.array([1.,.5]),modes=modes)
+    layout=dict(toy['layout'],block_of_family=jnp.array([0,0]));toy['layout']=layout
+    field,again=build(),build()
+    points=np.array([[.3,-.4],[1.7,2.2],[-4.,3.]]);families=np.array([0,1,1])
+    values=np.asarray(field(*points.T,families))
+    np.testing.assert_array_equal(values,np.asarray(again(*points.T,families)))
+    step=1e-5
+    for axis in range(2):
+        shift=np.eye(2)[axis]*step
+        numeric=(np.asarray(field(*(points+shift).T,families))[:2]-np.asarray(field(*(points-shift).T,families))[:2])/(2*step)
+        np.testing.assert_allclose(numeric,values[[2+axis,4+axis]],atol=2e-6)
+    np.testing.assert_allclose(values[3],values[4],atol=1e-10)   # curl-free
+    np.testing.assert_allclose(np.asarray(field(points[1:2,0],points[1:2,1],[0]))/values[:,1:2],2.,rtol=1e-12)   # family weight
 
 
 def test_jax_evaluation_matches_the_scipy_hermite_pieces(monkeypatch):

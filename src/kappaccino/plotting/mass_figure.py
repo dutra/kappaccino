@@ -44,7 +44,7 @@ def _stretch_directions(jacobian):
 
 def median_jacobians(draws, xy: np.ndarray, families: np.ndarray, redshifts: np.ndarray) -> np.ndarray:
     """Element-wise median over the reporting draws of A = I - d(alpha)/d(theta) at ``xy`` (arcsec, shape (point, 2)),
-    each point at its own source redshift and family, parametric plus each draw's shared-field GRF conditional mean."""
+    each point at its own source redshift and family, parametric plus each draw's realization of the shared GRF."""
     xy, families, redshifts = np.asarray(xy, float).reshape(-1, 2), np.asarray(families, int), np.asarray(redshifts, float)
     result = np.empty((len(draws), len(xy), 2, 2))
     for k in range(len(draws)):
@@ -322,7 +322,7 @@ def render_cluster_mass_figure(draws, catalog: pd.DataFrame, extra: pd.DataFrame
     """Write the overview-plus-mass-panels figure, the strip profiles and the convergence FITS. Returns provenance.
 
     The convergence maps are per-pixel medians over the reporting draws (``reporting.draws.ReportingDraws``) of the
-    parametric convergence, of the shared field's conditional-mean convergence and of their sum, each draw's field
+    parametric convergence, of the convergence of its realization of the shared field and of their sum, each draw's field
     conditioned at that draw; the stretch directions and covariance ellipses use the median A (and C) over the draws."""
     evaluator = draws.evaluator
     images, bands, display, cluster = imaging
@@ -338,7 +338,7 @@ def render_cluster_mass_figure(draws, catalog: pd.DataFrame, extra: pd.DataFrame
     if not np.isfinite(model).all():
         raise ValueError("Model convergence is nonfinite in the displayed rectangle")
     statistic = f"per-pixel median over {len(draws)} posterior draws"
-    grf_quantity = f"per-pixel median over {len(draws)} posterior draws of each draw's conditional mean"
+    grf_quantity = f"per-pixel median over {len(draws)} posterior draws of each draw's conditional realization"
     sigma_crit = physical["sigma_crit_msun_per_kpc2"]
     sigma_angle = sigma_crit * physical["kpc_per_arcsec"] ** 2
     x, y, xe, ye = (geometry[k] for k in ("x", "y", "xe", "ye"))

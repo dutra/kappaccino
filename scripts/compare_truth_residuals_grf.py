@@ -83,7 +83,7 @@ def main():
             saved,_=load_truth_fits(final/f'fits/truth_recovery_{q}_model_median.fits')
             from astropy.io import fits
             header = fits.getheader(final/f'fits/truth_recovery_{q}_model_median.fits')
-            mode = 'with_grf' if header.get('GRFMEAN', False) else 'parametric'
+            mode = 'with_grf' if header.get('GRF', False) else 'parametric'
             np.testing.assert_allclose(data[f"{mode}_{q}"],saved,rtol=1e-6,atol=1e-8)
             differences[q]=float(np.nanmax(abs(data[f'{mode}_{q}']-saved)))
         data.update(x=x,y=y,grf_kappa=grf_kappa)

@@ -5,18 +5,9 @@ import json
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from .grf import plot_deflection_correction, PLOT_FIELD_VERSION
+from .grf import PLOT_FIELD_VERSION
 from ..io.hdf5 import load_arrays, save_arrays
-from ..likelihood.grf_fields import posterior_map_draws, shared_field_evaluator, shared_grf_label, shared_theta
-
-
-def overview_grf_correction(evaluator, theta, geometry):
-    """Cover the full overview with the same smooth field used by fold plots."""
-    base=evaluator._padded_evaluator() if evaluator.gp_groups is not None else evaluator
-    corners=np.array([(x,y) for x in geometry['xlim'] for y in geometry['ylim']])
-    observed=np.asarray(base.gp['xy'])[np.asarray(base.gp['mask'],bool)]
-    extent=float(np.linalg.norm(corners[:,None]-observed[None],axis=-1).max())
-    return plot_deflection_correction(evaluator,theta,max_separation=extent)
+from ..likelihood.grf_fields import shared_field_evaluator, shared_grf_label
 
 
 def marker_photometry(catalog, reference, photpath):
@@ -97,7 +88,7 @@ def render_rgb_critical(config, state, draws, catalog, extra, imaging, output, t
     band=(lower<0)&(upper>0)
     fingerprint=draws.key
     band_info=dict(draw_indices=draws.indices.tolist(),resolution=int(det.shape[0]),
-                   definition='Zero contour of pointwise median determinant; shaded where its 16-84% interval contains zero; parametric + conditional-mean GRF of each draw',
+                   definition='Zero contour of pointwise median determinant; shaded where its 16-84% interval contains zero; parametric + conditional GRF realization of each draw',
                    selection='The reporting draws: random posterior draws over all chains (run seed)')
     (tables/f'{stem}_band.json').write_text(json.dumps(band_info,indent=2)+'\n')
     save_arrays(tables/f'{stem}.h5',determinant=det,lower=lower,upper=upper,band=band,
@@ -238,7 +229,7 @@ def render_rgb_critical(config, state, draws, catalog, extra, imaging, output, t
         else:
             fig.savefig(output,dpi=300,bbox_inches='tight',pad_inches=.06)
         plt.close(fig)
-        output.with_suffix('.json').write_text(json.dumps(dict(run=config.paths.run_name,image_position_marker='square',recovered_position_probability=.954499736,insets=inset_info,candidate_marker='diamond' if show_candidates else None,central_statistic='zero contour of pointwise posterior median determinant; same draws as band',z_source=9.,reporting_draws=len(draws),model='parametric + conditional mean GRF; no GP displacement' if shared_grf else 'parametric only; no shared GRF available',grf_field=shared_grf_label(evaluator),grf_derivatives=PLOT_FIELD_VERSION,bands=list(bands),catalog_images=len(catalog),resolution=n,determinant_resolution=int(det.shape[0]),critical_definition='median over draws of det(I - Hessian_draw) = 0',cache_fingerprint=fingerprint,marker_photometry=str(photpath) if photpath else None,magnitude_band=sorted(set(marker_table.loc[valid, 'magnitude_band'])),marker_photometry_catalog=str(getattr(getattr(getattr(config, 'model', None), 'image_constraints', None), 'catalog_path', '')),matched_magnitudes=int(valid.sum()),missing_magnitude_policy='minimum marker area 9 pt^2',marker_area='clip(16*10**(-0.2*(m-26)),9,64) pt^2',crop_padding_arcsec=3.,crop_pixel_limits=limits,candidate_catalog=str(candidate_path) if candidate_path else None,candidate_overlays=[r['id'] for r in overlay_rows]),indent=2)+'\n')
+        output.with_suffix('.json').write_text(json.dumps(dict(run=config.paths.run_name,image_position_marker='square',recovered_position_probability=.954499736,insets=inset_info,candidate_marker='diamond' if show_candidates else None,central_statistic='zero contour of pointwise posterior median determinant; same draws as band',z_source=9.,reporting_draws=len(draws),model='parametric + conditional GRF realization of each draw; no GP displacement' if shared_grf else 'parametric only; no shared GRF available',grf_field=shared_grf_label(evaluator),grf_derivatives=PLOT_FIELD_VERSION,bands=list(bands),catalog_images=len(catalog),resolution=n,determinant_resolution=int(det.shape[0]),critical_definition='median over draws of det(I - Hessian_draw) = 0',cache_fingerprint=fingerprint,marker_photometry=str(photpath) if photpath else None,magnitude_band=sorted(set(marker_table.loc[valid, 'magnitude_band'])),marker_photometry_catalog=str(getattr(getattr(getattr(config, 'model', None), 'image_constraints', None), 'catalog_path', '')),matched_magnitudes=int(valid.sum()),missing_magnitude_policy='minimum marker area 9 pt^2',marker_area='clip(16*10**(-0.2*(m-26)),9,64) pt^2',crop_padding_arcsec=3.,crop_pixel_limits=limits,candidate_catalog=str(candidate_path) if candidate_path else None,candidate_overlays=[r['id'] for r in overlay_rows]),indent=2)+'\n')
         log(f"[outputs] RGB critical overview written: {output}")
     return main_output
 

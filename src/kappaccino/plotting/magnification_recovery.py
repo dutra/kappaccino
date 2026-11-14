@@ -146,7 +146,7 @@ def write_magnification_recovery(truth, images, reference, z_lens, cosmology, tr
     metadata = dict(map_source_redshift=float(truth['z_source']), truth_field_reference_redshifts=reference_z,
                     truth_paths=list(map(str, paths)), region='convex hull of observed images; finite true |mu| >= 1',
                     map_model='per-pixel median over the reporting posterior draws',
-                    map_grf_conditional_mean=truth.get('grf_conditional_mean', 'not recorded'), image_model='median over the reporting draws, exact kernels at observed positions',
+                    map_grf_realization=truth.get('grf_included', 'not recorded'), image_model='median over the reporting draws, exact kernels at observed positions',
                     image_redshift='each family source redshift', truth_interpolation='native kappa/shear bilinear interpolation, then lens-efficiency scaling, then inverse determinant',
                     error_bars='spatial 16-84 percentiles, not posterior uncertainty or standard error',
                     bin_edges=np.geomspace(1, 100, 13).tolist(), min_bin_pixels=8,

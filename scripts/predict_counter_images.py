@@ -1,5 +1,10 @@
 """Predict every image of a catalog system with the lens fixed at our model, to look for counter-images the catalog lacks.
 
+Each lens draw is the parametric lens of a posterior draw plus one conditional realization of its GRF.  A predicted
+image is reported at its true position on the sky: where the lens puts it, plus the image-plane GP displacement that
+the catalog images near it imply in that draw (:class:`SkyPositions`).  The scatter of a predicted image over the
+draws is its positional uncertainty.
+
 For each family of the system (e.g. K12A, K12B) the model source position is traced back through the whole field: a
 coarse grid finds the cells where both components of beta(x) - beta_s change sign, Newton steps refine each root, and
 roots within 0.2" are merged.  Solutions not near a catalog image of the system are the candidate counter-images; the
@@ -37,29 +42,64 @@ def parse_args():
     return p.parse_args()
 
 
-def lens_at(evaluator, theta, z_source, family_index, xy, chunk=40000):
-    """beta(x) and the Jacobian A(x) of the lens plus field mean at the points xy."""
-    physical = evaluator.physical(theta)
-    packed = evaluator.packed_state_for_z(physical, z_source)
-    mean = evaluator.gp_deflection_correction(theta)
-    betas, jacs = [], []
-    for i in range(0, len(xy), chunk):
-        x = xy[i:i + chunk]
-        alpha, u = evaluator.total_fields_at(x, packed)
-        a = np.eye(2)[None] - np.asarray(u)
-        alpha = np.asarray(alpha)
-        if mean is not None:
-            dx, dy, jxx, jxy, jyx, jyy = mean(x[:, 0], x[:, 1], np.full(len(x), family_index, dtype=np.int32))
-            alpha = alpha + np.column_stack([dx, dy])
-            a = a - np.stack([np.stack([jxx, jxy], -1), np.stack([jyx, jyy], -1)], -2)
-        betas.append(x - alpha); jacs.append(a)
-    return np.concatenate(betas), np.concatenate(jacs)
+def draw_lenses(config, evaluator, posterior, rows):
+    """The lenses of the posterior ``rows``, in that order: each is the parametric lens of the row plus one conditional
+    realization of its GRF (``ReportingDraws``), so the spread of a prediction over the rows holds the uncertainty of
+    the lens parameters and of the field."""
+    from kappaccino.reporting.draws import ReportingDraws
+    return ReportingDraws(evaluator, posterior, len(rows), int(config.runtime.seed), rows=rows)
 
 
-def solve_images(evaluator, theta, z_source, family_index, beta_s, field, step):
+class SkyPositions:
+    """The image-plane GP displacement of each lens draw given the catalog: what turns a lens position into the true
+    position on the sky.  In draw ``k`` every catalog image is solved in the draw's lens; its offset from the catalog
+    position is the GP displacement plus the measurement error there, and the displacement elsewhere is drawn given
+    those offsets (``image_recovery.true_positions``).  Far from every catalog image it keeps the full sigma_gp."""
+
+    def __init__(self, config, state, lenses):
+        from kappaccino.diagnostics.exact_images import ExactImageSolver
+        self.state, self.lenses = state, lenses
+        self.solver = ExactImageSolver(lenses.evaluator, config.image_diagnostics)
+        self._draws = {}
+
+    def _catalog(self, k):
+        """Catalog and lens positions of the catalog images in draw ``k``, its error scales and its random stream."""
+        if k not in self._draws:
+            from kappaccino.diagnostics.image_recovery import image_plane_scales, predictions_at, window_corners
+            lenses, evaluator = self.lenses, self.lenses.evaluator
+            theta = np.asarray(lenses.samples[k], float)
+            field = lenses.correction(k, lenses.reach(window_corners(self.solver, self.state))) if lenses.has_field else None
+            rows = predictions_at(self.solver, self.state, evaluator, theta, adaptive=False, correction=field)["image_rows"]
+            catalog = np.array([[r["x_obs_arcsec"], r["y_obs_arcsec"]] for r in rows], float)
+            lens = np.array([[r["x_model_arcsec"], r["y_model_arcsec"]] for r in rows], float)
+            rng = np.random.default_rng([lenses.seed, int(lenses.indices[k]), 2])
+            self._draws[k] = (catalog, lens, image_plane_scales(evaluator, theta), rng)
+        return self._draws[k]
+
+    def displacement(self, k, points, chunk=2000):
+        """One draw of the GP displacement of lens draw ``k`` at ``points`` (arcsec, shape (point, 2)), given the
+        catalog.  The points of one chunk are drawn jointly; chunks are independent given the catalog."""
+        from kappaccino.diagnostics.image_recovery import true_positions
+        catalog, lens, scales, rng = self._catalog(k)
+        points = np.asarray(points, float).reshape(-1, 2)
+        out = np.zeros_like(points)
+        for start in range(0, len(points), chunk):
+            part = points[start:start + chunk]
+            out[start:start + chunk] = true_positions(catalog, lens, part, scales, rng)[1] - part
+        return out
+
+
+def lens_at(lenses, k, z_source, xy):
+    """beta(x) and the Jacobian A(x) of lens ``k`` of ``lenses`` (:func:`draw_lenses`) at the points xy."""
+    xy = np.asarray(xy, float).reshape(-1, 2)
+    alpha, parametric, grf = lenses.lens(k, xy, z_source)
+    return xy - alpha, np.eye(2)[None] - parametric - grf
+
+
+def solve_images(lenses, k, z_source, beta_s, field, step):
     g = np.arange(-field, field + step / 2, step)
     xx, yy = np.meshgrid(g, g)
-    beta, _ = lens_at(evaluator, theta, z_source, family_index, np.column_stack([xx.ravel(), yy.ravel()]))
+    beta, _ = lens_at(lenses, k, z_source, np.column_stack([xx.ravel(), yy.ravel()]))
     d = (beta - beta_s).reshape(len(g), len(g), 2)
     roots = []
     for c in range(2):
@@ -70,11 +110,11 @@ def solve_images(evaluator, theta, z_source, family_index, beta_s, field, step):
     starts = np.column_stack([xx[iy, ix] + step / 2, yy[iy, ix] + step / 2])
     x = starts.copy()
     for _ in range(30):                                   # Newton on all candidates at once, damped to one grid step
-        b, a = lens_at(evaluator, theta, z_source, family_index, x)
+        b, a = lens_at(lenses, k, z_source, x)
         dx = np.einsum("nij,nj->ni", np.linalg.inv(a), b - beta_s)
         norm = np.hypot(*dx.T)[:, None]
         x = x - dx * np.minimum(1.0, step / np.maximum(norm, 1e-12))
-    b, a = lens_at(evaluator, theta, z_source, family_index, x)
+    b, a = lens_at(lenses, k, z_source, x)
     resid = np.hypot(*(b - beta_s).T)
     det = a[:, 0, 0] * a[:, 1, 1] - a[:, 0, 1] * a[:, 1, 0]
     tr = a[:, 0, 0] + a[:, 1, 1]
@@ -101,7 +141,7 @@ def stamp_rgb(images, bands, ref_band, centre_xy, reference, size):
 def main():
     args = parse_args()
     out = Path(args.out); out.mkdir(parents=True, exist_ok=True)
-    _, state, evaluator, posterior = fas.load_model(Path(args.run))
+    config, state, evaluator, posterior = fas.load_model(Path(args.run))
     images = state.images
     labels = np.asarray(images.image_labels)
     fam = np.asarray(images.family_index_per_image)
@@ -110,6 +150,8 @@ def main():
     families = sorted(set(fam[sel].tolist()))
     draws = fas.pick_draws(posterior, args.draws)
     samples = np.asarray(posterior.samples)
+    lenses = draw_lenses(config, evaluator, posterior, draws)
+    sky = SkyPositions(config, state, lenses)
     rows, candidates = [], []
     for f in families:
         family_id = str(images.family_ids[f])
@@ -118,15 +160,17 @@ def main():
         for k, d in enumerate(draws):
             theta = jnp.asarray(samples[d])
             beta_s = np.asarray(evaluator.source_positions(theta))[f]
-            sols = solve_images(evaluator, theta, z, f, beta_s, args.field, args.step)
-            _, a_cat = lens_at(evaluator, theta, z, f, cat)
+            sols = solve_images(lenses, k, z, beta_s, args.field, args.step)
+            _, a_cat = lens_at(lenses, k, z, cat)
             mu_cat = 1.0 / (a_cat[:, 0, 0] * a_cat[:, 1, 1] - a_cat[:, 0, 1] * a_cat[:, 1, 0])
-            for xi, mu, parity in sols:
+            shifts = sky.displacement(k, np.array([s[0] for s in sols]).reshape(-1, 2))
+            for (lens_xy, mu, parity), shift in zip(sols, shifts):
+                xi = lens_xy + shift                                           # the true position on the sky
                 dist = np.hypot(*(cat - xi).T)
                 j = int(np.argmin(dist))
                 known = dist[j] < 1.0
                 dm = -2.5 * np.log10(abs(mu) / np.median(np.abs(mu_cat)))      # magnitudes relative to the catalog images
-                rows.append(dict(family=family_id, draw=d, x=xi[0], y=xi[1], mu=mu, parity=parity,
+                rows.append(dict(family=family_id, draw=d, x=xi[0], y=xi[1], x_lens=lens_xy[0], y_lens=lens_xy[1], mu=mu, parity=parity,
                                  matches=cat_labels[j] if known else "", dist_catalog=dist[j], dmag_vs_catalog=dm))
                 print(f"[{family_id}] draw {d}: image at ({xi[0]:7.2f}, {xi[1]:7.2f}) mu {mu:8.2f} parity {parity} "
                       + (f"= {cat_labels[j]} ({dist[j]:.2f}\")" if known else f"NEW, {dm:+.1f} mag vs the catalog images"), flush=True)
@@ -156,7 +200,7 @@ def main():
     for ax, (label, centre, mark) in zip(axes[0], panels):
         rgb = stamp_rgb(imgs, bands, bands[1] if len(bands) > 1 else bands[0], centre, reference, args.stamp)
         ax.imshow(rgb, origin="lower", extent=[centre[0] - half, centre[0] + half, centre[1] - half, centre[1] + half])
-        # Every predicted image (all draws) inside the stamp: the scatter shows the lens uncertainty of the prediction.
+        # Every predicted image (all draws, true positions) inside the stamp: the scatter is the uncertainty of the prediction.
         for r in rows:
             if abs(r["x"] - centre[0]) < half and abs(r["y"] - centre[1]) < half:
                 ax.plot(r["x"], r["y"], "+", color="w", ms=4, mew=0.6)

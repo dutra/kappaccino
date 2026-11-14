@@ -11,6 +11,10 @@ unknown redshift varies,
 
 and for a pair the closest approach within the t range both photo-z allow is closed form.
 
+A source's catalog position is its true position on the sky.  The lens acts at its lens position, which each draw gets by
+removing the image-plane GP displacement that the catalog images near the source imply (``SkyPositions``); far from
+every catalog image the displacement is a draw of its prior, sigma_gp per axis.
+
 Steps, per lens draw (the two base deflections of a draw are evaluated once at the sources and cached):
   1. Candidates: CANUCS sources inside the field, brighter than --mag-limit, not cluster members (photo-z 84% above
      --z-min), not BCGs, with a t range from the photo-z 2.5-97.5% range (spec-z +-0.01 when available).
@@ -48,7 +52,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 import fit_arc_source as fas  # noqa: E402  (paths, x64, working directory)
 from find_missing_images import CLUSTER_Z, COLOUR_BANDS, HAS_PHOTOZ, load_photometry, load_published  # noqa: E402
-from predict_counter_images import lens_at  # noqa: E402
+from predict_counter_images import SkyPositions, draw_lenses, lens_at  # noqa: E402
 from kappaccino.io.hdf5 import load_arrays, save_arrays  # noqa: E402
 
 jnp, np, pd = fas.jnp, fas.np, fas.pd
@@ -91,8 +95,8 @@ def parse_args():
 class LinearLens:
     """Deflection and Jacobian at any source redshift as (1 - t) X_a + t X_b from two reference families' redshifts."""
 
-    def __init__(self, evaluator, state, theta):
-        self.ev = evaluator
+    def __init__(self, lenses, state, theta):
+        self.lenses, self.ev = lenses, lenses.evaluator
         fam_ids = [str(f) for f in state.images.family_ids]
         zf = {str(f.family_id): float(f.z_source) for f in state.family_data}
         order = sorted(range(len(fam_ids)), key=lambda i: zf[fam_ids[i]])
@@ -100,11 +104,11 @@ class LinearLens:
         self.za, self.zb = zf[fam_ids[self.fa]], zf[fam_ids[self.fb]]
         self.zs, self.ts = self._calibrate(theta)
 
-    def fields(self, xy, theta):
-        """alpha and A at both bases for one draw: (alpha_a, alpha_b, A_a, A_b)."""
+    def fields(self, xy, k):
+        """alpha and A at both bases for lens draw ``k`` (parametric plus its GRF realization): (alpha_a, alpha_b, A_a, A_b)."""
         out = []
-        for f, z in ((self.fa, self.za), (self.fb, self.zb)):
-            beta, a = lens_at(self.ev, theta, z, f, np.asarray(xy, float))
+        for z in (self.za, self.zb):
+            beta, a = lens_at(self.lenses, k, z, np.asarray(xy, float))
             out.append((np.asarray(xy) - beta, a))
         return out[0][0], out[1][0], out[0][1], out[1][1]
 
@@ -131,13 +135,13 @@ class LinearLens:
         return np.interp(t, self.ts, self.zs)
 
 
-def draw_fields(lens, theta, xy, cache: Path):
+def draw_fields(lens, k, xy, cache: Path):
     """The two base deflections and Jacobians of one draw at the points ``xy``, cached in ``cache``."""
     if cache.exists():
         f = load_arrays(cache)
         if f["xy"].shape == xy.shape and np.allclose(f["xy"], xy):
             return f["alpha_a"], f["alpha_b"], f["A_a"], f["A_b"]
-    alpha_a, alpha_b, A_a, A_b = lens.fields(xy, theta)
+    alpha_a, alpha_b, A_a, A_b = lens.fields(xy, k)
     save_arrays(cache, xy=xy, alpha_a=alpha_a, alpha_b=alpha_b, A_a=A_a, A_b=A_b)
     return alpha_a, alpha_b, A_a, A_b
 
@@ -270,13 +274,14 @@ def main():
     args = parse_args()
     out = Path(args.out); out.mkdir(parents=True, exist_ok=True)
     t0 = time.time()
-    _, state, evaluator, posterior = fas.load_model(Path(args.run))
+    config, state, evaluator, posterior = fas.load_model(Path(args.run))
     draws = fas.pick_draws(posterior, args.draws)
     samples = np.asarray(posterior.samples)
     thetas = [jnp.asarray(samples[k]) for k in draws]
     global Z_CLUSTER
     Z_CLUSTER = CLUSTER_Z[args.cluster]
-    lens = LinearLens(evaluator, state, thetas[0])
+    lens = LinearLens(draw_lenses(config, evaluator, posterior, draws), state, thetas[0])
+    sky = SkyPositions(config, state, lens.lenses)
     phot = load_photometry(state.reference, args.cluster)
     c = candidates(phot, args)
     if not HAS_PHOTOZ[args.cluster]:
@@ -317,10 +322,12 @@ def main():
     cache = out / "lens_cache"; cache.mkdir(exist_ok=True)
     found: dict[tuple[int, int], list] = {}
     best_fields = None
-    for d_idx, theta in zip(draws, thetas):
+    sky_xy = xy                                                         # the catalog positions of the sources
+    for k, d_idx in enumerate(draws):
         t1 = time.time()
-        fields = draw_fields(lens, theta, xy, cache / f"draw_{d_idx}_{args.mag_limit}_{args.field}{'_null' if args.null else ''}.h5")
-        best_fields = best_fields or fields
+        xy = sky_xy - sky.displacement(k, sky_xy)                       # the draw's lens positions of the sources
+        fields = draw_fields(lens, k, xy, cache / f"realization_{d_idx}_{args.mag_limit}_{args.field}{'_null' if args.null else ''}.h5")
+        best_fields = best_fields or (xy, *fields)
         alpha_a, alpha_b, A_a, A_b = fields
         p0, dvec = xy - alpha_a, alpha_b - alpha_a
         cand, steps, pad = index_pairs(p0, dvec, t_lo, t_hi, col, args)
@@ -341,10 +348,10 @@ def main():
     gxx, gyy = np.meshgrid(g, g)
     grid_xy = np.column_stack([gxx.ravel(), gyy.ravel()])
     t2 = time.time()
-    ga, gb, gA, gB = draw_fields(lens, thetas[0], grid_xy, cache / f"grid_{draws[0]}_{args.grid_step}_{args.field}.h5")
+    ga, gb, gA, gB = draw_fields(lens, 0, grid_xy, cache / f"grid_realization_{draws[0]}_{args.grid_step}_{args.field}.h5")
     print(f"[grid] {len(grid_xy)} points in {time.time() - t2:.0f} s")
     grid_pa, grid_d = grid_xy - ga, gb - ga
-    alpha_a, alpha_b, A_a, A_b = best_fields
+    xy, alpha_a, alpha_b, A_a, A_b = best_fields                       # the best draw's lens positions and fields
     p0, dvec = xy - alpha_a, alpha_b - alpha_a
     sky_x = -phot["x"].to_numpy() if args.null else phot["x"].to_numpy()      # the null searches the mirrored sky
     sky_y = phot["y"].to_numpy()
@@ -353,7 +360,8 @@ def main():
         t = float(np.median(edges[:, 2]))
         beta = np.mean(p0[members] - t * dvec[members], 0)
         images = forward_images(grid_xy, grid_pa, grid_d, gxx.shape, args.grid_step, beta, t)
-        mem_xy = xy[members]
+        mem_xy = xy[members]                                           # lens positions, as the forward images are
+        mem_sky = sky_xy[members]
         matched = [int(np.argmin(np.hypot(*(mem_xy - x).T))) if np.hypot(*(mem_xy - x).T).min() < 1.0 else -1 for x in images]
         missing_bright = 0
         if len(images):
@@ -376,8 +384,8 @@ def main():
                          colour_coherence=coherence,
                          colours=",".join(f"{b}:{v:+.2f}" for b, v in zip(COLOUR_BANDS, mean_colour) if np.isfinite(v)),
                          sources=",".join(str(int(s)) for s in c.loc[members, "SOURCE"]), catalog=",".join(cat),
-                         x=",".join(f"{v:.2f}" for v in (-mem_xy[:, 0] if args.null else mem_xy[:, 0])),
-                         y=",".join(f"{v:.2f}" for v in mem_xy[:, 1]),
+                         x=",".join(f"{v:.2f}" for v in (-mem_sky[:, 0] if args.null else mem_sky[:, 0])),
+                         y=",".join(f"{v:.2f}" for v in mem_sky[:, 1]),
                          m_F150W=",".join(f"{v:.1f}" for v in c.loc[members, "m_F150W"]), beta_x=beta[0], beta_y=beta[1]))
     table = pd.DataFrame(rows)
     if len(table) and not args.null:

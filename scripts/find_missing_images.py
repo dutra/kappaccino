@@ -1,8 +1,11 @@
 """Search for the images our lens model predicts but the catalog lacks, in M0416.
 
-For every family of the catalog, the model source of the best posterior draw is traced through the field (grid of
-sign changes + Newton, as in predict_counter_images.py); the other draws refine each image from the best-draw position,
-which gives the positional spread.  A predicted image with no catalog image of its family within 1" (or of another knot
+Each lens draw is the parametric lens of a posterior draw plus one conditional realization of its GRF.  For every
+family of the catalog, the model source of the best posterior draw is traced through the field (grid of sign changes +
+Newton, as in predict_counter_images.py); the other draws refine each image from that position.  Each draw's lens
+position is moved to the true position on the sky by the image-plane GP displacement that the catalog images near it
+imply in that draw (``predict_counter_images.SkyPositions``).  The image is reported at the median true position over
+the draws, and their spread is its positional uncertainty (lens parameters, field and GP).  A predicted image with no catalog image of its family within 1" (or of another knot
 of the same system within 2") is a missing image; missing images of the knots of one system within 2.5" are merged into
 one site.  For each site the script
 
@@ -27,7 +30,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import fit_arc_source as fas  # noqa: E402  (sets up paths, x64 and the working directory)
-from predict_counter_images import lens_at, stamp_rgb  # noqa: E402
+from predict_counter_images import SkyPositions, draw_lenses, lens_at, stamp_rgb  # noqa: E402
 from kappaccino.io.hdf5 import save_arrays  # noqa: E402
 
 jnp, np, pd, cutouts = fas.jnp, fas.np, fas.pd, fas.cutouts
@@ -68,7 +71,8 @@ def parse_args():
     p.add_argument("--field", type=float, default=75.0, help="half-side in arcsec of the searched field")
     p.add_argument("--step", type=float, default=0.3, help="coarse grid step in arcsec")
     p.add_argument("--families", default="", help="comma list of families to search (default all)")
-    p.add_argument("--sigma-pos", type=float, default=0.4, help="model positional error in arcsec added to the draw spread")
+    p.add_argument("--sigma-pos", type=float, default=0.0,
+                   help="positional error in arcsec added in quadrature to the draw spread (which already holds the lens, field and GP uncertainty)")
     p.add_argument("--image-dir", default="data/imaging/m0416/canucs_dr1")
     p.add_argument("--cluster", choices=["m0416", "as1063"], default="m0416",
                    help="photometry and published catalogs: CANUCS (M0416) or DJA v7.5 + Diego/Caminha/Bergamini (AS1063, colours only)")
@@ -77,11 +81,11 @@ def parse_args():
 
 
 # ------------------------------------------------------------------------------------------------------------ lensing
-def search_images(evaluator, theta, z, f, beta_s, field, step):
+def search_images(lenses, k, z, beta_s, field, step):
     """All images of the source beta_s (best draw): sign-change cells of beta - beta_s on a grid, then Newton."""
     g = np.arange(-field, field + step / 2, step)
     xx, yy = np.meshgrid(g, g)
-    beta, _ = lens_at(evaluator, theta, z, f, np.column_stack([xx.ravel(), yy.ravel()]))
+    beta, _ = lens_at(lenses, k, z, np.column_stack([xx.ravel(), yy.ravel()]))
     d = (beta - beta_s).reshape(len(g), len(g), 2)
     change = []
     for c in range(2):
@@ -89,7 +93,7 @@ def search_images(evaluator, theta, z, f, beta_s, field, step):
         change.append((s[:-1, :-1] != s[1:, :-1]) | (s[:-1, :-1] != s[:-1, 1:]) | (s[:-1, :-1] != s[1:, 1:]))
     iy, ix = np.nonzero(change[0] & change[1])
     x = np.column_stack([xx[iy, ix] + step / 2, yy[iy, ix] + step / 2])
-    x, ok = newton(evaluator, theta, z, f, beta_s, x, step)
+    x, ok = newton(lenses, k, z, beta_s, x, step)
     out = []
     for xi in x[ok]:
         if all(np.hypot(*(xi - o)) > 0.2 for o in out):
@@ -97,21 +101,21 @@ def search_images(evaluator, theta, z, f, beta_s, field, step):
     return np.asarray(out).reshape(-1, 2)
 
 
-def newton(evaluator, theta, z, f, beta_s, x, step, iters=30):
+def newton(lenses, k, z, beta_s, x, step, iters=30):
     x = np.asarray(x, float).copy()
     if not len(x):
         return x, np.zeros(0, bool)
     for _ in range(iters):
-        b, a = lens_at(evaluator, theta, z, f, x)
+        b, a = lens_at(lenses, k, z, x)
         dx = np.einsum("nij,nj->ni", np.linalg.inv(a), b - beta_s)
         norm = np.hypot(*dx.T)[:, None]
         x = x - dx * np.minimum(1.0, step / np.maximum(norm, 1e-12))
-    b, _ = lens_at(evaluator, theta, z, f, x)
+    b, _ = lens_at(lenses, k, z, x)
     return x, np.hypot(*(b - beta_s).T) < 1e-3
 
 
-def magnification(evaluator, theta, z, f, x):
-    _, a = lens_at(evaluator, theta, z, f, np.atleast_2d(x))
+def magnification(lenses, k, z, x):
+    _, a = lens_at(lenses, k, z, np.atleast_2d(x))
     return 1.0 / (a[:, 0, 0] * a[:, 1, 1] - a[:, 0, 1] * a[:, 1, 0])
 
 
@@ -308,7 +312,7 @@ def in_footprint(images, band, x, y, reference):
 def main():
     args = parse_args()
     out = Path(args.out); out.mkdir(parents=True, exist_ok=True)
-    _, state, evaluator, posterior = fas.load_model(Path(args.run))
+    config, state, evaluator, posterior = fas.load_model(Path(args.run))
     reference = state.reference
     images = state.images
     labels = np.asarray(images.image_labels)
@@ -320,6 +324,8 @@ def main():
     draws = fas.pick_draws(posterior, args.draws)
     samples = np.asarray(posterior.samples)
     thetas = [jnp.asarray(samples[d]) for d in draws]
+    lenses = draw_lenses(config, evaluator, posterior, draws)
+    sky = SkyPositions(config, state, lenses)
     phot = load_photometry(reference, args.cluster)
     pxy = phot[["x", "y"]].to_numpy()
     wanted = set(args.families.split(",")) if args.families else None
@@ -332,8 +338,8 @@ def main():
         cat = obs[fam == f]; cat_labels = labels[fam == f]
         sys_obs = obs[np.array([system_of(fam_ids[i]) == system_of(fid) for i in fam])]
         sources = [np.asarray(evaluator.source_positions(t))[f] for t in thetas]
-        found = search_images(evaluator, thetas[0], z, f, sources[0], args.field, args.step)
-        mu_cat = magnification(evaluator, thetas[0], z, f, cat)
+        found = search_images(lenses, 0, z, sources[0], args.field, args.step)
+        mu_cat = np.median([magnification(lenses, k, z, cat) for k in range(len(draws))], axis=0)
         # Intrinsic F150W magnitude from the catalog images that have a CANUCS counterpart within 0.5" (arcs are deblended).
         m_src = []
         for (cx, cy), mu in zip(cat, mu_cat):
@@ -342,25 +348,32 @@ def main():
                 m_src.append(phot["m_F150W"].iloc[j] + 2.5 * np.log10(abs(mu)))
         m_src = float(np.median(m_src)) if m_src else np.nan
         n_missing = 0
-        for xi in found:
-            d_fam = np.hypot(*(cat - xi).T).min() if len(cat) else np.inf
-            d_sys = np.hypot(*(sys_obs - xi).T).min() if len(sys_obs) else np.inf
-            mu_i = float(magnification(evaluator, thetas[0], z, f, xi)[0])
-            all_rows.append(dict(family=fid, system=system_of(fid), z_source=z, x=float(xi[0]), y=float(xi[1]), mu=mu_i,
+        found = np.asarray(found, float).reshape(-1, 2)
+        for xi, sky_xy in zip(found, found + sky.displacement(0, found)):      # lens position and true position, best draw
+            d_fam = np.hypot(*(cat - sky_xy).T).min() if len(cat) else np.inf
+            d_sys = np.hypot(*(sys_obs - sky_xy).T).min() if len(sys_obs) else np.inf
+            mu_i = float(magnification(lenses, 0, z, xi)[0])
+            all_rows.append(dict(family=fid, system=system_of(fid), z_source=z, x=float(sky_xy[0]), y=float(sky_xy[1]),
+                                 x_lens=float(xi[0]), y_lens=float(xi[1]), mu=mu_i,
                                  parity="+" if mu_i > 0 else "-", dist_family=float(d_fam), dist_system=float(d_sys),
                                  missing=not (d_fam < 1.0 or d_sys < 2.0)))
             if d_fam < 1.0 or d_sys < 2.0:
                 continue
-            # Spread over draws: Newton from the best-draw position for every other draw.
-            pos = [xi]
-            for t, bs in zip(thetas[1:], sources[1:]):
-                xr, ok = newton(evaluator, t, z, f, bs, xi[None], 0.3)
+            # Every other draw: Newton from the best-draw position in its own lens, then its own GP displacement.  The
+            # image is reported at the median true position over the draws, with the median magnification of the draws
+            # at their own lens positions.
+            lens_pos, pos, mus = [xi], [sky_xy], [mu_i]
+            for k in range(1, len(draws)):
+                xr, ok = newton(lenses, k, z, sources[k], xi[None], 0.3)
                 if ok[0] and np.hypot(*(xr[0] - xi)) < 5.0:
-                    pos.append(xr[0])
-            pos = np.asarray(pos)
-            mu = magnification(evaluator, thetas[0], z, f, xi)[0]
+                    lens_pos.append(xr[0]); pos.append(xr[0] + sky.displacement(k, xr)[0])
+                    mus.append(float(magnification(lenses, k, z, xr[0])[0]))
+            pos, lens_xy = np.asarray(pos), np.median(lens_pos, axis=0)
+            mu = float(np.median(mus))
             spread = float(np.sqrt(np.mean(np.sum((pos - pos.mean(0)) ** 2, 1)))) if len(pos) > 1 else np.nan
+            xi = np.median(pos, axis=0)
             rows.append(dict(family=fid, system=system_of(fid), z_source=z, x=float(xi[0]), y=float(xi[1]),
+                             x_lens=float(lens_xy[0]), y_lens=float(lens_xy[1]),
                              x_draws=pos[:, 0].tolist(), y_draws=pos[:, 1].tolist(), n_draws=len(pos), spread=spread, mu=float(mu),
                              parity="+" if mu > 0 else "-", m_src=m_src, m_pred=m_src - 2.5 * np.log10(abs(mu)) if np.isfinite(m_src) else np.nan,
                              n_catalog=len(cat), dist_family=float(d_fam), dist_system=float(d_sys)))

@@ -102,7 +102,6 @@ def test_matching_rms_and_psf_for_original_and_bgsub(tmp_path):
 
 def test_gp_inverse_and_conditional_mean_agreement():
     from scipy.linalg import cho_solve
-    from kappaccino.plotting.gp_positions import conditional_displacement
     from fit_fold_source_light import inverse_gp_coordinates
     rng=np.random.default_rng(12)
     observed=rng.normal(0,.3,(5,2));jac=rng.normal(0,.2,(5,2,2))+np.eye(2)
@@ -110,7 +109,9 @@ def test_gp_inverse_and_conditional_mean_agreement():
     v=cho_solve((chol,True),residual.ravel()).reshape(-1,2)
     weights=np.einsum('nca,nc->na',jac,v)
     gravitational=rng.normal(0,.4,(40,2))
-    displacement,_=conditional_displacement(gravitational,observed,jac,chol,residual,sigma,ell)
+    # The conditional mean of the image-plane GP at the gravitational positions: E[d(q)|F] = sum_j K(q, j) A_j^T (C^-1 F)_j.
+    kernel=sigma**2*np.exp(-np.sum((gravitational[:,None]-observed[None])**2,axis=-1)/(2*ell**2))
+    displacement=kernel@weights
     observed_grid=gravitational+displacement
     inverse,info=inverse_gp_coordinates(observed_grid,observed,weights,sigma,ell,chunk=32)
     np.testing.assert_allclose(inverse,gravitational,atol=2e-14)
